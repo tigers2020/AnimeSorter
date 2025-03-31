@@ -1,0 +1,433 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# AnimeSorter 오류 처리 및 로깅 규칙
+
+## 목적
+오류 처리 및 로깅 모듈은 애플리케이션 전반에서 발생하는 오류를 일관되게 처리하고, 디버깅 및 문제 해결에 필요한 정보를 체계적으로 기록하는 역할을 담당합니다.
+
+## 예외 계층 구조
+애플리케이션에 맞는 예외 계층 구조를 설계하여 오류를 보다 명확하게 구분합니다:
+
+```python
+class AnimeSorterError(Exception):
+    """애니메이션 정렬기 기본 예외"""
+    pass
+
+class ConfigError(AnimeSorterError):
+    """설정 관련 오류"""
+    pass
+
+class FileCleanerError(AnimeSorterError):
+    """파일명 정제 오류"""
+    pass
+
+class CacheError(AnimeSorterError):
+    """캐시 데이터베이스 오류"""
+    pass
+
+class MetadataError(AnimeSorterError):
+    """메타데이터 검색 오류"""
+    pass
+
+class TMDBApiError(MetadataError):
+    """TMDB API 오류"""
+    def __init__(self, message, status_code=None, reason=None):
+        self.status_code = status_code
+        self.reason = reason
+        super().__init__(f"{message} (Status: {status_code}, Reason: {reason})")
+
+class FileManagerError(AnimeSorterError):
+    """파일 관리 오류"""
+    pass
+
+class NetworkError(AnimeSorterError):
+    """네트워크 관련 오류"""
+    pass
+```
+
+## 로깅 설정
+로깅을 위한 설정 및 초기화 모듈(`logger.py`)을 구현합니다:
+
+```python
+import os
+import sys
+import logging
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
+def setup_logger(log_level=logging.INFO, log_file=None):
+    """
+    애플리케이션 로거 설정
+    
+    Args:
+        log_level: 로그 레벨 (기본값: INFO)
+        log_file: 로그 파일 경로 (기본값: None, 지정되지 않으면 자동 생성)
+    
+    Returns:
+        logging.Logger: 설정된 로거 인스턴스
+    """
+    # 로거 인스턴스 생성
+    logger = logging.getLogger("animesorter")
+    logger.setLevel(log_level)
+    logger.handlers = []  # 기존 핸들러 제거
+    
+    # 포맷터 설정
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    # 콘솔 핸들러 설정
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    # 파일 핸들러 설정 (지정된 경우)
+    if log_file:
+        file_path = Path(log_file)
+    else:
+        # 기본 로그 디렉토리 및 파일명 설정
+        log_dir = Path.home() / ".animesorter" / "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # 현재 날짜를 파일명에 포함
+        today = datetime.now().strftime("%Y-%m-%d")
+        file_path = log_dir / f"animesorter_{today}.log"
+    
+    # 로테이팅 파일 핸들러 (최대 5MB, 최대 3개 백업)
+    file_handler = RotatingFileHandler(
+        file_path, maxBytes=5 * 1024 * 1024, backupCount=3
+    )
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    
+    # 로거 반환
+    return logger
+```
+
+## 애플리케이션 로깅 사용 패턴
+애플리케이션 전반에서 일관된 로깅 패턴을 따릅니다:
+
+```python
+# 모듈 상단에 로거 설정
+logger = logging.getLogger("animesorter.file_cleaner")
+
+def clean_filename(filename):
+    """파일명 정제"""
+    logger.debug(f"Cleaning filename: {filename}")
+    
+    try:
+        # 파일명 정제 로직
+        result = _parse_filename(filename)
+        logger.info(f"Successfully cleaned filename: {filename} -> {result.title}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to clean filename: {filename}", exc_info=True)
+        # 예외를 래핑하여 전파
+        raise FileCleanerError(f"Failed to clean filename: {str(e)}") from e
+```
+
+## 오류 처리 패턴
+애플리케이션의 각 계층별 오류 처리 패턴을 정의합니다:
+
+### 1. API 계층 (TMDB 클라이언트)
+```python
+async def request(self, endpoint, params=None):
+    """API 요청 수행"""
+    logger.debug(f"API request: {endpoint} with params: {params}")
+    
+    try:
+        async with self.session.get(
+            f"{TMDB_API_BASE_URL}{endpoint}", 
+            params=self._add_auth_params(params)
+        ) as response:
+            data = await response.json()
+            
+            # 상태 코드 확인
+            if response.status != 200:
+                logger.warning(
+                    f"API request failed: {endpoint}, "
+                    f"Status: {response.status}, "
+                    f"Message: {data.get('status_message', 'Unknown error')}"
+                )
+                raise TMDBApiError(
+                    "API request failed", 
+                    status_code=response.status,
+                    reason=data.get('status_message')
+                )
+                
+            logger.debug(f"API response: {endpoint} - Success")
+            return data
+    except aiohttp.ClientError as e:
+        logger.error(f"Network error during API request: {endpoint}", exc_info=True)
+        raise NetworkError(f"Failed to connect to TMDB API: {str(e)}") from e
+    except asyncio.TimeoutError:
+        logger.error(f"Timeout during API request: {endpoint}")
+        raise NetworkError("Request timed out") from None
+```
+
+### 2. 비즈니스 로직 계층
+```python
+async def search_media(self, title, year=None):
+    """미디어 검색"""
+    logger.info(f"Searching for media: {title} ({year if year else 'any year'})")
+    
+    try:
+        # 캐시 확인
+        cache_key = self._generate_cache_key(title, year)
+        cached_result = await self.cache_db.get_cache(cache_key)
+        
+        if cached_result:
+            logger.info(f"Cache hit for: {title}")
+            return cached_result
+            
+        # API 검색
+        search_result = await self.tmdb_provider.search(title, year)
+        
+        if not search_result:
+            logger.warning(f"No search results found for: {title}")
+            return None
+            
+        # 캐시 저장
+        await self.cache_db.set_cache(cache_key, search_result)
+        logger.info(f"Media found and cached: {title}")
+        
+        return search_result
+    except CacheError as e:
+        # 캐시 오류 처리 - 비치명적이므로 로깅만 하고 API 검색 계속 진행
+        logger.warning(f"Cache error for {title}: {str(e)}")
+        try:
+            return await self.tmdb_provider.search(title, year)
+        except MetadataError as e:
+            logger.error(f"Failed to search for media: {title}", exc_info=True)
+            raise
+    except MetadataError as e:
+        logger.error(f"Failed to search for media: {title}", exc_info=True)
+        raise
+```
+
+### 3. UI 계층
+```python
+def on_search_button_clicked(self):
+    """검색 버튼 클릭 이벤트"""
+    title = self.search_edit.text().strip()
+    
+    if not title:
+        self.show_error("검색어를 입력하세요.")
+        return
+        
+    logger.info(f"User initiated search: {title}")
+    
+    # 진행 상태 표시
+    self.status_label.setText(f"'{title}' 검색 중...")
+    self.progress_bar.setRange(0, 0)  # 불확정 프로그레스 바
+    
+    try:
+        # 비동기 작업 시작
+        self.worker = SearchWorker(title, self.metadata_provider)
+        self.worker.signals.error.connect(self.show_error)
+        self.worker.signals.result.connect(self.display_search_results)
+        self.worker.signals.finished.connect(self.on_search_finished)
+        
+        QThreadPool.globalInstance().start(self.worker)
+    except Exception as e:
+        logger.error("Failed to start search worker", exc_info=True)
+        self.show_error(f"검색 작업을 시작할 수 없습니다: {str(e)}")
+        self.progress_bar.setRange(0, 100)
+        self.status_label.setText("오류 발생")
+        
+def show_error(self, message):
+    """오류 메시지 표시"""
+    logger.error(f"Error shown to user: {message}")
+    QMessageBox.critical(self, "오류", message)
+```
+
+## 오류 복구 전략
+
+### 1. 네트워크 오류 자동 재시도
+```python
+async def search_with_retry(self, title, year=None, max_retries=3, delay=1.0):
+    """재시도 메커니즘이 포함된 검색"""
+    retries = 0
+    last_error = None
+    
+    while retries < max_retries:
+        try:
+            return await self.tmdb_provider.search(title, year)
+        except NetworkError as e:
+            retries += 1
+            last_error = e
+            logger.warning(
+                f"Network error during search (attempt {retries}/{max_retries}): {str(e)}"
+            )
+            if retries < max_retries:
+                # 지수 백오프 (1s, 2s, 4s, ...)
+                wait_time = delay * (2 ** (retries - 1))
+                logger.info(f"Retrying in {wait_time:.1f} seconds...")
+                await asyncio.sleep(wait_time)
+    
+    # 모든 재시도 실패
+    logger.error(f"All {max_retries} search attempts failed for: {title}")
+    raise NetworkError(f"Search failed after {max_retries} attempts: {str(last_error)}")
+```
+
+### 2. 일부 실패 허용 - 최선의 노력 원칙
+```python
+async def process_files(self, files, progress_callback=None):
+    """여러 파일 처리 - 일부 실패 허용"""
+    results = {
+        "total": len(files),
+        "success": 0,
+        "failed": 0,
+        "errors": []
+    }
+    
+    for i, file_path in enumerate(files):
+        try:
+            # 파일 처리 로직
+            clean_result = file_cleaner.clean_filename(file_path)
+            metadata = await self.metadata_provider.search(clean_result.title, clean_result.year)
+            
+            if metadata:
+                # 파일 이동 처리
+                success = await self.file_manager.process_file(file_path, metadata)
+                if success:
+                    results["success"] += 1
+                else:
+                    results["failed"] += 1
+                    results["errors"].append(f"Failed to move file: {file_path}")
+            else:
+                results["failed"] += 1
+                results["errors"].append(f"No metadata found for: {file_path}")
+                
+        except Exception as e:
+            results["failed"] += 1
+            error_message = f"Error processing {file_path}: {str(e)}"
+            results["errors"].append(error_message)
+            logger.error(error_message, exc_info=True)
+            
+        # 진행 상황 업데이트
+        if progress_callback:
+            progress_callback(i + 1, len(files), file_path)
+            
+    return results
+```
+
+## 사용자 수준 오류 메시지
+기술적 오류 메시지를 사용자 친화적인 메시지로 변환합니다:
+
+```python
+def translate_error(error):
+    """기술적 오류 메시지를 사용자 친화적 메시지로 변환"""
+    if isinstance(error, NetworkError):
+        return "네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인하세요."
+    elif isinstance(error, TMDBApiError):
+        if error.status_code == 401:
+            return "TMDB API 키가 유효하지 않습니다. 설정에서 API 키를 확인하세요."
+        elif error.status_code == 404:
+            return "요청한 정보를 찾을 수 없습니다."
+        elif error.status_code == 429:
+            return "API 요청 한도를 초과했습니다. 잠시 후 다시 시도하세요."
+        else:
+            return f"TMDB API 오류: {error.reason}"
+    elif isinstance(error, FileCleanerError):
+        return "파일명을 처리하는 중 오류가 발생했습니다."
+    elif isinstance(error, FileManagerError):
+        if "Permission denied" in str(error):
+            return "파일 접근 권한이 없습니다. 관리자 권한으로 실행하세요."
+        elif "already exists" in str(error):
+            return "대상 위치에 동일한 이름의 파일이 이미 존재합니다."
+        else:
+            return "파일 처리 중 오류가 발생했습니다."
+    else:
+        return f"오류가 발생했습니다: {str(error)}"
+```
+
+## 실행 중 오류 로깅
+예기치 않은 오류에 대한 전역 예외 처리기를 구현합니다:
+
+```python
+def setup_global_exception_handler():
+    """전역 예외 처리기 설정"""
+    def global_exception_handler(exc_type, exc_value, exc_traceback):
+        """처리되지 않은 예외 처리"""
+        if issubclass(exc_type, KeyboardInterrupt):
+            # 키보드 인터럽트는 기본 핸들러로 처리
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+            
+        logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+        
+    # 기본 예외 처리기 설정
+    sys.excepthook = global_exception_handler
+    
+    # 비동기 예외 처리기 설정
+    loop = asyncio.get_event_loop()
+    
+    def handle_async_exception(loop, context):
+        exception = context.get("exception")
+        if exception:
+            logger.critical(
+                f"Uncaught async exception: {context['message']}", 
+                exc_info=exception
+            )
+        else:
+            logger.critical(f"Async error: {context['message']}")
+    
+    loop.set_exception_handler(handle_async_exception)
+```
+
+## 로깅 모범 사례
+애플리케이션 전반에서 로깅 시 따라야 할 모범 사례:
+
+1. **로그 레벨 적절히 사용:**
+   - DEBUG: 상세한 디버깅 정보
+   - INFO: 정상 작동 중 주요 이벤트
+   - WARNING: 잠재적 문제 (비치명적)
+   - ERROR: 처리 가능한 오류
+   - CRITICAL: 애플리케이션 중단 상황
+
+2. **구조화된 로깅:**
+   ```python
+   logger.info(
+       "Media search completed",
+       extra={
+           "title": title,
+           "year": year,
+           "results_count": len(results),
+           "elapsed_time_ms": elapsed_time
+       }
+   )
+   ```
+
+3. **개인 정보 보호:**
+   - API 키, 비밀번호, 민감한 개인 정보는 로깅 제외
+   ```python
+   # 나쁨
+   logger.debug(f"Using API key: {api_key}")
+   
+   # 좋음
+   logger.debug("Using API key: [REDACTED]")
+   ```
+
+4. **성능 영향 최소화:**
+   - 루프 내 과도한 로깅 지양
+   - 조건부 로깅으로 성능 최적화
+   ```python
+   # 최적화된 로깅
+   if logger.isEnabledFor(logging.DEBUG):
+       logger.debug(f"Processing item {calculate_expensive_debug_info(item)}")
+   ```
+
+5. **부가 정보 포함:**
+   - 예외 발생 시 스택 트레이스 포함
+   ```python
+   try:
+       # 로직
+   except Exception as e:
+       logger.error("Operation failed", exc_info=True)
+   ``` 

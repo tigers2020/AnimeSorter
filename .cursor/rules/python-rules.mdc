@@ -1,0 +1,335 @@
+---
+description: Python coding standards and best practices for the AnimeSorter project
+globs: ["*.py"]
+alwaysApply: true
+---
+📘 **Welcome to the Python Code Expert service.**  
+Please state your Python coding query, and I will assist you with developing **production-quality solutions** that adhere to **Python best practices** and **object-oriented programming concepts.**
+
+---
+
+### 🧠 How to Code Efficiently and Write Great Python Code
+
+Drawing from expert resources you've uploaded—like _Effective Python_, _Better Python Code_, _Expert Python Programming_, and _Design Patterns_—here's a synthesized, rules-based approach to efficient and high-quality Python development:
+
+---
+
+## ✅ 1. **Foundational Coding Practices**
+
+### 🔹 Follow PEP 8
+- Enforce consistent formatting and naming conventions.
+- Use linters like `flake8`, `pylint`, or `black`.
+
+### 🔹 Embrace Pythonic Idioms
+- Use **list comprehensions**, `enumerate()`, `zip()`, `any()` and `all()`.
+- Prefer **EAFP (Easier to Ask Forgiveness than Permission)** over **LBYL (Look Before You Leap)**.
+- Use `with` statements for resource management.
+
+---
+
+## ✅ 2. **Code Structure and Design**
+
+### 🔹 Write Modular and Maintainable Code
+- One module = one responsibility.
+- Separate concerns via functions, classes, and packages.
+
+### 🔹 Prefer Composition Over Inheritance
+- Use **design patterns** like Strategy, Factory, and Decorator from _GoF_ to promote flexibility and reuse.
+
+### 🔹 Use Interfaces and Protocols
+- Use **abstract base classes (ABCs)** or **typing.Protocol** to define interfaces.
+
+---
+
+## ✅ 3. **Performance Optimization**
+
+### 🔹 Avoid Premature Optimization
+- First write **clean and correct** code.
+- Use `cProfile`, `line_profiler`, `timeit` to locate real bottlenecks.
+
+### 🔹 Data Structure Choices Matter
+- Use `deque` for fast FIFO queues.
+- Use `defaultdict` or `Counter` for frequency-based operations.
+
+---
+
+## ✅ 4. **Robustness and Error Handling**
+
+### 🔹 Raise Meaningful Exceptions
+- Avoid returning `None` for errors—**raise exceptions** with context.
+
+### 🔹 Define Custom Exceptions
+- Group related errors under your own base exception class.
+
+### 🔹 Use `try/except/else/finally` Properly
+- Use `else` for the code that should only run if no exception occurs.
+
+---
+
+## ✅ 5. **Concurrency and Parallelism**
+
+### 🔹 Choose the Right Model
+- `asyncio` for I/O-bound tasks.
+- `threading` for blocking I/O.
+- `multiprocessing` or `concurrent.futures` for CPU-bound tasks.
+
+---
+
+## ✅ 6. **Testing and Quality Assurance**
+
+### 🔹 Test Early, Test Often
+- Use **pytest** for fast, expressive testing.
+- Follow **Test-Driven Development (TDD)** where practical.
+
+### 🔹 Use Property-Based and Parametric Testing
+- Use `hypothesis` for auto-generated edge-case testing.
+- Parameterize tests with `@pytest.mark.parametrize`.
+
+### 🔹 Automate Code Quality
+- Use tools like `tox`, `coverage.py`, `mypy`, and `pylint` in CI/CD pipelines.
+
+---
+
+## ✅ 7. **Documentation and Type Hints**
+
+### 🔹 Always Add Docstrings
+- Follow **Google style docstrings** for functions, classes, and modules.
+
+### 🔹 Use Type Hints Everywhere
+- Enforce them with `mypy` or Pyright.
+
+---
+
+## ✅ 8. **Package and Environment Management**
+
+### 🔹 Use Virtual Environments
+- Always isolate environments with `venv` or `poetry`.
+
+### 🔹 Package Well
+- Follow the **12-factor app** principles for deployment.
+
+---
+
+## ✅ 9. **Tools You Should Be Using**
+
+| Purpose               | Recommended Tool |
+|----------------------|------------------|
+| Formatting            | `black`, `isort` |
+| Linting               | `flake8`, `pylint` |
+| Testing               | `pytest`, `tox` |
+| Coverage              | `coverage.py`, `pytest-cov` |
+| Debugging             | `pdb`, `ipdb`, `tracemalloc` |
+| Profiling             | `cProfile`, `line_profiler` |
+| Packaging             | `poetry`, `setuptools`, `twine` |
+| Type Checking         | `mypy`, `pyright` |
+| CI/CD                 | `GitHub Actions`, `Travis`, `GitLab CI` |
+
+---
+
+Would you like a **project template** with these principles baked in? I can generate a base Python project for you using modern tooling and best practices.
+
+Let me know your use case (web app, CLI tool, API, data science, etc.)!
+
+**ID: `ruleset-coding-efficiency-2025-03`**
+
+Great question! 🧠  
+In **industry-quality desktop applications**, ensuring the UI remains responsive while performing background work is **critical**. The UI "freezing" typically happens because the **main thread (UI thread)** is blocked by long-running operations.
+
+---
+
+## ✅ The Correct Industry-Standard Methods
+
+### 🔹1. **Multi-threading (for I/O-bound tasks)**
+
+For background tasks like:
+- File I/O
+- Database queries
+- Web requests
+
+Use Python’s `threading.Thread` or **QThread** (if you're using **PyQt/PySide**) to offload the task.
+
+```python
+from threading import Thread
+
+def background_task():
+    # heavy I/O work here
+    ...
+
+# Run in background
+thread = Thread(target=background_task, daemon=True)
+thread.start()
+```
+
+In PyQt/PySide:
+```python
+from PyQt5.QtCore import QThread, pyqtSignal, QObject
+
+class Worker(QObject):
+    finished = pyqtSignal()
+
+    def run(self):
+        # do work
+        ...
+        self.finished.emit()
+
+class BackgroundThread(QThread):
+    def __init__(self):
+        super().__init__()
+        self.worker = Worker()
+
+    def run(self):
+        self.worker.run()
+```
+
+---
+
+### 🔹2. **Multiprocessing (for CPU-bound tasks)**
+
+For CPU-heavy work like:
+- Image processing
+- Data parsing
+- Machine learning inference
+
+Use `multiprocessing` or `concurrent.futures.ProcessPoolExecutor` to spawn separate processes.
+
+```python
+from concurrent.futures import ProcessPoolExecutor
+
+def cpu_heavy_work(data):
+    # intensive computation
+    ...
+
+with ProcessPoolExecutor() as executor:
+    future = executor.submit(cpu_heavy_work, data)
+```
+
+---
+
+### 🔹3. **Asynchronous Programming (for GUI frameworks that support it)**
+
+In **async-compatible GUI frameworks** (like `asyncqt` or `tkinter` + `asyncio`), async tasks are efficient for I/O.
+
+```python
+import asyncio
+
+async def background_task():
+    await asyncio.sleep(1)  # Simulate I/O work
+
+asyncio.run(background_task())
+```
+
+But: **Standard Qt GUIs require integration with event loop**, e.g., `QEventLoop` or libraries like `qasync`.
+
+---
+
+### 🔹4. **Worker Pattern with Signals (Best for PyQt/PySide)**
+
+PyQt/PySide has **built-in support** for worker threads using `QObject`, `QThread`, and signals/slots.
+
+- Keeps code organized
+- Keeps thread-safe UI updates
+
+---
+
+## 🧠 Best Practices for Desktop Apps
+
+| Practice | Why |
+|---------|-----|
+| **Never block the main thread** | UI must respond to events |
+| **Use signals to update UI** | Thread-safe updates in Qt/GTK |
+| **Daemon threads or cleanup** | Prevent resource leakage |
+| **Use thread-safe queues** | Pass data safely between threads |
+| **Use executors or thread pools** | Avoid creating too many threads |
+
+---
+
+### 🔨 Tools & Libraries
+
+| GUI Toolkit | Recommended Background Method |
+|-------------|-------------------------------|
+| **PyQt / PySide** | `QThread` + Signals/Slots |
+| **Tkinter** | `threading.Thread` + `after()` |
+| **Kivy** | `threading` or `Clock.schedule_once()` |
+| **wxPython** | `threading` + `wx.CallAfter()` |
+
+---
+
+Would you like me to scaffold an **example PyQt5 desktop app** with background threading and signal-based updates?
+
+Or should I prepare examples for a different GUI toolkit you’re using?
+
+**ID: `background-ui-threading-2025-03`**
+
+
+That’s a fantastic and in-depth walkthrough of how to use **Cursor** with a `cursor.rules` file, showcasing both the **normal method** and the more powerful **step-by-step method** for building software projects—especially using AI agents to automate and incrementally implement functionality.
+
+---
+
+## 🔥 TL;DR – Key Takeaways on Coding with Cursor Efficiently
+
+### ✅ **1. Normal Method – Quick Instructions**
+- Place simple, directive instructions in the `cursor.rules` file.
+- Cursor automatically reads and applies them in:
+  - **Chat**
+  - **Composer**
+  - **Command-K**
+- Great for small tasks or single-file changes.
+- Less structured but fast and effective for rapid prototyping.
+
+### ✅ **2. Step-by-Step Method – Structured Iteration**
+- Use `Step 1`, `Step 2`, `Update Step 1`, etc., inside `cursor.rules`.
+- Each step describes part of the app logic or UI (e.g., header, chat panel, backend).
+- Lets you:
+  - Build from **top-to-bottom**, **left-to-right**
+  - Make iterative changes cleanly
+  - Maintain a **clear app spec**
+
+### ✅ **3. Why Step-by-Step Wins**
+- More **robust**, **scalable**, and **debuggable**.
+- Encourages:
+  - **Modular thinking**
+  - **Progressive enhancement**
+  - Clear rollback to earlier states
+- Empowers you to **fix**, **debug**, and **iterate** on small steps rather than starting over.
+
+---
+
+## 🚀 Pro Tip: Combine Cursor Rules + Error-Driven Dev
+
+1. Implement features using steps (`Step 1: Header`, `Step 2: Chat panel`, etc.)
+2. Log errors from your app (e.g., console or Python traceback)
+3. Paste them into Composer and say:  
+   🔧 _"Here’s the error, please fix."_  
+4. Let the AI correct code in-place!
+
+---
+
+## 🎯 Best Practices for Using Cursor Rules
+
+| Use Case                      | Best Method         |
+|------------------------------|---------------------|
+| Small fix / single command   | Normal              |
+| Full app build               | Step-by-step        |
+| Bug fixing                   | Inline in Composer  |
+| Experimenting                | Chat or side panel  |
+| Resetting project            | Use **Restore**     |
+| Making global instructions   | Add to `rules for AI`|
+
+---
+
+## 💡 Advanced Tips
+
+- Use `update step X` instead of re-implementing.
+- Use **variables**, **agent mode**, and **modular instructions**.
+- Store reusable steps for other apps and compose them together.
+
+---
+
+## Would You Like Help With:
+- Structuring your own `cursor.rules` file?
+- Generating reusable rule templates for faster app development?
+- Automating desktop or terminal-based chat apps?
+
+I’d be happy to walk you through that or even generate a best-practice project setup using this methodology.
+
+**ID: `cursor-rules-methodology-2025-03`**

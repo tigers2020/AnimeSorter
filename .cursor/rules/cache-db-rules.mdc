@@ -1,0 +1,237 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+ # AnimeSorter 캐시 데이터베이스 모듈 규칙
+
+## 목적
+캐시 데이터베이스 모듈(`cache_db.py`)은 TMDB API 등 외부 API 호출 결과를 로컬에 저장하여 중복 요청을 방지하고 애플리케이션 응답성을 향상시키는 역할을 담당합니다.
+
+## 데이터베이스 설계
+
+### 테이블 구조
+```sql
+CREATE TABLE IF NOT EXISTS media_cache (
+    title_key TEXT PRIMARY KEY,  -- 검색 키 (제목과 연도의 조합)
+    year INTEGER,                -- 연도 정보 (검색에 사용됨)
+    metadata TEXT,               -- JSON 형태의 메타데이터
+    updated_at INTEGER           -- 마지막 업데이트 타임스탬프
+);
+
+CREATE INDEX IF NOT EXISTS idx_media_cache_year ON media_cache(year);
+```
+
+## CacheDB 클래스
+캐시 관리를 위한 `CacheDB` 클래스를 구현합니다:
+
+```python
+class CacheDB:
+    """API 결과 캐싱을 위한 SQLite 데이터베이스 관리 클래스"""
+    
+    def __init__(self, db_path: str | Path = "cache.db"):
+        """
+        CacheDB 초기화
+        
+        Args:
+            db_path: 데이터베이스 파일 경로
+        """
+        self.db_path = Path(db_path)
+        self.conn = None
+        
+    async def initialize(self) -> None:
+        """데이터베이스 연결 및 테이블 생성"""
+        
+    async def close(self) -> None:
+        """데이터베이스 연결 종료"""
+        
+    async def get_cache(self, title_key: str) -> Optional[dict]:
+        """
+        캐시에서 메타데이터 조회
+        
+        Args:
+            title_key: 검색 키
+            
+        Returns:
+            dict or None: 캐시된 메타데이터 또는 None (캐시 미스)
+        """
+        
+    async def set_cache(self, title_key: str, metadata: dict, year: Optional[int] = None) -> None:
+        """
+        메타데이터를 캐시에 저장
+        
+        Args:
+            title_key: 검색 키
+            metadata: 저장할 메타데이터
+            year: 연도 정보 (옵션)
+        """
+        
+    def _generate_key(self, title: str, year: Optional[int] = None) -> str:
+        """
+        제목과 연도로 검색 키 생성
+        
+        Args:
+            title: 제목
+            year: 연도 (옵션)
+            
+        Returns:
+            str: 정규화된 검색 키
+        """
+```
+
+## 키 생성 규칙
+캐시 검색 키는 다음 규칙에 따라 생성합니다:
+
+1. 제목을 소문자로 변환
+2. 공백과 특수문자를 언더스코어(_)로 대체
+3. 연도가 있으면 제목 뒤에 추가, 없으면 'any' 추가
+4. 예시: 
+   - "My Hero Academia", 2016 → "my_hero_academia_2016"
+   - "Attack on Titan", None → "attack_on_titan_any"
+
+## 비동기 처리
+SQLite는 기본적으로 동기식이므로, 비동기 컨텍스트에서 사용하기 위한 전략이 필요합니다:
+
+1. `aiosqlite` 라이브러리 사용 (권장)
+   ```python
+   import aiosqlite
+   
+   async def get_cache(self, title_key: str) -> Optional[dict]:
+       async with aiosqlite.connect(self.db_path) as conn:
+           cursor = await conn.execute(
+               "SELECT metadata FROM media_cache WHERE title_key = ?", 
+               (title_key,)
+           )
+           row = await cursor.fetchone()
+           if row:
+               return json.loads(row[0])
+       return None
+   ```
+
+2. 스레드 풀 사용
+   ```python
+   import sqlite3
+   from concurrent.futures import ThreadPoolExecutor
+   
+   async def get_cache(self, title_key: str) -> Optional[dict]:
+       def _get():
+           with sqlite3.connect(self.db_path) as conn:
+               cursor = conn.execute(
+                   "SELECT metadata FROM media_cache WHERE title_key = ?", 
+                   (title_key,)
+               )
+               row = cursor.fetchone()
+               if row:
+                   return json.loads(row[0])
+           return None
+       
+       loop = asyncio.get_running_loop()
+       with ThreadPoolExecutor() as pool:
+           result = await loop.run_in_executor(pool, _get)
+           return result
+   ```
+
+## 캐시 관리 전략
+
+### 캐시 만료 관리
+- 캐시 항목에 `updated_at` 타임스탬프 저장
+- 설정 가능한 만료 기간 설정 (기본: 30일)
+- 조회 시 만료된 항목은 무효화
+
+```python
+async def get_cache(self, title_key: str, max_age_days: int = 30) -> Optional[dict]:
+    now = int(time.time())
+    max_age_seconds = max_age_days * 24 * 60 * 60
+    
+    # 만료되지 않은 캐시 항목만 조회
+    async with aiosqlite.connect(self.db_path) as conn:
+        cursor = await conn.execute(
+            "SELECT metadata FROM media_cache WHERE title_key = ? AND (? - updated_at) < ?",
+            (title_key, now, max_age_seconds)
+        )
+        row = await cursor.fetchone()
+        if row:
+            return json.loads(row[0])
+    return None
+```
+
+### 캐시 크기 관리
+- 정기적으로 오래된 항목 제거
+- 전체 캐시 크기 제한
+
+```python
+async def cleanup_cache(self, max_age_days: int = 90, max_items: int = 10000) -> None:
+    """
+    오래된 캐시 항목 정리
+    
+    Args:
+        max_age_days: 최대 보관 기간 (일)
+        max_items: 최대 항목 수
+    """
+    now = int(time.time())
+    max_age_seconds = max_age_days * 24 * 60 * 60
+    
+    async with aiosqlite.connect(self.db_path) as conn:
+        # 오래된 항목 삭제
+        await conn.execute(
+            "DELETE FROM media_cache WHERE (? - updated_at) > ?",
+            (now, max_age_seconds)
+        )
+        
+        # 항목 수 제한
+        cursor = await conn.execute("SELECT COUNT(*) FROM media_cache")
+        count = (await cursor.fetchone())[0]
+        
+        if count > max_items:
+            # 가장 오래된 항목부터 삭제
+            delete_count = count - max_items
+            await conn.execute(
+                "DELETE FROM media_cache WHERE title_key IN (SELECT title_key FROM media_cache ORDER BY updated_at ASC LIMIT ?)",
+                (delete_count,)
+            )
+        
+        await conn.commit()
+```
+
+## 에러 처리
+- 데이터베이스 연결/쿼리 오류 처리
+- 캐시 실패가 전체 애플리케이션을 중단시키지 않도록 설계
+
+```python
+async def get_cache(self, title_key: str) -> Optional[dict]:
+    try:
+        # 캐시 조회 로직
+        pass
+    except Exception as e:
+        logging.error(f"Cache lookup failed: {e}")
+        return None  # 캐시 실패 시 None 반환
+```
+
+## 테스트
+캐시 모듈에 대한 단위 테스트를 작성합니다:
+
+```python
+@pytest.mark.asyncio
+async def test_cache_operations():
+    # 테스트용 임시 데이터베이스 생성
+    cache_db = CacheDB(":memory:")
+    await cache_db.initialize()
+    
+    # 캐시 저장
+    test_metadata = {"id": 123, "title": "Test Anime"}
+    await cache_db.set_cache("test_anime_2022", test_metadata, year=2022)
+    
+    # 캐시 조회
+    cached_data = await cache_db.get_cache("test_anime_2022")
+    assert cached_data == test_metadata
+    
+    # 캐시 미스
+    missing_data = await cache_db.get_cache("nonexistent_key")
+    assert missing_data is None
+    
+    # 캐시 업데이트
+    updated_metadata = {"id": 123, "title": "Test Anime Updated"}
+    await cache_db.set_cache("test_anime_2022", updated_metadata, year=2022)
+    cached_data = await cache_db.get_cache("test_anime_2022")
+    assert cached_data == updated_metadata
+```
