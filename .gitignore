@@ -101,3 +101,13 @@ node_modules/
 # Task files
 # tasks.json
 # tasks/ 
+
+# Large compressed and data files
+*.gz
+
+# API/Export folders
+api_response/
+tmdb_exports/
+
+# Cleaning results and temp data
+cleaning_results_*.json 
