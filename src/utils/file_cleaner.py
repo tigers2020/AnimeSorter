@@ -17,6 +17,9 @@ class CleanResult:
     is_movie: bool = False      # 영화 여부
     extra_info: dict = field(default_factory=dict)  # 추가 정보
 
+# FileCleaner: 모든 메서드는 입력→출력만 사용하는 순수 함수형 구현입니다.
+# 내부에 전역 변수, 클래스 변수, 파일 핸들, DB 커넥션 등 공유 상태를 사용하지 않으므로
+# 멀티스레드(ThreadPoolExecutor 등) 환경에서 안전하게 호출할 수 있습니다.
 class FileCleaner:
     """
     파일명 정제 유틸리티

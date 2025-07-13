@@ -137,30 +137,28 @@ class GroupSyncWorker(QRunnable):
         group_metadata = {}
         prev_title = None
         prev_meta = None
-        for idx, (title, year) in enumerate(self.group_keys):
-            try:
-                self.signals.log.emit(f"[{idx+1}/{total}] '{title}'({year if year else 'any'}) TMDB 검색 시도")
-                if title == prev_title and prev_meta is not None:
-                    result = prev_meta
-                    self.signals.log.emit(f"  └─ 이전 결과 재사용")
-                else:
-                    t0 = time.time()
-                    result = loop.run_until_complete(self.tmdb_provider.search(title, year))
-                    t1 = time.time()
-                    prev_title = title
-                    prev_meta = result
-                    self.signals.log.emit(f"  └─ TMDB 검색 완료 ({t1-t0:.2f}s)")
-                group_metadata[(title, year)] = result
-                if result:
-                    genres = ", ".join([g["name"] for g in result.get("genres", [])])
-                    msg = f"  └─ 장르: {genres} / 줄거리: {bool(result.get('overview'))} / 포스터: {bool(result.get('poster_path'))}"
-                    self.signals.log.emit(msg)
-                else:
-                    self.signals.log.emit("  └─ TMDB 결과 없음")
-                percent = int((idx+1)/total*100)
-                self.signals.progress.emit(percent, f"'{title}' 동기화 완료")
-            except Exception as e:
-                self.signals.error.emit(f"'{title}' TMDB 오류: {e}")
+        # --- 병렬 TMDB 검색 ---
+        async def fetch_all():
+            tasks = [self.tmdb_provider.search(title, year) for (title, year) in self.group_keys]
+            return await asyncio.gather(*tasks, return_exceptions=True)
+        t0 = time.time()
+        results = loop.run_until_complete(fetch_all())
+        t1 = time.time()
+        for idx, ((title, year), result) in enumerate(zip(self.group_keys, results)):
+            if isinstance(result, Exception):
+                self.signals.error.emit(f"'{title}' TMDB 오류: {result}")
+                group_metadata[(title, year)] = None
+                continue
+            self.signals.log.emit(f"[{idx+1}/{total}] '{title}'({year if year else 'any'}) TMDB 검색 완료 (병렬, {t1-t0:.2f}s)")
+            group_metadata[(title, year)] = result
+            if result:
+                genres = ", ".join([g["name"] for g in result.get("genres", [])])
+                msg = f"  └─ 장르: {genres} / 줄거리: {bool(result.get('overview'))} / 포스터: {bool(result.get('poster_path'))}"
+                self.signals.log.emit(msg)
+            else:
+                self.signals.log.emit("  └─ TMDB 결과 없음")
+            percent = int((idx+1)/total*100)
+            self.signals.progress.emit(percent, f"'{title}' 동기화 완료")
         self.signals.result.emit(group_metadata)
         self.signals.finished.emit()
         loop.run_until_complete(self.tmdb_provider.close())
@@ -180,6 +178,11 @@ class FileScanWorker(QRunnable):
         self.export_dir = export_dir
         self.file_cleaner = file_cleaner
         self.config = config
+        self._abort = False  # 취소 플래그
+
+    def stop(self):
+        """작업 중단 요청"""
+        self._abort = True
 
     def _get_ext_lists(self):
         # config에서 확장자 목록을 가져오거나 기본값 사용
@@ -200,7 +203,9 @@ class FileScanWorker(QRunnable):
         return FileCleaner.clean_filename_static(file_path_str)
 
     def run(self):
+        import os
         import time
+        MAX_WORKERS = min(8, os.cpu_count() or 4)
         start_time = time.time()
         self.signals.log.emit(f"[벤치마크] 파일명 정제 및 그룹핑 시작: {len(self.file_paths)}개 파일")
         grouped_files = {}
@@ -210,30 +215,41 @@ class FileScanWorker(QRunnable):
         file_name_list = []
         ext_type_list = []
         for file_path in self.file_paths:
-            ext = str(file_path).lower()
-            ext = Path(ext).suffix.lower()
+            if self._abort:
+                self.signals.log.emit("[중단] 파일 스캔이 취소되었습니다.")
+                self.signals.finished.emit()
+                return
+            ext = Path(file_path).suffix.lower()
             file_name = str(file_path)
-            if ext in video_exts or ext in subtitle_exts:
-                file_name_list.append(file_name)
-                ext_type_list.append(True)
-            else:
-                ext_type_list.append(False)
-                file_name_list.append(file_name)
+            is_media = ext in video_exts or ext in subtitle_exts
+            file_name_list.append(file_name)
+            ext_type_list.append(is_media)
         results = [None] * len(file_name_list)
         try:
-            with ThreadPoolExecutor() as executor:
+            # QRunnable(이미 QThreadPool에서 실행) 내부에서 ThreadPoolExecutor를 사용할 때
+            # 반드시 max_workers 제한 필요. 중첩 풀 구조는 피하고, 필요시 QThreadPool 재사용 권장.
+            # (현재는 I/O-bound라 ThreadPoolExecutor로 충분, CPU-bound면 ProcessPoolExecutor 고려)
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="cleaner") as executor:
                 future_to_idx = {executor.submit(FileCleaner.clean_filename_static, file_name_list[i]): i for i in range(len(file_name_list)) if ext_type_list[i]}
                 for future in as_completed(future_to_idx):
+                    if self._abort:
+                        self.signals.log.emit("[중단] 파일 정제 병렬 작업이 취소되었습니다.")
+                        self.signals.finished.emit()
+                        return
                     idx = future_to_idx[future]
                     try:
                         clean = future.result()
                         results[idx] = clean
                         clean_cache[file_name_list[idx]] = clean
                     except Exception as e:
-                        self.signals.log.emit(f"{file_name_list[idx]}: 병렬 정제 오류: {e}")
+                        self.signals.log.emit(f"[cleaner-thread] {file_name_list[idx]}: 병렬 정제 오류: {e}")
         except Exception as e:
             self.signals.log.emit(f"멀티스레딩 오류: {e}, 단일 프로세스 fallback")
             for i, file_name in enumerate(file_name_list):
+                if self._abort:
+                    self.signals.log.emit("[중단] 파일 정제 단일 작업이 취소되었습니다.")
+                    self.signals.finished.emit()
+                    return
                 if ext_type_list[i]:
                     try:
                         clean = FileCleaner.clean_filename_static(file_name)
@@ -243,6 +259,10 @@ class FileScanWorker(QRunnable):
                         self.signals.log.emit(f"{file_name}: 단일 정제 오류: {e}")
         from src.utils.file_cleaner import CleanResult
         for i, (file_name, is_media) in enumerate(zip(file_name_list, ext_type_list)):
+            if self._abort:
+                self.signals.log.emit("[중단] 그룹핑 작업이 취소되었습니다.")
+                self.signals.finished.emit()
+                return
             if not is_media:
                 clean = CleanResult(
                     title="other",
@@ -256,6 +276,10 @@ class FileScanWorker(QRunnable):
                 results[i] = clean
                 clean_cache[file_name] = clean
         for idx, clean in enumerate(results):
+            if self._abort:
+                self.signals.log.emit("[중단] 그룹핑 결과 처리 작업이 취소되었습니다.")
+                self.signals.finished.emit()
+                return
             if clean is None:
                 continue
             # dict/객체 모두 지원
