@@ -215,10 +215,6 @@ class FileScanWorker(QRunnable):
         file_name_list = []
         ext_type_list = []
         for file_path in self.file_paths:
-            if self._abort:
-                self.signals.log.emit("[중단] 파일 스캔이 취소되었습니다.")
-                self.signals.finished.emit()
-                return
             ext = Path(file_path).suffix.lower()
             file_name = str(file_path)
             is_media = ext in video_exts or ext in subtitle_exts
