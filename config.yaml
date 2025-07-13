@@ -1,0 +1,102 @@
+api_key: your_tmdb_api_key_here
+cache:
+  clear_on_start: false
+  enabled: true
+  lifetime: 2592000
+directories:
+  cache: ./cache
+  log: ./logs
+  source: F:/kiwi/애니
+  target: F:\kiwi\target
+file_formats:
+  subtitle:
+  - .srt
+  - .ass
+  - .smi
+  - .sub
+  video:
+  - .mp4
+  - .mkv
+  - .avi
+  - .mov
+  - .wmv
+file_processing:
+  clean_empty_folders: true
+  copy_instead_of_move: false
+  overwrite_existing: true
+  preserve_subtitles: true
+filename_cleaner:
+  episode_only_patterns:
+  - (?<![A-Za-z0-9])E(\d{2,3})(?![A-Za-z0-9])
+  - (?:에피소드|Episode|EP)[\s.]*(\d{1,3})
+  - ^(?<![A-Za-z0-9])(\d{2,3})(?:[vV]\d)?(?![A-Za-z0-9])
+  join_words: ' '
+  preserve_patterns:
+  - (?:시즌|Season)[\s.]*\d{1,2}
+  remove_patterns:
+  - \[.*?\]
+  - \(.*?\)
+  - \.E\d{2,3}\.
+  - \.S\d{1,2}E\d{2,3}\.
+  - (^|[^A-Za-z])EP\d{1,3}([^A-Za-z]|$)
+  - \d{3,4}[pP]
+  - HEVC
+  - H\.?264
+  - H\.?265
+  - (8|10)bit
+  - '[xX][vV][iI][dD]'
+  - AAC
+  - MP3
+  - FLAC
+  - AC3
+  - DTS
+  - BluRay
+  - WEB-DL
+  - HDTV
+  - WEBRip
+  - BDRip
+  - DVDRip
+  season_episode_patterns:
+  - S(\d{1,2})E(\d{1,3})
+  - (?:시즌|Season)[\s.]*(\d{1,2})[\s.]*(?:에피소드|Episode)[\s.]*(\d{1,3})
+  - (?<![A-Za-z0-9])(\d{1,2})[xX](\d{2})(?![A-Za-z0-9])
+  split_words:
+  - '-'
+  - _
+  - .
+  year_patterns:
+  - (?<![A-Za-z0-9])19\d{2}(?![A-Za-z0-9])
+  - (?<![A-Za-z0-9])20\d{2}(?![A-Za-z0-9])
+folder_structure:
+  episode_filename: '{title} - S{season:02d}E{episode:02d}'
+  keep_original_filename: false
+  movies: '{title} ({year})'
+  tv_series: '{title}/시즌 {season}'
+folder_template: '{title} ({year})'
+keep_original_name: true
+language: ko-KR
+log_level: INFO
+logging:
+  backup_count: 5
+  console_enabled: true
+  file_enabled: true
+  level: INFO
+  max_size: 10485760
+metadata:
+  metadata_filename: metadata.json
+  min_score: 20
+  prefer_movie_over_tv: false
+  save_metadata_with_files: true
+overwrite_existing: false
+source_dir: F:/Python_Projects/AnimeSorter/test_source
+target_dir: F:/Python_Projects/AnimeSorter/test_target
+tmdb:
+  api_key: c479f9ce20ccbcc06dbcce991a238120
+  include_adult: false
+  language: ko-KR
+  region: KR
+  timeout: 10
+ui:
+  language: ko
+  show_progress: true
+  theme: light

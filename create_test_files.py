@@ -35,17 +35,56 @@ SERIES = [
     {
         "title": "나루토",
         "episodes": 220,
-        "format": "[ASW] Naruto - {ep:03d} [BD 720p AAC].{ext}"
+        "formats": [
+            "[ASW] Naruto - {ep:03d} [BD 720p AAC].{ext}",
+            "Naruto {ep:03d} [1080p].{ext}",
+            "[HorribleSubs] Naruto - {ep:03d} [720p].{ext}"
+        ]
     },
     {
         "title": "원피스",
         "episodes": 200,
-        "format": "[Ohys-Raws] One Piece - {ep:03d} [BD 1920x1080 x264 AAC].{ext}"
+        "formats": [
+            "[Ohys-Raws] One Piece - {ep:03d} [BD 1920x1080 x264 AAC].{ext}",
+            "One.Piece.E{ep:03d}.1080p.BluRay.x264.{ext}",
+            "[SubsPlease] One Piece - {ep:03d} (BD 1080p).{ext}"
+        ]
     },
     {
         "title": "블리치",
         "episodes": 150,
-        "format": "[SubsPlease] BLEACH - {ep:03d} (BD 1080p).{ext}"
+        "formats": [
+            "[SubsPlease] BLEACH - {ep:03d} (BD 1080p).{ext}",
+            "Bleach.{ep:03d}.BluRay.1080p.{ext}",
+            "[Coalgirls] BLEACH - {ep:03d} (BD 1920x1080).{ext}"
+        ]
+    },
+    {
+        "title": "진격의 거인",
+        "episodes": 25,
+        "formats": [
+            "[Erai-raws] Shingeki no Kyojin - {ep:02d} [1080p].{ext}",
+            "Attack.on.Titan.S01E{ep:02d}.1080p.BluRay.{ext}",
+            "[SubsPlease] 진격의 거인 - {ep:02d} [BD 1080p].{ext}"
+        ]
+    },
+    {
+        "title": "귀멸의 칼날",
+        "episodes": 26,
+        "formats": [
+            "[Ohys-Raws] Kimetsu no Yaiba - {ep:02d} (BD 1080p).{ext}",
+            "Demon.Slayer.S01.EP{ep:02d}.1080p.{ext}",
+            "[SubsPlease] 귀멸의 칼날 {ep:02d} [BD 1080p].{ext}"
+        ]
+    },
+    {
+        "title": "주술회전",
+        "episodes": 24,
+        "formats": [
+            "[SubsPlease] Jujutsu Kaisen - {ep:02d} [1080p].{ext}",
+            "주술회전.E{ep:02d}.1080p.BluRay.{ext}",
+            "[Erai-raws] 주술회전 - {ep:02d} (BD 1080p).{ext}"
+        ]
     }
 ]
 
@@ -82,9 +121,11 @@ def create_unregistered_files(num_files=15):
             # 애니메이션 스타일이지만 등록되지 않은 시리즈
             fake_series = [
                 "[HorribleSubs] 가상 애니메이션 - {0:02d}.{1}",
-                "Fake Anime S01E{0:02d}.{1}",
+                "Fake.Anime.S01E{0:02d}.{1}",
                 "애니_미등록_{0:02d}화.{1}",
-                "[Sub-Group] Random Show - Episode {0:02d} [720p].{1}"
+                "[Sub-Group] Random Show - Episode {0:02d} [720p].{1}",
+                "Unknown.Series.{0:03d}.1080p.{1}",
+                "[Fake-Subs] Test Anime {0:03d} [HD].{1}"
             ]
             template = random.choice(fake_series)
             ep = random.randint(1, 50)
@@ -120,7 +161,8 @@ def create_additional_subtitle_files():
                 parts[0] = f"{parts[0]}_{lang}"
                 filename = '.'.join(parts)
             else:
-                base_format = series["format"].format(ep=ep, ext=sub_ext)
+                format_template = series["formats"][0] if "formats" in series else series["format"]
+                base_format = format_template.format(ep=ep, ext=sub_ext)
                 # 파일명 중간에 언어 추가
                 parts = base_format.split('.')
                 parts[0] = f"{parts[0]}_{lang}"
@@ -171,8 +213,14 @@ def create_test_files():
         else:
             # 일반 시리즈
             for ep in episodes:
+                # 여러 형식 중 하나 선택
+                if "formats" in series:
+                    format_template = random.choice(series["formats"])
+                else:
+                    format_template = series["format"]
+                
                 # 비디오 파일
-                video_filename = series["format"].format(ep=ep, ext=main_ext)
+                video_filename = format_template.format(ep=ep, ext=main_ext)
                 video_filepath = SOURCE_DIR / video_filename
                 video_filepath.touch()
                 log.debug(f"Created video file: {video_filename}")

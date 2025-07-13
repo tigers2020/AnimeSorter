@@ -3,333 +3,169 @@ description: Python coding standards and best practices for the AnimeSorter proj
 globs: ["*.py"]
 alwaysApply: true
 ---
-📘 **Welcome to the Python Code Expert service.**  
-Please state your Python coding query, and I will assist you with developing **production-quality solutions** that adhere to **Python best practices** and **object-oriented programming concepts.**
+---
+description: "Python Code Expert 서비스 및 데스크탑 앱 개발을 위한 고급 Python 코딩 가이드라인. 이 규칙은 생산성 높은 코드 작성, 객체 지향 설계, 성능 최적화, 에러 핸들링, 동시성/병렬처리 및 데스크탑 UI 응답성을 보장하기 위한 지침들을 포함합니다."
+globs:
+  - "*.py"
+  - "src/**/*.py"
+  - "tests/**/*.py"
+---
+
+# Python Code Expert 서비스 가이드라인
+
+## 1. 기초 코딩 관행
+- **PEP8 준수:** 일관된 포맷팅과 네이밍 컨벤션을 적용합니다. `flake8`, `pylint`, `black` 등의 린터를 사용합니다.
+- **Pythonic Idioms 사용:** 리스트 컴프리헨션, `enumerate()`, `zip()`, `any()`, `all()` 등을 활용하며, EAFP(예외 처리 우선) 방식을 선호합니다. 리소스 관리는 `with` 구문을 사용합니다.
+
+## 2. 코드 구조 및 설계
+- **모듈화 및 유지보수성:** 모듈 하나는 하나의 책임만 가지며, 함수, 클래스, 패키지를 통해 관심사를 분리합니다.
+- **상속보다 합성을 우선:** Strategy, Factory, Decorator 등의 디자인 패턴을 활용해 유연성과 재사용성을 높입니다.
+- **인터페이스 및 프로토콜 사용:** 추상 클래스(ABC) 또는 `typing.Protocol`을 활용해 인터페이스를 정의합니다.
+
+## 3. 성능 최적화
+- **조기 최적화 피하기:** 우선 깔끔하고 올바른 코드를 작성한 후 `cProfile`, `line_profiler`, `timeit` 등을 통해 병목 지점을 찾아 개선합니다.
+- **자료구조 선택 중요성:** 빠른 FIFO 큐를 위해 `deque`를, 빈도 기반 연산은 `defaultdict`나 `Counter`를 사용합니다.
+
+## 4. 견고성과 에러 처리
+- **의미 있는 예외 발생:** 오류 시 `None` 반환 대신 적절한 컨텍스트를 담은 예외를 발생시킵니다.
+- **사용자 정의 예외:** 관련 오류들을 하나의 베이스 예외 클래스 하에 그룹화합니다.
+- **try/except/else/finally 활용:** 예외가 발생하지 않을 경우에만 실행되어야 할 코드는 `else` 블록에 작성합니다.
+
+## 5. 동시성 및 병렬 처리
+- **적절한 모델 선택:** I/O 바운드 작업은 `asyncio`를, 블로킹 I/O는 `threading`을, CPU 바운드 작업은 `multiprocessing` 또는 `concurrent.futures`를 사용합니다.
+
+## 6. 테스트 및 품질 보증
+- **테스트를 조기에, 자주 실행:** `pytest`를 활용하여 빠르고 표현력 있는 테스트를 작성하고, 가능하다면 TDD 방식을 따릅니다.
+- **프로퍼티 기반 및 파라미터 테스트:** `hypothesis`로 엣지 케이스 테스트를, `@pytest.mark.parametrize`로 테스트 케이스를 매개변수화합니다.
+- **코드 품질 자동화:** CI/CD 파이프라인에 `tox`, `coverage.py`, `mypy`, `pylint` 등을 포함합니다.
+
+## 7. 문서화 및 타입 힌트
+- **Docstring 추가:** 함수, 클래스, 모듈에 대해 Google 스타일의 Docstring을 작성합니다.
+- **타입 힌트 사용:** 코드 전반에 타입 힌트를 적용하고, `mypy` 또는 `Pyright`로 검증합니다.
+
+## 8. 패키지 및 환경 관리
+- **가상 환경 사용:** `venv` 또는 `poetry`를 통해 환경을 격리합니다.
+- **패키지 관리:** 12-factor app 원칙에 따라 배포할 수 있도록 패키징합니다.
+
+## 9. 필수 사용 도구
+| 용도         | 추천 도구                                     |
+|--------------|-----------------------------------------------|
+| Formatting   | `black`, `isort`                              |
+| Linting      | `flake8`, `pylint`                            |
+| Testing      | `pytest`, `tox`                               |
+| Coverage     | `coverage.py`, `pytest-cov`                     |
+| Debugging    | `pdb`, `ipdb`, `tracemalloc`                    |
+| Profiling    | `cProfile`, `line_profiler`                     |
+| Packaging    | `poetry`, `setuptools`, `twine`                 |
+| Type Checking| `mypy`, `pyright`                             |
+| CI/CD        | `GitHub Actions`, `Travis`, `GitLab CI`         |
 
 ---
 
-### 🧠 How to Code Efficiently and Write Great Python Code
+# 데스크탑 애플리케이션 개발 - UI 스레드 백그라운드 작업 가이드라인
 
-Drawing from expert resources you've uploaded—like _Effective Python_, _Better Python Code_, _Expert Python Programming_, and _Design Patterns_—here's a synthesized, rules-based approach to efficient and high-quality Python development:
+- **UI 응답성 보장:** 긴 작업이 메인(UI) 스레드를 차단하지 않도록 백그라운드로 오프로드합니다.
+- **멀티스레딩 (I/O 바운드):**
+  - 파일 I/O, 데이터베이스 쿼리, 웹 요청 등의 작업은 Python의 `threading.Thread` 또는 PyQt/PySide의 `QThread`를 사용하여 처리합니다.
+  - 예시:
+    ```python
+    from threading import Thread
 
----
-
-## ✅ 1. **Foundational Coding Practices**
-
-### 🔹 Follow PEP 8
-- Enforce consistent formatting and naming conventions.
-- Use linters like `flake8`, `pylint`, or `black`.
-
-### 🔹 Embrace Pythonic Idioms
-- Use **list comprehensions**, `enumerate()`, `zip()`, `any()` and `all()`.
-- Prefer **EAFP (Easier to Ask Forgiveness than Permission)** over **LBYL (Look Before You Leap)**.
-- Use `with` statements for resource management.
-
----
-
-## ✅ 2. **Code Structure and Design**
-
-### 🔹 Write Modular and Maintainable Code
-- One module = one responsibility.
-- Separate concerns via functions, classes, and packages.
-
-### 🔹 Prefer Composition Over Inheritance
-- Use **design patterns** like Strategy, Factory, and Decorator from _GoF_ to promote flexibility and reuse.
-
-### 🔹 Use Interfaces and Protocols
-- Use **abstract base classes (ABCs)** or **typing.Protocol** to define interfaces.
-
----
-
-## ✅ 3. **Performance Optimization**
-
-### 🔹 Avoid Premature Optimization
-- First write **clean and correct** code.
-- Use `cProfile`, `line_profiler`, `timeit` to locate real bottlenecks.
-
-### 🔹 Data Structure Choices Matter
-- Use `deque` for fast FIFO queues.
-- Use `defaultdict` or `Counter` for frequency-based operations.
-
----
-
-## ✅ 4. **Robustness and Error Handling**
-
-### 🔹 Raise Meaningful Exceptions
-- Avoid returning `None` for errors—**raise exceptions** with context.
-
-### 🔹 Define Custom Exceptions
-- Group related errors under your own base exception class.
-
-### 🔹 Use `try/except/else/finally` Properly
-- Use `else` for the code that should only run if no exception occurs.
-
----
-
-## ✅ 5. **Concurrency and Parallelism**
-
-### 🔹 Choose the Right Model
-- `asyncio` for I/O-bound tasks.
-- `threading` for blocking I/O.
-- `multiprocessing` or `concurrent.futures` for CPU-bound tasks.
-
----
-
-## ✅ 6. **Testing and Quality Assurance**
-
-### 🔹 Test Early, Test Often
-- Use **pytest** for fast, expressive testing.
-- Follow **Test-Driven Development (TDD)** where practical.
-
-### 🔹 Use Property-Based and Parametric Testing
-- Use `hypothesis` for auto-generated edge-case testing.
-- Parameterize tests with `@pytest.mark.parametrize`.
-
-### 🔹 Automate Code Quality
-- Use tools like `tox`, `coverage.py`, `mypy`, and `pylint` in CI/CD pipelines.
-
----
-
-## ✅ 7. **Documentation and Type Hints**
-
-### 🔹 Always Add Docstrings
-- Follow **Google style docstrings** for functions, classes, and modules.
-
-### 🔹 Use Type Hints Everywhere
-- Enforce them with `mypy` or Pyright.
-
----
-
-## ✅ 8. **Package and Environment Management**
-
-### 🔹 Use Virtual Environments
-- Always isolate environments with `venv` or `poetry`.
-
-### 🔹 Package Well
-- Follow the **12-factor app** principles for deployment.
-
----
-
-## ✅ 9. **Tools You Should Be Using**
-
-| Purpose               | Recommended Tool |
-|----------------------|------------------|
-| Formatting            | `black`, `isort` |
-| Linting               | `flake8`, `pylint` |
-| Testing               | `pytest`, `tox` |
-| Coverage              | `coverage.py`, `pytest-cov` |
-| Debugging             | `pdb`, `ipdb`, `tracemalloc` |
-| Profiling             | `cProfile`, `line_profiler` |
-| Packaging             | `poetry`, `setuptools`, `twine` |
-| Type Checking         | `mypy`, `pyright` |
-| CI/CD                 | `GitHub Actions`, `Travis`, `GitLab CI` |
-
----
-
-Would you like a **project template** with these principles baked in? I can generate a base Python project for you using modern tooling and best practices.
-
-Let me know your use case (web app, CLI tool, API, data science, etc.)!
-
-**ID: `ruleset-coding-efficiency-2025-03`**
-
-Great question! 🧠  
-In **industry-quality desktop applications**, ensuring the UI remains responsive while performing background work is **critical**. The UI "freezing" typically happens because the **main thread (UI thread)** is blocked by long-running operations.
-
----
-
-## ✅ The Correct Industry-Standard Methods
-
-### 🔹1. **Multi-threading (for I/O-bound tasks)**
-
-For background tasks like:
-- File I/O
-- Database queries
-- Web requests
-
-Use Python’s `threading.Thread` or **QThread** (if you're using **PyQt/PySide**) to offload the task.
-
-```python
-from threading import Thread
-
-def background_task():
-    # heavy I/O work here
-    ...
-
-# Run in background
-thread = Thread(target=background_task, daemon=True)
-thread.start()
-```
-
-In PyQt/PySide:
-```python
-from PyQt5.QtCore import QThread, pyqtSignal, QObject
-
-class Worker(QObject):
-    finished = pyqtSignal()
-
-    def run(self):
-        # do work
+    def background_task():
+        # 무거운 I/O 작업 수행
         ...
-        self.finished.emit()
 
-class BackgroundThread(QThread):
-    def __init__(self):
-        super().__init__()
-        self.worker = Worker()
+    thread = Thread(target=background_task, daemon=True)
+    thread.start()
+    ```
+  - PyQt/PySide 예시:
+    ```python
+    from PyQt5.QtCore import QThread, pyqtSignal, QObject
 
-    def run(self):
-        self.worker.run()
-```
+    class Worker(QObject):
+        finished = pyqtSignal()
 
----
+        def run(self):
+            # 작업 수행
+            ...
+            self.finished.emit()
 
-### 🔹2. **Multiprocessing (for CPU-bound tasks)**
+    class BackgroundThread(QThread):
+        def __init__(self):
+            super().__init__()
+            self.worker = Worker()
 
-For CPU-heavy work like:
-- Image processing
-- Data parsing
-- Machine learning inference
+        def run(self):
+            self.worker.run()
+    ```
+- **멀티프로세싱 (CPU 바운드):**
+  - 이미지 처리, 데이터 파싱, 머신러닝 추론 등의 작업은 `multiprocessing` 또는 `ProcessPoolExecutor`를 사용합니다.
+  - 예시:
+    ```python
+    from concurrent.futures import ProcessPoolExecutor
 
-Use `multiprocessing` or `concurrent.futures.ProcessPoolExecutor` to spawn separate processes.
+    def cpu_heavy_work(data):
+        # 집약적인 계산 작업
+        ...
 
-```python
-from concurrent.futures import ProcessPoolExecutor
+    with ProcessPoolExecutor() as executor:
+        future = executor.submit(cpu_heavy_work, data)
+    ```
+- **비동기 프로그래밍:**
+  - async 지원 GUI 프레임워크에서는 `asyncio`를 사용해 효율적으로 I/O 작업을 처리합니다.
+  - 예시:
+    ```python
+    import asyncio
 
-def cpu_heavy_work(data):
-    # intensive computation
-    ...
+    async def background_task():
+        await asyncio.sleep(1)  # I/O 작업 시뮬레이션
 
-with ProcessPoolExecutor() as executor:
-    future = executor.submit(cpu_heavy_work, data)
-```
+    asyncio.run(background_task())
+    ```
+- **PyQt/PySide의 워커 패턴:**
+  - `QObject`, `QThread`, 시그널/슬롯 메커니즘을 사용하여 코드 조직과 스레드 안전한 UI 업데이트를 구현합니다.
 
----
+### 데스크탑 앱 최선의 실천 방안
+- 메인 스레드를 차단하지 말 것.
+- UI 업데이트는 시그널을 통해 안전하게 처리.
+- 데몬 스레드 또는 적절한 클린업을 통해 리소스 누수를 방지.
+- 스레드 간 데이터 전달은 스레드 안전 큐를 사용.
+- 너무 많은 스레드를 생성하지 않도록 스레드 풀이나 executor를 활용.
 
-### 🔹3. **Asynchronous Programming (for GUI frameworks that support it)**
-
-In **async-compatible GUI frameworks** (like `asyncqt` or `tkinter` + `asyncio`), async tasks are efficient for I/O.
-
-```python
-import asyncio
-
-async def background_task():
-    await asyncio.sleep(1)  # Simulate I/O work
-
-asyncio.run(background_task())
-```
-
-But: **Standard Qt GUIs require integration with event loop**, e.g., `QEventLoop` or libraries like `qasync`.
-
----
-
-### 🔹4. **Worker Pattern with Signals (Best for PyQt/PySide)**
-
-PyQt/PySide has **built-in support** for worker threads using `QObject`, `QThread`, and signals/slots.
-
-- Keeps code organized
-- Keeps thread-safe UI updates
-
----
-
-## 🧠 Best Practices for Desktop Apps
-
-| Practice | Why |
-|---------|-----|
-| **Never block the main thread** | UI must respond to events |
-| **Use signals to update UI** | Thread-safe updates in Qt/GTK |
-| **Daemon threads or cleanup** | Prevent resource leakage |
-| **Use thread-safe queues** | Pass data safely between threads |
-| **Use executors or thread pools** | Avoid creating too many threads |
+### GUI 도구별 추천 백그라운드 방법
+| GUI 툴킷         | 추천 백그라운드 방법                    |
+|-----------------|---------------------------------------|
+| **PyQt/PySide** | `QThread` + 시그널/슬롯                  |
+| **Tkinter**     | `threading.Thread` + `after()`         |
+| **Kivy**        | `threading` 또는 `Clock.schedule_once()`  |
+| **wxPython**    | `threading` + `wx.CallAfter()`          |
 
 ---
 
-### 🔨 Tools & Libraries
+# 개발 워크플로우 및 Cursor Rules 활용 팁
 
-| GUI Toolkit | Recommended Background Method |
-|-------------|-------------------------------|
-| **PyQt / PySide** | `QThread` + Signals/Slots |
-| **Tkinter** | `threading.Thread` + `after()` |
-| **Kivy** | `threading` or `Clock.schedule_once()` |
-| **wxPython** | `threading` + `wx.CallAfter()` |
+- **일반 방법:** 간단한 지시 사항을 `cursor.rules` 파일에 기재하여 Chat, Composer, Command-K 등에서 자동 적용되도록 합니다.
+- **단계별 방법:** "Step 1", "Step 2", "Update Step 1" 등의 방식으로 앱 로직이나 UI의 각 부분을 순차적으로 기술하여 모듈화 및 디버깅 용이성을 확보합니다.
+- **오류 기반 개발:** 앱의 오류(콘솔, Python traceback 등)를 기록 후 Composer에 붙여넣어 수정 요청을 진행합니다.
 
 ---
 
-Would you like me to scaffold an **example PyQt5 desktop app** with background threading and signal-based updates?
-
-Or should I prepare examples for a different GUI toolkit you’re using?
-
-**ID: `background-ui-threading-2025-03`**
-
-
-That’s a fantastic and in-depth walkthrough of how to use **Cursor** with a `cursor.rules` file, showcasing both the **normal method** and the more powerful **step-by-step method** for building software projects—especially using AI agents to automate and incrementally implement functionality.
+# 고급 Cursor Rules 활용 전략
+- `update step X`를 사용해 기존 단계를 업데이트.
+- 변수, 에이전트 모드, 모듈화된 지시사항을 적극 활용.
+- 재사용 가능한 단계들을 저장해 다른 프로젝트에 조합 사용.
 
 ---
 
-## 🔥 TL;DR – Key Takeaways on Coding with Cursor Efficiently
-
-### ✅ **1. Normal Method – Quick Instructions**
-- Place simple, directive instructions in the `cursor.rules` file.
-- Cursor automatically reads and applies them in:
-  - **Chat**
-  - **Composer**
-  - **Command-K**
-- Great for small tasks or single-file changes.
-- Less structured but fast and effective for rapid prototyping.
-
-### ✅ **2. Step-by-Step Method – Structured Iteration**
-- Use `Step 1`, `Step 2`, `Update Step 1`, etc., inside `cursor.rules`.
-- Each step describes part of the app logic or UI (e.g., header, chat panel, backend).
-- Lets you:
-  - Build from **top-to-bottom**, **left-to-right**
-  - Make iterative changes cleanly
-  - Maintain a **clear app spec**
-
-### ✅ **3. Why Step-by-Step Wins**
-- More **robust**, **scalable**, and **debuggable**.
-- Encourages:
-  - **Modular thinking**
-  - **Progressive enhancement**
-  - Clear rollback to earlier states
-- Empowers you to **fix**, **debug**, and **iterate** on small steps rather than starting over.
-
----
-
-## 🚀 Pro Tip: Combine Cursor Rules + Error-Driven Dev
-
-1. Implement features using steps (`Step 1: Header`, `Step 2: Chat panel`, etc.)
-2. Log errors from your app (e.g., console or Python traceback)
-3. Paste them into Composer and say:  
-   🔧 _"Here’s the error, please fix."_  
-4. Let the AI correct code in-place!
-
----
-
-## 🎯 Best Practices for Using Cursor Rules
-
-| Use Case                      | Best Method         |
-|------------------------------|---------------------|
-| Small fix / single command   | Normal              |
-| Full app build               | Step-by-step        |
-| Bug fixing                   | Inline in Composer  |
-| Experimenting                | Chat or side panel  |
-| Resetting project            | Use **Restore**     |
-| Making global instructions   | Add to `rules for AI`|
-
----
-
-## 💡 Advanced Tips
-
-- Use `update step X` instead of re-implementing.
-- Use **variables**, **agent mode**, and **modular instructions**.
-- Store reusable steps for other apps and compose them together.
-
----
-
-## Would You Like Help With:
-- Structuring your own `cursor.rules` file?
-- Generating reusable rule templates for faster app development?
-- Automating desktop or terminal-based chat apps?
-
-I’d be happy to walk you through that or even generate a best-practice project setup using this methodology.
+# 도움 요청 옵션
+- 자신만의 `cursor.rules` 파일 구조화
+- 재사용 가능한 규칙 템플릿 생성
+- 데스크탑 또는 터미널 기반 채팅 앱 자동화
 
 **ID: `cursor-rules-methodology-2025-03`**
+
+---
+
+# Cursor 기반 UI 백그라운드 스레딩 예제
+- **문의:** PyQt5 데스크탑 앱에서 백그라운드 스레딩 및 시그널 업데이트 예제가 필요하면 별도 요청 바랍니다.
+- **ID:** `background-ui-threading-2025-03`

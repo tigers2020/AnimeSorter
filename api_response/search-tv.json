@@ -1,0 +1,29 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/odVlTMqPPiMksmxpN9cCbPCjUPP.jpg",
+      "genre_ids": [
+        16,
+        10759,
+        10765
+      ],
+      "id": 127532,
+      "origin_country": [
+        "JP"
+      ],
+      "original_language": "ja",
+      "original_name": "俺だけレベルアップな件",
+      "overview": "다른 차원과 이쪽 세계를 이어주는 통로인 '게이트'가 갑자기 발생한 뒤 10년 세계에는 '헌터'라고 불리는 초인적인 힘에 각성한 사람들이 출현했다. 헌터는 게이트 안의 던전을 공략하고 대가를 받는 것을 생업으로 하고 있는데 그런 강자들만 가득한 헌터들 중 '성진우'는 인류 최약병기라고 불리는 저랭크 헌터로서 생활하고 있었다. 어느 날, 저랭크 던전에 숨겨진 고랭크 이중 던전을 발견했지만 빈사의 중상을 입은 성진우의 눈앞에 의문의 퀘스트창이 나타났는데. 죽음의 순간, 퀘스트를 수락하기로 결심한 성진우는 자신만 '레벨업'할 수 있게 되었는데.",
+      "popularity": 274.80785178571426,
+      "poster_path": "/5gR5oCQufzZ6tPcFoHb61ckiwiP.jpg",
+      "first_air_date": "2024-01-07",
+      "name": "나 혼자만 레벨업",
+      "vote_average": 8.595,
+      "vote_count": 927
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 1
+}
