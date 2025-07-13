@@ -1,4 +1,4 @@
-api_key: your_tmdb_api_key_here
+api_key: c479f9ce20ccbcc06dbcce991a238120
 cache:
   clear_on_start: false
   enabled: true

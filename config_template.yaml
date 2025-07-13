@@ -1,0 +1,33 @@
+# AnimeSorter 설정 파일
+# 이 파일을 수정하여 API 키를 설정하세요
+
+tmdb:
+  api_key: "your_tmdb_api_key_here"  # TMDB API 키를 여기에 입력하세요
+  language: "ko-KR"
+  cache_enabled: true
+
+# 지원하는 파일 확장자
+video_extensions:
+  - ".mp4"
+  - ".mkv" 
+  - ".avi"
+  - ".mov"
+  - ".wmv"
+  - ".m4v"
+  - ".flv"
+
+subtitle_extensions:
+  - ".srt"
+  - ".ass"
+  - ".ssa"
+  - ".sub"
+  - ".idx"
+  - ".smi"
+  - ".vtt"
+
+# 폴더 구조 템플릿
+folder_template: "{title} ({year})"
+
+# 기타 설정
+keep_original_name: true
+overwrite_existing: false

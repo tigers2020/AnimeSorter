@@ -1,119 +1,93 @@
 import re
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional, List, Pattern
 from functools import lru_cache
-from guessit import guessit
+from pathlib import Path
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
 
 @dataclass
 class CleanResult:
-    """
-    파일명 정제 결과를 저장하는 데이터 클래스
-    """
-    title: str                 # 정제된 제목 (검색용)
-    original_filename: Path     # 원본 파일명
-    season: int = 1            # 시즌 번호 (기본값: 1)
-    episode: Optional[int] = None  # 에피소드 번호
-    year: Optional[int] = None     # 연도
-    is_movie: bool = False      # 영화 여부
-    extra_info: dict = field(default_factory=dict)  # 추가 정보
+    """파일명 정제 결과"""
+    title: str
+    original_filename: str | Path
+    season: int = 1
+    episode: Optional[int] = None
+    year: Optional[int] = None
+    is_movie: bool = False
+    extra_info: Dict[str, Any] = field(default_factory=dict)
 
-# LRU 캐시를 사용한 최적화된 파일명 정제 함수
 @lru_cache(maxsize=4096)
-def _cached_guessit_parse(filename_stem: str) -> dict:
-    """
-    GuessIt 파싱 결과를 캐시하여 중복 호출 방지
-    같은 시즌/에피소드의 다른 해상도 파일들이 많은 경우 30-70% 성능 향상
-    """
-    return guessit(filename_stem)
+def _cached_guessit_parse(filename: str) -> dict:
+    """GuessIt 파싱 결과 캐싱"""
+    from guessit import guessit
+    return dict(guessit(filename))
 
-@lru_cache(maxsize=2048) 
-def _cached_title_refine(raw_title: str) -> str:
-    """제목 정제 결과 캐시"""
+@lru_cache(maxsize=2048)
+def _cached_title_refine(title: str) -> str:
+    """제목 정제 결과 캐싱"""
     # 기본 정제 로직
-    cleaned = re.sub(r'\[.*?\]', '', raw_title)  # [SubsPlease] 등 제거
-    cleaned = re.sub(r'\(.*?\)', '', cleaned)    # (2022) 등 제거  
-    cleaned = re.sub(r'[._-]', ' ', cleaned)     # 구분자를 공백으로
-    cleaned = re.sub(r'\s+', ' ', cleaned)       # 연속 공백 정리
-    return cleaned.strip()
+    clean_title = title.strip()
+    
+    # 릴리즈 그룹 제거 ([...] 형태)
+    clean_title = re.sub(r'\[.*?\]', '', clean_title).strip()
+    
+    # 해상도 정보 제거 (720p, 1080p 등)
+    clean_title = re.sub(r'\b\d{3,4}p\b', '', clean_title, flags=re.IGNORECASE).strip()
+    
+    # 코덱 정보 제거 (x264, x265, HEVC 등)
+    clean_title = re.sub(r'\b(x264|x265|HEVC|AVC|H\.264|H\.265)\b', '', clean_title, flags=re.IGNORECASE).strip()
+    
+    # 연속된 공백 정리
+    clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+    
+    return clean_title
 
-# FileCleaner: 모든 메서드는 입력→출력만 사용하는 순수 함수형 구현입니다.
-# 내부에 전역 변수, 클래스 변수, 파일 핸들, DB 커넥션 등 공유 상태를 사용하지 않으므로
-# 멀티스레드(ThreadPoolExecutor 등) 환경에서 안전하게 호출할 수 있습니다.
+def _extract_season_from_title(title: str) -> Optional[int]:
+    """
+    제목에서 시즌 정보를 추출하는 함수
+    
+    Args:
+        title: 제목 문자열
+        
+    Returns:
+        int or None: 추출된 시즌 번호 또는 None
+    """
+    if not title:
+        return None
+    
+    # 시즌 추출 패턴들 (우선순위 순서)
+    season_patterns = [
+        # 숫자 + th/st/nd/rd 패턴 (6th, 1st, 2nd, 3rd 등)
+        r'\b(\d{1,2})(?:th|st|nd|rd)\b',
+        
+        # 숫자 + 기/시즌 패턴 (6기, 6시즌 등)
+        r'\b(\d{1,2})(?:기|시즌|철)\b',
+        
+        # 숫자 + 번째 패턴 (6번째 등)
+        r'\b(\d{1,2})번째\b',
+        
+        # Season/시즌 + 숫자 패턴 (Season 6, 시즌 6 등)
+        r'\b(?:Season|시즌)\s*(\d{1,2})\b',
+        
+        # 단순 숫자 패턴 (제목 끝의 숫자, 주의깊게 사용)
+        r'\b(\d{1,2})\s*(?:TV|Series|tv|series)?\s*$'
+    ]
+    
+    for pattern in season_patterns:
+        match = re.search(pattern, title, re.IGNORECASE)
+        if match:
+            try:
+                season_num = int(match.group(1))
+                # 합리적인 시즌 번호 범위 체크 (1-50)
+                if 1 <= season_num <= 50:
+                    return season_num
+            except (ValueError, IndexError):
+                continue
+                
+    return None
+
 class FileCleaner:
-    """
-    파일명 정제 유틸리티
-    """
-    def __init__(self, config):
-        self.config = config
-        self._compile_patterns()
-
-    def _compile_patterns(self):
-        self.season_episode_patterns = [
-            re.compile(pattern, re.IGNORECASE)
-            for pattern in self.config.get("filename_cleaner.season_episode_patterns", [
-                r'S(\d{1,2})E(\d{1,3})',
-                r'(?:시즌|Season)[\s.]*(\d{1,2})[\s.]*(?:에피소드|Episode)[\s.]*(\d{1,3})',
-                r'(?<![A-Za-z0-9])(\d{1,2})[xX](\d{2,3})(?![A-Za-z0-9])',
-                r'제\s*(\d{1,2})-(\d{1,2})화',
-                r'제\s*(\d{1,2})화',
-                r'[Cc][Dd](\d{1,2})',
-            ])
-        ]
-        self.episode_only_patterns = [
-            re.compile(pattern, re.IGNORECASE)
-            for pattern in self.config.get("filename_cleaner.episode_only_patterns", [
-                r'(?<![A-Za-z0-9])EP[. ]?(\d{1,3})(?![A-Za-z0-9])',
-                r'(?:에피소드|Episode)[\s.]*(\d{1,3})(?![A-Za-z0-9])',
-                r'(?<![A-Za-z0-9])E(\d{1,3})(?![A-Za-z0-9])',
-                r'제\s*(\d{1,3})화',
-                r'[\s._-](\d{2,3})(?=[\s._-]|$)',
-                r'[\s._-](\d{2,3})(?=\s*\[)',
-                r'[\[\(](\d{2,3})[\]\)]',
-                r'(?<![A-Za-z0-9])(\d{2,3})(?![A-Za-z0-9])',
-            ])
-        ]
-        self.remove_patterns = [
-            re.compile(pattern, re.IGNORECASE)
-            for pattern in self.config.get("filename_cleaner.remove_patterns", [
-                r'\[([^]]*?(?:Raws|Sub|ASW|HEVC)[^]]*?)\]',
-                r'\[([^]]+)\]',
-                r'\([^)]*\)',
-                r'\d{3,4}[pP]',
-                r'\d+x\d+',
-                r'[BH]D',
-                r'(?:H|x|X)\.?26[45]',
-                r'HEVC',
-                r'[xX][vV][iI][dD]',
-                r'10bit',
-                r'8bit',
-                r'AC3[\s._-]*(?:2ch|5\.1|2\.0)',
-                r'AAC(?:\d?\.?\d)?',
-                r'MP3',
-                r'FLAC',
-                r'DTS',
-                r'(?:ASS|SSA|SRT)',
-                r'(?:KOR|ENG|JAP|JPN|CHN)(?:[\s._-]|$)',
-                r'BluRay',
-                r'WEB-DL',
-                r'HDTV',
-                r'WEBRip',
-                r'BDRip',
-                r'DVDRip',
-                r'CD\d{1,2}',
-                r'TV(?=\s|$)',
-                r'[\s._-]v\d(?=[\s._-]|$)',
-                r'_T\d+$',
-            ])
-        ]
-        self.year_pattern = re.compile(r'(?<!\d)(19\d{2}|20\d{2})(?!\d)')
-        self.movie_keywords = ['movie', 'film', 'theatrical', 'ova', 'special']
-
-    @staticmethod
-    def refine_title(raw: str) -> str:
-        """캐시된 제목 정제 함수 사용"""
-        return _cached_title_refine(raw)
-
+    """파일명 정제 클래스 (성능 최적화 버전)"""
+    
     @staticmethod
     def clean_filename_static(file_path):
         """
@@ -132,31 +106,81 @@ class FileCleaner:
         title = meta.get('title', '')
         clean_title = _cached_title_refine(title) if title else filename_stem
         
-        # 결과에 정제된 제목 추가
-        meta = dict(meta)  # 캐시된 결과를 복사하여 수정
-        meta['clean_title'] = clean_title
-        meta['original_filename'] = str(file_path)
+        # 시즌 정보 처리 (GuessIt이 리스트로 반환하는 경우 처리)
+        season = meta.get('season', 1)
+        if isinstance(season, list):
+            season = season[0] if season else 1  # 리스트면 첫 번째 값 사용
+        try:
+            season = int(season)
+        except (ValueError, TypeError):
+            season = 1  # 변환 실패 시 기본값
         
-        return meta
-
-    def clean_filename(self, file_path: Path) -> CleanResult:
-        """
-        기존 인스턴스 메서드: 내부적으로 static 버전 호출
-        """
-        return FileCleaner.clean_filename_static(file_path) 
-
-def clean_filename_mp(file_path):
-    from guessit import guessit
-    import re
-    # 1차 guessit
-    meta = guessit(file_path)
-    # 2차 정제
-    title = meta.get('title', '')
-    ORDINAL = re.compile(r'\b\d+(?:st|nd|rd|th)\b', re.I)
-    META_TOKENS = re.compile(r'\b(?:TV|WEB|BD(?:Rip)?|BluRay|OVA|ReRip)\b', re.I)
-    txt = ORDINAL.sub('', title)
-    txt = META_TOKENS.sub('', txt)
-    txt = re.sub(r'\s{2,}', ' ', txt)
-    clean_title = txt.strip().title()
-    meta['clean_title'] = clean_title
-    return meta 
+        # 연도 정보 처리
+        year = meta.get('year')
+        if year is not None:
+            try:
+                year = int(year)
+            except (ValueError, TypeError):
+                year = None
+        
+        # 연도-시즌 혼동 문제 해결
+        # 시즌이 1900년 이상이고 연도와 동일하면 연도가 시즌으로 잘못 인식된 것
+        if season >= 1900 and year and season == year:
+            # 제목에서 시즌 정보 추출 시도
+            title_season = _extract_season_from_title(clean_title)
+            if title_season:
+                season = title_season
+                # 로깅
+                try:
+                    import logging
+                    logger = logging.getLogger("animesorter.file_cleaner")
+                    logger.info(f"[FileCleaner] Year-season confusion resolved using title: "
+                               f"'{clean_title}' → season {season}")
+                except:
+                    pass
+            else:
+                # 제목에서 시즌을 찾지 못하면 기본값 1 사용
+                season = 1
+                # 로깅
+                try:
+                    import logging
+                    logger = logging.getLogger("animesorter.file_cleaner")
+                    logger.info(f"[FileCleaner] Year-season confusion detected in '{filename_stem}': "
+                               f"season {year} corrected to 1 (no season found in title)")
+                except:
+                    pass
+        
+        # GuessIt이 시즌을 인식하지 못한 경우 제목에서 추출 시도
+        elif season == 1 and meta.get('season') is None:
+            title_season = _extract_season_from_title(clean_title)
+            if title_season:
+                season = title_season
+                # 로깅
+                try:
+                    import logging
+                    logger = logging.getLogger("animesorter.file_cleaner")
+                    logger.info(f"[FileCleaner] Season extracted from title: "
+                               f"'{clean_title}' → season {season}")
+                except:
+                    pass
+        
+        # 에피소드 정보 처리 (GuessIt이 리스트로 반환하는 경우 처리)
+        episode = meta.get('episode')
+        if isinstance(episode, list):
+            episode = episode[0] if episode else None  # 리스트면 첫 번째 값 사용
+        if episode is not None:
+            try:
+                episode = int(episode)
+            except (ValueError, TypeError):
+                episode = None  # 변환 실패 시 None
+        
+        # CleanResult 객체 생성
+        return CleanResult(
+            title=clean_title,
+            original_filename=file_path,
+            season=season,
+            episode=episode,
+            year=year,
+            is_movie=meta.get('type') == 'movie',
+            extra_info=dict(meta)  # 원본 GuessIt 결과 보존
+        ) 

@@ -428,7 +428,7 @@ class MainWindow(QMainWindow):
         self.config = ConfigManager()
         
         # 파일명 정제 유틸리티 초기화
-        self.file_cleaner = FileCleaner(self.config)
+        self.file_cleaner = FileCleaner()
         
         # TMDBProvider 초기화
         self.tmdb_provider = TMDBProvider(
