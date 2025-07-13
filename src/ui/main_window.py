@@ -222,9 +222,6 @@ class FileScanWorker(QRunnable):
             ext_type_list.append(is_media)
         results = [None] * len(file_name_list)
         try:
-            # QRunnable(이미 QThreadPool에서 실행) 내부에서 ThreadPoolExecutor를 사용할 때
-            # 반드시 max_workers 제한 필요. 중첩 풀 구조는 피하고, 필요시 QThreadPool 재사용 권장.
-            # (현재는 I/O-bound라 ThreadPoolExecutor로 충분, CPU-bound면 ProcessPoolExecutor 고려)
             with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="cleaner") as executor:
                 future_to_idx = {executor.submit(FileCleaner.clean_filename_static, file_name_list[i]): i for i in range(len(file_name_list)) if ext_type_list[i]}
                 for future in as_completed(future_to_idx):
