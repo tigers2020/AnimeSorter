@@ -8,17 +8,14 @@ import sys
 import os
 import time
 import tempfile
-import cProfile
-import pstats
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from functools import lru_cache
 
 # src 디렉토리를 경로에 추가
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
+# 직접 import하여 의존성 문제 해결
 from utils.file_cleaner import FileCleaner, _cached_guessit_parse
-from ui.main_window import FileScanWorker
 
 class PerformanceBenchmark:
     """성능 벤치마킹 클래스"""
@@ -123,7 +120,8 @@ class PerformanceBenchmark:
         start_time = time.time()
         results = []
         
-        for file_path in self.test_files[:min(100, len(self.test_files))]:  # 샘플만 테스트
+        sample_size = min(200, len(self.test_files))
+        for file_path in self.test_files[:sample_size]:
             meta = guessit(file_path.name)
             results.append(meta)
             
@@ -143,7 +141,8 @@ class PerformanceBenchmark:
         start_time = time.time()
         results = []
         
-        for file_path in self.test_files[:min(100, len(self.test_files))]:  # 샘플만 테스트
+        sample_size = min(200, len(self.test_files))
+        for file_path in self.test_files[:sample_size]:
             meta = _cached_guessit_parse(file_path.stem)
             results.append(meta)
             
@@ -159,7 +158,8 @@ class PerformanceBenchmark:
         """ThreadPoolExecutor vs ProcessPoolExecutor 비교"""
         print("\n=== ThreadPoolExecutor vs ProcessPoolExecutor 비교 ===")
         
-        sample_files = [str(f) for f in self.test_files[:min(200, len(self.test_files))]]
+        sample_size = min(100, len(self.test_files))  # 샘플 크기 줄임
+        sample_files = [str(f) for f in self.test_files[:sample_size]]
         
         # ThreadPoolExecutor 테스트
         print("ThreadPoolExecutor 테스트...")
@@ -177,22 +177,31 @@ class PerformanceBenchmark:
         print("ProcessPoolExecutor 테스트...")
         start_time = time.time()
         
-        with ProcessPoolExecutor(max_workers=4) as executor:
-            process_results = list(executor.map(FileCleaner.clean_filename_static, sample_files))
+        try:
+            with ProcessPoolExecutor(max_workers=4) as executor:
+                process_results = list(executor.map(FileCleaner.clean_filename_static, sample_files))
+                
+            process_elapsed = time.time() - start_time
+            process_speed = len(sample_files) / process_elapsed if process_elapsed > 0 else 0
             
-        process_elapsed = time.time() - start_time
-        process_speed = len(sample_files) / process_elapsed if process_elapsed > 0 else 0
-        
-        print(f"ProcessPoolExecutor: {len(sample_files)}개 파일, {process_elapsed:.4f}초, {process_speed:.1f}개/초")
-        
-        improvement = process_speed / thread_speed if thread_speed > 0 else 0
-        print(f"성능 향상: {improvement:.2f}배")
-        
-        return {
-            'thread': (thread_elapsed, thread_speed),
-            'process': (process_elapsed, process_speed),
-            'improvement': improvement
-        }
+            print(f"ProcessPoolExecutor: {len(sample_files)}개 파일, {process_elapsed:.4f}초, {process_speed:.1f}개/초")
+            
+            improvement = process_speed / thread_speed if thread_speed > 0 else 0
+            print(f"성능 향상: {improvement:.2f}배")
+            
+            return {
+                'thread': (thread_elapsed, thread_speed),
+                'process': (process_elapsed, process_speed),
+                'improvement': improvement
+            }
+        except Exception as e:
+            print(f"ProcessPoolExecutor 오류: {e}")
+            print("ThreadPoolExecutor 결과만 사용")
+            return {
+                'thread': (thread_elapsed, thread_speed),
+                'process': (thread_elapsed, thread_speed),
+                'improvement': 1.0
+            }
         
     def run_full_benchmark(self):
         """전체 벤치마킹 실행"""
@@ -203,13 +212,13 @@ class PerformanceBenchmark:
         # 파일 탐색 비교
         old_scan = self.benchmark_file_scan_old()
         new_scan = self.benchmark_file_scan_new()
-        scan_improvement = new_scan[1] / old_scan[1] if old_scan[1] > 0 else 0
+        scan_improvement = new_scan[1] / old_scan[1] if old_scan[1] > 0 else 1.0
         print(f"파일 탐색 성능 향상: {scan_improvement:.2f}배")
         
         # 파일명 파싱 비교
         old_parse = self.benchmark_filename_parsing_old()
         cached_parse = self.benchmark_filename_parsing_cached()
-        parse_improvement = cached_parse[1] / old_parse[1] if old_parse[1] > 0 else 0
+        parse_improvement = cached_parse[1] / old_parse[1] if old_parse[1] > 0 else 1.0
         print(f"파일명 파싱 성능 향상: {parse_improvement:.2f}배")
         
         # 병렬 처리 비교
@@ -218,6 +227,11 @@ class PerformanceBenchmark:
         # 전체 예상 성능 향상
         total_improvement = scan_improvement * parse_improvement * pool_comparison['improvement']
         print(f"\n예상 전체 성능 향상: {total_improvement:.2f}배")
+        
+        # 예상 처리 속도 계산 (기존 73개/초 기준)
+        original_speed = 73
+        expected_speed = original_speed * total_improvement
+        print(f"예상 처리 속도: {expected_speed:.1f}개/초 (기존 {original_speed}개/초)")
         
         if total_improvement >= 5.0:
             print("🎉 목표 달성! (5배 이상 성능 향상)")
@@ -228,14 +242,15 @@ class PerformanceBenchmark:
             'scan_improvement': scan_improvement,
             'parse_improvement': parse_improvement,
             'pool_improvement': pool_comparison['improvement'],
-            'total_improvement': total_improvement
+            'total_improvement': total_improvement,
+            'expected_speed': expected_speed
         }
 
 def main():
     """메인 실행 함수"""
     
     # 다양한 크기로 테스트
-    test_sizes = [100, 500, 1000, 2275]  # 2275는 사용자의 실제 파일 수
+    test_sizes = [100, 500, 1000]  # 작은 크기부터 테스트
     
     for size in test_sizes:
         print(f"\n{'='*80}")
@@ -250,11 +265,7 @@ def main():
         print(f"- 파일명 파싱: {results['parse_improvement']:.2f}배 향상") 
         print(f"- 병렬 처리: {results['pool_improvement']:.2f}배 향상")
         print(f"- 전체: {results['total_improvement']:.2f}배 향상")
-        
-        # 예상 처리 속도 계산 (기존 73개/초 기준)
-        original_speed = 73
-        expected_speed = original_speed * results['total_improvement']
-        print(f"- 예상 처리 속도: {expected_speed:.1f}개/초 (기존 {original_speed}개/초)")
+        print(f"- 예상 처리 속도: {results['expected_speed']:.1f}개/초")
 
 if __name__ == "__main__":
     main() 

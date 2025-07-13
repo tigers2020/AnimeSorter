@@ -206,15 +206,20 @@ class FileScanWorker(QRunnable):
         import os
         import time
         import threading
-        from concurrent.futures import ProcessPoolExecutor, as_completed
+        from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
         
         MAX_WORKERS = min(8, os.cpu_count() or 4)
         start_time = time.time()
         
-        self.signals.log.emit(f"[벤치마크] 파일명 정제 및 그룹핑 시작: {len(self.file_paths)}개 파일 (프로세스 풀: {MAX_WORKERS}개)")
+        total = len(self.file_paths)
+        
+        # 적응형 병렬 처리 전략: 파일 수에 따라 최적 방법 선택
+        use_process_pool = total > 500  # 500개 이상일 때만 ProcessPoolExecutor 사용
+        pool_type = "프로세스 풀" if use_process_pool else "스레드 풀"
+        
+        self.signals.log.emit(f"[벤치마크] 파일명 정제 및 그룹핑 시작: {total}개 파일 ({pool_type}: {MAX_WORKERS}개)")
         
         grouped_files = {}
-        total = len(self.file_paths)
         video_exts, subtitle_exts = self._get_ext_lists()
         clean_cache = {}
         file_name_list = []
@@ -236,7 +241,7 @@ class FileScanWorker(QRunnable):
         
         results = [None] * len(file_name_list)
         
-        # 2단계: ProcessPoolExecutor를 사용한 병렬 파일명 정제 (GIL 우회)
+        # 2단계: 적응형 병렬 파일명 정제
         media_files_count = sum(ext_type_list)
         completed_count = 0
         progress_lock = threading.Lock()
@@ -247,57 +252,85 @@ class FileScanWorker(QRunnable):
             with progress_lock:
                 completed_count += 1
                 progress = 10 + int((completed_count / media_files_count) * 70)  # 10-80% 범위
-                self.signals.progress.emit(progress, f"파일명 정제 중... ({completed_count}/{media_files_count}) [프로세스 풀]")
+                self.signals.progress.emit(progress, f"파일명 정제 중... ({completed_count}/{media_files_count}) [{pool_type}]")
         
-        self.signals.progress.emit(10, f"파일명 정제 시작... (0/{media_files_count}) [프로세스 풀]")
+        self.signals.progress.emit(10, f"파일명 정제 시작... (0/{media_files_count}) [{pool_type}]")
         
         try:
-            # ProcessPoolExecutor 사용 (GIL 우회, 진정한 병렬 처리)
-            with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                future_to_idx = {}
-                media_files = []
-                media_indices = []
-                
-                # 미디어 파일만 추출하여 배치 처리
-                for i in range(len(file_name_list)):
-                    if ext_type_list[i]:
-                        media_files.append(file_name_list[i])
-                        media_indices.append(i)
-                
-                # 청크 단위로 제출하여 프로세스 간 통신 오버헤드 최소화
-                chunk_size = max(1, len(media_files) // (MAX_WORKERS * 4))
-                self.signals.log.emit(f"[최적화] 청크 크기: {chunk_size}, 총 {len(media_files)}개 파일을 {MAX_WORKERS}개 프로세스로 처리")
-                
-                # 배치 작업 제출
-                for i in range(0, len(media_files), chunk_size):
-                    if self._abort:
-                        break
-                    chunk_files = media_files[i:i+chunk_size]
-                    chunk_indices = media_indices[i:i+chunk_size]
+            if use_process_pool:
+                # 대용량 파일: ProcessPoolExecutor 사용 (GIL 우회)
+                with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                    future_to_idx = {}
+                    media_files = []
+                    media_indices = []
                     
-                    for j, (file_path, original_idx) in enumerate(zip(chunk_files, chunk_indices)):
-                        future = executor.submit(FileCleaner.clean_filename_static, file_path)
-                        future_to_idx[future] = original_idx
-                
-                # 완료된 작업 처리 (실시간 진행률 업데이트)
-                for future in as_completed(future_to_idx):
-                    if self._abort:
-                        self.signals.log.emit("[중단] 파일 정제 프로세스 풀 작업이 취소되었습니다.")
-                        self.signals.finished.emit()
-                        return
+                    # 미디어 파일만 추출하여 배치 처리
+                    for i in range(len(file_name_list)):
+                        if ext_type_list[i]:
+                            media_files.append(file_name_list[i])
+                            media_indices.append(i)
+                    
+                    # 청크 단위로 제출하여 프로세스 간 통신 오버헤드 최소화
+                    chunk_size = max(16, len(media_files) // (MAX_WORKERS * 2))  # 더 큰 청크 사용
+                    self.signals.log.emit(f"[최적화] 청크 크기: {chunk_size}, 총 {len(media_files)}개 파일을 {MAX_WORKERS}개 프로세스로 처리")
+                    
+                    # 배치 작업 제출
+                    for i in range(0, len(media_files), chunk_size):
+                        if self._abort:
+                            break
+                        chunk_files = media_files[i:i+chunk_size]
+                        chunk_indices = media_indices[i:i+chunk_size]
                         
-                    idx = future_to_idx[future]
-                    try:
-                        clean = future.result()
-                        results[idx] = clean
-                        clean_cache[file_name_list[idx]] = clean
-                        update_progress()  # 실시간 진행률 업데이트
-                    except Exception as e:
-                        self.signals.log.emit(f"[프로세스 풀] {file_name_list[idx]}: 병렬 정제 오류: {e}")
-                        update_progress()  # 오류가 있어도 진행률 업데이트
+                        for j, (file_path, original_idx) in enumerate(zip(chunk_files, chunk_indices)):
+                            future = executor.submit(FileCleaner.clean_filename_static, file_path)
+                            future_to_idx[future] = original_idx
+                    
+                    # 완료된 작업 처리
+                    for future in as_completed(future_to_idx):
+                        if self._abort:
+                            self.signals.log.emit("[중단] 파일 정제 프로세스 풀 작업이 취소되었습니다.")
+                            self.signals.finished.emit()
+                            return
+                            
+                        idx = future_to_idx[future]
+                        try:
+                            clean = future.result()
+                            results[idx] = clean
+                            clean_cache[file_name_list[idx]] = clean
+                            update_progress()
+                        except Exception as e:
+                            self.signals.log.emit(f"[프로세스 풀] {file_name_list[idx]}: 병렬 정제 오류: {e}")
+                            update_progress()
+            else:
+                # 소용량 파일: ThreadPoolExecutor 사용 (오버헤드 최소)
+                with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="cleaner") as executor:
+                    future_to_idx = {}
+                    
+                    # 미디어 파일만 병렬 처리 제출
+                    for i in range(len(file_name_list)):
+                        if ext_type_list[i]:
+                            future = executor.submit(FileCleaner.clean_filename_static, file_name_list[i])
+                            future_to_idx[future] = i
+                    
+                    # 완료된 작업 처리 (실시간 진행률 업데이트)
+                    for future in as_completed(future_to_idx):
+                        if self._abort:
+                            self.signals.log.emit("[중단] 파일 정제 스레드 풀 작업이 취소되었습니다.")
+                            self.signals.finished.emit()
+                            return
+                            
+                        idx = future_to_idx[future]
+                        try:
+                            clean = future.result()
+                            results[idx] = clean
+                            clean_cache[file_name_list[idx]] = clean
+                            update_progress()  # 실시간 진행률 업데이트
+                        except Exception as e:
+                            self.signals.log.emit(f"[스레드 풀] {file_name_list[idx]}: 병렬 정제 오류: {e}")
+                            update_progress()  # 오류가 있어도 진행률 업데이트
                         
         except Exception as e:
-            self.signals.log.emit(f"프로세스 풀 오류: {e}, 단일 프로세스 fallback")
+            self.signals.log.emit(f"{pool_type} 오류: {e}, 단일 프로세스 fallback")
             self.signals.progress.emit(15, "단일 프로세스로 파일명 정제 중...")
             
             # 단일 프로세스 fallback (진행률 표시)
@@ -377,7 +410,7 @@ class FileScanWorker(QRunnable):
         # 완료
         elapsed = time.time() - start_time
         speed = total / elapsed if elapsed > 0 else 0
-        self.signals.log.emit(f"[벤치마크] 그룹핑 완료: {total}개 파일, {elapsed:.2f}초, 평균 {speed:.2f}개/초 [프로세스 풀 최적화]")
+        self.signals.log.emit(f"[벤치마크] 그룹핑 완료: {total}개 파일, {elapsed:.2f}초, 평균 {speed:.2f}개/초 [{pool_type} 최적화]")
         self.signals.progress.emit(100, f"완료! {total}개 파일 처리됨 ({speed:.1f}개/초)")
         
         self.signals.result.emit(grouped_files)
