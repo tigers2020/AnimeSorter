@@ -205,44 +205,88 @@ class FileScanWorker(QRunnable):
     def run(self):
         import os
         import time
+        import threading
         MAX_WORKERS = min(8, os.cpu_count() or 4)
         start_time = time.time()
+        
         self.signals.log.emit(f"[벤치마크] 파일명 정제 및 그룹핑 시작: {len(self.file_paths)}개 파일")
+        
         grouped_files = {}
         total = len(self.file_paths)
         video_exts, subtitle_exts = self._get_ext_lists()
         clean_cache = {}
         file_name_list = []
         ext_type_list = []
+        
+        # 1단계: 파일 목록 준비 (즉시 진행률 표시)
+        self.signals.progress.emit(5, "파일 목록 준비 중...")
         for file_path in self.file_paths:
+            if self._abort:
+                self.signals.log.emit("[중단] 파일 목록 준비가 취소되었습니다.")
+                self.signals.finished.emit()
+                return
+                
             ext = Path(file_path).suffix.lower()
             file_name = str(file_path)
             is_media = ext in video_exts or ext in subtitle_exts
             file_name_list.append(file_name)
             ext_type_list.append(is_media)
+        
         results = [None] * len(file_name_list)
+        
+        # 2단계: 병렬 파일명 정제 (실시간 진행률 표시)
+        media_files_count = sum(ext_type_list)
+        completed_count = 0
+        progress_lock = threading.Lock()
+        
+        def update_progress():
+            """진행 상황 업데이트 (스레드 안전)"""
+            nonlocal completed_count
+            with progress_lock:
+                completed_count += 1
+                progress = 10 + int((completed_count / media_files_count) * 70)  # 10-80% 범위
+                self.signals.progress.emit(progress, f"파일명 정제 중... ({completed_count}/{media_files_count})")
+        
+        self.signals.progress.emit(10, f"파일명 정제 시작... (0/{media_files_count})")
+        
         try:
             with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="cleaner") as executor:
-                future_to_idx = {executor.submit(FileCleaner.clean_filename_static, file_name_list[i]): i for i in range(len(file_name_list)) if ext_type_list[i]}
+                future_to_idx = {}
+                
+                # 미디어 파일만 병렬 처리 제출
+                for i in range(len(file_name_list)):
+                    if ext_type_list[i]:
+                        future = executor.submit(FileCleaner.clean_filename_static, file_name_list[i])
+                        future_to_idx[future] = i
+                
+                # 완료된 작업 처리 (실시간 진행률 업데이트)
                 for future in as_completed(future_to_idx):
                     if self._abort:
                         self.signals.log.emit("[중단] 파일 정제 병렬 작업이 취소되었습니다.")
                         self.signals.finished.emit()
                         return
+                        
                     idx = future_to_idx[future]
                     try:
                         clean = future.result()
                         results[idx] = clean
                         clean_cache[file_name_list[idx]] = clean
+                        update_progress()  # 실시간 진행률 업데이트
                     except Exception as e:
                         self.signals.log.emit(f"[cleaner-thread] {file_name_list[idx]}: 병렬 정제 오류: {e}")
+                        update_progress()  # 오류가 있어도 진행률 업데이트
+                        
         except Exception as e:
             self.signals.log.emit(f"멀티스레딩 오류: {e}, 단일 프로세스 fallback")
+            self.signals.progress.emit(15, "단일 프로세스로 파일명 정제 중...")
+            
+            # 단일 프로세스 fallback (진행률 표시)
             for i, file_name in enumerate(file_name_list):
                 if self._abort:
                     self.signals.log.emit("[중단] 파일 정제 단일 작업이 취소되었습니다.")
                     self.signals.finished.emit()
                     return
+                    
                 if ext_type_list[i]:
                     try:
                         clean = FileCleaner.clean_filename_static(file_name)
@@ -250,12 +294,22 @@ class FileScanWorker(QRunnable):
                         clean_cache[file_name] = clean
                     except Exception as e:
                         self.signals.log.emit(f"{file_name}: 단일 정제 오류: {e}")
+                    
+                    # 단일 프로세스에서도 진행률 업데이트
+                    completed_count += 1
+                    progress = 15 + int((completed_count / media_files_count) * 65)  # 15-80% 범위
+                    self.signals.progress.emit(progress, f"파일명 정제 중... ({completed_count}/{media_files_count})")
+        
+        # 3단계: 비미디어 파일 처리 (빠른 진행률 표시)
+        self.signals.progress.emit(80, "비미디어 파일 처리 중...")
         from src.utils.file_cleaner import CleanResult
+        
         for i, (file_name, is_media) in enumerate(zip(file_name_list, ext_type_list)):
             if self._abort:
                 self.signals.log.emit("[중단] 그룹핑 작업이 취소되었습니다.")
                 self.signals.finished.emit()
                 return
+                
             if not is_media:
                 clean = CleanResult(
                     title="other",
@@ -268,13 +322,19 @@ class FileScanWorker(QRunnable):
                 )
                 results[i] = clean
                 clean_cache[file_name] = clean
+        
+        # 4단계: 그룹핑 (실시간 진행률 표시)
+        self.signals.progress.emit(85, "파일 그룹핑 시작...")
+        
         for idx, clean in enumerate(results):
             if self._abort:
                 self.signals.log.emit("[중단] 그룹핑 결과 처리 작업이 취소되었습니다.")
                 self.signals.finished.emit()
                 return
+                
             if clean is None:
                 continue
+                
             # dict/객체 모두 지원
             if isinstance(clean, dict):
                 clean_title = clean.get("title", "")
@@ -282,14 +342,24 @@ class FileScanWorker(QRunnable):
             else:
                 clean_title = getattr(clean, "title", "")
                 year = getattr(clean, "year", None)
+                
             key = (clean_title.strip().lower(), year)
             grouped_files.setdefault(key, []).append(clean)
-            if idx % max(1, total // 10) == 0 or idx == total - 1:
+            
+            # 그룹핑 진행률 업데이트 (85-100% 범위)
+            progress = 85 + int((idx + 1) / total * 15)
+            self.signals.progress.emit(progress, f"그룹핑 중... ({idx+1}/{total})")
+            
+            # 로그는 덜 자주 출력 (성능 최적화)
+            if idx % max(1, total // 20) == 0 or idx == total - 1:
                 self.signals.log.emit(f"[진행] {idx+1}/{total} 파일 그룹핑 중...")
-            self.signals.progress.emit(int((idx+1)/total*100), f"{idx+1}/{total} 파일 처리 중...")
+        
+        # 완료
         elapsed = time.time() - start_time
         speed = total / elapsed if elapsed > 0 else 0
         self.signals.log.emit(f"[벤치마크] 그룹핑 완료: {total}개 파일, {elapsed:.2f}초, 평균 {speed:.2f}개/초")
+        self.signals.progress.emit(100, f"완료! {total}개 파일 처리됨")
+        
         self.signals.result.emit(grouped_files)
         self.signals.finished.emit()
 
