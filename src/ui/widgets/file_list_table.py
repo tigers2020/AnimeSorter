@@ -1,9 +1,13 @@
 from pathlib import Path
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QApplication
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QPalette, QColor
 
 class FileListTable(QTableWidget):
     """파일 목록 테이블 위젯"""
+    
+    # 드래그 앤 드롭 시그널 추가
+    files_dropped = pyqtSignal(list)  # 드롭된 파일 경로 목록
     
     COLUMNS = [
         ("파일명", 250),
@@ -21,6 +25,7 @@ class FileListTable(QTableWidget):
         super().__init__(parent)
         self._setup_ui()
         self.file_paths = []  # 파일 경로 저장
+        self._drag_over = False  # 드래그 오버 상태
         
     def _setup_ui(self):
         """UI 초기화"""
@@ -40,6 +45,9 @@ class FileListTable(QTableWidget):
         # stretch 모드 제거, 0번 컬럼도 Interactive로 (폭은 add_file에서만 관리)
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.verticalHeader().setVisible(False)
+        
+        # 드래그 앤 드롭 활성화
+        self.setAcceptDrops(True)
         
     def clear_files(self):
         """파일 목록 초기화"""
@@ -109,4 +117,79 @@ class FileListTable(QTableWidget):
         self.setItem(row, 7, QTableWidgetItem(overview))
         # 이동 위치
         target_path = metadata.get("target_path") or ""
-        self.setItem(row, 8, QTableWidgetItem(str(target_path))) 
+        self.setItem(row, 8, QTableWidgetItem(str(target_path)))
+        
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        """드래그 진입 이벤트"""
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+            self._drag_over = True
+            self._update_drag_visual_feedback(True)
+        else:
+            event.ignore()
+            
+    def dragMoveEvent(self, event: QDragMoveEvent):
+        """드래그 이동 이벤트"""
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+            
+    def dragLeaveEvent(self, event):
+        """드래그 떠남 이벤트"""
+        self._drag_over = False
+        self._update_drag_visual_feedback(False)
+        super().dragLeaveEvent(event)
+        
+    def dropEvent(self, event: QDropEvent):
+        """드롭 이벤트"""
+        self._drag_over = False
+        self._update_drag_visual_feedback(False)
+        
+        urls = event.mimeData().urls()
+        if not urls:
+            return
+            
+        # 드롭된 파일 경로 수집
+        dropped_files = []
+        for url in urls:
+            local_path = url.toLocalFile()
+            if local_path:
+                path = Path(local_path)
+                if path.is_file():
+                    dropped_files.append(path)
+                elif path.is_dir():
+                    # 폴더인 경우 하위 파일들을 재귀적으로 수집
+                    dropped_files.extend(self._collect_files_from_directory(path))
+                    
+        if dropped_files:
+            # 시그널 발생
+            self.files_dropped.emit(dropped_files)
+            
+    def _collect_files_from_directory(self, directory: Path):
+        """디렉토리에서 비디오 파일들을 재귀적으로 수집"""
+        video_extensions = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.flv'}
+        files = []
+        
+        try:
+            for item in directory.rglob('*'):
+                if item.is_file() and item.suffix.lower() in video_extensions:
+                    files.append(item)
+        except PermissionError:
+            # 권한 오류 무시
+            pass
+            
+        return files
+        
+    def _update_drag_visual_feedback(self, is_dragging: bool):
+        """드래그 시각적 피드백 업데이트"""
+        if is_dragging:
+            # 드래그 오버 시 배경색 변경
+            palette = self.palette()
+            palette.setColor(QPalette.ColorRole.Base, QColor(240, 248, 255))  # 연한 파란색
+            self.setPalette(palette)
+        else:
+            # 원래 배경색으로 복원
+            palette = self.palette()
+            palette.setColor(QPalette.ColorRole.Base, QApplication.palette().color(QPalette.ColorRole.Base))
+            self.setPalette(palette) 

@@ -678,6 +678,9 @@ class MainWindow(QMainWindow):
         self.source_selector.path_edit.textChanged.connect(self._on_source_dir_changed)
         self.target_selector.path_edit.textChanged.connect(self._on_target_dir_changed)
         
+        # 파일 목록 테이블 드래그 앤 드롭 연결
+        self.file_list.files_dropped.connect(self._on_files_dropped)
+        
     def _setup_autosave(self):
         """자동 저장 타이머 설정"""
         self.autosave_timer = QTimer(self)
@@ -1739,12 +1742,51 @@ class MainWindow(QMainWindow):
                 self.status_panel.set_progress(0, "취소됨")
         else:
             self.status_panel.set_status("취소할 작업이 없습니다.")
+            
+    def _on_files_dropped(self, dropped_files: list):
+        """파일 목록 테이블에 드롭된 파일들 처리"""
+        if not dropped_files:
+            return
+            
+        # 비디오 파일 확장자 필터링
+        video_extensions = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.flv'}
+        video_files = [f for f in dropped_files if f.suffix.lower() in video_extensions]
+        
+        if not video_files:
+            QMessageBox.information(self, "안내", "드롭된 파일 중 비디오 파일이 없습니다.")
+            return
+            
+        # 기존 파일 목록에 추가
+        current_files = getattr(self, 'file_paths', [])
+        new_files = [f for f in video_files if f not in current_files]
+        
+        if not new_files:
+            QMessageBox.information(self, "안내", "모든 파일이 이미 목록에 있습니다.")
+            return
+            
+        # 파일 목록 업데이트
+        if not hasattr(self, 'file_paths'):
+            self.file_paths = []
+        self.file_paths.extend(new_files)
+        
+        # 테이블에 새 파일들 추가
+        for file_path in new_files:
+            self.file_list.add_file(file_path)
+            
+        # 상태 업데이트
+        self.status_panel.log_message(f"드롭된 파일 {len(new_files)}개가 목록에 추가되었습니다.")
+        self.status_panel.set_status(f"{len(new_files)}개 파일 추가됨")
+        
+        # 동기화 버튼 활성화
+        if self.file_list.rowCount() > 0:
+            self.control_panel.sync_button.setEnabled(True)
     
     def dragEnterEvent(self, event):
         """드래그 진입 이벤트"""
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
             self.logger.debug("드래그 진입: 파일/폴더 감지됨")
+            self._update_drag_visual_feedback(True)
         else:
             event.ignore()
     
@@ -1755,8 +1797,15 @@ class MainWindow(QMainWindow):
         else:
             event.ignore()
     
+    def dragLeaveEvent(self, event):
+        """드래그 떠남 이벤트"""
+        self._update_drag_visual_feedback(False)
+        super().dragLeaveEvent(event)
+    
     def dropEvent(self, event):
         """드롭 이벤트"""
+        self._update_drag_visual_feedback(False)
+        
         urls = event.mimeData().urls()
         
         if not urls:
@@ -1785,6 +1834,19 @@ class MainWindow(QMainWindow):
         else:
             self.logger.warning(f"드롭된 경로가 유효하지 않음: {path}")
             self.status_panel.set_status("유효하지 않은 경로입니다")
+            
+    def _update_drag_visual_feedback(self, is_dragging: bool):
+        """드래그 시각적 피드백 업데이트"""
+        if is_dragging:
+            # 드래그 오버 시 창 제목 변경
+            original_title = getattr(self, '_original_title', self.windowTitle())
+            if not hasattr(self, '_original_title'):
+                self._original_title = original_title
+            self.setWindowTitle(f"{original_title} - 파일을 여기에 드롭하세요")
+        else:
+            # 원래 제목으로 복원
+            if hasattr(self, '_original_title'):
+                self.setWindowTitle(self._original_title)
         
     def closeEvent(self, event):
         """창 닫기 이벤트 처리"""
