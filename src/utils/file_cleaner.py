@@ -16,6 +16,9 @@ class CleanResult:
     is_movie: bool = False
     extra_info: Dict[str, Any] = field(default_factory=dict)
 
+# 스페셜 에피소드 패턴 (SxxSPyy 형식)
+SPECIAL_PATTERN = re.compile(r'(?i)s(?P<season>\d{1,2})sp(?P<special>\d{1,2})')
+
 # 멀티프로세싱을 위한 완전히 독립적인 함수들 (캐싱 없음)
 def parse_filename_standalone_simple(path: Union[str, Path]) -> CleanResult:
     """
@@ -30,6 +33,43 @@ def parse_filename_standalone_simple(path: Union[str, Path]) -> CleanResult:
     filename = Path(path).name
     stem = Path(path).stem
     
+    # 0단계: 스페셜 에피소드 패턴 사전 검사
+    special_match = SPECIAL_PATTERN.search(stem)
+    if special_match:
+        # 스페셜 에피소드 처리: 시즌을 0으로 변환
+        season_num = int(special_match.group('season'))
+        special_num = int(special_match.group('special'))
+        
+        # 스페셜 패턴을 제거한 제목 추출
+        title = SPECIAL_PATTERN.sub('', stem).strip()
+        title = re.sub(r'[._-]+', ' ', title).strip()
+        
+        # 기술 정보 제거 (먼저)
+        title = _remove_technical_info_simple(title)
+        title = _remove_release_groups_simple(title)
+        
+        # 스페셜 에피소드 제목 제거 (더 적극적으로)
+        title = _remove_special_episode_titles_simple(title)
+        
+        # 최종 정리
+        title = _final_cleanup_simple(title)
+        
+        return CleanResult(
+            title=title,
+            original_filename=path,
+            season=0,  # TMDB 시즌 0 스페셜 규칙
+            episode=special_num,
+            year=None,
+            is_movie=False,
+            extra_info={
+                "original_title": title,
+                "special": True,
+                "original_season": season_num,
+                "special_number": special_num,
+                "parser": "special_pattern"
+            }
+        )
+    
     # 1단계: Anitopy 파싱 (애니메이션 특화)
     anitopy_result = _anitopy_parse_simple(stem)
     
@@ -43,13 +83,28 @@ def parse_filename_standalone_simple(path: Union[str, Path]) -> CleanResult:
             parsed_data = guessit_result
             parser_used = "guessit"
         else:
-            # 두 파서 모두 실패 - 기본값으로 처리
-            parsed_data = {"title": stem, "raw_data": {}}
-            parser_used = "fallback"
+            # 두 파서 모두 실패 - 기본 정제만 수행
+            title = _remove_technical_info_simple(stem)
+            title = _remove_episode_titles_simple(title)
+            title = _remove_release_groups_simple(title)
+            title = _final_cleanup_simple(title)
+            
+            return CleanResult(
+                title=title,
+                original_filename=path,
+                season=1,
+                episode=None,
+                year=None,
+                is_movie=False,
+                extra_info={
+                    "original_title": stem,
+                    "parser": "fallback"
+                }
+            )
     
-    # 3단계: 데이터 정규화 및 정제
-    result = _normalize_and_clean_simple(parsed_data, filename)
-    result.extra_info["parser_used"] = parser_used
+    # 3단계: 정규화 및 정제
+    result = _normalize_and_clean_simple(parsed_data, path)
+    result.extra_info["parser"] = parser_used
     
     return result
 
@@ -184,7 +239,7 @@ def _remove_technical_info_simple(title: str) -> str:
         r'\b(480p|720p|1080p|1440p|2160p|4K|UHD)\b',
         r'\b(x264|x265|HEVC|AVC|H\.264|H\.265)\b',
         r'\b(AAC|AC3|FLAC|DTS|OPUS)\b',
-        r'\b(BluRay|WEB-DL|HDRip|BRRip|DVDRip)\b',
+        r'\b(BluRay|WEB-DL|WEB\s*DL|HDRip|BRRip|DVDRip)\b',
         r'\b(10bit|8bit)\b',
         r'\b(Subbed|Dubbed|Dual Audio)\b',
         r'\b(UNCENSORED|CENSORED)\b',
@@ -214,12 +269,45 @@ def _remove_technical_info_simple(title: str) -> str:
 
 def _remove_episode_titles_simple(title: str) -> str:
     """에피소드 제목 제거 (멀티프로세싱용)"""
-    # 에피소드 제목 패턴들
+    # 에피소드 제목 패턴들 (더 정확하게)
     patterns = [
         r'-\s*([^-]+?)\s*(?:\[|\(|\{|$)',
         r'「([^」]+)」',
         r'"([^"]+)"',
         r"'([^']+)'",
+        # 스페셜 에피소드 제목 패턴 (더 구체적으로)
+        r'\s+(The\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$',  # "The"로 시작하는 제목
+        r'\s+(A\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$',   # "A"로 시작하는 제목
+        r'\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){2,})\s*$',    # 3개 이상 단어로 구성된 제목
+    ]
+    
+    for pattern in patterns:
+        title = re.sub(pattern, '', title)
+    
+    return title
+
+def _remove_special_episode_titles_simple(title: str) -> str:
+    """스페셜 에피소드 제목 제거 (멀티프로세싱용, 더 적극적)"""
+    # 스페셜 에피소드 제목 패턴들 (더 적극적으로)
+    patterns = [
+        r'-\s*([^-]+?)\s*(?:\[|\(|\{|$)',
+        r'「([^」]+)」',
+        r'"([^"]+)"',
+        r"'([^']+)'",
+        # Doctor Who 스페셜 전용 패턴 (구체적으로)
+        r'\s+The\s+Star\s+Beast(?:\s|$)',
+        r'\s+The\s+Power\s+of\s+the\s+Doctor(?:\s|$)',
+        r'\s+Revolution\s+of\s+the\s+Daleks(?:\s|$)',
+        r'\s+Resolution(?:\s|$)',
+        r'\s+The\s+Return\s+of\s+Doctor\s+Mysterio(?:\s|$)',
+        r'\s+Last\s+Christmas(?:\s|$)',
+        r'\s+The\s+Time\s+of\s+the\s+Doctor(?:\s|$)',
+        r'\s+The\s+Snowmen(?:\s|$)',
+        r'\s+A\s+Christmas\s+Carol(?:\s|$)',
+        r'\s+The\s+End\s+of\s+Time(?:\s|$)',
+        # 일반적인 스페셜 에피소드 패턴
+        r'\s+(The\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){2,})\s*$',  # "The" + 3개 이상 단어
+        r'\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){3,})\s*$',    # 4개 이상 단어로 구성된 제목
     ]
     
     for pattern in patterns:
@@ -311,7 +399,7 @@ class FileCleaner:
         r'\b(480p|720p|1080p|1440p|2160p|4K|UHD)\b',
         r'\b(x264|x265|HEVC|AVC|H\.264|H\.265)\b',
         r'\b(AAC|AC3|FLAC|DTS|OPUS)\b',
-        r'\b(BluRay|WEB-DL|HDRip|BRRip|DVDRip)\b',
+        r'\b(BluRay|WEB-DL|WEB\s*DL|HDRip|BRRip|DVDRip)\b',
         r'\b(10bit|8bit)\b',
         r'\b(Subbed|Dubbed|Dual Audio)\b',
         r'\b(UNCENSORED|CENSORED)\b',

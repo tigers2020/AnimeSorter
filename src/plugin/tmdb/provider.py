@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional, Any, List
 from .api.client import TMDBClient, TMDBApiError
 from .api.endpoints import TMDBEndpoints
@@ -186,9 +187,46 @@ class TMDBProvider:
                 if attempt > 0:
                     self.logger.info(f"[TMDB] Fallback attempt {attempt}: '{search_title}'")
                 
-                # 1단계: search_multi로 후보들 찾기
-                multi_results = await self.endpoints.search_multi(search_title, year)
-                candidates = self._filter_and_sort_results(multi_results.get("results", []), search_title)
+                # 1단계: 여러 페이지에서 후보들 수집 (최대 3페이지, 60개 결과)
+                all_candidates = []
+                
+                # search_multi로 1-3페이지 수집
+                for page in range(1, 4):
+                    try:
+                        multi_results = await self.endpoints.search_multi(search_title, year, page=page)
+                        page_results = multi_results.get("results", [])
+                        if not page_results:
+                            break
+                        all_candidates.extend(page_results)
+                        self.logger.debug(f"[TMDB] Collected {len(page_results)} results from page {page}")
+                    except Exception as e:
+                        self.logger.warning(f"[TMDB] Failed to get page {page}: {e}")
+                        break
+                
+                # search_tv로도 1-2페이지 추가 수집 (TV 시리즈 특화)
+                for page in range(1, 3):
+                    try:
+                        tv_results = await self.endpoints.search_tv(search_title, year, page=page)
+                        page_results = tv_results.get("results", [])
+                        if not page_results:
+                            break
+                        all_candidates.extend(page_results)
+                        self.logger.debug(f"[TMDB] Collected {len(page_results)} TV results from page {page}")
+                    except Exception as e:
+                        self.logger.warning(f"[TMDB] Failed to get TV page {page}: {e}")
+                        break
+                
+                # 중복 제거 (ID 기준)
+                seen_ids = set()
+                unique_candidates = []
+                for candidate in all_candidates:
+                    candidate_id = candidate.get("id")
+                    if candidate_id and candidate_id not in seen_ids:
+                        seen_ids.add(candidate_id)
+                        unique_candidates.append(candidate)
+                
+                self.logger.info(f"[TMDB] Total unique candidates: {len(unique_candidates)}")
+                candidates = self._filter_and_sort_results(unique_candidates, search_title)
                 
                 if candidates:
                     # 2단계: 상위 후보들을 실제 detail API로 확인
@@ -346,31 +384,55 @@ class TMDBProvider:
         return results
 
     def _filter_and_sort_results(self, results: List[dict], query: str) -> List[dict]:
+        """
+        개선된 검색 결과 필터링 및 정렬
+        - 제목 유사도 + 금지 키워드 패널티 + popularity 기반 랭킹
+        - Doctor Who Extra, tvN스페셜 등의 잘못된 매핑 방지
+        """
         # 지원 미디어 타입만 필터
         filtered = [r for r in results if r.get("media_type") in ("tv", "movie")]
         
         if not filtered:
             return []
         
+        # 금지 키워드 패턴 (파생 프로그램, 스페셜 등)
+        BAD_KEYWORDS = re.compile(r'\b(extra|real\s*time|totally|behind|special|스페셜|특별|추가|리뷰|토크|인터뷰)\b', re.IGNORECASE)
+        
+        # 애니메이션 장르 ID
         ANIMATION_GENRE_ID = 16
         
+        # 최대 popularity 계산 (정규화용)
+        max_popularity = max((item.get("popularity", 0) for item in filtered), default=1)
+        
         def calculate_score(item):
-            # 제목 유사도(0~100)
             title_field = "name" if item.get("media_type") == "tv" else "title"
             title = item.get(title_field, "")
+            
+            # 1. 제목 유사도 (0~100)
             sim = int(SequenceMatcher(None, query.lower(), title.lower()).ratio() * 100)
             
-            # 인기도(0~10)
-            pop = min(10, int(item.get("popularity", 0) / 10))
+            # 2. 높은 유사도 보너스 (95% 이상)
+            if sim >= 95:
+                sim += 50
             
-            # media_type 기반 점수 (movie와 tv를 동등하게 처리)
-            base_score = sim + pop
+            # 3. 금지 키워드 패널티 (-30)
+            if BAD_KEYWORDS.search(title):
+                sim -= 30
+                self.logger.info(f"[TMDB] Penalty applied to: {title} (bad keyword)")
             
-            # 애니메이션 장르 보너스 (작은 보너스만)
+            # 4. popularity 정규화 (0~50)
+            pop_norm = int(50 * (item.get("popularity", 0) / max_popularity))
+            
+            # 5. 애니메이션 장르 보너스 (+5)
             if ANIMATION_GENRE_ID in item.get("genre_ids", []):
-                base_score += 5  # 작은 보너스만
+                pop_norm += 5
             
-            return base_score
+            total_score = sim + pop_norm
+            
+            # 디버깅 로그
+            self.logger.debug(f"[TMDB] Score breakdown for '{title}': similarity={sim}, popularity={pop_norm}, total={total_score}")
+            
+            return total_score
         
         # 모든 결과를 점수로 정렬
         scored_results = [(item, calculate_score(item)) for item in filtered]
@@ -378,11 +440,12 @@ class TMDBProvider:
         
         # 상위 결과들 로깅
         top_results = [item for item, _ in scored_results[:3]]
-        for item in top_results:
+        for i, item in enumerate(top_results):
             media_type = item.get("media_type", "unknown")
             title_field = "name" if media_type == "tv" else "title"
             title = item.get(title_field, "Unknown")
-            self.logger.info(f"[TMDB] Top result: {title} (media_type: {media_type})")
+            score = scored_results[i][1]
+            self.logger.info(f"[TMDB] Top result #{i+1}: {title} (media_type: {media_type}, score: {score})")
         
         return [item for item, _ in scored_results]
 

@@ -8,20 +8,20 @@ class TMDBEndpoints:
     def __init__(self, client: TMDBClient):
         self.client = client
 
-    async def search_multi(self, query: str, year: t.Optional[int] = None) -> dict:
-        params = {"query": query}
+    async def search_multi(self, query: str, year: t.Optional[int] = None, page: int = 1) -> dict:
+        params = {"query": query, "page": page}
         if year:
             params["year"] = year
         return await self.client.request("/search/multi", params)
 
-    async def search_tv(self, query: str, year: t.Optional[int] = None) -> dict:
-        params = {"query": query}
+    async def search_tv(self, query: str, year: t.Optional[int] = None, page: int = 1) -> dict:
+        params = {"query": query, "page": page}
         if year:
             params["first_air_date_year"] = year
         return await self.client.request("/search/tv", params)
 
-    async def search_movie(self, query: str, year: t.Optional[int] = None) -> dict:
-        params = {"query": query}
+    async def search_movie(self, query: str, year: t.Optional[int] = None, page: int = 1) -> dict:
+        params = {"query": query, "page": page}
         if year:
             params["year"] = year
         return await self.client.request("/search/movie", params)
