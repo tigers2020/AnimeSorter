@@ -234,32 +234,71 @@ def _is_movie_simple(parsed_data: dict, title: str) -> bool:
 
 def _remove_technical_info_simple(title: str) -> str:
     """기술적 정보 제거 (멀티프로세싱용)"""
-    # 기술적 정보 패턴들
+    # 기술 정보 패턴들 (강화됨)
     patterns = [
+        # 해상도
         r'\b(480p|720p|1080p|1440p|2160p|4K|UHD)\b',
+        # 코덱
         r'\b(x264|x265|HEVC|AVC|H\.264|H\.265)\b',
+        # 오디오
         r'\b(AAC|AC3|FLAC|DTS|OPUS)\b',
+        # 소스
         r'\b(BluRay|WEB-DL|WEB\s*DL|HDRip|BRRip|DVDRip)\b',
+        # 비트 깊이
         r'\b(10bit|8bit)\b',
+        # 자막/더빙
         r'\b(Subbed|Dubbed|Dual Audio)\b',
+        # 검열
         r'\b(UNCENSORED|CENSORED)\b',
+        # 배치
         r'\b(Complete|Batch)\b',
-        r'\b(OVA|OAD|ONA|Movie|Special)\b',
+        # 특별편 키워드 (강화됨)
+        r'\b(OVA|OAD|ONA|Movie|Special|스페셜|특별|추가)\b',
+        # 시즌/에피소드
         r'\b(Season|S\d+|Episode|E\d+)\b',
+        # 연도
+        r'\b(\d{4})\b',
+        # 에피소드 번호
         r'\b(EP?\d+|Episode\s*\d+)\b',
+        # 볼륨
         r'\b(Vol\.?\d+|Volume\s*\d+)\b',
+        # CD/Disc
         r'\b(CD\d+|Disc\s*\d+)\b',
+        # 릴리즈 품질
         r'\b(REPACK|PROPER|FINAL|REAL)\b',
+        # 편집 버전
         r'\b(REMASTERED|EXTENDED|DIRECTOR\'S CUT)\b',
         r'\b(UNCUT|CUT)\b',
+        # 다중
         r'\b(DUAL|MULTI)\b',
+        # 언어 코드
         r'\b(ENG|JPN|KOR|CHI)\b',
+        # 품질
         r'\b(HD|SD|LD)\b',
+        # 컨테이너
         r'\b(MP4|MKV|AVI|MOV|WMV|FLV)\b',
+        # 해시
         r'\b(CRC32|MD5|SHA1)\b',
+        # 압축
         r'\b(RAR|ZIP|7Z)\b',
+        # 압축 파일 파트
         r'\b(\.part\d+\.rar|\.r\d+)\b',
+        # 다중 자막
         r'\b(Multi-Subs|Multiple Subtitle)\b',
+        # 구문 단위 제거 (더 정확하게) - 개별 키워드보다 먼저
+        r'\bBehind\s+the\s+Scenes\b',
+        r'\bReal\s+Time\b',
+        r'\bMaking\s+of\b',
+        r'\bTotally\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b',  # "Totally Doctor Who" 같은 패턴
+        # Real Time 관련 추가 패턴
+        r'\bReal\s+Time\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b',  # "Real Time Doctor Who" 같은 패턴
+        r'\s+Time\b',  # "Time" 단독 제거 (Real Time 이후에만)
+        # 스핀오프/특별편 키워드 (새로 추가)
+        r'\b(Extra|Behind|Real\s*Time|Totally|Behind\s*the\s*Scenes|Making\s*of|Documentary|다큐|스페셜|특집|리뷰|토크|인터뷰)\b',
+        # Doctor Who 특별 키워드
+        r'\b(Doctor\s*Who\s*Extra|Doctor\s*Who\s*Behind|Doctor\s*Who\s*Totally|Doctor\s*Who\s*Real\s*Time)\b',
+        # 한국어 방송사 특별편
+        r'\b(tvN\s*스페셜|SBS\s*스페셜|KBS\s*스페셜|MBC\s*스페셜)\b',
     ]
     
     for pattern in patterns:

@@ -395,8 +395,27 @@ class TMDBProvider:
         if not filtered:
             return []
         
-        # 금지 키워드 패턴 (파생 프로그램, 스페셜 등)
-        BAD_KEYWORDS = re.compile(r'\b(extra|real\s*time|totally|behind|special|스페셜|특별|추가|리뷰|토크|인터뷰)\b', re.IGNORECASE)
+        # 강화된 금지 키워드 패턴 (파생 프로그램, 스페셜 등)
+        BAD_KEYWORDS = re.compile(r'\b(extra|real\s*time|totally|behind|special|스페셜|특별|추가|리뷰|토크|인터뷰|behind\s*the\s*scenes|making\s*of|documentary|다큐|스페셜|특집)\b', re.IGNORECASE)
+        
+        # Doctor Who 관련 특별 처리
+        DOCTOR_WHO_PATTERNS = [
+            re.compile(r'\bdoctor\s*who\s*extra\b', re.IGNORECASE),
+            re.compile(r'\bdoctor\s*who\s*behind\b', re.IGNORECASE),
+            re.compile(r'\bdoctor\s*who\s*totally\b', re.IGNORECASE),
+            re.compile(r'\bdoctor\s*who\s*real\s*time\b', re.IGNORECASE),
+        ]
+        
+        # 한국어 특별편 패턴
+        KOREAN_SPECIAL_PATTERNS = [
+            re.compile(r'\btvn\s*스페셜\b', re.IGNORECASE),
+            re.compile(r'\bsbs\s*스페셜\b', re.IGNORECASE),
+            re.compile(r'\bkbs\s*스페셜\b', re.IGNORECASE),
+            re.compile(r'\bmbc\s*스페셜\b', re.IGNORECASE),
+            re.compile(r'\b특별편\b'),
+            re.compile(r'\b특집\b'),
+            re.compile(r'\b추가편\b'),
+        ]
         
         # 애니메이션 장르 ID
         ANIMATION_GENRE_ID = 16
@@ -415,15 +434,29 @@ class TMDBProvider:
             if sim >= 95:
                 sim += 50
             
-            # 3. 금지 키워드 패널티 (-30)
+            # 3. 강화된 금지 키워드 패널티 (-50)
             if BAD_KEYWORDS.search(title):
-                sim -= 30
-                self.logger.info(f"[TMDB] Penalty applied to: {title} (bad keyword)")
+                sim -= 50
+                self.logger.info(f"[TMDB] Bad keyword penalty applied to: {title}")
             
-            # 4. popularity 정규화 (0~50)
+            # 4. Doctor Who 관련 특별 패널티 (-100)
+            for pattern in DOCTOR_WHO_PATTERNS:
+                if pattern.search(title):
+                    sim -= 100
+                    self.logger.info(f"[TMDB] Doctor Who spin-off penalty applied to: {title}")
+                    break
+            
+            # 5. 한국어 특별편 패널티 (-80)
+            for pattern in KOREAN_SPECIAL_PATTERNS:
+                if pattern.search(title):
+                    sim -= 80
+                    self.logger.info(f"[TMDB] Korean special penalty applied to: {title}")
+                    break
+            
+            # 6. popularity 정규화 (0~50)
             pop_norm = int(50 * (item.get("popularity", 0) / max_popularity))
             
-            # 5. 애니메이션 장르 보너스 (+5)
+            # 7. 애니메이션 장르 보너스 (+5)
             if ANIMATION_GENRE_ID in item.get("genre_ids", []):
                 pop_norm += 5
             
