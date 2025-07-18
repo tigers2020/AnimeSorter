@@ -140,7 +140,16 @@ class ThemeManager:
             margin-top: 1ex;
             padding-top: 10px;
         }
-        
+        #progress-step {
+            background-color: #232323;
+            border: 1px solid #444444;
+            border-radius: 4px;
+        }
+        #speed-meter, #eta-widget {
+            background-color: #232323;
+            border: 1px solid #444444;
+            border-radius: 5px;
+        }
         QGroupBox::title {
             subcontrol-origin: margin;
             left: 10px;
@@ -336,7 +345,16 @@ class ThemeManager:
             margin-top: 1ex;
             padding-top: 10px;
         }
-        
+        #progress-step {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        #speed-meter, #eta-widget {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
         QGroupBox::title {
             subcontrol-origin: margin;
             left: 10px;

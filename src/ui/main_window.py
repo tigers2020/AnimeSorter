@@ -237,8 +237,9 @@ class FileScanWorker(QRunnable):
 
     @staticmethod
     def _clean_filename_static(file_path_str):
-        # 순수 static method 직접 호출
-        return FileCleaner.clean_filename_static(file_path_str)
+        # 멀티프로세싱용 간단한 독립 함수 사용 (pickle 안전)
+        from src.utils.file_cleaner import parse_filename_standalone_simple
+        return parse_filename_standalone_simple(file_path_str)
 
     def run(self):
         import os
@@ -320,7 +321,7 @@ class FileScanWorker(QRunnable):
                         chunk_indices = media_indices[i:i+chunk_size]
                         
                         for j, (file_path, original_idx) in enumerate(zip(chunk_files, chunk_indices)):
-                            future = executor.submit(FileCleaner.clean_filename_static, file_path)
+                            future = executor.submit(self._clean_filename_static, file_path)
                             future_to_idx[future] = original_idx
                     
                     # 완료된 작업 처리
@@ -347,7 +348,7 @@ class FileScanWorker(QRunnable):
                     # 미디어 파일만 병렬 처리 제출
                     for i in range(len(file_name_list)):
                         if ext_type_list[i]:
-                            future = executor.submit(FileCleaner.clean_filename_static, file_name_list[i])
+                            future = executor.submit(self._clean_filename_static, file_name_list[i])
                             future_to_idx[future] = i
                     
                     # 완료된 작업 처리 (실시간 진행률 업데이트)
@@ -380,7 +381,7 @@ class FileScanWorker(QRunnable):
                     
                 if ext_type_list[i]:
                     try:
-                        clean = FileCleaner.clean_filename_static(file_name)
+                        clean = self._clean_filename_static(file_name)
                         results[i] = clean
                         clean_cache[file_name] = clean
                     except Exception as e:
@@ -601,6 +602,22 @@ class MainWindow(QMainWindow):
         toggle_shortcut = QShortcut(QKeySequence("Ctrl+T"), self)
         toggle_shortcut.activated.connect(self._toggle_theme)
         
+        # 추가 단축키 설정
+        open_folder_shortcut = QShortcut(QKeySequence("Ctrl+O"), self)
+        open_folder_shortcut.activated.connect(self._open_source_folder)
+        
+        save_settings_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        save_settings_shortcut.activated.connect(self._save_settings)
+        
+        refresh_shortcut = QShortcut(QKeySequence("F5"), self)
+        refresh_shortcut.activated.connect(self._scan_files)
+        
+        cancel_shortcut = QShortcut(QKeySequence("Esc"), self)
+        cancel_shortcut.activated.connect(self._cancel_operation)
+        
+        # 드래그 앤 드롭 활성화
+        self.setAcceptDrops(True)
+        
         # 경로 선택 영역
         self.path_group = QGroupBox("디렉토리 설정")
         path_layout = QVBoxLayout(self.path_group)
@@ -685,6 +702,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "경고", "소스 폴더가 존재하지 않습니다.")
             return
             
+        # 진행 상황 시각화 초기화
+        self.status_panel.set_step_active("파일 스캔", True)
+        self.status_panel.set_step_progress("파일 스캔", 0)
+        self.status_panel.set_progress(0, "파일 스캔 중...")
+            
         # os.scandir()를 사용한 최적화된 파일 탐색 (5배 빠름)
         file_paths = []
         self.zip_files = []
@@ -720,16 +742,28 @@ class MainWindow(QMainWindow):
         
         if not file_paths:
             QMessageBox.information(self, "안내", "파일이 없습니다.")
+            self.status_panel.set_step_active("파일 스캔", False)
             return
             
-        self.status_panel.log_message(f"[스캔] 파일 탐색 완료: {len(file_paths)}개 파일 ({scan_elapsed:.2f}초, {len(file_paths)/scan_elapsed:.1f}개/초)")
+        # 스캔 완료 - 진행률 업데이트
+        self.status_panel.set_step_progress("파일 스캔", 100)
+        self.status_panel.set_step_completed("파일 스캔", True)
+        
+        # 속도 계산 및 표시
+        scan_speed = len(file_paths) / scan_elapsed if scan_elapsed > 0 else 0
+        self.status_panel.update_speed(scan_speed)
+        
+        self.status_panel.log_message(f"[스캔] 파일 탐색 완료: {len(file_paths)}개 파일 ({scan_elapsed:.2f}초, {scan_speed:.1f}개/초)")
         self.status_panel.log_message(f"[스캔] 총 {len(file_paths)}개 파일 스캔 시작... (zip 파일 {len(self.zip_files)}개 분리)")
         
         if self.zip_files:
             self.status_panel.log_message(f"[스캔] 분리된 zip 파일: {[str(z) for z in self.zip_files]}")
             
+        # ETA 추적 시작
+        self.status_panel.start_tracking(len(file_paths))
+            
         worker = FileScanWorker(file_paths, self.file_cleaner, self.config)
-        worker.signals.progress.connect(lambda p, m: self.status_panel.set_progress(p, m))
+        worker.signals.progress.connect(self._on_scan_progress)
         worker.signals.log.connect(self.status_panel.log_message)
         
         def on_result(grouped_files):
@@ -737,8 +771,23 @@ class MainWindow(QMainWindow):
             self._update_table_from_grouped_files()
             
         worker.signals.result.connect(on_result)
-        worker.signals.finished.connect(lambda: self.status_panel.set_progress(100, "스캔 완료"))
+        worker.signals.finished.connect(self._on_scan_finished)
         self.threadpool.start(worker)
+        
+    def _on_scan_progress(self, percent: int, message: str):
+        """스캔 진행률 업데이트"""
+        self.status_panel.set_progress(percent, message)
+        self.status_panel.update_progress(int(percent * len(self.grouped_files) / 100) if hasattr(self, 'grouped_files') else 0)
+        
+        # 파일명 정제 단계 진행률도 함께 업데이트
+        if percent > 0:
+            self.status_panel.set_step_progress("파일명 정제", percent)
+            
+    def _on_scan_finished(self):
+        """스캔 완료 처리"""
+        self.status_panel.set_progress(100, "스캔 완료")
+        self.status_panel.set_step_completed("파일명 정제", True)
+        self.status_panel.set_step_active("파일 스캔", False)
 
     def _update_table_from_grouped_files(self):
         """grouped_files 데이터를 테이블에 반영 및 json 저장"""
@@ -843,17 +892,31 @@ class MainWindow(QMainWindow):
         
     def _sync_metadata(self):
         """TMDB API를 통해 메타데이터 동기화 (백그라운드, 그룹별)"""
+        # 메타데이터 검색 단계 활성화
+        self.status_panel.set_step_active("메타데이터 검색", True)
+        self.status_panel.set_step_progress("메타데이터 검색", 0)
         self.status_panel.set_status("TMDB 메타데이터 동기화 중...")
         self.status_panel.set_progress(0)
         self.status_panel.log_message("동기화 시작")
+        
         group_keys = list(self.grouped_files.keys())
+        
+        # ETA 추적 시작
+        self.status_panel.start_tracking(len(group_keys))
+        
         worker = GroupSyncWorker(group_keys, self.tmdb_provider)
-        worker.signals.progress.connect(self.status_panel.set_progress)
+        worker.signals.progress.connect(self._on_sync_progress)
         worker.signals.log.connect(self.status_panel.log_message)
         worker.signals.error.connect(self.status_panel.log_message)
         worker.signals.result.connect(self._on_group_sync_result)
         worker.signals.finished.connect(self._on_sync_finished)
         self.threadpool.start(worker)
+        
+    def _on_sync_progress(self, percent: int, message: str):
+        """메타데이터 동기화 진행률 업데이트"""
+        self.status_panel.set_progress(percent, message)
+        self.status_panel.set_step_progress("메타데이터 검색", percent)
+        self.status_panel.update_progress(int(percent * len(self.grouped_files) / 100) if hasattr(self, 'grouped_files') else 0)
 
     def _on_group_sync_result(self, group_metadata):
         self.group_metadata = group_metadata
@@ -904,20 +967,32 @@ class MainWindow(QMainWindow):
             
             if target_root:
                 from pathlib import Path
-                # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
+                # 미디어 타입과 장르를 기반으로 정확한 분류
                 media_type = result.get('media_type', 'tv') if result else 'tv'
+                genres = result.get('genres', []) if result else []
+                genre_ids = [g.get('id') for g in genres]
+                
+                # 애니메이션 장르 ID (TMDB 기준)
+                ANIMATION_GENRE_ID = 16
+                
+                # 분류 로직: 장르 기반 정확한 분류
+                is_animation = ANIMATION_GENRE_ID in genre_ids
                 
                 # 디버깅: 이동 경로 계산 로깅
-                self.logger.info(f"[이동경로] {title_for_path} (media_type: {media_type}) -> 계산 중...")
+                self.logger.info(f"[이동경로] {title_for_path} (media_type: {media_type}, genres: {[g.get('name') for g in genres]}) -> 계산 중...")
                 
                 if media_type == "movie":
                     # 영화: 영화 폴더에 저장
                     target_path = Path(target_root) / "영화" / str(title_for_path)
                     self.logger.info(f"[이동경로] 영화로 분류: {target_path}")
-                else:
-                    # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
+                elif is_animation:
+                    # 애니메이션: 애니메이션 폴더에 시즌별로 저장
                     target_path = Path(target_root) / "애니메이션" / str(title_for_path) / f"Season {season}"
                     self.logger.info(f"[이동경로] 애니메이션으로 분류: {target_path}")
+                else:
+                    # 드라마/기타 TV: 드라마 폴더에 시즌별로 저장
+                    target_path = Path(target_root) / "드라마" / str(title_for_path) / f"Season {season}"
+                    self.logger.info(f"[이동경로] 드라마로 분류: {target_path}")
                     
                 self.file_list.setItem(row, 8, QTableWidgetItem(str(target_path)))
 
@@ -1013,6 +1088,8 @@ class MainWindow(QMainWindow):
     def _on_sync_finished(self):
         self.status_panel.set_status("TMDB 동기화 완료")
         self.status_panel.log_message("동기화 종료")
+        self.status_panel.set_step_completed("메타데이터 검색", True)
+        self.status_panel.set_step_active("메타데이터 검색", False)
         self.control_panel.move_button.setEnabled(True)
         
     def _move_files(self):
@@ -1025,6 +1102,16 @@ class MainWindow(QMainWindow):
         if not target_root:
             QMessageBox.warning(self, "경고", "대상 폴더를 선택해주세요.")
             return
+            
+        # 파일 이동 단계 활성화
+        self.status_panel.set_step_active("파일 이동", True)
+        self.status_panel.set_step_progress("파일 이동", 0)
+        self.status_panel.set_status("파일 이동 중...")
+        self.status_panel.set_progress(0)
+        
+        # 총 파일 수 계산
+        total_files = sum(len(group) for group in self.grouped_files.values())
+        self.status_panel.start_tracking(total_files)
             
         # 덮어쓰기 확인
         overwrite_existing = QMessageBox.question(
@@ -1050,11 +1137,18 @@ class MainWindow(QMainWindow):
             meta = self.file_metadata.get((title, year))
             if meta:
                 korean_title = meta.get('name') or meta.get('title') or title
-                # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
-                media_type = meta.get('media_type', 'tv')  # 기본값은 tv (애니메이션)
+                # 미디어 타입과 장르를 기반으로 정확한 분류
+                media_type = meta.get('media_type', 'tv')
+                genres = meta.get('genres', [])
+                genre_ids = [g.get('id') for g in genres]
+                
+                # 애니메이션 장르 ID (TMDB 기준)
+                ANIMATION_GENRE_ID = 16
+                is_animation = ANIMATION_GENRE_ID in genre_ids
             else:
                 korean_title = title
-                media_type = 'tv'  # 메타데이터가 없으면 기본적으로 애니메이션으로 분류
+                media_type = 'tv'
+                is_animation = False  # 메타데이터가 없으면 기본적으로 드라마로 분류
                 
             korean_title = sanitize_folder_name(korean_title)
             
@@ -1093,13 +1187,16 @@ class MainWindow(QMainWindow):
                     except Exception as e:
                         self.status_panel.log_message(f"[자막 이동 실패] {src}: {e}")
                 elif res == max_res:
-                    # 미디어 타입에 따라 폴더 분리
+                    # 미디어 타입과 장르에 따라 폴더 분리
                     if media_type == "movie":
                         # 영화: 영화 폴더에 저장
                         dst = Path(target_root) / "영화" / korean_title / src.name
-                    else:
-                        # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
+                    elif is_animation:
+                        # 애니메이션: 애니메이션 폴더에 시즌별로 저장
                         dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
+                    else:
+                        # 드라마/기타 TV: 드라마 폴더에 시즌별로 저장
+                        dst = Path(target_root) / "드라마" / korean_title / f"Season {season}" / src.name
                         
                     try:
                         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -1144,11 +1241,13 @@ class MainWindow(QMainWindow):
                     except Exception as e:
                         self.status_panel.log_message(f"[이동 실패] {src}: {e}")
                 else:
-                    # 저해상도 파일도 미디어 타입에 따라 분리
+                    # 저해상도 파일도 미디어 타입과 장르에 따라 분리
                     if media_type == "movie":
                         dst = Path(target_root) / "영화" / "저해상도" / src.name
-                    else:
+                    elif is_animation:
                         dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
+                    else:
+                        dst = Path(target_root) / "드라마" / "저해상도" / src.name
                         
                     try:
                         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -1163,6 +1262,12 @@ class MainWindow(QMainWindow):
                     except Exception as e:
                         self.status_panel.log_message(f"[저해상도 이동 실패] {src}: {e}")
         self.status_panel.log_message("모든 파일 이동 완료.")
+        
+        # 파일 이동 완료 - 진행률 업데이트
+        self.status_panel.set_progress(100, "파일 이동 완료")
+        self.status_panel.set_step_completed("파일 이동", True)
+        self.status_panel.set_step_active("파일 이동", False)
+        
         # 이동 후 빈 폴더 삭제
         # 소스 디렉토리 경로 추출 (예: self.source_selector.get_path())
         source_root = self.source_selector.get_path() if hasattr(self, 'source_selector') else None
@@ -1187,14 +1292,21 @@ class MainWindow(QMainWindow):
             operations = []
             
             for (title, year), group in self.grouped_files.items():
-                meta = group_metadata.get((title, year))
-                if meta:
-                    korean_title = meta.get('name') or meta.get('title') or title
-                    # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
-                    media_type = meta.get('media_type', 'tv')  # 기본값은 tv (애니메이션)
-                else:
-                    korean_title = title
-                    media_type = 'tv'  # 메타데이터가 없으면 기본적으로 애니메이션으로 분류
+                            meta = group_metadata.get((title, year))
+            if meta:
+                korean_title = meta.get('name') or meta.get('title') or title
+                # 미디어 타입과 장르를 기반으로 정확한 분류
+                media_type = meta.get('media_type', 'tv')
+                genres = meta.get('genres', [])
+                genre_ids = [g.get('id') for g in genres]
+                
+                # 애니메이션 장르 ID (TMDB 기준)
+                ANIMATION_GENRE_ID = 16
+                is_animation = ANIMATION_GENRE_ID in genre_ids
+            else:
+                korean_title = title
+                media_type = 'tv'
+                is_animation = False  # 메타데이터가 없으면 기본적으로 드라마로 분류
                     
                 korean_title = sanitize_folder_name(korean_title)
                 
@@ -1234,13 +1346,16 @@ class MainWindow(QMainWindow):
                         operations.append(operation)
                         
                     elif res == max_res:
-                        # 미디어 타입에 따라 폴더 분리
+                        # 미디어 타입과 장르에 따라 폴더 분리
                         if media_type == "movie":
                             # 영화: 영화 폴더에 저장
                             dst = Path(target_root) / "영화" / korean_title / src.name
-                        else:
-                            # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
+                        elif is_animation:
+                            # 애니메이션: 애니메이션 폴더에 시즌별로 저장
                             dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
+                        else:
+                            # 드라마/기타 TV: 드라마 폴더에 시즌별로 저장
+                            dst = Path(target_root) / "드라마" / korean_title / f"Season {season}" / src.name
                             
                         operation = FileOperation(
                             source=src,
@@ -1258,11 +1373,13 @@ class MainWindow(QMainWindow):
                         operations.append(operation)
                         
                     else:
-                        # 저해상도 파일도 미디어 타입에 따라 분리
+                        # 저해상도 파일도 미디어 타입과 장르에 따라 분리
                         if media_type == "movie":
                             dst = Path(target_root) / "영화" / "저해상도" / src.name
-                        else:
+                        elif is_animation:
                             dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
+                        else:
+                            dst = Path(target_root) / "드라마" / "저해상도" / src.name
                             
                         operation = FileOperation(
                             source=src,
@@ -1377,6 +1494,82 @@ class MainWindow(QMainWindow):
         # 현재 테마 액션 체크
         if current_theme in self.theme_actions:
             self.theme_actions[current_theme].setChecked(True)
+            
+    def _open_source_folder(self):
+        """소스 폴더 열기 (Ctrl+O)"""
+        folder = QFileDialog.getExistingDirectory(self, "소스 폴더 선택")
+        if folder:
+            self.source_selector.set_path(folder)
+            
+    def _cancel_operation(self):
+        """작업 취소 (Esc)"""
+        # 현재 진행 중인 작업이 있는지 확인
+        if hasattr(self, 'active_threads') and self.active_threads:
+            reply = QMessageBox.question(
+                self, "작업 취소", 
+                "진행 중인 작업을 취소하시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                # 모든 활성 스레드 중지
+                for thread in self.active_threads[:]:
+                    if hasattr(thread, 'stop'):
+                        thread.stop()
+                    thread.quit()
+                    thread.wait(1000)  # 1초 대기
+                    if thread.isRunning():
+                        thread.terminate()
+                self.active_threads.clear()
+                self.status_panel.set_status("작업이 취소되었습니다.")
+                self.status_panel.set_progress(0, "취소됨")
+        else:
+            self.status_panel.set_status("취소할 작업이 없습니다.")
+    
+    def dragEnterEvent(self, event):
+        """드래그 진입 이벤트"""
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+            self.logger.debug("드래그 진입: 파일/폴더 감지됨")
+        else:
+            event.ignore()
+    
+    def dragMoveEvent(self, event):
+        """드래그 이동 이벤트"""
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+    
+    def dropEvent(self, event):
+        """드롭 이벤트"""
+        urls = event.mimeData().urls()
+        
+        if not urls:
+            return
+        
+        # 첫 번째 URL만 처리 (소스 디렉토리로 설정)
+        url = urls[0]
+        local_path = url.toLocalFile()
+        
+        if not local_path:
+            return
+        
+        path = Path(local_path)
+        
+        if path.is_dir():
+            # 폴더인 경우 소스 디렉토리로 설정
+            self.source_selector.set_path(str(path))
+            self.logger.info(f"드롭된 폴더를 소스 디렉토리로 설정: {path}")
+            self.status_panel.set_status(f"소스 폴더 설정됨: {path.name}")
+        elif path.is_file():
+            # 파일인 경우 부모 폴더를 소스 디렉토리로 설정
+            parent_dir = path.parent
+            self.source_selector.set_path(str(parent_dir))
+            self.logger.info(f"드롭된 파일의 부모 폴더를 소스 디렉토리로 설정: {parent_dir}")
+            self.status_panel.set_status(f"소스 폴더 설정됨: {parent_dir.name}")
+        else:
+            self.logger.warning(f"드롭된 경로가 유효하지 않음: {path}")
+            self.status_panel.set_status("유효하지 않은 경로입니다")
         
     def closeEvent(self, event):
         """창 닫기 이벤트 처리"""

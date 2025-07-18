@@ -27,9 +27,9 @@ class TMDBEndpoints:
         return await self.client.request("/search/movie", params)
 
     async def get_tv_details(self, tv_id: int) -> dict:
-        params = {"append_to_response": "seasons,images"}
+        params = {"append_to_response": "seasons,images,genres"}
         return await self.client.request(f"/tv/{tv_id}", params)
 
     async def get_movie_details(self, movie_id: int) -> dict:
-        params = {"append_to_response": "images,credits"}
+        params = {"append_to_response": "images,credits,genres"}
         return await self.client.request(f"/movie/{movie_id}", params) 
