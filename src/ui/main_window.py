@@ -14,7 +14,27 @@ import requests
 from io import BytesIO
 from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool
 import gzip
-from thefuzz import fuzz
+try:
+    from thefuzz import fuzz
+except ImportError:
+    # thefuzz가 없으면 간단한 유사도 함수 사용
+    def fuzz_ratio(s1, s2):
+        if not s1 or not s2:
+            return 0
+        s1_lower = s1.lower()
+        s2_lower = s2.lower()
+        if s1_lower == s2_lower:
+            return 100
+        # 간단한 부분 문자열 매칭
+        if s1_lower in s2_lower or s2_lower in s1_lower:
+            return 80
+        return 0
+    
+    class fuzz:
+        @staticmethod
+        def ratio(s1, s2):
+            return fuzz_ratio(s1, s2)
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .widgets import DirectorySelector, StatusPanel, FileListTable, ControlPanel
@@ -22,6 +42,15 @@ from .widgets.settings_dialog import SettingsDialog
 from ..config.config_manager import ConfigManager
 from ..utils.file_cleaner import FileCleaner
 from src.plugin.tmdb.provider import TMDBProvider
+
+# 새로운 모듈들 import
+from ..utils.logger import get_logger
+from ..exceptions import AnimeSorterError, ConfigError, FileManagerError, TMDBApiError
+from ..utils.error_messages import translate_error
+from ..cache.cache_db import CacheDB
+from ..security.key_manager import KeyManager
+from .theme_manager import ThemeManager, ThemeMode, create_theme_manager
+from ..core.async_file_manager import AsyncFileManager, FileOperation
 
 # Windows 폴더명에서 금지 문자 제거 함수
 import re
@@ -161,7 +190,17 @@ class GroupSyncWorker(QRunnable):
             self.signals.progress.emit(percent, f"'{title}' 동기화 완료")
         self.signals.result.emit(group_metadata)
         self.signals.finished.emit()
-        loop.run_until_complete(self.tmdb_provider.close())
+        
+        # TMDBProvider close를 비동기로 처리 (딜레이 방지)
+        try:
+            loop.run_until_complete(asyncio.wait_for(self.tmdb_provider.close(), timeout=1.0))
+        except asyncio.TimeoutError:
+            # 1초 타임아웃 후 강제 종료
+            pass
+        except Exception as e:
+            # close 실패해도 무시 (이미 작업 완료됨)
+            pass
+        
         loop.close()
 
 class FileScanWorkerSignals(QObject):
@@ -171,11 +210,10 @@ class FileScanWorkerSignals(QObject):
     finished = pyqtSignal()
 
 class FileScanWorker(QRunnable):
-    def __init__(self, file_paths, export_dir, file_cleaner, config=None):
+    def __init__(self, file_paths, file_cleaner, config=None):
         super().__init__()
         self.signals = FileScanWorkerSignals()
         self.file_paths = file_paths
-        self.export_dir = export_dir
         self.file_cleaner = file_cleaner
         self.config = config
         self._abort = False  # 취소 플래그
@@ -424,17 +462,70 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("AnimeSorter")
         self.setMinimumSize(800, 600)
         
-        # 설정 관리자 초기화
-        self.config = ConfigManager()
+        # 로거 초기화
+        self.logger = get_logger("animesorter.ui.main_window")
+        self.logger.info("AnimeSorter 메인 윈도우 초기화 시작")
+        
+        # 설정 관리자 초기화 (설정 파일 사용)
+        try:
+            config_file = Path("config/animesorter_config.yaml")
+            self.config = ConfigManager(config_path=str(config_file))
+            self.logger.info("설정 관리자 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"설정 관리자 초기화 실패: {e}")
+            QMessageBox.critical(self, "초기화 오류", f"설정 관리자 초기화 실패:\n{translate_error(e)}")
         
         # 파일명 정제 유틸리티 초기화
-        self.file_cleaner = FileCleaner()
+        try:
+            self.file_cleaner = FileCleaner()
+            self.logger.info("파일 정제기 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"파일 정제기 초기화 실패: {e}")
+            QMessageBox.critical(self, "초기화 오류", f"파일 정제기 초기화 실패:\n{translate_error(e)}")
+        
+        # 캐시 시스템 초기화
+        try:
+            self.cache_db = CacheDB("cache/animesorter_cache.db")
+            # 비동기 초기화를 동기적으로 실행
+            import asyncio
+            asyncio.run(self.cache_db.initialize())
+            self.logger.info("캐시 시스템 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"캐시 시스템 초기화 실패: {e}")
+            QMessageBox.critical(self, "초기화 오류", f"캐시 시스템 초기화 실패:\n{translate_error(e)}")
+        
+        # API 키 관리자 초기화
+        try:
+            self.key_manager = KeyManager("config")
+            self.logger.info("API 키 관리자 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"API 키 관리자 초기화 실패: {e}")
+            QMessageBox.critical(self, "초기화 오류", f"API 키 관리자 초기화 실패:\n{translate_error(e)}")
+            
+        # 테마 관리자 초기화
+        try:
+            from PyQt6.QtCore import QSettings
+            settings = QSettings("AnimeSorter", "AnimeSorter")
+            self.theme_manager = create_theme_manager(settings)
+            # 현재 테마 적용
+            self.theme_manager.refresh_theme()
+            self.logger.info("테마 관리자 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"테마 관리자 초기화 실패: {e}")
+            QMessageBox.critical(self, "초기화 오류", f"테마 관리자 초기화 실패:\n{translate_error(e)}")
         
         # TMDBProvider 초기화
-        self.tmdb_provider = TMDBProvider(
-            api_key=self.config.get("tmdb.api_key", ""),
-            language=self.config.get("tmdb.language", "ko-KR")
-        )
+        try:
+            api_key = self.key_manager.get_api_key("TMDB_API_KEY") or self.config.get("tmdb.api_key", "")
+            self.tmdb_provider = TMDBProvider(
+                api_key=api_key,
+                cache_db=self.cache_db,  # 캐시 시스템 전달
+                language=self.config.get("tmdb.language", "ko-KR")
+            )
+            self.logger.info("TMDB 제공자 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"TMDB 제공자 초기화 실패: {e}")
+            QMessageBox.critical(self, "초기화 오류", f"TMDB 제공자 초기화 실패:\n{translate_error(e)}")
         
         # 중앙 위젯 설정
         self.central_widget = QWidget()
@@ -457,13 +548,58 @@ class MainWindow(QMainWindow):
         self.file_metadata = {}
         self.threadpool = QThreadPool.globalInstance()
         
+        # 스레드 추적 (QThread 정리용)
+        self.active_threads = []
+        
+        self.logger.info("AnimeSorter 메인 윈도우 초기화 완료")
+        
     def _setup_ui(self):
         """UI 요소 생성 및 배치"""
         # 메뉴바 추가
         menubar = self.menuBar()
+        
+        # 설정 메뉴
         settings_menu = menubar.addMenu("설정")
         settings_action = settings_menu.addAction("설정...")
         settings_action.triggered.connect(self._open_settings_dialog)
+        
+        # 테마 메뉴
+        theme_menu = menubar.addMenu("테마")
+        
+        # 라이트 모드 액션
+        light_action = theme_menu.addAction("라이트 모드")
+        light_action.setCheckable(True)
+        light_action.triggered.connect(lambda: self._set_theme(ThemeMode.LIGHT))
+        
+        # 다크 모드 액션
+        dark_action = theme_menu.addAction("다크 모드")
+        dark_action.setCheckable(True)
+        dark_action.triggered.connect(lambda: self._set_theme(ThemeMode.DARK))
+        
+        # 시스템 테마 액션
+        system_action = theme_menu.addAction("시스템 테마")
+        system_action.setCheckable(True)
+        system_action.triggered.connect(lambda: self._set_theme(ThemeMode.SYSTEM))
+        
+        # 테마 토글 액션
+        theme_menu.addSeparator()
+        toggle_action = theme_menu.addAction("테마 토글 (Ctrl+T)")
+        toggle_action.triggered.connect(self._toggle_theme)
+        
+        # 테마 액션들을 저장
+        self.theme_actions = {
+            ThemeMode.LIGHT: light_action,
+            ThemeMode.DARK: dark_action,
+            ThemeMode.SYSTEM: system_action
+        }
+        
+        # 현재 테마에 따라 체크 상태 설정
+        self._update_theme_menu_state()
+        
+        # 키보드 단축키 설정
+        from PyQt6.QtGui import QKeySequence, QShortcut
+        toggle_shortcut = QShortcut(QKeySequence("Ctrl+T"), self)
+        toggle_shortcut.activated.connect(self._toggle_theme)
         
         # 경로 선택 영역
         self.path_group = QGroupBox("디렉토리 설정")
@@ -592,8 +728,7 @@ class MainWindow(QMainWindow):
         if self.zip_files:
             self.status_panel.log_message(f"[스캔] 분리된 zip 파일: {[str(z) for z in self.zip_files]}")
             
-        export_dir = "./tmdb_exports"
-        worker = FileScanWorker(file_paths, export_dir, self.file_cleaner, self.config)
+        worker = FileScanWorker(file_paths, self.file_cleaner, self.config)
         worker.signals.progress.connect(lambda p, m: self.status_panel.set_progress(p, m))
         worker.signals.log.connect(self.status_panel.log_message)
         
@@ -722,6 +857,18 @@ class MainWindow(QMainWindow):
 
     def _on_group_sync_result(self, group_metadata):
         self.group_metadata = group_metadata
+        # file_metadata도 업데이트 (파일 이동 시 사용)
+        self.file_metadata.update(group_metadata)
+        
+        # 디버깅: 메타데이터 로깅
+        for (title, year), meta in group_metadata.items():
+            if meta:
+                media_type = meta.get('media_type', 'unknown')
+                korean_title = meta.get('name') or meta.get('title') or title
+                self.logger.info(f"[메타데이터] {title} ({year}) -> {korean_title} (media_type: {media_type})")
+            else:
+                self.logger.warning(f"[메타데이터] {title} ({year}) -> 메타데이터 없음")
+        
         # 테이블에 결과 반영 (포스터, 장르, 줄거리 등)
         for row, key in enumerate(self.grouped_files.keys()):
             result = group_metadata.get(key)
@@ -737,36 +884,13 @@ class MainWindow(QMainWindow):
                 new_title = result.get("name")
             if new_title:
                 self.file_list.setItem(row, 2, QTableWidgetItem(new_title))
-            # 포스터 이미지
+            # 포스터 이미지 (비동기 처리로 변경)
             poster_url = None
             if result and result.get("poster_path"):
                 poster_url = f"https://image.tmdb.org/t/p/w185{result['poster_path']}"
             if poster_url:
-                try:
-                    import requests
-                    from PyQt6.QtGui import QPixmap
-                    from PyQt6.QtWidgets import QLabel
-                    from PyQt6.QtCore import Qt
-                    response = requests.get(poster_url, timeout=5)
-                    if response.status_code == 200:
-                        pixmap = QPixmap()
-                        pixmap.loadFromData(response.content)
-                        if not pixmap.isNull():
-                            label = QLabel()
-                            label.setPixmap(pixmap.scaled(120, 180, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-                            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                            self.file_list.setCellWidget(row, 6, label)
-                            self.file_list.setRowHeight(row, 200)
-                            self.file_list.setColumnWidth(6, 150)
-                        else:
-                            self.file_list.setItem(row, 6, QTableWidgetItem("이미지 오류(pixmap)"))
-                            self.status_panel.log_message(f"이미지 로드 실패: {poster_url}")
-                    else:
-                        self.file_list.setItem(row, 6, QTableWidgetItem("이미지 오류(HTTP)"))
-                        self.status_panel.log_message(f"이미지 HTTP 오류 {response.status_code}: {poster_url}")
-                except Exception as e:
-                    self.file_list.setItem(row, 6, QTableWidgetItem("이미지 오류(예외)"))
-                    self.status_panel.log_message(f"이미지 예외: {poster_url} {e}")
+                # 포스터 다운로드를 별도 스레드에서 처리
+                self._download_poster_async(row, poster_url)
             else:
                 self.file_list.setItem(row, 6, QTableWidgetItem(""))
             # 줄거리(overview)
@@ -777,10 +901,114 @@ class MainWindow(QMainWindow):
             title_for_path = new_title or key[0]
             season = key[1] or 1
             target_root = self.target_selector.get_path() if hasattr(self, 'target_selector') else self.target_dir
+            
             if target_root:
                 from pathlib import Path
-                target_path = Path(target_root) / str(title_for_path) / f"Season {season}"
+                # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
+                media_type = result.get('media_type', 'tv') if result else 'tv'
+                
+                # 디버깅: 이동 경로 계산 로깅
+                self.logger.info(f"[이동경로] {title_for_path} (media_type: {media_type}) -> 계산 중...")
+                
+                if media_type == "movie":
+                    # 영화: 영화 폴더에 저장
+                    target_path = Path(target_root) / "영화" / str(title_for_path)
+                    self.logger.info(f"[이동경로] 영화로 분류: {target_path}")
+                else:
+                    # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
+                    target_path = Path(target_root) / "애니메이션" / str(title_for_path) / f"Season {season}"
+                    self.logger.info(f"[이동경로] 애니메이션으로 분류: {target_path}")
+                    
                 self.file_list.setItem(row, 8, QTableWidgetItem(str(target_path)))
+
+    def _download_poster_async(self, row, poster_url):
+        """포스터 이미지를 비동기로 다운로드"""
+        from PyQt6.QtCore import QThread, pyqtSignal, QObject
+        
+        class PosterDownloader(QObject):
+            finished = pyqtSignal(int, str)  # row, poster_url
+            error = pyqtSignal(int, str)     # row, error_message
+            
+            def __init__(self, row, poster_url):
+                super().__init__()
+                self.row = row
+                self.poster_url = poster_url
+                
+            def download(self):
+                try:
+                    import requests
+                    response = requests.get(self.poster_url, timeout=5)
+                    if response.status_code == 200:
+                        self.finished.emit(self.row, self.poster_url)
+                    else:
+                        self.error.emit(self.row, f"HTTP {response.status_code}")
+                except Exception as e:
+                    self.error.emit(self.row, str(e))
+        
+        class PosterDownloadThread(QThread):
+            def __init__(self, downloader):
+                super().__init__()
+                self.downloader = downloader
+                self.downloader.moveToThread(self)
+                
+            def run(self):
+                self.downloader.download()
+                
+            def cleanup(self):
+                """스레드 정리"""
+                if self.isRunning():
+                    self.quit()
+                    if not self.wait(2000):  # 2초 대기
+                        self.terminate()  # 강제 종료
+                        self.wait(1000)   # 추가 대기
+                self.deleteLater()
+                self.downloader.deleteLater()
+        
+        # 다운로더 생성 및 실행
+        downloader = PosterDownloader(row, poster_url)
+        thread = PosterDownloadThread(downloader)
+        
+        # 스레드 추적에 추가
+        self.active_threads.append(thread)
+        
+        # 시그널 연결
+        downloader.finished.connect(self._on_poster_downloaded)
+        downloader.error.connect(self._on_poster_download_error)
+        thread.finished.connect(thread.cleanup)
+        thread.finished.connect(lambda: self.active_threads.remove(thread) if thread in self.active_threads else None)
+        
+        # 스레드 시작
+        thread.start()
+
+    def _on_poster_downloaded(self, row, poster_url):
+        """포스터 다운로드 완료 처리"""
+        try:
+            import requests
+            from PyQt6.QtGui import QPixmap
+            from PyQt6.QtWidgets import QLabel
+            from PyQt6.QtCore import Qt
+            
+            response = requests.get(poster_url, timeout=5)
+            if response.status_code == 200:
+                pixmap = QPixmap()
+                pixmap.loadFromData(response.content)
+                if not pixmap.isNull():
+                    label = QLabel()
+                    label.setPixmap(pixmap.scaled(120, 180, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    self.file_list.setCellWidget(row, 6, label)
+                    self.file_list.setRowHeight(row, 200)
+                    self.file_list.setColumnWidth(6, 150)
+                else:
+                    self.file_list.setItem(row, 6, QTableWidgetItem("이미지 오류(pixmap)"))
+            else:
+                self.file_list.setItem(row, 6, QTableWidgetItem("이미지 오류(HTTP)"))
+        except Exception as e:
+            self.file_list.setItem(row, 6, QTableWidgetItem("이미지 오류(예외)"))
+
+    def _on_poster_download_error(self, row, error_message):
+        """포스터 다운로드 오류 처리"""
+        self.file_list.setItem(row, 6, QTableWidgetItem(f"이미지 오류: {error_message}"))
 
     def _on_sync_finished(self):
         self.status_panel.set_status("TMDB 동기화 완료")
@@ -788,21 +1016,48 @@ class MainWindow(QMainWindow):
         self.control_panel.move_button.setEnabled(True)
         
     def _move_files(self):
-        """파일들을 대상 폴더로 이동 (메타데이터 한글 제목 기반, 해상도/시즌 분기 포함)"""
-        import shutil
-        from pathlib import Path
-        group_metadata = getattr(self, 'group_metadata', None)
-        if group_metadata is None:
-            self.status_panel.log_message("TMDB 메타데이터가 없습니다. 먼저 동기화하세요.")
+        """파일 이동 처리"""
+        if not self.grouped_files:
+            QMessageBox.warning(self, "경고", "이동할 파일이 없습니다.")
             return
+            
         target_root = self.target_selector.get_path()
+        if not target_root:
+            QMessageBox.warning(self, "경고", "대상 폴더를 선택해주세요.")
+            return
+            
+        # 덮어쓰기 확인
+        overwrite_existing = QMessageBox.question(
+            self, "확인", "기존 파일이 있을 경우 덮어쓰시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        ) == QMessageBox.StandardButton.Yes
+            
+        def get_unique_filename(target_path):
+            """중복 파일명 처리"""
+            if not target_path.exists():
+                return target_path
+            counter = 1
+            while True:
+                stem = target_path.stem
+                suffix = target_path.suffix
+                new_name = f"{stem}_{counter}{suffix}"
+                new_path = target_path.parent / new_name
+                if not new_path.exists():
+                    return new_path
+                counter += 1
+                
         for (title, year), group in self.grouped_files.items():
-            meta = group_metadata.get((title, year))
+            meta = self.file_metadata.get((title, year))
             if meta:
                 korean_title = meta.get('name') or meta.get('title') or title
+                # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
+                media_type = meta.get('media_type', 'tv')  # 기본값은 tv (애니메이션)
             else:
                 korean_title = title
+                media_type = 'tv'  # 메타데이터가 없으면 기본적으로 애니메이션으로 분류
+                
             korean_title = sanitize_folder_name(korean_title)
+            
             def get_resolution(file):
                 m = re.search(r'(\d{3,4})p', str(file.original_filename))
                 return int(m.group(1)) if m else 0
@@ -827,14 +1082,33 @@ class MainWindow(QMainWindow):
                     dst = Path(target_root) / "자막" / src.name
                     try:
                         dst.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        # 중복 파일 처리
+                        if dst.exists() and not overwrite_existing:
+                            dst = get_unique_filename(dst)
+                            self.status_panel.log_message(f"[자막 이동] 중복 파일명 변경: {src.name} → {dst.name}")
+                        
                         shutil.move(str(src), str(dst))
                         self.status_panel.log_message(f"[자막 이동] {src} → {dst}")
                     except Exception as e:
                         self.status_panel.log_message(f"[자막 이동 실패] {src}: {e}")
                 elif res == max_res:
-                    dst = Path(target_root) / korean_title / f"Season {season}" / src.name
+                    # 미디어 타입에 따라 폴더 분리
+                    if media_type == "movie":
+                        # 영화: 영화 폴더에 저장
+                        dst = Path(target_root) / "영화" / korean_title / src.name
+                    else:
+                        # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
+                        dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
+                        
                     try:
                         dst.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        # 중복 파일 처리
+                        if dst.exists() and not overwrite_existing:
+                            dst = get_unique_filename(dst)
+                            self.status_panel.log_message(f"[이동] 중복 파일명 변경: {src.name} → {dst.name}")
+                        
                         shutil.move(str(src), str(dst))
                         self.status_panel.log_message(f"[이동 완료] {src} → {dst}")
                         # --- 포스터 및 설명 저장 ---
@@ -870,9 +1144,20 @@ class MainWindow(QMainWindow):
                     except Exception as e:
                         self.status_panel.log_message(f"[이동 실패] {src}: {e}")
                 else:
-                    dst = Path(target_root) / "저해상도" / src.name
+                    # 저해상도 파일도 미디어 타입에 따라 분리
+                    if media_type == "movie":
+                        dst = Path(target_root) / "영화" / "저해상도" / src.name
+                    else:
+                        dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
+                        
                     try:
                         dst.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        # 중복 파일 처리
+                        if dst.exists() and not overwrite_existing:
+                            dst = get_unique_filename(dst)
+                            self.status_panel.log_message(f"[저해상도 이동] 중복 파일명 변경: {src.name} → {dst.name}")
+                        
                         shutil.move(str(src), str(dst))
                         self.status_panel.log_message(f"[저해상도 이동] {src} → {dst}")
                     except Exception as e:
@@ -894,13 +1179,255 @@ class MainWindow(QMainWindow):
                         self.status_panel.log_message(f"[빈 폴더 삭제] {p}")
                     except Exception as e:
                         self.status_panel.log_message(f"[빈 폴더 삭제 실패] {p}: {e}")
+                        
+    async def _move_files_async(self, group_metadata, target_root, overwrite_existing):
+        """비동기 파일 이동 처리"""
+        try:
+            # 파일 작업 목록 생성
+            operations = []
+            
+            for (title, year), group in self.grouped_files.items():
+                meta = group_metadata.get((title, year))
+                if meta:
+                    korean_title = meta.get('name') or meta.get('title') or title
+                    # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
+                    media_type = meta.get('media_type', 'tv')  # 기본값은 tv (애니메이션)
+                else:
+                    korean_title = title
+                    media_type = 'tv'  # 메타데이터가 없으면 기본적으로 애니메이션으로 분류
+                    
+                korean_title = sanitize_folder_name(korean_title)
+                
+                def get_resolution(file):
+                    m = re.search(r'(\d{3,4})p', str(file.original_filename))
+                    return int(m.group(1)) if m else 0
+                    
+                resolutions = [get_resolution(f) for f in group]
+                max_res = max(resolutions) if resolutions else 0
+                
+                for file in group:
+                    res = get_resolution(file)
+                    src = Path(file.original_filename)
+                    season = getattr(file, "season", 1)
+                    
+                    # 시즌이 리스트면 첫 번째 값만 사용, int가 아니면 1로 fallback
+                    if isinstance(season, list):
+                        season = season[0] if season else 1
+                    try:
+                        season = int(season)
+                    except Exception:
+                        season = 1
+                        
+                    ext = src.suffix.lower()
+                    # 압축 파일 확장자 목록
+                    archive_exts = ['.zip', '.rar', '.7z']
+                    
+                    if ext in archive_exts:
+                        # 자막 폴더로 이동
+                        dst = Path(target_root) / "자막" / src.name
+                        operation = FileOperation(
+                            source=src,
+                            target=dst,
+                            operation_type="move",
+                            metadata={"type": "subtitle", "original_name": src.name}
+                        )
+                        operations.append(operation)
+                        
+                    elif res == max_res:
+                        # 미디어 타입에 따라 폴더 분리
+                        if media_type == "movie":
+                            # 영화: 영화 폴더에 저장
+                            dst = Path(target_root) / "영화" / korean_title / src.name
+                        else:
+                            # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
+                            dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
+                            
+                        operation = FileOperation(
+                            source=src,
+                            target=dst,
+                            operation_type="move",
+                            metadata={
+                                "type": "main_content",
+                                "media_type": media_type,
+                                "title": korean_title,
+                                "season": season,
+                                "resolution": res,
+                                "meta": meta
+                            }
+                        )
+                        operations.append(operation)
+                        
+                    else:
+                        # 저해상도 파일도 미디어 타입에 따라 분리
+                        if media_type == "movie":
+                            dst = Path(target_root) / "영화" / "저해상도" / src.name
+                        else:
+                            dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
+                            
+                        operation = FileOperation(
+                            source=src,
+                            target=dst,
+                            operation_type="move",
+                            metadata={"type": "low_resolution", "media_type": media_type, "original_name": src.name}
+                        )
+                        operations.append(operation)
+                        
+            # 비동기 파일 관리자로 처리
+            async with AsyncFileManager(max_workers=4) as file_manager:
+                def progress_callback(current, total, message):
+                    percent = int((current / total) * 100) if total > 0 else 0
+                    self.status_panel.set_progress(percent, message)
+                    
+                results = await file_manager.process_files_batch(operations, progress_callback)
+                
+            # 결과 로깅
+            self.status_panel.log_message(f"파일 이동 완료: {results['completed']}/{results['total']} 성공")
+            
+            # 포스터 및 설명 저장 (비동기)
+            await self._save_metadata_async(group_metadata, target_root)
+            
+            # 빈 폴더 정리
+            source_root = self.source_selector.get_path() if hasattr(self, 'source_selector') else None
+            if source_root:
+                async with AsyncFileManager() as file_manager:
+                    cleaned_count = await file_manager.cleanup_empty_directories(Path(source_root))
+                    if cleaned_count > 0:
+                        self.status_panel.log_message(f"빈 폴더 {cleaned_count}개 정리 완료")
+                        
+        except Exception as e:
+            self.status_panel.log_message(f"파일 이동 중 오류 발생: {e}")
+            raise
+            
+    async def _save_metadata_async(self, group_metadata, target_root):
+        """메타데이터를 비동기로 저장"""
+        import aiofiles
+        import requests
+        import aiohttp
+        
+        async with aiohttp.ClientSession() as session:
+            for (title, year), meta in group_metadata.items():
+                if not meta:
+                    continue
+                    
+                korean_title = meta.get('name') or meta.get('title') or title
+                korean_title = sanitize_folder_name(korean_title)
+                
+                # 포스터 저장
+                poster_path_val = meta.get("poster_path")
+                if poster_path_val:
+                    poster_url = f"https://image.tmdb.org/t/p/w342{poster_path_val}"
+                    poster_file = Path(target_root) / korean_title / "poster.jpg"
+                    
+                    if not poster_file.exists():
+                        try:
+                            async with session.get(poster_url) as resp:
+                                if resp.status == 200:
+                                    poster_file.parent.mkdir(parents=True, exist_ok=True)
+                                    async with aiofiles.open(poster_file, 'wb') as f:
+                                        await f.write(await resp.read())
+                                    self.status_panel.log_message(f"[포스터 저장] {poster_file}")
+                        except Exception as e:
+                            self.status_panel.log_message(f"[포스터 저장 오류] {poster_url}: {e}")
+                            
+                # 설명 저장
+                overview = meta.get("overview")
+                if overview:
+                    desc_file = Path(target_root) / korean_title / "description.txt"
+                    if not desc_file.exists():
+                        try:
+                            desc_file.parent.mkdir(parents=True, exist_ok=True)
+                            async with aiofiles.open(desc_file, 'w', encoding='utf-8') as f:
+                                await f.write(overview)
+                            self.status_panel.log_message(f"[설명 저장] {desc_file}")
+                        except Exception as e:
+                            self.status_panel.log_message(f"[설명 저장 오류] {desc_file}: {e}")
         
     def _open_settings_dialog(self):
         dlg = SettingsDialog(self.config, self)
         dlg.exec()
         
+    def _set_theme(self, theme: ThemeMode) -> None:
+        """테마 설정"""
+        try:
+            self.theme_manager.set_theme(theme)
+            self._update_theme_menu_state()
+            self.logger.info(f"테마가 {theme.value}로 변경되었습니다.")
+        except Exception as e:
+            self.logger.error(f"테마 변경 실패: {e}")
+            QMessageBox.critical(self, "테마 오류", f"테마 변경 실패:\n{translate_error(e)}")
+            
+    def _toggle_theme(self) -> None:
+        """테마 토글"""
+        try:
+            self.theme_manager.toggle_theme()
+            self._update_theme_menu_state()
+            self.logger.info("테마가 토글되었습니다.")
+        except Exception as e:
+            self.logger.error(f"테마 토글 실패: {e}")
+            QMessageBox.critical(self, "테마 오류", f"테마 토글 실패:\n{translate_error(e)}")
+            
+    def _update_theme_menu_state(self) -> None:
+        """테마 메뉴 상태 업데이트"""
+        current_theme = self.theme_manager.get_current_theme()
+        
+        # 모든 액션 체크 해제
+        for action in self.theme_actions.values():
+            action.setChecked(False)
+            
+        # 현재 테마 액션 체크
+        if current_theme in self.theme_actions:
+            self.theme_actions[current_theme].setChecked(True)
+        
     def closeEvent(self, event):
         """창 닫기 이벤트 처리"""
-        # 설정 저장
-        self._save_settings()
-        event.accept() 
+        try:
+            self.logger.info("AnimeSorter 종료 시작")
+            
+            # 설정 저장
+            self._save_settings()
+            
+            # QThreadPool 정리
+            from PyQt6.QtCore import QThreadPool
+            thread_pool = QThreadPool.globalInstance()
+            if thread_pool.activeThreadCount() > 0:
+                self.logger.info(f"활성 스레드 {thread_pool.activeThreadCount()}개 정리 중...")
+                thread_pool.waitForDone(3000)  # 3초 대기
+                if thread_pool.activeThreadCount() > 0:
+                    self.logger.warning(f"일부 스레드가 정리되지 않음: {thread_pool.activeThreadCount()}개")
+            
+            # 개별 QThread 정리
+            if hasattr(self, 'active_threads') and self.active_threads:
+                self.logger.info(f"개별 스레드 {len(self.active_threads)}개 정리 중...")
+                for thread in self.active_threads[:]:  # 복사본으로 반복
+                    if thread.isRunning():
+                        thread.quit()
+                        if not thread.wait(2000):  # 2초 대기
+                            thread.terminate()  # 강제 종료
+                            thread.wait(1000)   # 추가 대기
+                    thread.deleteLater()
+                self.active_threads.clear()
+            
+            # 캐시 시스템 정리
+            if hasattr(self, 'cache_db'):
+                try:
+                    import asyncio
+                    asyncio.run(self.cache_db.close())
+                    self.logger.info("캐시 시스템 정리 완료")
+                except Exception as e:
+                    self.logger.error(f"캐시 시스템 정리 실패: {e}")
+            
+            # TMDB 제공자 정리
+            if hasattr(self, 'tmdb_provider'):
+                try:
+                    import asyncio
+                    asyncio.run(self.tmdb_provider.close())
+                    self.logger.info("TMDB 제공자 정리 완료")
+                except Exception as e:
+                    self.logger.error(f"TMDB 제공자 정리 실패: {e}")
+            
+            self.logger.info("AnimeSorter 종료 완료")
+            
+        except Exception as e:
+            self.logger.error(f"종료 중 오류 발생: {e}")
+        finally:
+            event.accept() 

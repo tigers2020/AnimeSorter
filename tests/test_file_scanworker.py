@@ -28,14 +28,12 @@ class TestFileScanWorkerRegression:
     def setup_method(self):
         """테스트 전 설정"""
         self.temp_dir = tempfile.mkdtemp()
-        self.export_dir = tempfile.mkdtemp()
         self.mock_file_cleaner = Mock()
         
     def teardown_method(self):
         """테스트 후 정리"""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-        shutil.rmtree(self.export_dir, ignore_errors=True)
     
     def create_test_files(self, count: int) -> list:
         """테스트용 파일들 생성"""
@@ -68,7 +66,7 @@ class TestFileScanWorkerRegression:
         signals.finished = Mock()
         
         # FileScanWorker 생성
-        worker = FileScanWorker(file_paths, self.export_dir, self.mock_file_cleaner)
+        worker = FileScanWorker(file_paths, self.mock_file_cleaner)
         worker.signals = signals
         
         # FileCleaner.clean_filename_static을 mock
@@ -110,7 +108,7 @@ class TestFileScanWorkerRegression:
         signals.result = Mock()
         signals.finished = Mock()
         
-        worker = FileScanWorker(file_paths, self.export_dir, self.mock_file_cleaner)
+        worker = FileScanWorker(file_paths, self.mock_file_cleaner)
         worker.signals = signals
         
         # run() 메서드의 초기 부분만 실행하여 리스트 길이 확인
@@ -158,7 +156,7 @@ class TestFileScanWorkerRegression:
         signals.result = Mock()
         signals.finished = Mock()
         
-        worker = FileScanWorker(file_paths, self.export_dir, self.mock_file_cleaner)
+        worker = FileScanWorker(file_paths, self.mock_file_cleaner)
         worker.signals = signals
         
         with patch.object(FileCleaner, 'clean_filename_static', side_effect=mock_clean_with_thread_tracking):
@@ -181,7 +179,7 @@ class TestFileScanWorkerRegression:
         signals.result = Mock()
         signals.finished = Mock()
         
-        worker = FileScanWorker(file_paths, self.export_dir, self.mock_file_cleaner)
+        worker = FileScanWorker(file_paths, self.mock_file_cleaner)
         worker.signals = signals
         
         # 작업 중단
