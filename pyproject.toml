@@ -5,6 +5,7 @@ description = "Anime file renamer and sorter"
 authors = [{name = "tigers2020"}]
 dependencies = [
     "guessit>=3.4.3",
+    "anitopy>=2.1.1",
     "rapidfuzz>=3.6.1",
     "pytest>=7.4.0",
     "aiohttp>=3.8.0",

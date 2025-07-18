@@ -10,6 +10,7 @@
 - **자막 연동**: 비디오 파일과 관련된 자막 파일 함께 이동
 - **캐싱**: API 중복 호출 방지를 위한 로컬 캐싱
 - **자동화**: 소스 폴더 선택 시 자동 파일 스캔 및 메타데이터 동기화
+- **JSON 내보내기**: 스캔 결과를 JSON 형식으로 저장하고 로드
 
 ## 시작하기
 
@@ -120,6 +121,93 @@ log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 - `{title}`: 제목
 - `{year}`: 연도
 - `{type}`: 미디어 타입 (TV Show/Movie)
+
+## JSON 내보내기 기능
+
+AnimeSorter는 스캔 결과를 JSON 형식으로 저장하고 로드할 수 있는 기능을 제공합니다.
+
+### 기능 개요
+
+- **구조화된 데이터**: 파일 정보, 메타데이터, 통계를 포함한 완전한 스캔 결과
+- **다양한 형식**: 일반 JSON, 압축 JSON(.gz) 지원
+- **메뉴 기반**: GUI 메뉴를 통한 쉬운 내보내기/로드
+- **자동 저장**: 스캔 완료 시 자동으로 JSON 파일 생성
+
+### 사용 방법
+
+#### 1. 메뉴를 통한 내보내기
+- **파일** → **JSON 내보내기** → **현재 스캔 결과 내보내기**
+- **파일** → **JSON 내보내기** → **압축 JSON 내보내기**
+
+#### 2. 저장된 JSON 로드
+- **파일** → **JSON 내보내기** → **저장된 JSON 로드**
+
+### JSON 파일 구조
+
+```json
+{
+  "metadata": {
+    "scan_timestamp": "2024-01-15T10:30:00",
+    "total_files": 150,
+    "total_groups": 25,
+    "scan_duration": 2.5,
+    "source_directory": "C:/Downloads/Anime",
+    "version": "1.0.0",
+    "export_timestamp": "2024-01-15T10:30:05"
+  },
+  "groups": [
+    {
+      "title": "My Hero Academia",
+      "year": null,
+      "season": 1,
+      "episode": 1,
+      "files": [
+        {
+          "original_path": "C:/Downloads/Anime/[SubsPlease] My Hero Academia - 01 [1080p].mkv",
+          "file_name": "[SubsPlease] My Hero Academia - 01 [1080p].mkv",
+          "file_size": 1073741824,
+          "file_extension": ".mkv",
+          "last_modified": "2024-01-15T10:25:00",
+          "is_video": true,
+          "is_subtitle": false,
+          "metadata": {
+            "title": "My Hero Academia",
+            "season": 1,
+            "episode": 1,
+            "parser": "anitopy+guessit",
+            "release_group": "SubsPlease",
+            "video_resolution": "1080p"
+          }
+        }
+      ],
+      "total_size": 1073741824,
+      "file_count": 1,
+      "video_count": 1,
+      "subtitle_count": 0
+    }
+  ],
+  "statistics": {
+    "total_size_bytes": 16106127360,
+    "total_size_gb": 15.0,
+    "total_video_files": 120,
+    "total_subtitle_files": 30,
+    "average_group_size": 644245094.4,
+    "largest_group": 5,
+    "smallest_group": 1
+  }
+}
+```
+
+### 자동 저장 위치
+
+스캔 완료 시 자동으로 다음 위치에 JSON 파일이 저장됩니다:
+- `./scan_results/scan_result_YYYYMMDD_HHMMSS.json`
+- `./scan_results/scan_result_YYYYMMDD_HHMMSS.json.gz` (압축 버전)
+
+### 압축률
+
+- 일반 JSON: 가독성을 위한 들여쓰기 포함
+- 압축 JSON: 약 85-90% 압축률로 파일 크기 대폭 감소
 
 ## 자동화 기능
 

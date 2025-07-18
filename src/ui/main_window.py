@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 import json
 from datetime import datetime
@@ -90,7 +91,6 @@ class SyncWorker(QRunnable):
 
     def run(self):
         import asyncio
-        import time
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         total = len(self.file_list)
@@ -159,7 +159,7 @@ class GroupSyncWorker(QRunnable):
         self.tmdb_provider = tmdb_provider
 
     def run(self):
-        import asyncio, time
+        import asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         total = len(self.group_keys)
@@ -168,18 +168,18 @@ class GroupSyncWorker(QRunnable):
         prev_meta = None
         # --- 병렬 TMDB 검색 ---
         async def fetch_all():
-            tasks = [self.tmdb_provider.search(title, year) for (title, year) in self.group_keys]
+            tasks = [self.tmdb_provider.search(title, year) for (title, year, season) in self.group_keys]
             return await asyncio.gather(*tasks, return_exceptions=True)
         t0 = time.time()
         results = loop.run_until_complete(fetch_all())
         t1 = time.time()
-        for idx, ((title, year), result) in enumerate(zip(self.group_keys, results)):
+        for idx, ((title, year, season), result) in enumerate(zip(self.group_keys, results)):
             if isinstance(result, Exception):
                 self.signals.error.emit(f"'{title}' TMDB 오류: {result}")
-                group_metadata[(title, year)] = None
+                group_metadata[(title, year, season)] = None
                 continue
-            self.signals.log.emit(f"[{idx+1}/{total}] '{title}'({year if year else 'any'}) TMDB 검색 완료 (병렬, {t1-t0:.2f}s)")
-            group_metadata[(title, year)] = result
+            self.signals.log.emit(f"[{idx+1}/{total}] '{title}'({year if year else 'any'}, 시즌: {season}) TMDB 검색 완료 (병렬, {t1-t0:.2f}s)")
+            group_metadata[(title, year, season)] = result
             if result:
                 genres = ", ".join([g["name"] for g in result.get("genres", [])])
                 msg = f"  └─ 장르: {genres} / 줄거리: {bool(result.get('overview'))} / 포스터: {bool(result.get('poster_path'))}"
@@ -237,13 +237,11 @@ class FileScanWorker(QRunnable):
 
     @staticmethod
     def _clean_filename_static(file_path_str):
-        # 멀티프로세싱용 간단한 독립 함수 사용 (pickle 안전)
-        from src.utils.file_cleaner import parse_filename_standalone_simple
-        return parse_filename_standalone_simple(file_path_str)
+        # 순수 static method 직접 호출
+        return FileCleaner.clean_filename_static(file_path_str)
 
     def run(self):
         import os
-        import time
         import threading
         from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
         
@@ -321,7 +319,7 @@ class FileScanWorker(QRunnable):
                         chunk_indices = media_indices[i:i+chunk_size]
                         
                         for j, (file_path, original_idx) in enumerate(zip(chunk_files, chunk_indices)):
-                            future = executor.submit(self._clean_filename_static, file_path)
+                            future = executor.submit(FileCleaner.clean_filename_static, file_path)
                             future_to_idx[future] = original_idx
                     
                     # 완료된 작업 처리
@@ -348,7 +346,7 @@ class FileScanWorker(QRunnable):
                     # 미디어 파일만 병렬 처리 제출
                     for i in range(len(file_name_list)):
                         if ext_type_list[i]:
-                            future = executor.submit(self._clean_filename_static, file_name_list[i])
+                            future = executor.submit(FileCleaner.clean_filename_static, file_name_list[i])
                             future_to_idx[future] = i
                     
                     # 완료된 작업 처리 (실시간 진행률 업데이트)
@@ -381,7 +379,7 @@ class FileScanWorker(QRunnable):
                     
                 if ext_type_list[i]:
                     try:
-                        clean = self._clean_filename_static(file_name)
+                        clean = FileCleaner.clean_filename_static(file_name)
                         results[i] = clean
                         clean_cache[file_name] = clean
                     except Exception as e:
@@ -431,11 +429,13 @@ class FileScanWorker(QRunnable):
             if isinstance(clean, dict):
                 clean_title = clean.get("clean_title", clean.get("title", ""))
                 year = clean.get("year", None)
+                season = clean.get("season", 1)
             else:
                 clean_title = getattr(clean, "title", "")
                 year = getattr(clean, "year", None)
+                season = getattr(clean, "season", 1)
                 
-            key = (clean_title.strip().lower(), year)
+            key = (clean_title.strip().lower(), year, season)
             grouped_files.setdefault(key, []).append(clean)
             
             # 그룹핑 진행률 업데이트 (85-100% 범위)
@@ -558,6 +558,30 @@ class MainWindow(QMainWindow):
         """UI 요소 생성 및 배치"""
         # 메뉴바 추가
         menubar = self.menuBar()
+        
+        # 파일 메뉴
+        file_menu = menubar.addMenu("파일")
+        
+        # JSON 내보내기 메뉴
+        export_menu = file_menu.addMenu("JSON 내보내기")
+        
+        # 현재 스캔 결과 내보내기
+        export_current_action = export_menu.addAction("현재 스캔 결과 내보내기")
+        export_current_action.setEnabled(False)  # 초기에는 비활성화
+        export_current_action.triggered.connect(self._export_current_scan_results)
+        self.export_current_action = export_current_action
+        
+        # 압축 JSON 내보내기
+        export_compressed_action = export_menu.addAction("압축 JSON 내보내기")
+        export_compressed_action.setEnabled(False)  # 초기에는 비활성화
+        export_compressed_action.triggered.connect(self._export_compressed_scan_results)
+        self.export_compressed_action = export_compressed_action
+        
+        # 저장된 JSON 로드
+        load_json_action = export_menu.addAction("저장된 JSON 로드")
+        load_json_action.triggered.connect(self._load_saved_scan_results)
+        
+        file_menu.addSeparator()
         
         # 설정 메뉴
         settings_menu = menubar.addMenu("설정")
@@ -702,6 +726,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "경고", "소스 폴더가 존재하지 않습니다.")
             return
             
+        # 스캔 시작 시간 기록
+        self.scan_start_time = time.time()
+            
         # 진행 상황 시각화 초기화
         self.status_panel.set_step_active("파일 스캔", True)
         self.status_panel.set_step_progress("파일 스캔", 0)
@@ -735,7 +762,6 @@ class MainWindow(QMainWindow):
                     continue
         
         # 최적화된 파일 탐색 실행
-        import time
         scan_start = time.time()
         scan_directory_optimized(source_dir)
         scan_elapsed = time.time() - scan_start
@@ -790,9 +816,9 @@ class MainWindow(QMainWindow):
         self.status_panel.set_step_active("파일 스캔", False)
 
     def _update_table_from_grouped_files(self):
-        """grouped_files 데이터를 테이블에 반영 및 json 저장"""
+        """grouped_files 데이터를 테이블에 반영 및 JSON 저장"""
         self.file_list.setRowCount(0)
-        for (title, year), results in self.grouped_files.items():
+        for (title, year, season), results in self.grouped_files.items():
             row = self.file_list.rowCount()
             self.file_list.insertRow(row)
             # 파일명들
@@ -824,16 +850,88 @@ class MainWindow(QMainWindow):
                 self.file_list.setItem(row, i, QTableWidgetItem(""))
         has_files = self.file_list.rowCount() > 0
         self.control_panel.sync_button.setEnabled(has_files)
+        
+        # JSON 내보내기 메뉴 활성화
+        if hasattr(self, 'export_current_action'):
+            self.export_current_action.setEnabled(has_files)
+        if hasattr(self, 'export_compressed_action'):
+            self.export_compressed_action.setEnabled(has_files)
+        
         self.status_panel.log_message(f"총 {self.file_list.rowCount()}개의 그룹(제목) 파일을 찾았습니다. (자동 정제 및 그룹핑 완료)")
-        # --- 스캔 결과 json 저장 ---
+        
+        # --- 스캔 결과 JSON 저장 (개선된 버전) ---
+        self._save_scan_results_to_json()
+    
+    def _save_scan_results_to_json(self):
+        """스캔 결과를 JSON으로 저장"""
+        try:
+            from utils.json_exporter import JSONExporter, ExportFormat
+            
+            # JSON 내보내기 객체 생성
+            exporter = JSONExporter()
+            
+            # 저장 디렉토리 생성
+            save_dir = Path("./scan_results")
+            save_dir.mkdir(exist_ok=True)
+            
+            # 파일명 생성 (타임스탬프 포함)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_path = save_dir / f"scan_result_{timestamp}"
+            
+            # 스캔 소요 시간 계산
+            scan_duration = time.time() - getattr(self, 'scan_start_time', time.time())
+            
+            # JSON 내보내기 실행
+            saved_path = exporter.export_scan_results(
+                grouped_files=self.grouped_files,
+                source_directory=self.source_selector.get_path(),
+                scan_duration=scan_duration,
+                output_path=output_path,
+                format=ExportFormat.JSON,
+                include_metadata=True,
+                compress=False
+            )
+            
+            # 요약 정보 생성 및 로그 출력
+            scan_data = exporter.load_scan_results(saved_path)
+            summary = exporter.get_export_summary(scan_data)
+            
+            self.status_panel.log_message(f"✅ 스캔 결과 저장 완료: {saved_path}")
+            self.status_panel.log_message(summary)
+            
+            # 압축 버전도 생성 (선택사항)
+            compressed_path = exporter.export_scan_results(
+                grouped_files=self.grouped_files,
+                source_directory=self.source_selector.get_path(),
+                scan_duration=scan_duration,
+                output_path=output_path,
+                format=ExportFormat.GZIPPED_JSON,
+                include_metadata=True,
+                compress=True
+            )
+            
+            self.status_panel.log_message(f"📦 압축 버전 저장: {compressed_path}")
+            
+        except ImportError as e:
+            self.status_panel.log_message(f"⚠️ JSON 내보내기 모듈을 찾을 수 없습니다: {e}")
+            # 기존 방식으로 폴백
+            self._save_scan_results_fallback()
+        except Exception as e:
+            self.status_panel.log_message(f"❌ 스캔 결과 저장 오류: {e}")
+            # 기존 방식으로 폴백
+            self._save_scan_results_fallback()
+    
+    def _save_scan_results_fallback(self):
+        """기존 방식으로 스캔 결과 저장 (폴백)"""
         try:
             save_dir = Path("./scan_results")
             save_dir.mkdir(exist_ok=True)
             save_path = save_dir / f"scan_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            
             # json 직렬화: grouped_files를 dict로 변환
             serializable = {}
-            for (title, year), results in self.grouped_files.items():
-                serializable_key = f"{title}__{year if year else ''}"
+            for (title, year, season), results in self.grouped_files.items():
+                serializable_key = f"{title}__{year if year else ''}__{season}"
                 serializable[serializable_key] = [
                     {
                         "original_filename": str(r["original_filename"]) if isinstance(r, dict) and "original_filename" in r else str(getattr(r, "original_filename", "")),
@@ -846,11 +944,164 @@ class MainWindow(QMainWindow):
                     }
                     for r in results
                 ]
+            
             with open(save_path, "w", encoding="utf-8") as f:
                 json.dump(serializable, f, ensure_ascii=False, indent=2)
-            self.status_panel.log_message(f"스캔 결과 저장: {save_path}")
+            
+            self.status_panel.log_message(f"📄 스캔 결과 저장 (기존 방식): {save_path}")
+            
         except Exception as e:
-            self.status_panel.log_message(f"스캔 결과 저장 오류: {e}")
+            self.status_panel.log_message(f"❌ 스캔 결과 저장 실패: {e}")
+    
+    def _export_current_scan_results(self):
+        """현재 스캔 결과를 JSON으로 내보내기"""
+        if not hasattr(self, 'grouped_files') or not self.grouped_files:
+            QMessageBox.warning(self, "경고", "내보낼 스캔 결과가 없습니다. 먼저 파일을 스캔해주세요.")
+            return
+        
+        try:
+            from PyQt6.QtWidgets import QFileDialog
+            from utils.json_exporter import JSONExporter, ExportFormat
+            
+            # 파일 저장 대화상자
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "스캔 결과 JSON 저장",
+                f"scan_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                "JSON 파일 (*.json)"
+            )
+            
+            if not file_path:
+                return
+            
+            # JSON 내보내기 실행
+            exporter = JSONExporter()
+            scan_duration = time.time() - getattr(self, 'scan_start_time', time.time())
+            
+            saved_path = exporter.export_scan_results(
+                grouped_files=self.grouped_files,
+                source_directory=self.source_selector.get_path(),
+                scan_duration=scan_duration,
+                output_path=file_path,
+                format=ExportFormat.JSON,
+                include_metadata=True,
+                compress=False
+            )
+            
+            # 요약 정보 표시
+            scan_data = exporter.load_scan_results(saved_path)
+            summary = exporter.get_export_summary(scan_data)
+            
+            QMessageBox.information(self, "내보내기 완료", 
+                f"스캔 결과가 성공적으로 저장되었습니다.\n\n{summary}")
+            
+        except ImportError as e:
+            QMessageBox.warning(self, "오류", f"JSON 내보내기 모듈을 찾을 수 없습니다: {e}")
+        except Exception as e:
+            QMessageBox.critical(self, "오류", f"JSON 내보내기 중 오류가 발생했습니다: {e}")
+    
+    def _export_compressed_scan_results(self):
+        """현재 스캔 결과를 압축 JSON으로 내보내기"""
+        if not hasattr(self, 'grouped_files') or not self.grouped_files:
+            QMessageBox.warning(self, "경고", "내보낼 스캔 결과가 없습니다. 먼저 파일을 스캔해주세요.")
+            return
+        
+        try:
+            from PyQt6.QtWidgets import QFileDialog
+            from utils.json_exporter import JSONExporter, ExportFormat
+            
+            # 파일 저장 대화상자
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "스캔 결과 압축 JSON 저장",
+                f"scan_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json.gz",
+                "압축 JSON 파일 (*.json.gz)"
+            )
+            
+            if not file_path:
+                return
+            
+            # JSON 내보내기 실행
+            exporter = JSONExporter()
+            scan_duration = time.time() - getattr(self, 'scan_start_time', time.time())
+            
+            saved_path = exporter.export_scan_results(
+                grouped_files=self.grouped_files,
+                source_directory=self.source_selector.get_path(),
+                scan_duration=scan_duration,
+                output_path=file_path,
+                format=ExportFormat.GZIPPED_JSON,
+                include_metadata=True,
+                compress=True
+            )
+            
+            # 파일 크기 정보 표시
+            file_size = saved_path.stat().st_size
+            size_mb = file_size / (1024 * 1024)
+            
+            QMessageBox.information(self, "압축 내보내기 완료", 
+                f"압축 JSON 파일이 성공적으로 저장되었습니다.\n\n"
+                f"파일 크기: {size_mb:.2f} MB\n"
+                f"저장 위치: {saved_path}")
+            
+        except ImportError as e:
+            QMessageBox.warning(self, "오류", f"JSON 내보내기 모듈을 찾을 수 없습니다: {e}")
+        except Exception as e:
+            QMessageBox.critical(self, "오류", f"압축 JSON 내보내기 중 오류가 발생했습니다: {e}")
+    
+    def _load_saved_scan_results(self):
+        """저장된 JSON 파일에서 스캔 결과 로드"""
+        try:
+            from PyQt6.QtWidgets import QFileDialog
+            from utils.json_exporter import JSONExporter
+            
+            # 파일 열기 대화상자
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "저장된 스캔 결과 JSON 로드",
+                "",
+                "JSON 파일 (*.json *.json.gz)"
+            )
+            
+            if not file_path:
+                return
+            
+            # JSON 로드
+            exporter = JSONExporter()
+            scan_data = exporter.load_scan_results(file_path)
+            
+            # 그룹화된 파일 데이터로 변환
+            self.grouped_files = {}
+            for group in scan_data.groups:
+                key = (group.title, group.year)
+                self.grouped_files[key] = []
+                
+                for file_info in group.files:
+                    # CleanResult 객체 생성
+                    from utils.file_cleaner import CleanResult
+                    clean_result = CleanResult(
+                        title=group.title,
+                        original_filename=file_info.original_path,
+                        season=group.season,
+                        episode=group.episode,
+                        year=group.year,
+                        is_movie=False,
+                        extra_info=file_info.metadata
+                    )
+                    self.grouped_files[key].append(clean_result)
+            
+            # 테이블 업데이트
+            self._update_table_from_grouped_files()
+            
+            # 요약 정보 표시
+            summary = exporter.get_export_summary(scan_data)
+            QMessageBox.information(self, "로드 완료", 
+                f"스캔 결과가 성공적으로 로드되었습니다.\n\n{summary}")
+            
+        except ImportError as e:
+            QMessageBox.warning(self, "오류", f"JSON 내보내기 모듈을 찾을 수 없습니다: {e}")
+        except Exception as e:
+            QMessageBox.critical(self, "오류", f"JSON 로드 중 오류가 발생했습니다: {e}")
 
     def _clean_filenames(self):
         """파일명 정제 및 결과 저장"""
@@ -924,13 +1175,13 @@ class MainWindow(QMainWindow):
         self.file_metadata.update(group_metadata)
         
         # 디버깅: 메타데이터 로깅
-        for (title, year), meta in group_metadata.items():
+        for (title, year, season), meta in group_metadata.items():
             if meta:
                 media_type = meta.get('media_type', 'unknown')
                 korean_title = meta.get('name') or meta.get('title') or title
-                self.logger.info(f"[메타데이터] {title} ({year}) -> {korean_title} (media_type: {media_type})")
+                self.logger.info(f"[메타데이터] {title} ({year}, 시즌: {season}) -> {korean_title} (media_type: {media_type})")
             else:
-                self.logger.warning(f"[메타데이터] {title} ({year}) -> 메타데이터 없음")
+                self.logger.warning(f"[메타데이터] {title} ({year}, 시즌: {season}) -> 메타데이터 없음")
         
         # 테이블에 결과 반영 (포스터, 장르, 줄거리 등)
         for row, key in enumerate(self.grouped_files.keys()):
@@ -962,37 +1213,25 @@ class MainWindow(QMainWindow):
             # 이동 위치 경로(메타 동기화 후)
             # title, season 정보로 이동 경로 계산
             title_for_path = new_title or key[0]
-            season = key[1] or 1
+            season = key[2] if len(key) > 2 else 1
             target_root = self.target_selector.get_path() if hasattr(self, 'target_selector') else self.target_dir
             
             if target_root:
                 from pathlib import Path
-                # 미디어 타입과 장르를 기반으로 정확한 분류
+                # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
                 media_type = result.get('media_type', 'tv') if result else 'tv'
-                genres = result.get('genres', []) if result else []
-                genre_ids = [g.get('id') for g in genres]
-                
-                # 애니메이션 장르 ID (TMDB 기준)
-                ANIMATION_GENRE_ID = 16
-                
-                # 분류 로직: 장르 기반 정확한 분류
-                is_animation = ANIMATION_GENRE_ID in genre_ids
                 
                 # 디버깅: 이동 경로 계산 로깅
-                self.logger.info(f"[이동경로] {title_for_path} (media_type: {media_type}, genres: {[g.get('name') for g in genres]}) -> 계산 중...")
+                self.logger.info(f"[이동경로] {title_for_path} (media_type: {media_type}) -> 계산 중...")
                 
                 if media_type == "movie":
                     # 영화: 영화 폴더에 저장
                     target_path = Path(target_root) / "영화" / str(title_for_path)
                     self.logger.info(f"[이동경로] 영화로 분류: {target_path}")
-                elif is_animation:
-                    # 애니메이션: 애니메이션 폴더에 시즌별로 저장
+                else:
+                    # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
                     target_path = Path(target_root) / "애니메이션" / str(title_for_path) / f"Season {season}"
                     self.logger.info(f"[이동경로] 애니메이션으로 분류: {target_path}")
-                else:
-                    # 드라마/기타 TV: 드라마 폴더에 시즌별로 저장
-                    target_path = Path(target_root) / "드라마" / str(title_for_path) / f"Season {season}"
-                    self.logger.info(f"[이동경로] 드라마로 분류: {target_path}")
                     
                 self.file_list.setItem(row, 8, QTableWidgetItem(str(target_path)))
 
@@ -1137,18 +1376,11 @@ class MainWindow(QMainWindow):
             meta = self.file_metadata.get((title, year))
             if meta:
                 korean_title = meta.get('name') or meta.get('title') or title
-                # 미디어 타입과 장르를 기반으로 정확한 분류
-                media_type = meta.get('media_type', 'tv')
-                genres = meta.get('genres', [])
-                genre_ids = [g.get('id') for g in genres]
-                
-                # 애니메이션 장르 ID (TMDB 기준)
-                ANIMATION_GENRE_ID = 16
-                is_animation = ANIMATION_GENRE_ID in genre_ids
+                # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
+                media_type = meta.get('media_type', 'tv')  # 기본값은 tv (애니메이션)
             else:
                 korean_title = title
-                media_type = 'tv'
-                is_animation = False  # 메타데이터가 없으면 기본적으로 드라마로 분류
+                media_type = 'tv'  # 메타데이터가 없으면 기본적으로 애니메이션으로 분류
                 
             korean_title = sanitize_folder_name(korean_title)
             
@@ -1187,16 +1419,13 @@ class MainWindow(QMainWindow):
                     except Exception as e:
                         self.status_panel.log_message(f"[자막 이동 실패] {src}: {e}")
                 elif res == max_res:
-                    # 미디어 타입과 장르에 따라 폴더 분리
+                    # 미디어 타입에 따라 폴더 분리
                     if media_type == "movie":
                         # 영화: 영화 폴더에 저장
                         dst = Path(target_root) / "영화" / korean_title / src.name
-                    elif is_animation:
-                        # 애니메이션: 애니메이션 폴더에 시즌별로 저장
-                        dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
                     else:
-                        # 드라마/기타 TV: 드라마 폴더에 시즌별로 저장
-                        dst = Path(target_root) / "드라마" / korean_title / f"Season {season}" / src.name
+                        # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
+                        dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
                         
                     try:
                         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -1241,13 +1470,11 @@ class MainWindow(QMainWindow):
                     except Exception as e:
                         self.status_panel.log_message(f"[이동 실패] {src}: {e}")
                 else:
-                    # 저해상도 파일도 미디어 타입과 장르에 따라 분리
+                    # 저해상도 파일도 미디어 타입에 따라 분리
                     if media_type == "movie":
                         dst = Path(target_root) / "영화" / "저해상도" / src.name
-                    elif is_animation:
-                        dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
                     else:
-                        dst = Path(target_root) / "드라마" / "저해상도" / src.name
+                        dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
                         
                     try:
                         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -1291,22 +1518,15 @@ class MainWindow(QMainWindow):
             # 파일 작업 목록 생성
             operations = []
             
-            for (title, year), group in self.grouped_files.items():
-                            meta = group_metadata.get((title, year))
-            if meta:
-                korean_title = meta.get('name') or meta.get('title') or title
-                # 미디어 타입과 장르를 기반으로 정확한 분류
-                media_type = meta.get('media_type', 'tv')
-                genres = meta.get('genres', [])
-                genre_ids = [g.get('id') for g in genres]
-                
-                # 애니메이션 장르 ID (TMDB 기준)
-                ANIMATION_GENRE_ID = 16
-                is_animation = ANIMATION_GENRE_ID in genre_ids
-            else:
-                korean_title = title
-                media_type = 'tv'
-                is_animation = False  # 메타데이터가 없으면 기본적으로 드라마로 분류
+            for (title, year, season), group in self.grouped_files.items():
+                meta = group_metadata.get((title, year, season))
+                if meta:
+                    korean_title = meta.get('name') or meta.get('title') or title
+                    # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
+                    media_type = meta.get('media_type', 'tv')  # 기본값은 tv (애니메이션)
+                else:
+                    korean_title = title
+                    media_type = 'tv'  # 메타데이터가 없으면 기본적으로 애니메이션으로 분류
                     
                 korean_title = sanitize_folder_name(korean_title)
                 
@@ -1346,16 +1566,13 @@ class MainWindow(QMainWindow):
                         operations.append(operation)
                         
                     elif res == max_res:
-                        # 미디어 타입과 장르에 따라 폴더 분리
+                        # 미디어 타입에 따라 폴더 분리
                         if media_type == "movie":
                             # 영화: 영화 폴더에 저장
                             dst = Path(target_root) / "영화" / korean_title / src.name
-                        elif is_animation:
-                            # 애니메이션: 애니메이션 폴더에 시즌별로 저장
-                            dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
                         else:
-                            # 드라마/기타 TV: 드라마 폴더에 시즌별로 저장
-                            dst = Path(target_root) / "드라마" / korean_title / f"Season {season}" / src.name
+                            # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
+                            dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
                             
                         operation = FileOperation(
                             source=src,
@@ -1373,13 +1590,11 @@ class MainWindow(QMainWindow):
                         operations.append(operation)
                         
                     else:
-                        # 저해상도 파일도 미디어 타입과 장르에 따라 분리
+                        # 저해상도 파일도 미디어 타입에 따라 분리
                         if media_type == "movie":
                             dst = Path(target_root) / "영화" / "저해상도" / src.name
-                        elif is_animation:
-                            dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
                         else:
-                            dst = Path(target_root) / "드라마" / "저해상도" / src.name
+                            dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
                             
                         operation = FileOperation(
                             source=src,
@@ -1422,7 +1637,7 @@ class MainWindow(QMainWindow):
         import aiohttp
         
         async with aiohttp.ClientSession() as session:
-            for (title, year), meta in group_metadata.items():
+            for (title, year, season), meta in group_metadata.items():
                 if not meta:
                     continue
                     
