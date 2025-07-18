@@ -98,10 +98,6 @@ node_modules/
 # OS specific
 .DS_Store
 
-# Task files
-# tasks.json
-# tasks/ 
-
 # Large compressed and data files
 *.gz
 
@@ -111,3 +107,564 @@ tmdb_exports/
 
 # Cleaning results and temp data
 cleaning_results_*.json 
+
+# Task files
+# tasks.json
+# tasks/ 
+
+# ===== AnimeSorter 특화 제외 파일들 =====
+
+# 빌드 및 배포 관련
+AnimeSorter.spec
+build_exe.py
+create_release.py
+setup_exe_config.py
+*.exe
+*.msi
+*.app
+*.dmg
+*.deb
+*.rpm
+*.AppImage
+
+# 캐시 및 임시 파일
+cache/
+cache.db
+cache_*.db
+*.cache
+temp/
+tmp/
+
+# 스캔 결과 및 분석 데이터
+scan_results/
+*.scan
+*.analysis
+*.report
+
+# 크래시 리포트
+crash_reports/
+*.crash
+*.dmp
+
+# 설정 파일 (개인 설정)
+config/animesorter_config.yaml
+config_template.yaml
+*.config.local
+*.config.user
+
+# 성능 테스트 결과
+benchmark_*.py
+*_performance_*.py
+*_benchmark_*.py
+performance_results/
+benchmark_results/
+
+# 데모 및 테스트 파일
+demo_*.py
+test_*.py
+simple_*.py
+module_test.py
+
+# 로그 파일 (상세)
+*.log.*
+*.log.old
+*.log.backup
+debug_*.log
+error_*.log
+info_*.log
+
+# 임시 데이터 파일
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# 압축 파일
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# 미디어 파일 (테스트용)
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.wmv
+*.m4v
+*.flv
+*.srt
+*.ass
+*.ssa
+*.sub
+*.idx
+*.smi
+*.vtt
+
+# 메타데이터 파일
+*.nfo
+*.xml
+*.json.bak
+
+# 백업 파일
+backup/
+backups/
+*.backup
+*.bak
+
+# 프로파일링 데이터
+*.prof
+*.profile
+*.stats
+
+# 메모리 덤프
+*.dump
+*.mem
+
+# 임시 작업 파일
+work/
+working/
+*.work
+*.working
+
+# 사용자 데이터
+user_data/
+personal/
+private/
+
+# 플러그인 캐시
+plugin_cache/
+plugins/cache/
+
+# API 키 및 민감 정보
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+secrets.yaml
+secrets.json
+*.secret
+
+# 개발 도구 설정
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+
+# IDE 설정 (추가)
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS 특화 파일 (추가)
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 네트워크 및 API 관련
+*.api
+*.response
+api_cache/
+response_cache/
+
+# 파일명 정제 결과
+filenames.txt
+총*.txt
+*.정제결과.txt
+
+# TODO 및 메모 파일 (개인용)
+TODO.local.md
+NOTES.md
+*.todo
+*.memo
+
+# 릴리즈 관련
+release/
+releases/
+version.txt
+changelog.txt
+
+# 문서 생성 파일
+docs/_build/
+docs/.doctrees/
+*.pdf
+*.docx
+*.pptx
+
+# 가상 환경 (추가)
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 로컬 개발 설정
+local_config/
+dev_config/
+development.yaml
+development.json
+
+# 테스트 결과
+test_results/
+test_output/
+*.test
+*.test_result
+
+# 성능 모니터링
+performance/
+monitoring/
+*.perf
+*.monitor
+
+# 디버그 정보
+debug/
+debug_info/
+*.debug
+*.debug_info
+
+# 임시 스크립트
+temp_*.py
+test_script_*.py
+debug_*.py
+
+# ===== 추가 누락 파일들 =====
+
+# Cursor IDE 설정
+.cursor/
+.cursorrules
+.cursor-rules
+
+# Taskmaster 설정
+.taskmaster/
+.taskmaster/config.json
+.taskmaster/state.json
+.taskmaster/tasks/
+.taskmaster/reports/
+.taskmaster/docs/
+
+# GitHub Actions 및 워크플로우
+.github/workflows/
+.github/actions/
+.github/ISSUE_TEMPLATE/
+.github/PULL_REQUEST_TEMPLATE.md
+
+# 대용량 데이터베이스 파일
+anime-offline-database.json
+*.sql
+*.sqlite
+*.db-journal
+
+# 빌드 결과물 (상세)
+build/AnimeSorter/
+dist/
+dist.zip
+dist/*.exe
+dist/*.msi
+dist/*.app
+dist/*.dmg
+
+# 배포 관련 파일
+설치_및_사용법.txt
+README.txt
+*.txt.bak
+
+# 프로젝트 특화 파일
+AnimeSorter_v*.zip
+*.spec
+*.spec.bak
+
+# 개발 도구 캐시 (추가)
+__pycache__/
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+.pylint.d/
+.flake8
+
+# 가상 환경 (상세)
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+
+# 로컬 설정 파일
+config.yaml
+config_template.yaml
+config/local_config.yaml
+config/user_config.yaml
+
+# 임시 및 작업 파일
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 로그 파일 (상세)
+logs/
+*.log
+*.log.*
+*.log.old
+*.log.backup
+debug_*.log
+error_*.log
+info_*.log
+warning_*.log
+
+# 테스트 관련
+test_source/
+test_target/
+tests/__pycache__/
+tests/.pytest_cache/
+test_*.py
+*_test.py
+test_*.json
+test_*.yaml
+
+# 성능 및 벤치마크
+benchmark_*.py
+*_benchmark_*.py
+*_performance_*.py
+performance_*.py
+benchmark_results/
+performance_results/
+
+# 캐시 및 임시 데이터
+cache/
+cache.db
+cache_*.db
+*.cache
+temp/
+tmp/
+.tmp/
+.temp/
+
+# 스캔 및 분석 결과
+scan_results/
+*.scan
+*.analysis
+*.report
+*.result
+
+# 크래시 및 오류 리포트
+crash_reports/
+*.crash
+*.dmp
+*.error
+*.exception
+
+# API 응답 및 캐시
+api_response/
+api_cache/
+response_cache/
+*.api
+*.response
+*.api_cache
+
+# 미디어 파일 (테스트용)
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.wmv
+*.m4v
+*.flv
+*.webm
+*.srt
+*.ass
+*.ssa
+*.sub
+*.idx
+*.smi
+*.vtt
+*.nfo
+
+# 압축 파일
+*.zip
+*.tar
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
+*.bz2
+*.gz
+
+# 백업 및 복사본
+*.bak
+*.backup
+*.old
+*.orig
+*.copy
+backup/
+backups/
+
+# 보안 및 민감 정보
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cert
+secrets/
+secrets.yaml
+secrets.json
+*.secret
+.env.local
+.env.production
+.env.staging
+
+# 개발 도구 설정
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+.pylint.d/
+.flake8
+.mypy.ini
+.ruff.toml
+pyproject.toml.bak
+
+# IDE 및 에디터
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+
+# OS 특화 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# 네트워크 및 API
+*.api
+*.response
+api_cache/
+response_cache/
+*.http
+*.curl
+
+# 파일명 정제 결과
+filenames.txt
+총*.txt
+*.정제결과.txt
+*.cleaned.txt
+*.parsed.txt
+
+# 메모 및 노트
+TODO.local.md
+NOTES.md
+*.todo
+*.memo
+*.note
+*.remark
+
+# 릴리즈 및 배포
+release/
+releases/
+version.txt
+changelog.txt
+CHANGELOG.md
+RELEASE_NOTES.md
+
+# 문서 생성
+docs/_build/
+docs/.doctrees/
+docs/api/
+*.pdf
+*.docx
+*.pptx
+*.odt
+*.ods
+
+# 가상 환경 (상세)
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 로컬 개발 설정
+config/
+local_config/
+dev_config/
+development.yaml
+development.json
+dev.yaml
+dev.json
+
+# 테스트 결과
+test_results/
+test_output/
+*.test
+*.test_result
+test_report/
+coverage_report/
+
+# 성능 모니터링
+performance/
+monitoring/
+*.perf
+*.monitor
+*.profile
+*.prof
+
+# 디버그 정보
+debug/
+debug_info/
+*.debug
+*.debug_info
+*.trace
+*.stack
+
+# 임시 스크립트
+temp_*.py
+test_script_*.py
+debug_*.py
+scratch_*.py
+*.scratch
+
+# 프로젝트 특화 (최종)
+AnimeSorter_v*.zip
+AnimeSorter.spec
+build_exe.py
+create_release.py
+setup_exe_config.py
+demo_input_validation.py
+anime-offline-database.json
+filenames.txt
+총 59개의 그룹(제목) 파일을 찾았습니다. (자동 정제 및 그.txt 
