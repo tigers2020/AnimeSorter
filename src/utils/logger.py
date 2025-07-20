@@ -388,79 +388,69 @@ class AnimeSorterLogger:
 
 
 # 전역 로거 인스턴스
-_logger_instance: Optional[AnimeSorterLogger] = None
-
+_global_logger: Optional[AnimeSorterLogger] = None
 
 def initialize_logging(log_dir: str | Path = "logs", 
                       log_level: str = "INFO",
                       max_file_size: int = 5 * 1024 * 1024,
                       backup_count: int = 3) -> AnimeSorterLogger:
     """
-    로깅 시스템 초기화
+    전역 로깅 시스템 초기화 (싱글톤 패턴)
     
     Args:
         log_dir: 로그 디렉토리
         log_level: 로그 레벨
-        max_file_size: 최대 로그 파일 크기
+        max_file_size: 최대 파일 크기
         backup_count: 백업 파일 개수
         
     Returns:
-        AnimeSorterLogger: 로거 인스턴스
+        AnimeSorterLogger: 초기화된 로거 인스턴스
     """
-    global _logger_instance
+    global _global_logger
     
-    if _logger_instance is None:
-        _logger_instance = AnimeSorterLogger(
+    if _global_logger is None:
+        _global_logger = AnimeSorterLogger(
             log_dir=log_dir,
             log_level=log_level,
             max_file_size=max_file_size,
             backup_count=backup_count
         )
     
-    return _logger_instance
-
+    return _global_logger
 
 def get_logger(name: str) -> logging.Logger:
     """
-    로거 가져오기 (편의 함수)
+    모듈별 로거 반환 (전역 로거 사용)
     
     Args:
-        name: 로거 이름
+        name: 로거 이름 (보통 __name__)
         
     Returns:
-        logging.Logger: 로거 인스턴스
+        logging.Logger: 설정된 로거 인스턴스
     """
-    if _logger_instance is None:
+    global _global_logger
+    
+    if _global_logger is None:
+        # 전역 로거가 초기화되지 않은 경우 기본 설정으로 초기화
         initialize_logging()
     
-    return _logger_instance.get_logger(name)
-
+    return _global_logger.get_logger(name)
 
 def set_log_level(level: str) -> None:
-    """
-    로그 레벨 설정 (편의 함수)
+    """전역 로그 레벨 설정"""
+    global _global_logger
     
-    Args:
-        level: 로그 레벨
-    """
-    if _logger_instance is None:
-        initialize_logging()
-    
-    _logger_instance.set_log_level(level)
-
+    if _global_logger is not None:
+        _global_logger.set_log_level(level)
 
 def get_log_stats() -> Dict[str, Any]:
-    """
-    로그 통계 조회 (편의 함수)
+    """로그 통계 반환"""
+    global _global_logger
     
-    Returns:
-        dict: 로그 통계 정보
-    """
-    if _logger_instance is None:
-        initialize_logging()
+    if _global_logger is not None:
+        return _global_logger.get_log_stats()
     
-    return _logger_instance.get_log_stats()
-
+    return {}
 
 # 사용 예시를 위한 데코레이터
 def log_function_call(logger_name: str = None):
