@@ -852,10 +852,12 @@ class MainWindow(QMainWindow):
         # 스캔된 파일이 있으면 자동으로 메타데이터 동기화 실행
         if hasattr(self, 'grouped_files') and self.grouped_files:
             if auto_metadata_sync:
-                self.status_panel.log_message("[자동] 스캔 완료, 메타데이터 동기화 시작...")
+                self.status_panel.log_message("🔍 [자동] 스캔 완료, TMDB 메타데이터 검색 시작...")
+                self.status_panel.log_message(f"📊 총 {len(self.grouped_files)}개 그룹에 대해 TMDB 검색을 실행합니다.")
                 self._sync_metadata()
             else:
-                self.status_panel.log_message("[설정] 자동 메타데이터 동기화가 비활성화되어 있습니다.")
+                self.status_panel.log_message("⚠️ [설정] 자동 메타데이터 동기화가 비활성화되어 있습니다.")
+                self.status_panel.log_message("💡 수동으로 '메타데이터 동기화' 버튼을 클릭하세요.")
                 # 수동 동기화 버튼 활성화
                 if hasattr(self, 'control_panel') and hasattr(self.control_panel, 'sync_button'):
                     self.control_panel.sync_button.setEnabled(True)
@@ -1250,6 +1252,10 @@ class MainWindow(QMainWindow):
         self.status_panel.set_progress(percent, message)
         self.status_panel.set_step_progress("메타데이터 검색", percent)
         self.status_panel.update_progress(int(percent * len(self.grouped_files) / 100) if hasattr(self, 'grouped_files') else 0)
+        
+        # 진행 상황을 더 자세히 표시
+        if percent % 10 == 0:  # 10%마다 로그 출력
+            self.status_panel.log_message(f"🔄 TMDB 검색 진행률: {percent}% - {message}")
 
     def _on_group_sync_result(self, group_metadata):
         self.group_metadata = group_metadata
@@ -1411,6 +1417,20 @@ class MainWindow(QMainWindow):
         self.status_panel.set_progress(100, "메타데이터 동기화 완료")
         self.status_panel.set_step_completed("메타데이터 동기화", True)
         self.status_panel.set_step_active("메타데이터 동기화", False)
+        
+        # 동기화 결과 요약
+        if hasattr(self, 'group_metadata'):
+            total_groups = len(self.group_metadata)
+            successful = sum(1 for meta in self.group_metadata.values() if meta is not None)
+            failed = total_groups - successful
+            
+            self.status_panel.log_message("✅ TMDB 메타데이터 검색 완료!")
+            self.status_panel.log_message(f"📊 검색 결과: {successful}개 성공, {failed}개 실패 (총 {total_groups}개)")
+            
+            if successful > 0:
+                self.status_panel.log_message("🎬 포스터, 장르, 줄거리 정보가 테이블에 업데이트되었습니다.")
+            if failed > 0:
+                self.status_panel.log_message("⚠️ 일부 파일의 메타데이터를 찾지 못했습니다. 수동으로 검색해보세요.")
         
         # 동기화 버튼 비활성화 제거 (자동화됨)
         
