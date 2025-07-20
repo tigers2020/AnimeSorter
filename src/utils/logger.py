@@ -2,12 +2,14 @@
 AnimeSorter 로깅 시스템
 
 로테이팅 로그 핸들러와 구조화된 로깅 포맷을 제공하는 고급 로깅 시스템입니다.
+멀티프로세싱 환경에서 QueueHandler를 사용하여 데드락을 방지합니다.
 """
 
 import logging
 import logging.handlers
 import os
 import sys
+import multiprocessing
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -57,6 +59,68 @@ class AnimeSorterFormatter(logging.Formatter):
         return super().format(record)
 
 
+class QueueLogListener:
+    """Queue 기반 로그 리스너 (멀티프로세싱 안전)"""
+    
+    def __init__(self, log_dir: Path, max_file_size: int = 5 * 1024 * 1024, backup_count: int = 3):
+        """
+        Queue 로그 리스너 초기화
+        
+        Args:
+            log_dir: 로그 디렉토리
+            max_file_size: 최대 파일 크기
+            backup_count: 백업 파일 개수
+        """
+        self.log_dir = log_dir
+        self.max_file_size = max_file_size
+        self.backup_count = backup_count
+        self.queue = multiprocessing.Queue(-1)
+        self.listener = None
+        
+    def start(self):
+        """리스너 시작"""
+        # 파일 핸들러들 생성
+        main_handler = logging.handlers.RotatingFileHandler(
+            self.log_dir / "animesorter.log",
+            maxBytes=self.max_file_size,
+            backupCount=self.backup_count,
+            encoding='utf-8'
+        )
+        main_handler.setFormatter(AnimeSorterFormatter(include_timestamp=True, include_module=True))
+        
+        error_handler = logging.handlers.RotatingFileHandler(
+            self.log_dir / "animesorter_error.log",
+            maxBytes=self.max_file_size,
+            backupCount=self.backup_count,
+            encoding='utf-8'
+        )
+        error_handler.setLevel(logging.ERROR)
+        error_handler.setFormatter(AnimeSorterFormatter(include_timestamp=True, include_module=True))
+        
+        # 콘솔 핸들러
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(AnimeSorterFormatter(include_timestamp=True, include_module=False))
+        
+        # 리스너 생성 및 시작
+        self.listener = logging.handlers.QueueListener(
+            self.queue,
+            main_handler,
+            error_handler,
+            console_handler,
+            respect_handler_level=True
+        )
+        self.listener.start()
+        
+    def stop(self):
+        """리스너 중지"""
+        if self.listener:
+            self.listener.stop()
+            
+    def get_queue(self):
+        """로그 큐 반환"""
+        return self.queue
+
+
 class AnimeSorterLogger:
     """AnimeSorter 로깅 시스템 관리 클래스"""
     
@@ -64,7 +128,8 @@ class AnimeSorterLogger:
                  log_dir: str | Path = "logs",
                  max_file_size: int = 5 * 1024 * 1024,  # 5MB
                  backup_count: int = 3,
-                 log_level: str = "INFO"):
+                 log_level: str = "INFO",
+                 use_queue_handler: bool = True):
         """
         로거 초기화
         
@@ -73,14 +138,19 @@ class AnimeSorterLogger:
             max_file_size: 최대 로그 파일 크기 (바이트)
             backup_count: 백업 파일 개수
             log_level: 로그 레벨
+            use_queue_handler: QueueHandler 사용 여부 (멀티프로세싱 환경)
         """
         self.log_dir = Path(log_dir)
         self.max_file_size = max_file_size
         self.backup_count = backup_count
         self.log_level = getattr(logging, log_level.upper(), logging.INFO)
+        self.use_queue_handler = use_queue_handler
         
         # 로그 디렉토리 생성
         self.log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Queue 리스너 (멀티프로세싱 환경용)
+        self.queue_listener = None
         
         # 루트 로거 설정
         self._setup_root_logger()
@@ -98,6 +168,29 @@ class AnimeSorterLogger:
             handler.close()
             root_logger.removeHandler(handler)
         
+        if self.use_queue_handler and multiprocessing.current_process().name == 'MainProcess':
+            # 메인 프로세스에서 Queue 리스너 시작
+            self.queue_listener = QueueLogListener(self.log_dir, self.max_file_size, self.backup_count)
+            self.queue_listener.start()
+            
+            # 메인 프로세스용 핸들러 (콘솔 출력)
+            console_handler = self._create_console_handler()
+            root_logger.addHandler(console_handler)
+            
+        elif self.use_queue_handler:
+            # 워커 프로세스에서 QueueHandler 사용
+            if hasattr(self, 'queue_listener') and self.queue_listener:
+                queue_handler = logging.handlers.QueueHandler(self.queue_listener.get_queue())
+                root_logger.addHandler(queue_handler)
+            else:
+                # Queue 리스너가 없는 경우 기본 핸들러 사용
+                self._setup_default_handlers(root_logger)
+        else:
+            # QueueHandler 사용하지 않는 경우 기본 핸들러 사용
+            self._setup_default_handlers(root_logger)
+    
+    def _setup_default_handlers(self, root_logger: logging.Logger) -> None:
+        """기본 핸들러 설정"""
         # 콘솔 핸들러 추가
         console_handler = self._create_console_handler()
         root_logger.addHandler(console_handler)

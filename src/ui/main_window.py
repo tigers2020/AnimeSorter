@@ -275,6 +275,29 @@ class FileScanWorker(QRunnable):
             file_name_list.append(file_name)
             ext_type_list.append(is_media)
         
+        # 파일 크기 및 수정 시간 정보 미리 수집 (JSON 저장 최적화)
+        self.signals.progress.emit(7, "파일 정보 수집 중...")
+        file_info_cache = {}
+        for file_path in self.file_paths:
+            try:
+                path_obj = Path(file_path)
+                if path_obj.exists():
+                    stat_info = path_obj.stat()
+                    file_info_cache[str(file_path)] = {
+                        'file_size': stat_info.st_size,
+                        'last_modified': datetime.fromtimestamp(stat_info.st_mtime).isoformat()
+                    }
+                else:
+                    file_info_cache[str(file_path)] = {
+                        'file_size': 0,
+                        'last_modified': datetime.now().isoformat()
+                    }
+            except (OSError, FileNotFoundError):
+                file_info_cache[str(file_path)] = {
+                    'file_size': 0,
+                    'last_modified': datetime.now().isoformat()
+                }
+        
         results = [None] * len(file_name_list)
         
         # 2단계: ProcessPoolExecutor를 사용한 병렬 파일명 정제 (성능 최적화)
@@ -319,6 +342,9 @@ class FileScanWorker(QRunnable):
                     except Exception as e:
                         self.signals.log.emit(f"[프로세스 풀] {file_name_list[idx]}: 병렬 정제 오류: {e}")
                         update_progress()  # 오류가 있어도 진행률 업데이트
+                
+                # 프로세스 풀 정리 (중요: 프리징 방지)
+                executor.shutdown(wait=True)
                         
         except Exception as e:
             self.signals.log.emit(f"{pool_type} 오류: {e}, ThreadPoolExecutor fallback")
@@ -351,7 +377,9 @@ class FileScanWorker(QRunnable):
                         except Exception as e:
                             self.signals.log.emit(f"[스레드 풀] {file_name_list[idx]}: 병렬 정제 오류: {e}")
                             update_progress()
-                            
+                    
+                    # 스레드 풀 정리 (중요: 프리징 방지)
+                    executor.shutdown(wait=True)
             except Exception as e2:
                 self.signals.log.emit(f"ThreadPoolExecutor도 실패: {e2}, 단일 프로세스 fallback")
                 self.signals.progress.emit(15, "단일 프로세스로 파일명 정제 중...")
@@ -387,6 +415,13 @@ class FileScanWorker(QRunnable):
                 return
                 
             if not is_media:
+                # 파일 정보 캐시에서 정보 가져오기
+                file_info = file_info_cache.get(file_name, {})
+                extra_info = {
+                    'file_size': file_info.get('file_size', 0),
+                    'last_modified': file_info.get('last_modified', datetime.now().isoformat())
+                }
+                
                 clean = CleanResult(
                     title="other",
                     original_filename=file_name,
@@ -394,7 +429,7 @@ class FileScanWorker(QRunnable):
                     episode=None,
                     year=None,
                     is_movie=False,
-                    extra_info={}
+                    extra_info=extra_info
                 )
                 results[i] = clean
                 clean_cache[file_name] = clean
@@ -863,66 +898,99 @@ class MainWindow(QMainWindow):
         self.status_panel.log_message(f"총 {self.file_list.rowCount()}개의 그룹(제목) 파일을 찾았습니다. (자동 정제 및 그룹핑 완료)")
         
         # --- 스캔 결과 JSON 저장 (개선된 버전) ---
-        self._save_scan_results_to_json()
+        # 백그라운드에서 JSON 저장 실행
+        self._save_scan_results_async()
     
-    def _save_scan_results_to_json(self):
-        """스캔 결과를 JSON으로 저장"""
-        try:
-            from utils.json_exporter import JSONExporter, ExportFormat
-            
-            # JSON 내보내기 객체 생성
-            exporter = JSONExporter()
-            
-            # 저장 디렉토리 생성
-            save_dir = Path("./scan_results")
-            save_dir.mkdir(exist_ok=True)
-            
-            # 파일명 생성 (타임스탬프 포함)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_path = save_dir / f"scan_result_{timestamp}"
-            
-            # 스캔 소요 시간 계산
-            scan_duration = time.time() - getattr(self, 'scan_start_time', time.time())
-            
-            # JSON 내보내기 실행
-            saved_path = exporter.export_scan_results(
-                grouped_files=self.grouped_files,
-                source_directory=self.source_selector.get_path(),
-                scan_duration=scan_duration,
-                output_path=output_path,
-                format=ExportFormat.JSON,
-                include_metadata=True,
-                compress=False
-            )
-            
-            # 요약 정보 생성 및 로그 출력
-            scan_data = exporter.load_scan_results(saved_path)
-            summary = exporter.get_export_summary(scan_data)
-            
-            self.status_panel.log_message(f"✅ 스캔 결과 저장 완료: {saved_path}")
-            self.status_panel.log_message(summary)
-            
-            # 압축 버전도 생성 (선택사항)
-            compressed_path = exporter.export_scan_results(
-                grouped_files=self.grouped_files,
-                source_directory=self.source_selector.get_path(),
-                scan_duration=scan_duration,
-                output_path=output_path,
-                format=ExportFormat.GZIPPED_JSON,
-                include_metadata=True,
-                compress=True
-            )
-            
-            self.status_panel.log_message(f"📦 압축 버전 저장: {compressed_path}")
-            
-        except ImportError as e:
-            self.status_panel.log_message(f"⚠️ JSON 내보내기 모듈을 찾을 수 없습니다: {e}")
-            # 기존 방식으로 폴백
-            self._save_scan_results_fallback()
-        except Exception as e:
-            self.status_panel.log_message(f"❌ 스캔 결과 저장 오류: {e}")
-            # 기존 방식으로 폴백
-            self._save_scan_results_fallback()
+    def _save_scan_results_async(self):
+        """스캔 결과를 백그라운드에서 JSON으로 저장"""
+        class JSONSaveWorker(QRunnable):
+            def __init__(self, grouped_files, source_directory, scan_duration, status_panel):
+                super().__init__()
+                self.grouped_files = grouped_files
+                self.source_directory = source_directory
+                self.scan_duration = scan_duration
+                self.status_panel = status_panel
+                self.signals = JSONSaveSignals()
+                
+            def run(self):
+                try:
+                    from utils.json_exporter import JSONExporter, ExportFormat
+                    
+                    # JSON 내보내기 객체 생성
+                    exporter = JSONExporter()
+                    
+                    # 저장 디렉토리 생성
+                    save_dir = Path("./scan_results")
+                    save_dir.mkdir(exist_ok=True)
+                    
+                    # 파일명 생성 (타임스탬프 포함)
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    output_path = save_dir / f"scan_result_{timestamp}"
+                    
+                    # 스트리밍 JSON 내보내기 실행 (최적화된 버전)
+                    saved_path = exporter._export_scan_results_streaming(
+                        grouped_files=self.grouped_files,
+                        source_directory=self.source_directory,
+                        scan_duration=self.scan_duration,
+                        output_path=output_path,
+                        compress=False
+                    )
+                    
+                    # 요약 정보 생성
+                    scan_data = exporter.load_scan_results(saved_path)
+                    summary = exporter.get_export_summary(scan_data)
+                    
+                    # 결과 시그널 전송
+                    self.signals.success.emit(str(saved_path), summary)
+                    
+                    # 압축 버전도 생성 (선택사항)
+                    compressed_path = exporter._export_scan_results_streaming(
+                        grouped_files=self.grouped_files,
+                        source_directory=self.source_directory,
+                        scan_duration=self.scan_duration,
+                        output_path=output_path,
+                        compress=True
+                    )
+                    
+                    self.signals.compressed.emit(str(compressed_path))
+                    
+                except ImportError as e:
+                    self.signals.error.emit(f"JSON 내보내기 모듈을 찾을 수 없습니다: {e}")
+                except Exception as e:
+                    self.signals.error.emit(f"스캔 결과 저장 오류: {e}")
+        
+        class JSONSaveSignals(QObject):
+            success = pyqtSignal(str, str)  # saved_path, summary
+            compressed = pyqtSignal(str)    # compressed_path
+            error = pyqtSignal(str)         # error_message
+        
+        # 워커 생성 및 실행
+        worker = JSONSaveWorker(
+            self.grouped_files,
+            self.source_selector.get_path(),
+            time.time() - getattr(self, 'scan_start_time', time.time()),
+            self.status_panel
+        )
+        
+        # 시그널 연결
+        worker.signals.success.connect(
+            lambda path, summary: self.status_panel.log_message(f"✅ 스캔 결과 저장 완료: {path}\n{summary}")
+        )
+        worker.signals.compressed.connect(
+            lambda path: self.status_panel.log_message(f"📦 압축 버전 저장: {path}")
+        )
+        worker.signals.error.connect(
+            lambda error: self._handle_json_save_error(error)
+        )
+        
+        # 백그라운드에서 실행
+        QThreadPool.globalInstance().start(worker)
+    
+    def _handle_json_save_error(self, error_message: str):
+        """JSON 저장 오류 처리"""
+        self.status_panel.log_message(f"❌ {error_message}")
+        # 기존 방식으로 폴백
+        self._save_scan_results_fallback()
     
     def _save_scan_results_fallback(self):
         """기존 방식으로 스캔 결과 저장 (폴백)"""

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import asyncio
+from datetime import datetime
 
 try:
     import anitopy
@@ -105,16 +106,57 @@ class FileCleaner:
     @staticmethod
     def clean_filename_static(file_path: Union[str, Path]) -> CleanResult:
         """
-        정적 메서드로 파일명 정제 (인스턴스 생성 없이 사용)
-        @deprecated: clean_filename() 사용을 권장합니다.
+        파일명 정제 (정적 메서드, 최적화된 버전)
         
         Args:
-            file_path: 파일 경로
+            file_path: 파일 경로 또는 제목 문자열
             
         Returns:
             CleanResult: 정제된 결과
         """
-        return FileCleaner.clean_filename(file_path)
+        cleaner = FileCleaner()
+        try:
+            # 파일 경로인 경우 전체 파싱
+            if isinstance(file_path, (str, Path)) and Path(file_path).exists():
+                result = cleaner.parse(file_path)
+                
+                # 파일 정보 추가 (JSON 저장 최적화)
+                try:
+                    path_obj = Path(file_path)
+                    stat_info = path_obj.stat()
+                    if result.extra_info is None:
+                        result.extra_info = {}
+                    result.extra_info.update({
+                        'file_size': stat_info.st_size,
+                        'last_modified': datetime.fromtimestamp(stat_info.st_mtime).isoformat()
+                    })
+                except (OSError, FileNotFoundError):
+                    if result.extra_info is None:
+                        result.extra_info = {}
+                    result.extra_info.update({
+                        'file_size': 0,
+                        'last_modified': datetime.now().isoformat()
+                    })
+                
+                return result
+            else:
+                # 문자열인 경우 제목만 정제
+                title = str(file_path)
+                result = cleaner._pre_clean_filename(title)
+                result = cleaner._normalize_korean_tokens(result)
+                result = cleaner._post_clean_title(result)
+                
+                return CleanResult(
+                    title=result,
+                    original_filename=title,
+                    is_anime=True,
+                    extra_info={
+                        'file_size': 0,
+                        'last_modified': datetime.now().isoformat()
+                    }
+                )
+        finally:
+            cleaner.__del__()
     
     def parse(self, file_path: Union[str, Path], *, strict: bool = False) -> CleanResult:
         """

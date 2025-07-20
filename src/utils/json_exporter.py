@@ -6,9 +6,12 @@
 
 import json
 import gzip
+import orjson
+import io
+import itertools
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Iterator
 from dataclasses import dataclass, asdict, field
 from enum import Enum
 
@@ -23,6 +26,7 @@ class ExportFormat(Enum):
     JSON = "json"
     GZIPPED_JSON = "json.gz"
     MINIFIED_JSON = "minified.json"
+    STREAMING_JSON = "streaming.json"  # 스트리밍 최적화 버전
 
 
 @dataclass
@@ -38,8 +42,8 @@ class ScanMetadata:
 
 
 @dataclass
-class FileInfo:
-    """파일 정보"""
+class FileData:
+    """파일 데이터"""
     original_path: str
     file_name: str
     file_size: int
@@ -57,7 +61,7 @@ class GroupedFileData:
     year: Optional[int]
     season: int
     episode: Optional[int]
-    files: List[FileInfo]
+    files: List[FileData]
     total_size: int
     file_count: int
     video_count: int
@@ -103,6 +107,12 @@ class JSONExporter:
         """
         output_path = Path(output_path)
         
+        # 스트리밍 최적화 버전 사용
+        if format == ExportFormat.STREAMING_JSON:
+            return self._export_scan_results_streaming(
+                grouped_files, source_directory, scan_duration, output_path, compress
+            )
+        
         # 스캔 결과 데이터 구조화
         scan_data = self._structure_scan_data(
             grouped_files, source_directory, scan_duration
@@ -113,6 +123,219 @@ class JSONExporter:
         
         # 파일 저장
         return self._save_to_file(json_data, output_path, format, compress)
+    
+    def _export_scan_results_streaming(self,
+                                     grouped_files: Dict,
+                                     source_directory: str,
+                                     scan_duration: float,
+                                     output_path: Path,
+                                     compress: bool) -> Path:
+        """
+        스트리밍 방식으로 스캔 결과를 JSON으로 내보내기 (최적화된 버전)
+        
+        Args:
+            grouped_files: 그룹화된 파일 데이터
+            source_directory: 소스 디렉토리 경로
+            scan_duration: 스캔 소요 시간
+            output_path: 출력 파일 경로
+            compress: 압축 여부
+            
+        Returns:
+            Path: 저장된 파일 경로
+        """
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 압축 여부에 따른 파일 확장자 결정
+        if compress:
+            final_path = output_path.with_suffix('.json.gz')
+            file_obj = gzip.open(final_path, 'wb')
+        else:
+            final_path = output_path.with_suffix('.json')
+            file_obj = open(final_path, 'wb')
+        
+        try:
+            # 메타데이터 생성
+            total_files = sum(len(files) for files in grouped_files.values())
+            total_groups = len(grouped_files)
+            
+            metadata = {
+                "scan_timestamp": datetime.now().isoformat(),
+                "total_files": total_files,
+                "total_groups": total_groups,
+                "scan_duration": scan_duration,
+                "source_directory": source_directory,
+                "version": "1.0.0",
+                "export_timestamp": datetime.now().isoformat()
+            }
+            
+            # 스트리밍 JSON 작성 시작
+            file_obj.write(b'{\n')
+            
+            # 메타데이터 섹션
+            file_obj.write(b'  "metadata": ')
+            file_obj.write(orjson.dumps(metadata, option=orjson.OPT_INDENT_2))
+            file_obj.write(b',\n')
+            
+            # 그룹 섹션 시작
+            file_obj.write(b'  "groups": [\n')
+            
+            # 그룹 데이터 스트리밍
+            first_group = True
+            for (title, year, season), files in grouped_files.items():
+                if not first_group:
+                    file_obj.write(b',\n')
+                first_group = False
+                
+                # 그룹 메타데이터 계산
+                total_size = 0
+                video_count = 0
+                subtitle_count = 0
+                
+                # 파일 데이터 스트리밍
+                group_data = {
+                    "title": title,
+                    "year": year,
+                    "season": season,
+                    "episode": None,  # 그룹 레벨에서는 None
+                    "files": []
+                }
+                
+                for file_data in files:
+                    # 파일 정보 최적화된 방식으로 추출
+                    file_info = self._extract_file_info_optimized(file_data)
+                    group_data["files"].append(file_info)
+                    
+                    # 통계 업데이트
+                    total_size += file_info.get("file_size", 0)
+                    if file_info.get("is_video", False):
+                        video_count += 1
+                    if file_info.get("is_subtitle", False):
+                        subtitle_count += 1
+                
+                # 그룹 통계 추가
+                group_data.update({
+                    "total_size": total_size,
+                    "file_count": len(files),
+                    "video_count": video_count,
+                    "subtitle_count": subtitle_count
+                })
+                
+                # orjson으로 그룹 데이터 직렬화 (들여쓰기 포함)
+                group_json = orjson.dumps(group_data, option=orjson.OPT_INDENT_2)
+                # 첫 번째 줄의 들여쓰기 조정
+                lines = group_json.split(b'\n')
+                adjusted_lines = [b'    ' + line if line.strip() else line for line in lines]
+                file_obj.write(b'\n'.join(adjusted_lines))
+            
+            # 그룹 섹션 종료
+            file_obj.write(b'\n  ],\n')
+            
+            # 통계 섹션
+            statistics = self._calculate_statistics_streaming(grouped_files)
+            file_obj.write(b'  "statistics": ')
+            file_obj.write(orjson.dumps(statistics, option=orjson.OPT_INDENT_2))
+            file_obj.write(b'\n')
+            
+            # JSON 종료
+            file_obj.write(b'}\n')
+            
+        finally:
+            file_obj.close()
+        
+        self.logger.info(f"스트리밍 JSON 내보내기 완료: {final_path}")
+        return final_path
+    
+    def _extract_file_info_optimized(self, file_data: Any) -> Dict[str, Any]:
+        """파일 정보를 최적화된 방식으로 추출"""
+        if hasattr(file_data, 'extra_info') and file_data.extra_info:
+            # 이미 수집된 파일 정보 사용
+            file_info = {
+                "original_path": str(getattr(file_data, "original_filename", "")),
+                "file_name": Path(getattr(file_data, "original_filename", "")).name,
+                "file_size": file_data.extra_info.get("file_size", 0),
+                "file_extension": Path(getattr(file_data, "original_filename", "")).suffix,
+                "last_modified": file_data.extra_info.get("last_modified", datetime.now().isoformat()),
+                "is_video": Path(getattr(file_data, "original_filename", "")).suffix.lower() in ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.flv'],
+                "is_subtitle": Path(getattr(file_data, "original_filename", "")).suffix.lower() in ['.srt', '.ass', '.ssa', '.sub', '.idx', '.smi', '.vtt'],
+                "metadata": {
+                    "title": getattr(file_data, "title", ""),
+                    "season": getattr(file_data, "season", 1),
+                    "episode": getattr(file_data, "episode", None),
+                    "year": getattr(file_data, "year", None),
+                    "is_movie": getattr(file_data, "is_movie", False)
+                }
+            }
+        else:
+            # 기존 방식으로 파일 정보 조회 (최소화)
+            file_path = Path(getattr(file_data, "original_filename", ""))
+            try:
+                stat_info = file_path.stat()
+                file_size = stat_info.st_size
+                last_modified = datetime.fromtimestamp(stat_info.st_mtime).isoformat()
+            except (OSError, FileNotFoundError):
+                file_size = 0
+                last_modified = datetime.now().isoformat()
+            
+            file_info = {
+                "original_path": str(file_path),
+                "file_name": file_path.name,
+                "file_size": file_size,
+                "file_extension": file_path.suffix,
+                "last_modified": last_modified,
+                "is_video": file_path.suffix.lower() in ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.flv'],
+                "is_subtitle": file_path.suffix.lower() in ['.srt', '.ass', '.ssa', '.sub', '.idx', '.smi', '.vtt'],
+                "metadata": {
+                    "title": getattr(file_data, "title", ""),
+                    "season": getattr(file_data, "season", 1),
+                    "episode": getattr(file_data, "episode", None),
+                    "year": getattr(file_data, "year", None),
+                    "is_movie": getattr(file_data, "is_movie", False)
+                }
+            }
+        
+        return file_info
+    
+    def _calculate_statistics_streaming(self, grouped_files: Dict) -> Dict[str, Any]:
+        """스트리밍 방식으로 통계 계산"""
+        total_size_bytes = 0
+        total_video_files = 0
+        total_subtitle_files = 0
+        group_sizes = []
+        
+        for files in grouped_files.values():
+            group_size = 0
+            for file_data in files:
+                # 최적화된 파일 크기 조회
+                if hasattr(file_data, 'extra_info') and file_data.extra_info:
+                    file_size = file_data.extra_info.get("file_size", 0)
+                else:
+                    try:
+                        file_size = Path(getattr(file_data, "original_filename", "")).stat().st_size
+                    except (OSError, FileNotFoundError):
+                        file_size = 0
+                
+                group_size += file_size
+                total_size_bytes += file_size
+                
+                # 파일 타입 카운트
+                file_path = Path(getattr(file_data, "original_filename", ""))
+                if file_path.suffix.lower() in ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.flv']:
+                    total_video_files += 1
+                elif file_path.suffix.lower() in ['.srt', '.ass', '.ssa', '.sub', '.idx', '.smi', '.vtt']:
+                    total_subtitle_files += 1
+            
+            group_sizes.append(group_size)
+        
+        return {
+            "total_size_bytes": total_size_bytes,
+            "total_size_gb": round(total_size_bytes / (1024**3), 2),
+            "total_video_files": total_video_files,
+            "total_subtitle_files": total_subtitle_files,
+            "average_group_size": total_size_bytes / len(grouped_files) if grouped_files else 0,
+            "largest_group": max(group_sizes) if group_sizes else 0,
+            "smallest_group": min(group_sizes) if group_sizes else 0
+        }
     
     def _structure_scan_data(self, 
                            grouped_files: Dict, 
@@ -173,7 +396,7 @@ class JSONExporter:
                 except (OSError, FileNotFoundError):
                     last_modified = datetime.now().isoformat()
                 
-                file_info = FileInfo(
+                file_info = FileData(
                     original_path=str(file_path),
                     file_name=file_path.name,
                     file_size=file_size,
@@ -319,7 +542,7 @@ class JSONExporter:
         # 그룹 데이터 변환
         groups = []
         for group_data in data.get('groups', []):
-            files = [FileInfo(**file_data) for file_data in group_data.get('files', [])]
+            files = [FileData(**file_data) for file_data in group_data.get('files', [])]
             
             group = GroupedFileData(
                 title=group_data['title'],
@@ -366,3 +589,170 @@ class JSONExporter:
 """
         
         return summary.strip() 
+
+    def export_scan_results_optimized(self, 
+                           grouped_files: Dict, 
+                           source_directory: str,
+                           scan_duration: float,
+                           output_path: Union[str, Path],
+                           format: ExportFormat = ExportFormat.JSON,
+                           include_metadata: bool = True,
+                           compress: bool = False) -> Path:
+        """
+        스캔 결과를 JSON으로 내보내기 (최적화된 버전)
+        
+        Args:
+            grouped_files: 그룹화된 파일 데이터
+            source_directory: 소스 디렉토리 경로
+            scan_duration: 스캔 소요 시간
+            output_path: 출력 파일 경로
+            format: 내보내기 형식
+            include_metadata: 메타데이터 포함 여부
+            compress: 압축 여부
+            
+        Returns:
+            Path: 저장된 파일 경로
+        """
+        # 스트리밍 방식 사용
+        return self._export_scan_results_streaming(
+            grouped_files, source_directory, scan_duration, Path(output_path), compress
+        )
+    
+    def _structure_scan_data_optimized(self, 
+                           grouped_files: Dict, 
+                           source_directory: str,
+                           scan_duration: float) -> ScanResultExport:
+        """스캔 데이터를 구조화된 형태로 변환 (최적화된 버전)"""
+        
+        # 메타데이터 생성
+        total_files = sum(len(files) for files in grouped_files.values())
+        metadata = ScanMetadata(
+            scan_timestamp=datetime.now().isoformat(),
+            total_files=total_files,
+            total_groups=len(grouped_files),
+            scan_duration=scan_duration,
+            source_directory=str(source_directory)
+        )
+        
+        # 그룹 데이터 변환 (최적화된 버전)
+        groups = []
+        total_size = 0
+        total_video_count = 0
+        total_subtitle_count = 0
+        
+        for (title, year, season), files in grouped_files.items():
+            group_files = []
+            group_size = 0
+            video_count = 0
+            subtitle_count = 0
+            
+            # 파일 정보 추출 (최적화된 버전)
+            for file_data in files:
+                if hasattr(file_data, 'original_filename'):
+                    file_path = Path(file_data.original_filename)
+                elif isinstance(file_data, dict):
+                    file_path = Path(file_data.get('original_filename', ''))
+                else:
+                    continue
+                
+                # 파일 크기 조회 (최적화: 기존 데이터에서 추출하거나 기본값 사용)
+                file_size = self._get_file_size_optimized(file_data, file_path)
+                
+                # 파일 타입 판별
+                ext = file_path.suffix.lower()
+                is_video = ext in ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.flv']
+                is_subtitle = ext in ['.srt', '.ass', '.ssa', '.sub', '.idx', '.smi', '.vtt']
+                
+                if is_video:
+                    video_count += 1
+                elif is_subtitle:
+                    subtitle_count += 1
+                
+                # 파일 정보 생성 (최적화된 버전)
+                last_modified = self._get_last_modified_optimized(file_data, file_path)
+                
+                file_info = FileData(
+                    original_path=str(file_path),
+                    file_name=file_path.name,
+                    file_size=file_size,
+                    file_extension=ext,
+                    last_modified=last_modified,
+                    is_video=is_video,
+                    is_subtitle=is_subtitle,
+                    metadata=self._extract_file_metadata(file_data)
+                )
+                
+                group_files.append(file_info)
+                group_size += file_size
+            
+            # 그룹 정보 생성
+            group_data = GroupedFileData(
+                title=title,
+                year=year,
+                season=season,
+                episode=getattr(files[0], 'episode', None) if files else None,
+                files=group_files,
+                total_size=group_size,
+                file_count=len(group_files),
+                video_count=video_count,
+                subtitle_count=subtitle_count
+            )
+            
+            groups.append(group_data)
+            total_size += group_size
+            total_video_count += video_count
+            total_subtitle_count += subtitle_count
+        
+        # 통계 정보
+        statistics = {
+            "total_size_bytes": total_size,
+            "total_size_mb": round(total_size / (1024 * 1024), 2),
+            "total_size_gb": round(total_size / (1024 * 1024 * 1024), 2),
+            "total_video_files": total_video_count,
+            "total_subtitle_files": total_subtitle_count,
+            "average_group_size": round(total_size / len(groups), 2) if groups else 0,
+            "largest_group": max(len(g.files) for g in groups) if groups else 0,
+            "smallest_group": min(len(g.files) for g in groups) if groups else 0
+        }
+        
+        return ScanResultExport(
+            metadata=metadata,
+            groups=groups,
+            statistics=statistics
+        )
+    
+    def _get_file_size_optimized(self, file_data: Any, file_path: Path) -> int:
+        """파일 크기를 최적화된 방식으로 조회"""
+        # 1. 기존 데이터에서 파일 크기 정보가 있는지 확인
+        if hasattr(file_data, 'file_size'):
+            return getattr(file_data, 'file_size', 0)
+        elif isinstance(file_data, dict) and 'file_size' in file_data:
+            return file_data.get('file_size', 0)
+        
+        # 2. 파일이 실제로 존재하는지 빠르게 확인
+        if not file_path.exists():
+            return 0
+        
+        # 3. 파일 크기 조회 (최소한의 정보만)
+        try:
+            return file_path.stat().st_size
+        except (OSError, FileNotFoundError):
+            return 0
+    
+    def _get_last_modified_optimized(self, file_data: Any, file_path: Path) -> str:
+        """파일 수정 시간을 최적화된 방식으로 조회"""
+        # 1. 기존 데이터에서 수정 시간 정보가 있는지 확인
+        if hasattr(file_data, 'last_modified'):
+            return getattr(file_data, 'last_modified', datetime.now().isoformat())
+        elif isinstance(file_data, dict) and 'last_modified' in file_data:
+            return file_data.get('last_modified', datetime.now().isoformat())
+        
+        # 2. 파일이 실제로 존재하는지 빠르게 확인
+        if not file_path.exists():
+            return datetime.now().isoformat()
+        
+        # 3. 파일 수정 시간 조회 (최소한의 정보만)
+        try:
+            return datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
+        except (OSError, FileNotFoundError):
+            return datetime.now().isoformat() 
