@@ -476,7 +476,8 @@ class MetadataManager:
         """캐시 키 생성 (에러 처리 강화)"""
         try:
             from slugify import slugify
-            normalized_title = slugify(title.lower(), separator='_')
+from ..utils.safe_slugify import safe_slugify
+            normalized_title = safe_slugify(title, separator='_')
             year_part = f"_{year}" if year else "_any"
             return f"{normalized_title}{year_part}"
         except Exception:

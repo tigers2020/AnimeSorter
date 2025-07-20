@@ -10,6 +10,7 @@ from pathlib import Path
 import tmdbsimple as tmdb
 from rapidfuzz import fuzz, process
 from slugify import slugify
+from ...utils.safe_slugify import safe_slugify
 
 import yaml
 import os
@@ -352,7 +353,7 @@ class TMDBProvider:
         Returns:
             str: 캐시 키
         """
-        normalized_title = slugify(title.lower(), separator='_')
+        normalized_title = safe_slugify(title, separator='_')
         year_part = f"_{year}" if year else "_any"
         season_part = f"_{season}" if season else "_any"
         return f"{normalized_title}{year_part}{season_part}"

@@ -73,43 +73,13 @@ class FileCleaner:
             self._executor.shutdown(wait=False)
     
     @staticmethod
-    def clean_filename(file_path: Union[str, Path]) -> CleanResult:
+    def clean_filename(file_path: Union[str, Path], *, include_file_info: bool = False) -> CleanResult:
         """
-        파일명 정제 (정적 메서드)
+        파일명 정제 (통합된 정적 메서드)
         
         Args:
             file_path: 파일 경로 또는 제목 문자열
-            
-        Returns:
-            CleanResult: 정제된 결과
-        """
-        cleaner = FileCleaner()
-        try:
-            # 파일 경로인 경우 전체 파싱
-            if isinstance(file_path, (str, Path)) and Path(file_path).exists():
-                return cleaner.parse(file_path)
-            else:
-                # 문자열인 경우 제목만 정제
-                title = str(file_path)
-                result = cleaner._pre_clean_filename(title)
-                result = cleaner._normalize_korean_tokens(result)
-                result = cleaner._post_clean_title(result)
-                
-                return CleanResult(
-                    title=result,
-                    original_filename=title,
-                    is_anime=True
-                )
-        finally:
-            cleaner.__del__()
-    
-    @staticmethod
-    def clean_filename_static(file_path: Union[str, Path]) -> CleanResult:
-        """
-        파일명 정제 (정적 메서드, 최적화된 버전)
-        
-        Args:
-            file_path: 파일 경로 또는 제목 문자열
+            include_file_info: 파일 정보 포함 여부 (기본값: False)
             
         Returns:
             CleanResult: 정제된 결과
@@ -120,43 +90,78 @@ class FileCleaner:
             if isinstance(file_path, (str, Path)) and Path(file_path).exists():
                 result = cleaner.parse(file_path)
                 
-                # 파일 정보 추가 (JSON 저장 최적화)
-                try:
-                    path_obj = Path(file_path)
-                    stat_info = path_obj.stat()
-                    if result.extra_info is None:
-                        result.extra_info = {}
-                    result.extra_info.update({
-                        'file_size': stat_info.st_size,
-                        'last_modified': datetime.fromtimestamp(stat_info.st_mtime).isoformat()
-                    })
-                except (OSError, FileNotFoundError):
-                    if result.extra_info is None:
-                        result.extra_info = {}
-                    result.extra_info.update({
-                        'file_size': 0,
-                        'last_modified': datetime.now().isoformat()
-                    })
+                # 파일 정보 추가 (요청된 경우)
+                if include_file_info:
+                    result = cleaner._add_file_info(result, Path(file_path))
                 
                 return result
             else:
                 # 문자열인 경우 제목만 정제
-                title = str(file_path)
-                result = cleaner._pre_clean_filename(title)
-                result = cleaner._normalize_korean_tokens(result)
-                result = cleaner._post_clean_title(result)
-                
-                return CleanResult(
-                    title=result,
-                    original_filename=title,
-                    is_anime=True,
-                    extra_info={
-                        'file_size': 0,
-                        'last_modified': datetime.now().isoformat()
-                    }
-                )
+                return cleaner._clean_title_only(str(file_path))
         finally:
             cleaner.__del__()
+    
+    def _add_file_info(self, result: CleanResult, file_path: Path) -> CleanResult:
+        """
+        파일 정보를 결과에 추가
+        
+        Args:
+            result: CleanResult 객체
+            file_path: 파일 경로
+            
+        Returns:
+            CleanResult: 파일 정보가 추가된 결과
+        """
+        try:
+            stat_info = file_path.stat()
+            if result.extra_info is None:
+                result.extra_info = {}
+            result.extra_info.update({
+                'file_size': stat_info.st_size,
+                'last_modified': datetime.fromtimestamp(stat_info.st_mtime).isoformat()
+            })
+        except (OSError, FileNotFoundError):
+            if result.extra_info is None:
+                result.extra_info = {}
+            result.extra_info.update({
+                'file_size': 0,
+                'last_modified': datetime.now().isoformat()
+            })
+        return result
+    
+    def _clean_title_only(self, title: str) -> CleanResult:
+        """
+        제목만 정제 (파일 경로가 아닌 경우)
+        
+        Args:
+            title: 정제할 제목 문자열
+            
+        Returns:
+            CleanResult: 정제된 결과
+        """
+        result = self._pre_clean_filename(title)
+        result = self._normalize_korean_tokens(result)
+        result = self._post_clean_title(result)
+        
+        return CleanResult(
+            title=result,
+            original_filename=title,
+            is_anime=True
+        )
+    
+    # 기존 clean_filename_static 함수는 하위 호환성을 위해 유지하되 내부적으로 clean_filename 호출
+    @staticmethod
+    def clean_filename_static(file_path: Union[str, Path]) -> CleanResult:
+        """
+        파일명 정제 (정적 메서드, 하위 호환성용)
+        
+        Args:
+            file_path: 파일 경로 또는 제목 문자열
+            
+        Returns:
+            CleanResult: 정제된 결과
+        """
+        return FileCleaner.clean_filename(file_path, include_file_info=True)
     
     def parse(self, file_path: Union[str, Path], *, strict: bool = False) -> CleanResult:
         """
