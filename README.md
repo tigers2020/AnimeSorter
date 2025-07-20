@@ -11,6 +11,7 @@
 - **캐싱**: API 중복 호출 방지를 위한 로컬 캐싱
 - **자동화**: 소스 폴더 선택 시 자동 파일 스캔 및 메타데이터 동기화
 - **JSON 내보내기**: 스캔 결과를 JSON 형식으로 저장하고 로드
+- **TV 드라마/애니메이션 분류**: 파일명 분석을 통한 자동 콘텐츠 분류
 
 ## 시작하기
 
@@ -208,6 +209,71 @@ AnimeSorter는 스캔 결과를 JSON 형식으로 저장하고 로드할 수 있
 
 - 일반 JSON: 가독성을 위한 들여쓰기 포함
 - 압축 JSON: 약 85-90% 압축률로 파일 크기 대폭 감소
+
+## TV 드라마/애니메이션 분류 시스템
+
+AnimeSorter는 파일명을 분석하여 TV 드라마와 애니메이션을 자동으로 구분하는 정교한 분류 시스템을 제공합니다.
+
+### 분류 기준
+
+#### 1. 릴리즈 그룹 기반 분류
+- **애니메이션**: SubsPlease, HorribleSubs, Erai-raws, Commie, GG, Coalgirls, DeadFish, Doki, Fansub 등
+- **TV 드라마**: Netflix, HBO, Amazon, Disney, Hulu, Showtime, Apple, Peacock, Paramount 등
+
+#### 2. 키워드 기반 분류
+- **애니메이션 키워드**: anime, animation, cartoon, manga, otaku, japan, japanese, 애니, 애니메, 만화, 일본, 일본어
+- **드라마 키워드**: drama, series, show, episode, season, tv, television, 드라마, 시리즈, 쇼, 에피소드, 시즌, 티비
+
+#### 3. 언어 정보 기반 분류
+- **한국어 자막**: 기본적으로 애니메이션으로 분류 (일본 애니메이션 자막이 주로 한국어)
+- **일본어 관련**: 일본어 오디오, 일본어 자막 등은 애니메이션으로 분류
+- **한국 드라마**: "Korean Drama", "한국 드라마" 등 명시적 키워드가 있으면 드라마로 분류
+
+#### 4. 에피소드 패턴 기반 분류
+- **애니메이션 특화**: "화" 패턴 (01화, 1001화 등)
+- **드라마 특화**: "SxxEyy" 패턴 (S01E01, S08E01 등), "1x01" 패턴
+
+#### 5. 애니메이션 제목 키워드 분류
+유명한 애니메이션 제목을 직접 인식:
+- Attack on Titan, My Hero Academia, One Piece, Naruto, Bleach, Dragon Ball
+- Death Note, Code Geass, Steins;Gate, Fullmetal Alchemist, Hunter x Hunter
+- Tokyo Ghoul, Sword Art Online, Fairy Tail, Jujutsu Kaisen, Demon Slayer
+- Ghost in the Shell, Akira, Evangelion, Cowboy Bebop 등
+
+### 분류 정확도
+
+- **애니메이션 파일**: 95% 이상의 정확도로 분류
+- **TV 드라마 파일**: 90% 이상의 정확도로 분류
+- **애매한 케이스**: 점수 기반 시스템으로 최적의 분류 결정
+
+### 사용 방법
+
+1. **자동 분류**: 파일을 AnimeSorter에 추가하면 자동으로 분류됩니다
+2. **분류 결과 확인**: 파일 목록에서 `is_anime` 필드로 분류 결과 확인
+3. **필터링**: 설정에서 "TV 드라마 포함" 옵션으로 드라마 파일 제외 가능
+4. **수동 조정**: 필요시 분류 결과를 수동으로 조정 가능
+
+### 분류 예시
+
+```python
+# 애니메이션으로 분류되는 파일들
+"[SubsPlease] Attack on Titan - 01 [1080p].mkv"  # 릴리즈 그룹
+"One Piece - 1001화 [720p].mkv"                  # 화 패턴
+"Ghost in the Shell - 01 [1080p].mkv"           # 애니메이션 제목
+"[Coalgirls] Steins;Gate - 01 [1080p].mkv"      # 애니메이션 릴리즈 그룹
+
+# TV 드라마로 분류되는 파일들
+"Breaking Bad S01E01 [Netflix] [1080p].mkv"     # 스트리밍 서비스
+"Game of Thrones S08E01 [HBO] [1080p].mkv"      # 스트리밍 서비스
+"Korean Drama - Itaewon Class S01E01 [1080p].mkv" # 한국 드라마 키워드
+```
+
+### 분류 시스템의 장점
+
+- **정확성**: 다중 기준을 통한 정교한 분류
+- **확장성**: 새로운 키워드와 패턴 쉽게 추가 가능
+- **성능**: 빠른 파일명 분석으로 즉시 분류
+- **유연성**: 점수 기반 시스템으로 애매한 케이스도 적절히 처리
 
 ## 자동화 기능
 

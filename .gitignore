@@ -108,10 +108,6 @@ tmdb_exports/
 # Cleaning results and temp data
 cleaning_results_*.json 
 
-# Task files
-# tasks.json
-# tasks/ 
-
 # ===== AnimeSorter 특화 제외 파일들 =====
 
 # 빌드 및 배포 관련
@@ -668,3 +664,7 @@ demo_input_validation.py
 anime-offline-database.json
 filenames.txt
 총 59개의 그룹(제목) 파일을 찾았습니다. (자동 정제 및 그.txt 
+
+# Task files
+# tasks.json
+# tasks/ 

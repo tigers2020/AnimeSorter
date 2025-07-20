@@ -117,7 +117,7 @@ class FileListTable(QTableWidget):
         self.setItem(row, 7, QTableWidgetItem(overview))
         # 이동 위치
         target_path = metadata.get("target_path") or ""
-        self.setItem(row, 8, QTableWidgetItem(str(target_path)))
+        self.setItem(row, 8, QTableWidgetItem(str(target_path))) 
         
     def dragEnterEvent(self, event: QDragEnterEvent):
         """드래그 진입 이벤트"""

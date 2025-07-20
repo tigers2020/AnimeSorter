@@ -1,23 +1,48 @@
 """
-입력 검증 시스템
+통합 입력 검증 시스템
 
-사용자 입력에 대한 검증을 수행하여 보안을 강화하는 모듈입니다.
+기본 검증과 고급 검증 기능을 모두 포함하는 통합 검증 모듈입니다.
 """
 
 import os
 import re
-import pathlib
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Tuple
-from urllib.parse import urlparse
 import hashlib
+import mimetypes
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union, Tuple, Set, Callable
+from dataclasses import dataclass
+from functools import lru_cache
+import json
+import yaml
+from urllib.parse import urlparse, parse_qs
 
-from ..exceptions import ValidationError
+# 매직 바이트 검증을 위한 선택적 import
+try:
+    import magic
+    MAGIC_AVAILABLE = True
+except ImportError:
+    MAGIC_AVAILABLE = False
+
 from ..utils.logger import get_logger
 
 
+@dataclass
+class ValidationResult:
+    """검증 결과"""
+    is_valid: bool
+    errors: List[str]
+    warnings: List[str]
+    sanitized_value: Optional[Any] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ValidationError(Exception):
+    """검증 오류"""
+    pass
+
+
 class InputValidator:
-    """입력 검증기"""
+    """기본 입력 검증기"""
     
     def __init__(self):
         """InputValidator 초기화"""
@@ -38,25 +63,18 @@ class InputValidator:
             ValidationError: 검증 실패 시
         """
         try:
-            # 문자열을 Path 객체로 변환
-            if isinstance(file_path, str):
-                path = Path(file_path)
-            else:
-                path = file_path
-                
-            # 절대 경로로 변환
-            path = path.resolve()
+            path = Path(file_path)
             
             # 경로 구성 요소 검증
             self._validate_path_components(path)
             
-            # 존재 여부 검증
+            # 경로 안전성 검증
+            self._validate_path_safety(path)
+            
+            # 파일 존재 여부 검증
             if must_exist and not path.exists():
                 raise ValidationError(f"파일이 존재하지 않습니다: {path}")
                 
-            # 안전한 경로인지 검증
-            self._validate_path_safety(path)
-            
             return path
             
         except Exception as e:
@@ -79,11 +97,19 @@ class InputValidator:
             ValidationError: 검증 실패 시
         """
         try:
-            path = self.validate_file_path(dir_path, must_exist)
+            path = Path(dir_path)
             
-            # 디렉토리인지 확인
-            if must_exist and not path.is_dir():
-                raise ValidationError(f"디렉토리가 아닙니다: {path}")
+            # 경로 구성 요소 검증
+            self._validate_path_components(path)
+            
+            # 경로 안전성 검증
+            self._validate_path_safety(path)
+            
+            # 디렉토리 존재 여부 검증
+            if must_exist and not path.exists():
+                raise ValidationError(f"디렉토리가 존재하지 않습니다: {path}")
+            elif must_exist and not path.is_dir():
+                raise ValidationError(f"경로가 디렉토리가 아닙니다: {path}")
                 
             return path
             
@@ -98,7 +124,7 @@ class InputValidator:
         
         Args:
             api_key: 검증할 API 키
-            key_type: API 키 타입 (tmdb, etc.)
+            key_type: API 키 타입
             
         Returns:
             str: 검증된 API 키
@@ -107,29 +133,24 @@ class InputValidator:
             ValidationError: 검증 실패 시
         """
         if not api_key or not isinstance(api_key, str):
-            raise ValidationError("API 키는 비어있지 않은 문자열이어야 합니다.")
+            raise ValidationError("API 키는 비어있지 않은 문자열이어야 합니다")
             
-        # 공백 제거
         api_key = api_key.strip()
         
         if not api_key:
-            raise ValidationError("API 키는 공백만으로 구성될 수 없습니다.")
+            raise ValidationError("API 키는 비어있지 않은 문자열이어야 합니다")
             
-        # 길이 검증
-        if len(api_key) < 10:
-            raise ValidationError("API 키가 너무 짧습니다.")
-            
-        if len(api_key) > 1000:
-            raise ValidationError("API 키가 너무 깁니다.")
-            
-        # TMDB API 키 형식 검증
-        if key_type.lower() == "tmdb":
+        # API 키 타입별 검증
+        if key_type == "tmdb":
             self._validate_tmdb_api_key(api_key)
-            
-        # 특수 문자 검증
-        if not re.match(r'^[a-zA-Z0-9_-]+$', api_key):
-            raise ValidationError("API 키에 허용되지 않는 문자가 포함되어 있습니다.")
-            
+        elif key_type == "anidb":
+            if len(api_key) < 8:
+                raise ValidationError("AniDB API 키는 최소 8자 이상이어야 합니다")
+        else:
+            # 기본 검증: 최소 길이
+            if len(api_key) < 4:
+                raise ValidationError("API 키는 최소 4자 이상이어야 합니다")
+                
         return api_key
         
     def validate_url(self, url: str, allowed_schemes: Optional[List[str]] = None) -> str:
@@ -147,36 +168,32 @@ class InputValidator:
             ValidationError: 검증 실패 시
         """
         if not url or not isinstance(url, str):
-            raise ValidationError("URL은 비어있지 않은 문자열이어야 합니다.")
+            raise ValidationError("URL은 비어있지 않은 문자열이어야 합니다")
             
-        # 공백 제거
         url = url.strip()
         
         if not url:
-            raise ValidationError("URL은 공백만으로 구성될 수 없습니다.")
+            raise ValidationError("URL은 비어있지 않은 문자열이어야 합니다")
             
         try:
             parsed = urlparse(url)
             
             # 스키마 검증
             if not parsed.scheme:
-                raise ValidationError("URL에 스키마가 없습니다.")
+                raise ValidationError("URL에 스키마가 없습니다")
                 
-            # 기본 허용 스키마 설정
-            if allowed_schemes is None:
-                allowed_schemes = ["http", "https"]
-                
-            if parsed.scheme not in allowed_schemes:
+            if allowed_schemes and parsed.scheme not in allowed_schemes:
                 raise ValidationError(f"허용되지 않는 스키마입니다: {parsed.scheme}")
                 
-            # 네트워크 위치 검증
-            if not parsed.netloc:
-                raise ValidationError("URL에 네트워크 위치가 없습니다.")
+            # 기본 스키마 검증
+            if parsed.scheme not in ['http', 'https', 'ftp', 'file']:
+                raise ValidationError(f"지원되지 않는 스키마입니다: {parsed.scheme}")
                 
-            # 포트 검증 (있다면)
-            if parsed.port and (parsed.port < 1 or parsed.port > 65535):
-                raise ValidationError("잘못된 포트 번호입니다.")
-                
+            # 네트워크 URL의 경우 호스트 검증
+            if parsed.scheme in ['http', 'https', 'ftp']:
+                if not parsed.netloc:
+                    raise ValidationError("네트워크 URL에 호스트가 없습니다")
+                    
             return url
             
         except Exception as e:
@@ -199,41 +216,30 @@ class InputValidator:
             ValidationError: 검증 실패 시
         """
         if not filename or not isinstance(filename, str):
-            raise ValidationError("파일명은 비어있지 않은 문자열이어야 합니다.")
+            raise ValidationError("파일명은 비어있지 않은 문자열이어야 합니다")
             
-        # 공백 제거
         filename = filename.strip()
         
         if not filename:
-            raise ValidationError("파일명은 공백만으로 구성될 수 없습니다.")
-            
-        # 길이 검증
-        if len(filename) > 255:
-            raise ValidationError("파일명이 너무 깁니다.")
+            raise ValidationError("파일명은 비어있지 않은 문자열이어야 합니다")
             
         # 위험한 문자 검증
         dangerous_chars = ['<', '>', ':', '"', '|', '?', '*', '\\', '/']
         for char in dangerous_chars:
             if char in filename:
-                raise ValidationError(f"파일명에 허용되지 않는 문자가 포함되어 있습니다: {char}")
-                
-        # 명령어 인젝션 방지
-        command_chars = [';', '&', '|', '`', '$', '(', ')']
-        for char in command_chars:
-            if char in filename:
-                raise ValidationError(f"파일명에 명령어 실행 문자가 포함되어 있습니다: {char}")
+                raise ValidationError(f"파일명에 위험한 문자가 포함되어 있습니다: {char}")
                 
         # 확장자 검증
         if allow_extensions:
             file_ext = Path(filename).suffix.lower()
             if file_ext and file_ext not in allow_extensions:
-                raise ValidationError(f"허용되지 않는 파일 확장자입니다: {file_ext}")
+                raise ValidationError(f"허용되지 않는 확장자입니다: {file_ext}")
                 
         return filename
         
     def validate_config_value(self, key: str, value: Any, expected_type: type) -> Any:
         """
-        설정값 검증
+        설정 값 검증
         
         Args:
             key: 설정 키
@@ -247,30 +253,13 @@ class InputValidator:
             ValidationError: 검증 실패 시
         """
         if not isinstance(value, expected_type):
-            raise ValidationError(f"설정 '{key}'의 타입이 잘못되었습니다. 예상: {expected_type.__name__}, 실제: {type(value).__name__}")
+            raise ValidationError(f"설정 '{key}'의 타입이 올바르지 않습니다. 예상: {expected_type.__name__}, 실제: {type(value).__name__}")
             
-        # 타입별 추가 검증
-        if expected_type == str:
-            if not isinstance(value, str) or not value.strip():
-                raise ValidationError(f"설정 '{key}'는 비어있지 않은 문자열이어야 합니다.")
-                
-        elif expected_type == int:
-            if not isinstance(value, int) or value < 0:
-                raise ValidationError(f"설정 '{key}'는 0 이상의 정수여야 합니다.")
-                
-        elif expected_type == bool:
-            if not isinstance(value, bool):
-                raise ValidationError(f"설정 '{key}'는 불린 값이어야 합니다.")
-                
-        elif expected_type == list:
-            if not isinstance(value, list):
-                raise ValidationError(f"설정 '{key}'는 리스트여야 합니다.")
-                
         return value
         
     def validate_sql_query(self, query: str) -> str:
         """
-        SQL 쿼리 검증 (기본적인 SQL 인젝션 방지)
+        SQL 쿼리 검증 (기본)
         
         Args:
             query: 검증할 SQL 쿼리
@@ -282,43 +271,20 @@ class InputValidator:
             ValidationError: 검증 실패 시
         """
         if not query or not isinstance(query, str):
-            raise ValidationError("SQL 쿼리는 비어있지 않은 문자열이어야 합니다.")
+            raise ValidationError("SQL 쿼리는 비어있지 않은 문자열이어야 합니다")
             
-        # 공백 제거
         query = query.strip()
         
         if not query:
-            raise ValidationError("SQL 쿼리는 공백만으로 구성될 수 없습니다.")
+            raise ValidationError("SQL 쿼리는 비어있지 않은 문자열이어야 합니다")
             
-        # 위험한 키워드 검증
-        dangerous_keywords = [
-            'DROP', 'DELETE', 'UPDATE', 'INSERT', 'CREATE', 'ALTER', 'TRUNCATE',
-            'EXEC', 'EXECUTE', 'UNION', 'SCRIPT', '--', '/*', '*/', 'OR', 'AND'
-        ]
-        
+        # 기본적인 위험한 키워드 검증
+        dangerous_keywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'CREATE', 'ALTER']
         query_upper = query.upper()
+        
         for keyword in dangerous_keywords:
             if keyword in query_upper:
-                raise ValidationError(f"SQL 쿼리에 위험한 키워드가 포함되어 있습니다: {keyword}")
-                
-        # 세미콜론 검증
-        if ';' in query:
-            raise ValidationError("SQL 쿼리에 세미콜론이 포함되어 있습니다.")
-            
-        # SQL 인젝션 패턴 검증
-        injection_patterns = [
-            "' OR '1'='1",
-            "' OR 1=1",
-            "'; DROP TABLE",
-            "'; INSERT INTO",
-            "'; UPDATE",
-            "admin'--",
-            "1' UNION SELECT"
-        ]
-        
-        for pattern in injection_patterns:
-            if pattern.upper() in query_upper:
-                raise ValidationError(f"SQL 인젝션 패턴이 감지되었습니다: {pattern}")
+                self.logger.warning(f"SQL 쿼리에 위험한 키워드가 포함되어 있습니다: {keyword}")
                 
         return query
         
@@ -337,64 +303,66 @@ class InputValidator:
             ValidationError: 검증 실패 시
         """
         if not isinstance(data, dict):
-            raise ValidationError("JSON 데이터는 딕셔너리여야 합니다.")
+            raise ValidationError("데이터는 딕셔너리여야 합니다")
             
         # 필수 키 검증
         if required_keys:
-            for key in required_keys:
-                if key not in data:
-                    raise ValidationError(f"필수 키가 누락되었습니다: {key}")
-                    
-        # 키 이름 검증
-        for key in data.keys():
-            if not isinstance(key, str):
-                raise ValidationError("JSON 키는 문자열이어야 합니다.")
-                
-            if not key.strip():
-                raise ValidationError("JSON 키는 공백만으로 구성될 수 없습니다.")
+            missing_keys = [key for key in required_keys if key not in data]
+            if missing_keys:
+                raise ValidationError(f"필수 키가 누락되었습니다: {missing_keys}")
                 
         return data
         
     def _validate_path_components(self, path: Path) -> None:
         """경로 구성 요소 검증"""
-        # 경로 구성 요소 검증
-        for part in path.parts:
-            if not part or part == '.' or part == '..':
-                continue
+        try:
+            # 경로 구성 요소가 너무 깊은지 확인
+            if len(path.parts) > 50:
+                raise ValidationError("경로가 너무 깊습니다")
                 
-            # Windows 드라이브 문자는 허용 (C:, D: 등)
-            if len(part) == 2 and part.endswith(':') and part[0].isalpha():
-                continue
-                
-            # 길이 검증
-            if len(part) > 255:
-                raise ValidationError(f"경로 구성 요소가 너무 깁니다: {part}")
-                
-            # 위험한 문자 검증
-            dangerous_chars = ['<', '>', '"', '|', '?', '*']
-            for char in dangerous_chars:
-                if char in part:
-                    raise ValidationError(f"경로에 허용되지 않는 문자가 포함되어 있습니다: {char}")
+            # 각 구성 요소의 길이 확인
+            for part in path.parts:
+                if len(part) > 255:
+                    raise ValidationError(f"경로 구성 요소가 너무 깁니다: {part}")
                     
+        except Exception as e:
+            if isinstance(e, ValidationError):
+                raise
+            raise ValidationError(f"경로 구성 요소 검증 실패: {str(e)}") from e
+            
     def _validate_path_safety(self, path: Path) -> None:
         """경로 안전성 검증"""
-        # 현재 작업 디렉토리 기준으로 상대 경로 검증
         try:
-            current_dir = Path.cwd().resolve()
-            path.resolve().relative_to(current_dir)
-        except ValueError:
-            # 절대 경로이거나 현재 디렉토리 외부인 경우
-            self.logger.warning(f"경로가 현재 디렉토리 외부에 있습니다: {path}")
+            path_str = str(path)
+            
+            # 경로 순회 공격 패턴 검증
+            traversal_patterns = [
+                r'\.\./', r'\.\.\\', r'\.\.//', r'\.\.\\\\',
+                r'%2e%2e%2f', r'%2e%2e%5c',  # URL 인코딩된 경로 순회
+            ]
+            
+            for pattern in traversal_patterns:
+                if re.search(pattern, path_str, re.IGNORECASE):
+                    raise ValidationError(f"경로 순회 공격 패턴이 감지되었습니다: {pattern}")
+                    
+        except Exception as e:
+            if isinstance(e, ValidationError):
+                raise
+            raise ValidationError(f"경로 안전성 검증 실패: {str(e)}") from e
             
     def _validate_tmdb_api_key(self, api_key: str) -> None:
-        """TMDB API 키 형식 검증"""
-        # TMDB API 키는 보통 32자리 영숫자
-        if not re.match(r'^[a-f0-9]{32}$', api_key):
-            raise ValidationError("TMDB API 키 형식이 올바르지 않습니다.")
+        """TMDB API 키 검증"""
+        # TMDB API 키는 보통 32자 길이의 16진수 문자열
+        if len(api_key) != 32:
+            raise ValidationError("TMDB API 키는 32자 길이여야 합니다")
+            
+        # 16진수 문자만 포함하는지 확인
+        if not re.match(r'^[a-fA-F0-9]{32}$', api_key):
+            raise ValidationError("TMDB API 키는 16진수 문자만 포함해야 합니다")
             
     def sanitize_filename(self, filename: str) -> str:
         """
-        파일명 정제 (위험한 문자 제거)
+        파일명 정제
         
         Args:
             filename: 정제할 파일명
@@ -402,6 +370,9 @@ class InputValidator:
         Returns:
             str: 정제된 파일명
         """
+        if not filename:
+            return "unnamed"
+            
         # 위험한 문자를 안전한 문자로 대체
         replacements = {
             '<': '_',
@@ -459,8 +430,405 @@ class InputValidator:
             raise ValidationError(f"파일 크기 검증 실패: {str(e)}") from e
 
 
+class AdvancedValidator(InputValidator):
+    """고급 입력 검증기"""
+    
+    def __init__(self):
+        """AdvancedValidator 초기화"""
+        super().__init__()
+        self.logger = get_logger(__name__)
+        
+        # 검증 패턴 정의
+        self._init_validation_patterns()
+        
+        # 검증 결과 캐시
+        self._validation_cache = {}
+        
+    def _init_validation_patterns(self):
+        """검증 패턴 초기화"""
+        # 경로 순회 공격 패턴
+        self.path_traversal_patterns = [
+            r'\.\./', r'\.\.\\', r'\.\.//', r'\.\.\\\\',
+            r'%2e%2e%2f', r'%2e%2e%5c',  # URL 인코딩된 경로 순회
+            r'\.\.%2f', r'\.\.%5c',      # 부분 URL 인코딩
+            r'\.\.%252f', r'\.\.%255c',  # 이중 URL 인코딩
+        ]
+        
+        # 명령어 인젝션 패턴
+        self.command_injection_patterns = [
+            r'[;&|`$()]',  # 기본 명령어 구분자
+            r'\$\{.*\}',   # 변수 확장
+            r'`.*`',       # 백틱 명령어
+            r'\(.*\)',     # 서브셸
+            r'\|\s*\w+',   # 파이프 명령어
+        ]
+        
+        # XSS 패턴
+        self.xss_patterns = [
+            r'<script[^>]*>.*?</script>',
+            r'<iframe[^>]*>.*?</iframe>',
+            r'<object[^>]*>.*?</object>',
+            r'<embed[^>]*>',
+            r'javascript:', r'vbscript:', r'data:',
+            r'on\w+\s*=',  # 이벤트 핸들러
+        ]
+        
+        # 파일 확장자별 매직 바이트
+        self.magic_bytes = {
+            b'\x89PNG\r\n\x1a\n': '.png',
+            b'\xff\xd8\xff': '.jpg',
+            b'GIF87a': '.gif',
+            b'GIF89a': '.gif',
+            b'%PDF': '.pdf',
+            b'PK\x03\x04': '.zip',
+            b'Rar!': '.rar',
+            b'\x1f\x8b\x08': '.gz',
+            b'\x00\x00\x01\x00': '.ico',
+            b'BM': '.bmp',
+            b'RIFF': '.wav',
+            b'ID3': '.mp3',
+            b'\x00\x00\x00\x20ftyp': '.mp4',
+            b'\x00\x00\x00\x18ftyp': '.mp4',
+            b'\x00\x00\x00\x1cftyp': '.mp4',
+        }
+        
+    def validate_path_security(self, path: Union[str, Path], strict: bool = True) -> ValidationResult:
+        """
+        고급 경로 보안 검증
+        
+        Args:
+            path: 검증할 경로
+            strict: 엄격한 검증 모드
+            
+        Returns:
+            ValidationResult: 검증 결과
+        """
+        errors = []
+        warnings = []
+        
+        try:
+            path_str = str(path)
+            
+            # 1. 경로 순회 공격 검증
+            for pattern in self.path_traversal_patterns:
+                if re.search(pattern, path_str, re.IGNORECASE):
+                    errors.append(f"경로 순회 공격 패턴 감지: {pattern}")
+                    
+            # 2. 절대 경로 검증
+            if os.path.isabs(path_str):
+                if strict:
+                    warnings.append("절대 경로 사용 (보안상 주의 필요)")
+                    
+            # 3. 위험한 디렉토리 검증
+            dangerous_dirs = [
+                '/etc', '/var', '/usr', '/bin', '/sbin',  # Unix
+                'C:\\Windows', 'C:\\System32', 'C:\\Program Files',  # Windows
+            ]
+            
+            for dangerous_dir in dangerous_dirs:
+                if dangerous_dir.lower() in path_str.lower():
+                    errors.append(f"위험한 디렉토리 접근 시도: {dangerous_dir}")
+                    
+            # 4. 숨겨진 파일 검증
+            if path_str.startswith('.'):
+                warnings.append("숨겨진 파일/디렉토리 접근")
+                
+            # 5. 경로 길이 검증
+            if len(path_str) > 4096:  # 일반적인 파일 시스템 제한
+                errors.append("경로가 너무 깁니다")
+                
+            # 6. 특수 문자 검증
+            special_chars = ['\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07',
+                           '\x08', '\x09', '\x0a', '\x0b', '\x0c', '\x0d', '\x0e', '\x0f']
+            for char in special_chars:
+                if char in path_str:
+                    errors.append(f"제어 문자가 포함되어 있습니다: {repr(char)}")
+                    
+            is_valid = len(errors) == 0
+            
+            return ValidationResult(
+                is_valid=is_valid,
+                errors=errors,
+                warnings=warnings,
+                sanitized_value=str(path) if is_valid else None
+            )
+            
+        except Exception as e:
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"경로 검증 중 오류 발생: {str(e)}"],
+                warnings=warnings
+            )
+            
+    def validate_file_type(self, file_path: Path, allowed_types: Optional[List[str]] = None) -> ValidationResult:
+        """
+        파일 타입 검증 (매직 바이트 기반)
+        
+        Args:
+            file_path: 검증할 파일 경로
+            allowed_types: 허용된 파일 타입 목록
+            
+        Returns:
+            ValidationResult: 검증 결과
+        """
+        errors = []
+        warnings = []
+        
+        try:
+            if not file_path.exists():
+                return ValidationResult(
+                    is_valid=False,
+                    errors=["파일이 존재하지 않습니다"],
+                    warnings=warnings
+                )
+                
+            # 파일 크기 확인
+            file_size = file_path.stat().st_size
+            if file_size == 0:
+                return ValidationResult(
+                    is_valid=False,
+                    errors=["빈 파일입니다"],
+                    warnings=warnings
+                )
+                
+            # 매직 바이트 검증
+            detected_type = None
+            
+            try:
+                with open(file_path, 'rb') as f:
+                    header = f.read(16)  # 첫 16바이트 읽기
+                    
+                # 매직 바이트 패턴 매칭
+                for magic_bytes, file_ext in self.magic_bytes.items():
+                    if header.startswith(magic_bytes):
+                        detected_type = file_ext
+                        break
+                        
+                # python-magic 라이브러리 사용 (가능한 경우)
+                if MAGIC_AVAILABLE and not detected_type:
+                    try:
+                        mime_type = magic.from_file(str(file_path), mime=True)
+                        detected_type = mimetypes.guess_extension(mime_type)
+                    except Exception:
+                        pass
+                        
+            except Exception as e:
+                warnings.append(f"파일 타입 감지 실패: {str(e)}")
+                
+            # 확장자 기반 검증
+            file_ext = file_path.suffix.lower()
+            if not detected_type and file_ext:
+                detected_type = file_ext
+                
+            # 허용된 타입 검증
+            if allowed_types and detected_type:
+                if detected_type not in allowed_types:
+                    errors.append(f"허용되지 않는 파일 타입입니다: {detected_type}")
+                    
+            return ValidationResult(
+                is_valid=len(errors) == 0,
+                errors=errors,
+                warnings=warnings,
+                sanitized_value=detected_type,
+                metadata={'file_size': file_size, 'extension': file_ext}
+            )
+            
+        except Exception as e:
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"파일 타입 검증 중 오류 발생: {str(e)}"],
+                warnings=warnings
+            )
+            
+    def validate_input_complexity(self, value: str, min_length: int = 1, max_length: int = 1000,
+                                require_uppercase: bool = False, require_lowercase: bool = False,
+                                require_digits: bool = False, require_special: bool = False,
+                                check_security: bool = True) -> ValidationResult:
+        """
+        입력 복잡성 검증
+        
+        Args:
+            value: 검증할 값
+            min_length: 최소 길이
+            max_length: 최대 길이
+            require_uppercase: 대문자 필수 여부
+            require_lowercase: 소문자 필수 여부
+            require_digits: 숫자 필수 여부
+            require_special: 특수문자 필수 여부
+            check_security: 보안 검사 여부
+            
+        Returns:
+            ValidationResult: 검증 결과
+        """
+        errors = []
+        warnings = []
+        
+        try:
+            if not isinstance(value, str):
+                return ValidationResult(
+                    is_valid=False,
+                    errors=["값은 문자열이어야 합니다"],
+                    warnings=warnings
+                )
+                
+            # 길이 검증
+            if len(value) < min_length:
+                errors.append(f"최소 길이 {min_length}자 미만입니다")
+            elif len(value) > max_length:
+                errors.append(f"최대 길이 {max_length}자를 초과합니다")
+                
+            # 복잡성 검증
+            if require_uppercase and not re.search(r'[A-Z]', value):
+                errors.append("대문자가 포함되어야 합니다")
+                
+            if require_lowercase and not re.search(r'[a-z]', value):
+                errors.append("소문자가 포함되어야 합니다")
+                
+            if require_digits and not re.search(r'\d', value):
+                errors.append("숫자가 포함되어야 합니다")
+                
+            if require_special and not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', value):
+                errors.append("특수문자가 포함되어야 합니다")
+                
+            # 보안 검사
+            if check_security:
+                # 명령어 인젝션 검사
+                for pattern in self.command_injection_patterns:
+                    if re.search(pattern, value):
+                        errors.append(f"명령어 인젝션 패턴 감지: {pattern}")
+                        
+                # XSS 검사
+                for pattern in self.xss_patterns:
+                    if re.search(pattern, value, re.IGNORECASE):
+                        errors.append(f"XSS 패턴 감지: {pattern}")
+                        
+            return ValidationResult(
+                is_valid=len(errors) == 0,
+                errors=errors,
+                warnings=warnings,
+                sanitized_value=value if len(errors) == 0 else None
+            )
+            
+        except Exception as e:
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"입력 복잡성 검증 중 오류 발생: {str(e)}"],
+                warnings=warnings
+            )
+            
+    def validate_regex_pattern(self, value: str, pattern: str, flags: int = 0) -> ValidationResult:
+        """
+        정규식 패턴 검증
+        
+        Args:
+            value: 검증할 값
+            pattern: 정규식 패턴
+            flags: 정규식 플래그
+            
+        Returns:
+            ValidationResult: 검증 결과
+        """
+        errors = []
+        warnings = []
+        
+        try:
+            # 정규식 컴파일
+            compiled_pattern = re.compile(pattern, flags)
+            
+            # 패턴 매칭
+            if compiled_pattern.match(value):
+                return ValidationResult(
+                    is_valid=True,
+                    errors=errors,
+                    warnings=warnings,
+                    sanitized_value=value
+                )
+            else:
+                return ValidationResult(
+                    is_valid=False,
+                    errors=["패턴과 일치하지 않습니다"],
+                    warnings=warnings
+                )
+                
+        except re.error as e:
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"잘못된 정규식: {str(e)}"],
+                warnings=warnings
+            )
+        except Exception as e:
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"정규식 검증 중 오류 발생: {str(e)}"],
+                warnings=warnings
+            )
+            
+    def validate_batch(self, items: List[Tuple[str, Any, Dict[str, Any]]]) -> Dict[str, ValidationResult]:
+        """
+        배치 검증
+        
+        Args:
+            items: 검증할 항목 목록 (이름, 값, 옵션)
+            
+        Returns:
+            Dict[str, ValidationResult]: 검증 결과 딕셔너리
+        """
+        results = {}
+        
+        for name, value, options in items:
+            try:
+                if isinstance(value, str):
+                    results[name] = self.validate_input_complexity(value, **options)
+                else:
+                    results[name] = ValidationResult(
+                        is_valid=False,
+                        errors=["문자열이 아닌 값은 지원하지 않습니다"],
+                        warnings=[]
+                    )
+            except Exception as e:
+                results[name] = ValidationResult(
+                    is_valid=False,
+                    errors=[f"배치 검증 중 오류 발생: {str(e)}"],
+                    warnings=[]
+                )
+                
+        return results
+        
+    @lru_cache(maxsize=1000)
+    def validate_with_cache(self, value: str, validation_type: str, **options) -> ValidationResult:
+        """
+        캐시를 사용한 검증
+        
+        Args:
+            value: 검증할 값
+            validation_type: 검증 타입
+            **options: 검증 옵션
+            
+        Returns:
+            ValidationResult: 검증 결과
+        """
+        if validation_type == "complexity":
+            return self.validate_input_complexity(value, **options)
+        elif validation_type == "path_security":
+            return self.validate_path_security(value, **options)
+        elif validation_type == "regex":
+            return self.validate_regex_pattern(value, **options)
+        else:
+            return ValidationResult(
+                is_valid=False,
+                errors=[f"지원되지 않는 검증 타입: {validation_type}"],
+                warnings=[]
+            )
+            
+    def clear_cache(self):
+        """검증 캐시 초기화"""
+        self.validate_with_cache.cache_clear()
+        self._validation_cache.clear()
+
+
 # 전역 검증기 인스턴스
 validator = InputValidator()
+advanced_validator = AdvancedValidator()
 
 
 # 편의 함수들
@@ -494,111 +862,27 @@ def sanitize_filename(filename: str) -> str:
     return validator.sanitize_filename(filename)
 
 
-# 고급 검증 기능 import
-try:
-    from .advanced_validators import (
-        AdvancedValidator, ValidationResult,
-        validate_path_security, validate_file_type, validate_input_complexity,
-        validate_regex_pattern, validate_batch
-    )
-    ADVANCED_VALIDATION_AVAILABLE = True
-except ImportError:
-    ADVANCED_VALIDATION_AVAILABLE = False
-    # 고급 검증 기능이 없을 때의 대체 함수들
-    def validate_path_security(path, strict=True):
-        """경로 보안 검증 (기본 버전)"""
-        from dataclasses import dataclass
-        from typing import List, Optional, Any, Dict
-        
-        @dataclass
-        class ValidationResult:
-            is_valid: bool
-            errors: List[str]
-            warnings: List[str]
-            sanitized_value: Optional[Any] = None
-            metadata: Optional[Dict[str, Any]] = None
-        
-        # 기본 경로 검증
-        try:
-            validator.validate_file_path(path, must_exist=False)
-            return ValidationResult(is_valid=True, errors=[], warnings=[])
-        except Exception as e:
-            return ValidationResult(is_valid=False, errors=[str(e)], warnings=[])
-    
-    def validate_file_type(file_path, allowed_types=None):
-        """파일 타입 검증 (기본 버전)"""
-        from dataclasses import dataclass
-        from typing import List, Optional, Any, Dict
-        
-        @dataclass
-        class ValidationResult:
-            is_valid: bool
-            errors: List[str]
-            warnings: List[str]
-            sanitized_value: Optional[Any] = None
-            metadata: Optional[Dict[str, Any]] = None
-        
-        try:
-            validator.validate_file_path(file_path, must_exist=True)
-            return ValidationResult(is_valid=True, errors=[], warnings=[])
-        except Exception as e:
-            return ValidationResult(is_valid=False, errors=[str(e)], warnings=[])
-    
-    def validate_input_complexity(value, **options):
-        """입력 복잡성 검증 (기본 버전)"""
-        from dataclasses import dataclass
-        from typing import List, Optional, Any, Dict
-        
-        @dataclass
-        class ValidationResult:
-            is_valid: bool
-            errors: List[str]
-            warnings: List[str]
-            sanitized_value: Optional[Any] = None
-            metadata: Optional[Dict[str, Any]] = None
-        
-        try:
-            if not isinstance(value, str):
-                return ValidationResult(is_valid=False, errors=["값은 문자열이어야 합니다"], warnings=[])
-            
-            min_length = options.get('min_length', 1)
-            max_length = options.get('max_length', 1000)
-            
-            if len(value) < min_length:
-                return ValidationResult(is_valid=False, errors=[f"최소 길이 {min_length}자 미만입니다"], warnings=[])
-            elif len(value) > max_length:
-                return ValidationResult(is_valid=False, errors=[f"최대 길이 {max_length}자를 초과합니다"], warnings=[])
-            
-            return ValidationResult(is_valid=True, errors=[], warnings=[])
-        except Exception as e:
-            return ValidationResult(is_valid=False, errors=[str(e)], warnings=[])
-    
-    def validate_regex_pattern(value, pattern, flags=0):
-        """정규식 패턴 검증 (기본 버전)"""
-        from dataclasses import dataclass
-        from typing import List, Optional, Any, Dict
-        import re
-        
-        @dataclass
-        class ValidationResult:
-            is_valid: bool
-            errors: List[str]
-            warnings: List[str]
-            sanitized_value: Optional[Any] = None
-            metadata: Optional[Dict[str, Any]] = None
-        
-        try:
-            compiled_pattern = re.compile(pattern, flags)
-            if compiled_pattern.match(value):
-                return ValidationResult(is_valid=True, errors=[], warnings=[])
-            else:
-                return ValidationResult(is_valid=False, errors=["패턴과 일치하지 않습니다"], warnings=[])
-        except re.error as e:
-            return ValidationResult(is_valid=False, errors=[f"잘못된 정규식: {str(e)}"], warnings=[])
-    
-    def validate_batch(items):
-        """배치 검증 (기본 버전)"""
-        results = {}
-        for name, value, options in items:
-            results[name] = validate_input_complexity(value, **options)
-        return results 
+# 고급 검증 편의 함수들
+def validate_path_security(path: Union[str, Path], strict: bool = True) -> ValidationResult:
+    """경로 보안 검증 편의 함수"""
+    return advanced_validator.validate_path_security(path, strict)
+
+
+def validate_file_type(file_path: Path, allowed_types: Optional[List[str]] = None) -> ValidationResult:
+    """파일 타입 검증 편의 함수"""
+    return advanced_validator.validate_file_type(file_path, allowed_types)
+
+
+def validate_input_complexity(value: str, **options) -> ValidationResult:
+    """입력 복잡성 검증 편의 함수"""
+    return advanced_validator.validate_input_complexity(value, **options)
+
+
+def validate_regex_pattern(value: str, pattern: str, flags: int = 0) -> ValidationResult:
+    """정규식 패턴 검증 편의 함수"""
+    return advanced_validator.validate_regex_pattern(value, pattern, flags)
+
+
+def validate_batch(items: List[Tuple[str, Any, Dict[str, Any]]]) -> Dict[str, ValidationResult]:
+    """배치 검증 편의 함수"""
+    return advanced_validator.validate_batch(items) 

@@ -166,9 +166,9 @@ class GroupSyncWorker(QRunnable):
         group_metadata = {}
         prev_title = None
         prev_meta = None
-        # --- 병렬 TMDB 검색 ---
+        # --- 병렬 TMDB 검색 (시즌 정보 포함) ---
         async def fetch_all():
-            tasks = [self.tmdb_provider.search(title, year) for (title, year, season) in self.group_keys]
+            tasks = [self.tmdb_provider.search(title, year, season) for (title, year, season) in self.group_keys]
             return await asyncio.gather(*tasks, return_exceptions=True)
         t0 = time.time()
         results = loop.run_until_complete(fetch_all())
@@ -243,16 +243,15 @@ class FileScanWorker(QRunnable):
     def run(self):
         import os
         import threading
-        from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
         
         MAX_WORKERS = min(8, os.cpu_count() or 4)
         start_time = time.time()
         
         total = len(self.file_paths)
         
-        # 적응형 병렬 처리 전략: 파일 수에 따라 최적 방법 선택
-        use_process_pool = total > 500  # 500개 이상일 때만 ProcessPoolExecutor 사용
-        pool_type = "프로세스 풀" if use_process_pool else "스레드 풀"
+        # ProcessPoolExecutor 우선 사용 (성능 최적화)
+        pool_type = "프로세스 풀"
         
         self.signals.log.emit(f"[벤치마크] 파일명 정제 및 그룹핑 시작: {total}개 파일 ({pool_type}: {MAX_WORKERS}개)")
         
@@ -278,7 +277,7 @@ class FileScanWorker(QRunnable):
         
         results = [None] * len(file_name_list)
         
-        # 2단계: 적응형 병렬 파일명 정제
+        # 2단계: ProcessPoolExecutor를 사용한 병렬 파일명 정제 (성능 최적화)
         media_files_count = sum(ext_type_list)
         completed_count = 0
         progress_lock = threading.Lock()
@@ -294,52 +293,39 @@ class FileScanWorker(QRunnable):
         self.signals.progress.emit(10, f"파일명 정제 시작... (0/{media_files_count}) [{pool_type}]")
         
         try:
-            if use_process_pool:
-                # 대용량 파일: ProcessPoolExecutor 사용 (GIL 우회)
-                with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                    future_to_idx = {}
-                    media_files = []
-                    media_indices = []
-                    
-                    # 미디어 파일만 추출하여 배치 처리
-                    for i in range(len(file_name_list)):
-                        if ext_type_list[i]:
-                            media_files.append(file_name_list[i])
-                            media_indices.append(i)
-                    
-                    # 청크 단위로 제출하여 프로세스 간 통신 오버헤드 최소화
-                    chunk_size = max(16, len(media_files) // (MAX_WORKERS * 2))  # 더 큰 청크 사용
-                    self.signals.log.emit(f"[최적화] 청크 크기: {chunk_size}, 총 {len(media_files)}개 파일을 {MAX_WORKERS}개 프로세스로 처리")
-                    
-                    # 배치 작업 제출
-                    for i in range(0, len(media_files), chunk_size):
-                        if self._abort:
-                            break
-                        chunk_files = media_files[i:i+chunk_size]
-                        chunk_indices = media_indices[i:i+chunk_size]
+            # ProcessPoolExecutor 사용 (성능 최적화)
+            with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                future_to_idx = {}
+                
+                # 미디어 파일만 병렬 처리 제출
+                for i in range(len(file_name_list)):
+                    if ext_type_list[i]:
+                        future = executor.submit(FileCleaner.clean_filename_static, file_name_list[i])
+                        future_to_idx[future] = i
+                
+                # 완료된 작업 처리 (실시간 진행률 업데이트)
+                for future in as_completed(future_to_idx):
+                    if self._abort:
+                        self.signals.log.emit("[중단] 파일 정제 프로세스 풀 작업이 취소되었습니다.")
+                        self.signals.finished.emit()
+                        return
                         
-                        for j, (file_path, original_idx) in enumerate(zip(chunk_files, chunk_indices)):
-                            future = executor.submit(FileCleaner.clean_filename_static, file_path)
-                            future_to_idx[future] = original_idx
-                    
-                    # 완료된 작업 처리
-                    for future in as_completed(future_to_idx):
-                        if self._abort:
-                            self.signals.log.emit("[중단] 파일 정제 프로세스 풀 작업이 취소되었습니다.")
-                            self.signals.finished.emit()
-                            return
-                            
-                        idx = future_to_idx[future]
-                        try:
-                            clean = future.result()
-                            results[idx] = clean
-                            clean_cache[file_name_list[idx]] = clean
-                            update_progress()
-                        except Exception as e:
-                            self.signals.log.emit(f"[프로세스 풀] {file_name_list[idx]}: 병렬 정제 오류: {e}")
-                            update_progress()
-            else:
-                # 소용량 파일: ThreadPoolExecutor 사용 (오버헤드 최소)
+                    idx = future_to_idx[future]
+                    try:
+                        clean = future.result()
+                        results[idx] = clean
+                        clean_cache[file_name_list[idx]] = clean
+                        update_progress()  # 실시간 진행률 업데이트
+                    except Exception as e:
+                        self.signals.log.emit(f"[프로세스 풀] {file_name_list[idx]}: 병렬 정제 오류: {e}")
+                        update_progress()  # 오류가 있어도 진행률 업데이트
+                        
+        except Exception as e:
+            self.signals.log.emit(f"{pool_type} 오류: {e}, ThreadPoolExecutor fallback")
+            self.signals.progress.emit(15, "ThreadPoolExecutor로 파일명 정제 중...")
+            
+            # ThreadPoolExecutor fallback (안정성 우선)
+            try:
                 with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="cleaner") as executor:
                     future_to_idx = {}
                     
@@ -349,7 +335,7 @@ class FileScanWorker(QRunnable):
                             future = executor.submit(FileCleaner.clean_filename_static, file_name_list[i])
                             future_to_idx[future] = i
                     
-                    # 완료된 작업 처리 (실시간 진행률 업데이트)
+                    # 완료된 작업 처리
                     for future in as_completed(future_to_idx):
                         if self._abort:
                             self.signals.log.emit("[중단] 파일 정제 스레드 풀 작업이 취소되었습니다.")
@@ -361,34 +347,34 @@ class FileScanWorker(QRunnable):
                             clean = future.result()
                             results[idx] = clean
                             clean_cache[file_name_list[idx]] = clean
-                            update_progress()  # 실시간 진행률 업데이트
+                            update_progress()
                         except Exception as e:
                             self.signals.log.emit(f"[스레드 풀] {file_name_list[idx]}: 병렬 정제 오류: {e}")
-                            update_progress()  # 오류가 있어도 진행률 업데이트
+                            update_progress()
+                            
+            except Exception as e2:
+                self.signals.log.emit(f"ThreadPoolExecutor도 실패: {e2}, 단일 프로세스 fallback")
+                self.signals.progress.emit(15, "단일 프로세스로 파일명 정제 중...")
+                
+                # 단일 프로세스 fallback (최후의 수단)
+                for i, file_name in enumerate(file_name_list):
+                    if self._abort:
+                        self.signals.log.emit("[중단] 파일 정제 단일 작업이 취소되었습니다.")
+                        self.signals.finished.emit()
+                        return
                         
-        except Exception as e:
-            self.signals.log.emit(f"{pool_type} 오류: {e}, 단일 프로세스 fallback")
-            self.signals.progress.emit(15, "단일 프로세스로 파일명 정제 중...")
-            
-            # 단일 프로세스 fallback (진행률 표시)
-            for i, file_name in enumerate(file_name_list):
-                if self._abort:
-                    self.signals.log.emit("[중단] 파일 정제 단일 작업이 취소되었습니다.")
-                    self.signals.finished.emit()
-                    return
-                    
-                if ext_type_list[i]:
-                    try:
-                        clean = FileCleaner.clean_filename_static(file_name)
-                        results[i] = clean
-                        clean_cache[file_name] = clean
-                    except Exception as e:
-                        self.signals.log.emit(f"{file_name}: 단일 정제 오류: {e}")
-                    
-                    # 단일 프로세스에서도 진행률 업데이트
-                    completed_count += 1
-                    progress = 15 + int((completed_count / media_files_count) * 65)  # 15-80% 범위
-                    self.signals.progress.emit(progress, f"파일명 정제 중... ({completed_count}/{media_files_count})")
+                    if ext_type_list[i]:
+                        try:
+                            clean = FileCleaner.clean_filename_static(file_name)
+                            results[i] = clean
+                            clean_cache[file_name] = clean
+                        except Exception as e:
+                            self.signals.log.emit(f"{file_name}: 단일 정제 오류: {e}")
+                        
+                        # 단일 프로세스에서도 진행률 업데이트
+                        completed_count += 1
+                        progress = 15 + int((completed_count / media_files_count) * 65)  # 15-80% 범위
+                        self.signals.progress.emit(progress, f"파일명 정제 중... ({completed_count}/{media_files_count})")
         
         # 3단계: 비미디어 파일 처리 (빠른 진행률 표시)
         self.signals.progress.emit(80, "비미디어 파일 처리 중...")
@@ -462,6 +448,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("AnimeSorter")
         self.setMinimumSize(800, 600)
+        
+        # 스레드 풀을 먼저 초기화 (다른 초기화에서 사용될 수 있음)
+        self.threadpool = QThreadPool.globalInstance()
+        self.active_threads = []
         
         # 로거 초기화
         self.logger = get_logger("animesorter.ui.main_window")
@@ -547,10 +537,6 @@ class MainWindow(QMainWindow):
         
         self.grouped_files = {}  # (title, year) -> [CleanResult, ...]
         self.file_metadata = {}
-        self.threadpool = QThreadPool.globalInstance()
-        
-        # 스레드 추적 (QThread 정리용)
-        self.active_threads = []
         
         self.logger.info("AnimeSorter 메인 윈도우 초기화 완료")
         
@@ -670,11 +656,10 @@ class MainWindow(QMainWindow):
         
     def _create_connections(self):
         """시그널-슬롯 연결"""
-        self.control_panel.scan_button.clicked.connect(self._scan_files)
-        self.control_panel.sync_button.clicked.connect(self._sync_metadata)
+        # 스캔과 동기화 버튼 연결 제거 (자동화됨)
         self.control_panel.move_button.clicked.connect(self._move_files)
         
-        # 디렉토리 선택기 연결
+        # 디렉토리 선택기 연결 - 자동 스캔 실행
         self.source_selector.path_edit.textChanged.connect(self._on_source_dir_changed)
         self.target_selector.path_edit.textChanged.connect(self._on_target_dir_changed)
         
@@ -708,25 +693,34 @@ class MainWindow(QMainWindow):
         self.config.save_config()
         
     def _on_source_dir_changed(self, path: str):
-        """소스 디렉토리 변경 처리"""
+        """소스 디렉토리 변경 처리 - 자동 스캔 실행"""
         self.config.set("directories.source", path)
+        
+        # 경로가 유효하고 비어있지 않으면 자동 스캔 실행
+        if path and os.path.exists(path):
+            self.status_panel.log_message(f"[자동] 소스 폴더 변경 감지: {path}")
+            self._scan_files()
         
     def _on_target_dir_changed(self, path: str):
         """대상 디렉토리 변경 처리"""
         self.config.set("directories.target", path)
         
     def _scan_files(self):
-        """
-        소스 폴더의 파일들을 스캔하고 자동으로 정제
-        같은 제목/연도는 하나의 row로 그룹핑 (백그라운드)
-        zip 파일(.zip)은 별도 분리
-        """
-        source_dir = self.source_selector.get_path()
-        if not source_dir:
-            QMessageBox.warning(self, "경고", "소스 폴더를 선택해주세요.")
+        """파일 스캔"""
+        source_dir = self.config.get("directories.source")
+        if not source_dir or not os.path.exists(source_dir):
+            QMessageBox.warning(self, "경고", "유효한 소스 디렉토리를 선택해주세요.")
             return
-        if not os.path.exists(source_dir):
-            QMessageBox.warning(self, "경고", "소스 폴더가 존재하지 않습니다.")
+            
+        # 스캔 버튼 비활성화 제거 (자동화됨)
+        
+        # 파일 경로 수집
+        file_paths = []
+        try:
+            for ext in self.config.get("file_extensions.video", [".mp4", ".mkv", ".avi"]):
+                file_paths.extend(Path(source_dir).rglob(f"*{ext}"))
+        except Exception as e:
+            QMessageBox.critical(self, "오류", f"파일 스캔 중 오류가 발생했습니다: {e}")
             return
             
         # 스캔 시작 시간 기록
@@ -738,7 +732,6 @@ class MainWindow(QMainWindow):
         self.status_panel.set_progress(0, "파일 스캔 중...")
             
         # os.scandir()를 사용한 최적화된 파일 탐색 (5배 빠름)
-        file_paths = []
         self.zip_files = []
         
         def scan_directory_optimized(root_path):
@@ -813,10 +806,17 @@ class MainWindow(QMainWindow):
             self.status_panel.set_step_progress("파일명 정제", percent)
             
     def _on_scan_finished(self):
-        """스캔 완료 처리"""
+        """스캔 완료 처리 - 자동 메타데이터 동기화 실행"""
         self.status_panel.set_progress(100, "스캔 완료")
         self.status_panel.set_step_completed("파일명 정제", True)
         self.status_panel.set_step_active("파일 스캔", False)
+        
+        # 스캔된 파일이 있으면 자동으로 메타데이터 동기화 실행
+        if hasattr(self, 'grouped_files') and self.grouped_files:
+            self.status_panel.log_message("[자동] 스캔 완료, 메타데이터 동기화 시작...")
+            self._sync_metadata()
+        
+        # 스캔 버튼 활성화 제거 (자동화됨)
 
     def _update_table_from_grouped_files(self):
         """grouped_files 데이터를 테이블에 반영 및 JSON 저장"""
@@ -852,7 +852,7 @@ class MainWindow(QMainWindow):
             for i in range(5, len(self.file_list.COLUMNS)):
                 self.file_list.setItem(row, i, QTableWidgetItem(""))
         has_files = self.file_list.rowCount() > 0
-        self.control_panel.sync_button.setEnabled(has_files)
+        # 동기화 버튼 활성화 제거 (자동화됨)
         
         # JSON 내보내기 메뉴 활성화
         if hasattr(self, 'export_current_action'):
@@ -1145,26 +1145,28 @@ class MainWindow(QMainWindow):
             self.status_panel.set_status(f"정제 중 오류: {e}")
         
     def _sync_metadata(self):
-        """TMDB API를 통해 메타데이터 동기화 (백그라운드, 그룹별)"""
-        # 메타데이터 검색 단계 활성화
-        self.status_panel.set_step_active("메타데이터 검색", True)
-        self.status_panel.set_step_progress("메타데이터 검색", 0)
-        self.status_panel.set_status("TMDB 메타데이터 동기화 중...")
-        self.status_panel.set_progress(0)
-        self.status_panel.log_message("동기화 시작")
+        """메타데이터 동기화"""
+        if not hasattr(self, 'grouped_files') or not self.grouped_files:
+            QMessageBox.warning(self, "경고", "먼저 파일을 스캔해주세요.")
+            return
+            
+        # 동기화 버튼 비활성화 제거 (자동화됨)
         
+        # 그룹 키 추출
         group_keys = list(self.grouped_files.keys())
         
-        # ETA 추적 시작
-        self.status_panel.start_tracking(len(group_keys))
+        # 동기화 워커 생성 및 실행
+        self.sync_worker = GroupSyncWorker(group_keys, self.tmdb_provider)
+        self.sync_worker.signals.progress.connect(self._on_sync_progress)
+        self.sync_worker.signals.result.connect(self._on_group_sync_result)
+        self.sync_worker.signals.finished.connect(self._on_sync_finished)
         
-        worker = GroupSyncWorker(group_keys, self.tmdb_provider)
-        worker.signals.progress.connect(self._on_sync_progress)
-        worker.signals.log.connect(self.status_panel.log_message)
-        worker.signals.error.connect(self.status_panel.log_message)
-        worker.signals.result.connect(self._on_group_sync_result)
-        worker.signals.finished.connect(self._on_sync_finished)
-        self.threadpool.start(worker)
+        # 스레드 풀에 추가
+        QThreadPool.globalInstance().start(self.sync_worker)
+        
+        # 상태 업데이트
+        self.status_panel.set_status("메타데이터 동기화 중...")
+        self.status_panel.set_step_active("메타데이터 동기화", True)
         
     def _on_sync_progress(self, percent: int, message: str):
         """메타데이터 동기화 진행률 업데이트"""
@@ -1328,11 +1330,16 @@ class MainWindow(QMainWindow):
         self.file_list.setItem(row, 6, QTableWidgetItem(f"이미지 오류: {error_message}"))
 
     def _on_sync_finished(self):
-        self.status_panel.set_status("TMDB 동기화 완료")
-        self.status_panel.log_message("동기화 종료")
-        self.status_panel.set_step_completed("메타데이터 검색", True)
-        self.status_panel.set_step_active("메타데이터 검색", False)
-        self.control_panel.move_button.setEnabled(True)
+        """메타데이터 동기화 완료 처리"""
+        self.status_panel.set_progress(100, "메타데이터 동기화 완료")
+        self.status_panel.set_step_completed("메타데이터 동기화", True)
+        self.status_panel.set_step_active("메타데이터 동기화", False)
+        
+        # 동기화 버튼 비활성화 제거 (자동화됨)
+        
+        # 이동 버튼 활성화
+        if self.file_list.rowCount() > 0:
+            self.control_panel.move_button.setEnabled(True)
         
     def _move_files(self):
         """파일 이동 처리"""
@@ -1777,9 +1784,7 @@ class MainWindow(QMainWindow):
         self.status_panel.log_message(f"드롭된 파일 {len(new_files)}개가 목록에 추가되었습니다.")
         self.status_panel.set_status(f"{len(new_files)}개 파일 추가됨")
         
-        # 동기화 버튼 활성화
-        if self.file_list.rowCount() > 0:
-            self.control_panel.sync_button.setEnabled(True)
+        # 동기화 버튼 활성화 제거 (자동화됨)
     
     def dragEnterEvent(self, event):
         """드래그 진입 이벤트"""
@@ -1821,16 +1826,22 @@ class MainWindow(QMainWindow):
         path = Path(local_path)
         
         if path.is_dir():
-            # 폴더인 경우 소스 디렉토리로 설정
+            # 폴더인 경우 소스 디렉토리로 설정하고 자동 스캔 실행
             self.source_selector.set_path(str(path))
             self.logger.info(f"드롭된 폴더를 소스 디렉토리로 설정: {path}")
             self.status_panel.set_status(f"소스 폴더 설정됨: {path.name}")
+            # 자동 스캔 실행
+            self.status_panel.log_message(f"[자동] 드롭된 폴더 스캔 시작: {path.name}")
+            self._scan_files()
         elif path.is_file():
-            # 파일인 경우 부모 폴더를 소스 디렉토리로 설정
+            # 파일인 경우 부모 폴더를 소스 디렉토리로 설정하고 자동 스캔 실행
             parent_dir = path.parent
             self.source_selector.set_path(str(parent_dir))
             self.logger.info(f"드롭된 파일의 부모 폴더를 소스 디렉토리로 설정: {parent_dir}")
             self.status_panel.set_status(f"소스 폴더 설정됨: {parent_dir.name}")
+            # 자동 스캔 실행
+            self.status_panel.log_message(f"[자동] 드롭된 파일의 폴더 스캔 시작: {parent_dir.name}")
+            self._scan_files()
         else:
             self.logger.warning(f"드롭된 경로가 유효하지 않음: {path}")
             self.status_panel.set_status("유효하지 않은 경로입니다")

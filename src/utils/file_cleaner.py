@@ -1,525 +1,702 @@
+"""
+파일명 정제 및 메타데이터 추출 모듈
+
+Anitopy와 GuessIt을 사용하여 애니메이션 파일명에서 메타데이터를 추출하고
+정제된 제목을 생성하는 기능을 제공합니다.
+"""
+
 import re
 import logging
-from functools import lru_cache
+import time
 from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, Union
-import warnings
-from slugify import slugify
+from typing import Union, Optional, Dict, Any
+from dataclasses import dataclass
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import asyncio
+
+try:
+    import anitopy
+except ImportError:
+    anitopy = None
+    logging.getLogger("animesorter.file_cleaner").warning("Anitopy not available")
+
+try:
+    from guessit import guessit
+except ImportError:
+    guessit = None
+    logging.getLogger("animesorter.file_cleaner").warning("GuessIt not available")
+
 
 @dataclass
 class CleanResult:
-    """파일명 정제 결과"""
+    """정제 결과 데이터 클래스"""
     title: str
-    original_filename: Union[str, Path]
-    season: int = 1
-    episode: Optional[int] = None
+    original_filename: Optional[Union[str, Path]] = None
     year: Optional[int] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    episode_end: Optional[int] = None
+    quality: Optional[str] = None
+    resolution: Optional[str] = None
+    audio_codec: Optional[str] = None
+    video_codec: Optional[str] = None
+    release_group: Optional[str] = None
+    language: Optional[str] = None
+    subtitles: Optional[str] = None
+    is_anime: bool = True
+    special_episode: Optional[str] = None
+    multi_episode: Optional[str] = None
+    korean_season: Optional[str] = None
+    korean_episode: Optional[str] = None
     is_movie: bool = False
-    extra_info: Dict[str, Any] = field(default_factory=dict)
+    extra_info: Optional[Dict[str, Any]] = None
+
 
 class FileCleaner:
-    """파일명 정제 클래스 - Anitopy 우선, GuessIt 폴백 전략"""
+    """파일명 정제 및 메타데이터 추출 클래스"""
     
-    # 애니메이션 특화 패턴들
-    ANIME_PATTERNS = {
-        # 시즌/에피소드 패턴 (먼저 제거)
-        'season_episode': [
-            r'\b(?:S|Season|시즌)\s*(\d{1,2})\s*(?:E|Episode|화)\s*(\d{1,3})\b',
-            r'\b(\d{1,2})x(\d{1,3})\b',  # 1x01 형식
-            r'\b(\d{1,2})(\d{2})\b',     # 101 형식 (시즌1, 에피01)
-            r'\bE(\d{1,3})\b',           # E01 형식
-            r'\b(\d{1,2})화\b',          # 01화 형식
-            r'\b(?:ep|episode)\s*(\d{1,3})\b',  # ep 01 형식
-        ],
-        
-        # 릴리즈 그룹 패턴
-        'release_group': [
-            r'\[([^\]]+)\]',  # [SubsPlease], [HorribleSubs] 등
-        ],
-        
-        # 해상도 패턴
-        'resolution': [
-            r'\b(?:480p|720p|1080p|1440p|2160p|4K|UHD)\b',
-        ],
-        
-        # 코덱 패턴
-        'codec': [
-            r'\b(?:x264|x265|HEVC|AVC|H\.264|H\.265|AV1)\b',
-        ],
-        
-        # 품질 패턴
-        'quality': [
-            r'\b(?:HD|SD|WEB|BluRay|DVD|HDTV|WEB-DL|WEBRip|BDRip|HDRip)\b',
-        ],
-        
-        # 언어 패턴
-        'language': [
-            r'\b(?:KOR|ENG|JPN|CHI|MULTI|SUB|DUB)\b',
-        ],
-        
-        # 에피소드 제목 패턴 (제거 대상)
-        'episode_title': [
-            r'[-_]\s*([^-_]+?)\s*(?:\[|\(|$)',  # - 에피소드 제목 [ 또는 ( 또는 끝
-            r'[-_]\s*([^-_]+?)\s*(?:720p|1080p|\.mkv|\.mp4)',  # - 에피소드 제목 해상도/확장자
-        ],
-        
-        # 기타 메타데이터 패턴
-        'metadata': [
-            r'\b(?:v\d+|REPACK|PROPER|INTERNAL|EXTENDED|DIRFIX|NFOFIX)\b',
-            r'\b(?:AAC|AC3|DTS|FLAC|MP3|OGG)\b',  # 오디오 코덱
-            r'\b(?:10bit|8bit)\b',  # 비트 깊이
-            r'\b(?:CRF\d+|CBR|VBR)\b',  # 인코딩 설정
-        ]
-    }
+    # 성능 최적화 상수
+    PARSING_TIMEOUT = 5.0  # 파싱 타임아웃 (초)
+    MAX_REGEX_ITERATIONS = 10  # 최대 정규식 반복 횟수
     
     def __init__(self):
         """FileCleaner 초기화"""
         self.logger = logging.getLogger("animesorter.file_cleaner")
+        self.logger.setLevel(logging.DEBUG)  # 디버그 레벨 설정
+        self._executor = ThreadPoolExecutor(max_workers=2)
         
-    @staticmethod
-    def _pre_clean_filename(filename: str) -> str:
-        """
-        파싱 전에 시즌/에피소드 정보를 먼저 제거
-        
-        Args:
-            filename: 원본 파일명
-            
-        Returns:
-            str: 전처리된 파일명
-        """
-        cleaned = filename
-        
-        # 한국어 토크나이징 정규화 (최우선)
-        cleaned = FileCleaner._normalize_korean_tokens(cleaned)
-        
-        # 릴리즈 그룹 패턴 제거 (우선순위 1)
-        for pattern in FileCleaner.ANIME_PATTERNS['release_group']:
-            cleaned = re.sub(pattern, '', cleaned)
-            
-        # 해상도 패턴 제거 (우선순위 2)
-        for pattern in FileCleaner.ANIME_PATTERNS['resolution']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 코덱 패턴 제거 (우선순위 3)
-        for pattern in FileCleaner.ANIME_PATTERNS['codec']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 품질 패턴 제거 (우선순위 4)
-        for pattern in FileCleaner.ANIME_PATTERNS['quality']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 언어 패턴 제거 (우선순위 5)
-        for pattern in FileCleaner.ANIME_PATTERNS['language']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 기타 메타데이터 패턴 제거 (우선순위 6)
-        for pattern in FileCleaner.ANIME_PATTERNS['metadata']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 연속된 공백 정리
-        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-        
-        return cleaned
+    def __del__(self):
+        """소멸자에서 리소스 정리"""
+        if hasattr(self, '_executor'):
+            self._executor.shutdown(wait=False)
     
     @staticmethod
-    def _normalize_korean_tokens(filename: str) -> str:
+    def clean_filename(file_path: Union[str, Path]) -> CleanResult:
         """
-        한국어 파일명을 표준 SxxEyy 형식으로 변환
+        파일명 정제 (정적 메서드)
         
         Args:
-            filename: 원본 파일명
+            file_path: 파일 경로 또는 제목 문자열
             
         Returns:
-            str: 정규화된 파일명
+            CleanResult: 정제된 결과
         """
-        if not filename:
-            return filename
-            
-        # '시즌 3 01화' → S03E01
-        filename = re.sub(r'시즌\s*([0-9]{1,2})', lambda m: f"S{int(m.group(1)):02d}", filename)
-        filename = re.sub(r'(\d{1,2})화', lambda m: f"E{int(m.group(1)):02d}", filename)
-        
-        # '3기 01화' → S03E01
-        filename = re.sub(r'([0-9]{1,2})기', lambda m: f"S{int(m.group(1)):02d}", filename)
-        
-        # '3시즌 01화' → S03E01
-        filename = re.sub(r'([0-9]{1,2})시즌', lambda m: f"S{int(m.group(1)):02d}", filename)
-        
-        # '3철 01화' → S03E01
-        filename = re.sub(r'([0-9]{1,2})철', lambda m: f"S{int(m.group(1)):02d}", filename)
-        
-        # '시즌3 01화' → S03E01 (공백 없는 경우)
-        filename = re.sub(r'시즌([0-9]{1,2})', lambda m: f"S{int(m.group(1)):02d}", filename)
-        
-        # S##S## 패턴을 S##E##로 변환
-        filename = re.sub(r'(S\d{2})S(\d{2})', r'\1E\2', filename)
-        
-        # 스페셜 편 패턴들을 S00E## 형식으로 변환
-        # s##sp# → S00E##
-        filename = re.sub(r's(\d{2})sp(\d{1})', lambda m: f"S00E{int(m.group(2)):02d}", filename, flags=re.IGNORECASE)
-        # s##sp## → S00E##
-        filename = re.sub(r's(\d{2})sp(\d{2})', lambda m: f"S00E{int(m.group(2))}", filename, flags=re.IGNORECASE)
-        # s##e##sp → S00E##
-        filename = re.sub(r's(\d{2})e(\d{2})sp', lambda m: f"S00E{int(m.group(2))}", filename, flags=re.IGNORECASE)
-        
-        return filename
-    
-    @staticmethod
-    @lru_cache(maxsize=4096)
-    def _parse_with_anitopy(filename: str) -> Optional[Dict[str, Any]]:
-        """
-        Anitopy로 파일명 파싱
-        
-        Args:
-            filename: 파일명
-            
-        Returns:
-            dict or None: 파싱 결과 또는 None
-        """
+        cleaner = FileCleaner()
         try:
-            import anitopy
-            data = anitopy.parse(filename)
-            
-            # 필수 필드 검증
-            if not data.get("anime_title"):
-                return None
-                
-            # 에피소드 번호 정수 변환
-            episode = data.get("episode_number")
-            if episode:
-                try:
-                    episode = int(episode)
-                except (ValueError, TypeError):
-                    episode = None
-                    
-            # 시즌 번호 정수 변환
-            season = data.get("anime_season")
-            if season:
-                try:
-                    season = int(season)
-                except (ValueError, TypeError):
-                    season = 1
+            # 파일 경로인 경우 전체 파싱
+            if isinstance(file_path, (str, Path)) and Path(file_path).exists():
+                return cleaner.parse(file_path)
             else:
-                season = 1
+                # 문자열인 경우 제목만 정제
+                title = str(file_path)
+                result = cleaner._pre_clean_filename(title)
+                result = cleaner._normalize_korean_tokens(result)
+                result = cleaner._post_clean_title(result)
                 
-            # 연도 정수 변환
-            year = data.get("anime_year")
-            if year:
-                try:
-                    year = int(year)
-                except (ValueError, TypeError):
-                    year = None
-                
-            return {
-                "title": data["anime_title"],
-                "season": season,
-                "episode": episode,
-                "year": year,
-                "release_group": data.get("release_group"),
-                "video_resolution": data.get("video_resolution"),
-                "video_terminal": data.get("video_terminal"),
-                "source": data.get("source"),
-                "episode_title": data.get("episode_title"),
-                "parser": "anitopy"
-            }
-        except Exception as e:
-            logging.getLogger("animesorter.file_cleaner").debug(f"Anitopy parsing failed: {e}")
-            return None
-    
-    @staticmethod
-    @lru_cache(maxsize=4096)
-    def _parse_with_guessit(filename: str) -> Dict[str, Any]:
-        """
-        GuessIt으로 파일명 파싱 (폴백)
-        
-        Args:
-            filename: 파일명
-            
-        Returns:
-            dict: 파싱 결과
-        """
-        try:
-            from guessit import guessit
-            data = dict(guessit(filename))
-            data["parser"] = "guessit"
-            return data
-        except Exception as e:
-            logging.getLogger("animesorter.file_cleaner").error(f"GuessIt parsing failed: {e}")
-            return {"title": filename, "parser": "fallback"}
-    
-    @staticmethod
-    def _normalize_metadata(meta: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        메타데이터 정규화
-        
-        Args:
-            meta: 원본 메타데이터
-            
-        Returns:
-            dict: 정규화된 메타데이터
-        """
-        normalized = meta.copy()
-        
-        # 시즌 정규화
-        season = meta.get("season")
-        if isinstance(season, list):
-            season = season[0] if season else 1
-        try:
-            normalized["season"] = int(season) if season else 1
-        except (ValueError, TypeError):
-            normalized["season"] = 1
-            
-        # 에피소드 정규화
-        episode = meta.get("episode")
-        if isinstance(episode, list):
-            episode = episode[0] if episode else None
-        try:
-            normalized["episode"] = int(episode) if episode else None
-        except (ValueError, TypeError):
-            normalized["episode"] = None
-            
-        # 연도 정규화
-        year = meta.get("year")
-        try:
-            normalized["year"] = int(year) if year else None
-        except (ValueError, TypeError):
-            normalized["year"] = None
-            
-        return normalized
-    
-    @staticmethod
-    def _merge_parsers(anitopy_result: Optional[Dict[str, Any]], 
-                       guessit_result: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Anitopy와 GuessIt 결과 병합 (Anitopy 우선)
-        
-        Args:
-            anitopy_result: Anitopy 파싱 결과
-            guessit_result: GuessIt 파싱 결과
-            
-        Returns:
-            dict: 병합된 결과
-        """
-        if not anitopy_result:
-            return guessit_result
-            
-        merged = guessit_result.copy()
-        
-        # Anitopy 결과로 덮어쓰기 (우선순위)
-        for key, value in anitopy_result.items():
-            if value is not None and value != "":
-                merged[key] = value
-                
-        merged["parser"] = "anitopy+guessit"
-        return merged
-    
-    @staticmethod
-    def _post_clean_title(title: str) -> str:
-        """
-        파싱 후 제목 추가 정제
-        
-        Args:
-            title: 파싱된 제목
-            
-        Returns:
-            str: 정제된 제목
-        """
-        if not title:
-            return title
-            
-        cleaned = title.strip()
-        
-        # 연도 정보 제거 (제목 끝에 있는 연도)
-        cleaned = re.sub(r'\s+\d{4}\s*$', '', cleaned)
-        
-        # 연도 정보 제거 (제목 중간에 있는 연도)
-        cleaned = re.sub(r'\s+\d{4}\s+', ' ', cleaned)
-        
-        # 특별한 경우 처리: "60th Anniversary Specials" → "Doctor Who"
-        if '60th Anniversary Specials' in cleaned:
-            cleaned = 'Doctor Who'
-        
-        # 릴리즈 그룹 제거
-        for pattern in FileCleaner.ANIME_PATTERNS['release_group']:
-            cleaned = re.sub(pattern, '', cleaned)
-            
-        # 해상도 제거
-        for pattern in FileCleaner.ANIME_PATTERNS['resolution']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 코덱 제거
-        for pattern in FileCleaner.ANIME_PATTERNS['codec']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 품질 정보 제거
-        for pattern in FileCleaner.ANIME_PATTERNS['quality']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 언어 정보 제거
-        for pattern in FileCleaner.ANIME_PATTERNS['language']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-            
-        # 기타 메타데이터 제거
-        for pattern in FileCleaner.ANIME_PATTERNS['metadata']:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-    
-    # 연속된 공백 정리
-        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-        
-        # 슬러그화 (OS 안전한 파일명으로 변환, 한글 보존)
-        # 한글은 그대로 두고 특수문자만 정리
-        cleaned = re.sub(r'[<>:"/\\|?*]', '', cleaned)  # 파일시스템 금지 문자만 제거
-        cleaned = re.sub(r'\s+', ' ', cleaned).strip()  # 연속 공백 정리
-        
-        return cleaned
-    
-    @staticmethod
-    def parse(file_path: Union[str, Path], *, strict: bool = False) -> CleanResult:
-        """
-        파일명 파싱 (Anitopy 우선, GuessIt 폴백)
-        
-        Args:
-            file_path: 파일 경로
-            strict: 엄격 모드 (필수 필드 없으면 ValueError)
-            
-        Returns:
-            CleanResult: 파싱 결과
-            
-        Raises:
-            ValueError: strict=True이고 필수 필드가 없는 경우
-        """
-        file_path = Path(file_path)
-        filename_stem = file_path.stem
-        
-        # 1단계: 한국어 토크나이징 (최우선)
-        normalized_filename = FileCleaner._normalize_korean_tokens(filename_stem)
-        
-        # 2단계: Anitopy 파싱 (토크나이징된 파일명 사용)
-        anitopy_result = FileCleaner._parse_with_anitopy(normalized_filename)
-        
-        # 3단계: 전처리 (시즌/에피소드 정보 제거)
-        pre_cleaned = FileCleaner._pre_clean_filename(filename_stem)
-        
-        # 4단계: GuessIt 파싱 (전처리된 파일명 사용)
-        guessit_result = FileCleaner._parse_with_guessit(pre_cleaned)
-        
-        # 5단계: 결과 병합
-        merged_result = FileCleaner._merge_parsers(anitopy_result, guessit_result)
-        
-        # 6단계: 메타데이터 정규화
-        normalized = FileCleaner._normalize_metadata(merged_result)
-        
-        # 7단계: 제목 추가 정제
-        title = normalized.get("title", filename_stem)
-        clean_title = FileCleaner._post_clean_title(title)
-        
-        # 8단계: 필수 필드 검증
-        if strict and not clean_title:
-            raise ValueError(f"Required field 'title' is missing for file: {file_path}")
-            
-        # 9단계: CleanResult 생성
-        return CleanResult(
-            title=clean_title,
-            original_filename=file_path,
-            season=normalized.get("season", 1),
-            episode=normalized.get("episode"),
-            year=normalized.get("year"),
-            is_movie=normalized.get("type") == "movie",
-            extra_info=normalized
-        )
+                return CleanResult(
+                    title=result,
+                    original_filename=title,
+                    is_anime=True
+                )
+        finally:
+            cleaner.__del__()
     
     @staticmethod
     def clean_filename_static(file_path: Union[str, Path]) -> CleanResult:
         """
-        기존 호환성을 위한 static 메서드 (deprecated)
-    
-    Args:
+        정적 메서드로 파일명 정제 (인스턴스 생성 없이 사용)
+        @deprecated: clean_filename() 사용을 권장합니다.
+        
+        Args:
             file_path: 파일 경로
-        
-    Returns:
-            CleanResult: 파싱 결과
+            
+        Returns:
+            CleanResult: 정제된 결과
         """
-        warnings.warn(
-            "clean_filename_static is deprecated. Use FileCleaner.parse() instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return FileCleaner.parse(file_path)
-
-# 기존 함수들 (호환성을 위해 유지)
-@lru_cache(maxsize=4096)
-def _cached_guessit_parse(filename: str) -> dict:
-    """GuessIt 파싱 결과 캐싱 (기존 호환성)"""
-    warnings.warn(
-        "_cached_guessit_parse is deprecated. Use FileCleaner.parse() instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return FileCleaner._parse_with_guessit(filename)
-
-@lru_cache(maxsize=2048)
-def _cached_title_refine(title: str) -> str:
-    """제목 정제 결과 캐싱 (기존 호환성)"""
-    warnings.warn(
-        "_cached_title_refine is deprecated. Use FileCleaner._post_clean_title() instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return FileCleaner._post_clean_title(title)
-
-def _extract_season_from_title(title: str) -> Optional[int]:
-    """제목에서 시즌 정보를 추출하는 함수 (기존 호환성)"""
-    warnings.warn(
-        "_extract_season_from_title is deprecated. Use FileCleaner.parse() instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
+        return FileCleaner.clean_filename(file_path)
     
-    if not title:
-        return None
-    
-    # 시즌 추출 패턴들
-    season_patterns = [
-        r'\bs(\d{1,2})sp\d{1,2}\b',
-        r'\b(\d{1,2})(?:th|st|nd|rd)\b',
-        r'\b(\d{1,2})(?:기|시즌|철)\b',
-        r'\b(\d{1,2})번째\b',
-        r'\b(?:Season|시즌)\s*(\d{1,2})\b',
-        r'\bs(\d{1,2})\b',
-        r'\b(\d{1,2})st\s*season\b',
-        r'\b(\d{1,2})nd\s*season\b',
-        r'\b(\d{1,2})rd\s*season\b',
-        r'\b(\d{1,2})th\s*season\b',
-        r'\b(\d{1,2})\s*(?:TV|Series|tv|series)?\s*$'
-    ]
-    
-    for pattern in season_patterns:
-        match = re.search(pattern, title, re.IGNORECASE)
-        if match:
-            try:
-                season_num = int(match.group(1))
-                if 1 <= season_num <= 50:
-                    return season_num
-            except (ValueError, IndexError):
-                continue
-                
-    return None
-
-# 기존 함수 호환성을 위한 별칭
-def clean_filename_static(file_path: Union[str, Path]) -> CleanResult:
-    """
-    기존 호환성을 위한 함수 (deprecated)
-    
-    Args:
-        file_path: 파일 경로
+    def parse(self, file_path: Union[str, Path], *, strict: bool = False) -> CleanResult:
+        """
+        파일명 파싱 및 정제 (상세한 디버그 로그 포함)
         
-    Returns:
-        CleanResult: 파싱 결과
-    """
-    warnings.warn(
-        "clean_filename_static is deprecated. Use FileCleaner.parse() instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return FileCleaner.parse(file_path) 
+        Args:
+            file_path: 파일 경로
+            strict: 엄격한 모드 (기본값: False)
+            
+        Returns:
+            CleanResult: 정제된 결과
+        """
+        parse_start = time.time()
+        
+        # Path 객체로 변환
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        
+        filename = file_path.name
+        self.logger.info(f"🔧 [CLEANER] Starting filename parsing: {filename}")
+        
+        try:
+            # 1단계: Anitopy 파싱
+            self.logger.debug(f"📋 [CLEANER] Step 1: Anitopy parsing for '{filename}'")
+            anitopy_start = time.time()
+            
+            anitopy_result = self._parse_with_anitopy(filename)
+            
+            anitopy_elapsed = time.time() - anitopy_start
+            self.logger.debug(f"✅ [CLEANER] Anitopy parsing completed in {anitopy_elapsed:.3f}s")
+            
+            if anitopy_result:
+                self.logger.debug(f"📊 [CLEANER] Anitopy found {len(anitopy_result)} fields")
+            else:
+                self.logger.debug("📊 [CLEANER] Anitopy found 0 fields")
+            
+            # 2단계: GuessIt 파싱 (폴백)
+            self.logger.debug(f"📋 [CLEANER] Step 2: GuessIt parsing for '{filename}'")
+            guessit_start = time.time()
+            
+            guessit_result = self._parse_with_guessit(filename)
+            
+            guessit_elapsed = time.time() - guessit_start
+            self.logger.debug(f"✅ [CLEANER] GuessIt parsing completed in {guessit_elapsed:.3f}s")
+            
+            if guessit_result:
+                self.logger.debug(f"📊 [CLEANER] GuessIt found {len(guessit_result)} fields")
+            else:
+                self.logger.debug("📊 [CLEANER] GuessIt found 0 fields")
+            
+            # 3단계: 결과 병합 및 정규화
+            self.logger.debug(f"🔄 [CLEANER] Step 3: Merging and normalizing results")
+            merge_start = time.time()
+            
+            # 결과 병합 (Anitopy 우선, GuessIt으로 보완)
+            merged_result = {}
+            if anitopy_result:
+                merged_result.update(anitopy_result)
+            if guessit_result:
+                # GuessIt 결과로 누락된 필드 보완
+                for key, value in guessit_result.items():
+                    if key not in merged_result or not merged_result[key]:
+                        merged_result[key] = value
+            
+            merge_elapsed = time.time() - merge_start
+            self.logger.debug(f"✅ [CLEANER] Result merging completed in {merge_elapsed:.3f}s")
+            
+            # 4단계: 메타데이터 정규화
+            self.logger.debug(f"🔧 [CLEANER] Step 4: Normalizing metadata")
+            normalize_start = time.time()
+            
+            # 기본 필드 추출
+            title = merged_result.get('anime_title', '') or merged_result.get('title', '')
+            year = merged_result.get('anime_year') or merged_result.get('year')
+            season = merged_result.get('anime_season') or merged_result.get('season')
+            episode = merged_result.get('episode_number') or merged_result.get('episode')
+            episode_end = merged_result.get('episode_number_end')
+            quality = merged_result.get('video_resolution') or merged_result.get('quality')
+            resolution = merged_result.get('video_resolution')
+            audio_codec = merged_result.get('audio_codec')
+            video_codec = merged_result.get('video_codec')
+            release_group = merged_result.get('release_group')
+            language = merged_result.get('language')
+            subtitles = merged_result.get('subtitles')
+            
+            normalize_elapsed = time.time() - normalize_start
+            self.logger.debug(f"✅ [CLEANER] Metadata normalization completed in {normalize_elapsed:.3f}s")
+            
+            # 5단계: 제목 정제
+            self.logger.debug(f"🧹 [CLEANER] Step 5: Cleaning title")
+            clean_start = time.time()
+            
+            if title:
+                # 제목 전처리
+                title = self._pre_clean_filename(title)
+                
+                # 콘텐츠 타입 분류
+                is_anime, content_type = self._classify_content_type(filename)
+                
+                # 한국어 토큰 정규화
+                title = self._normalize_korean_tokens(title)
+                
+                # 제목 후처리
+                title = self._post_clean_title(title)
+                
+                # 특수 에피소드 정보 추출
+                special_episode = self._extract_special_episode_info(filename)
+                multi_episode = self._extract_multi_episode_info(filename)
+                korean_season = self._extract_korean_season_info(filename)
+                korean_episode = self._extract_korean_episode_info(filename)
+                
+                # 영화 여부 판단
+                is_movie = self._is_movie_file(filename)
+                
+                # 추가 정보 수집
+                extra_info = {
+                    'anitopy_result': anitopy_result,
+                    'guessit_result': guessit_result,
+                    'merged_result': merged_result,
+                    'content_type': content_type
+                }
+            else:
+                # 제목이 없는 경우 파일명에서 추출
+                title = file_path.stem
+                title = self._pre_clean_filename(title)
+                is_anime, content_type = self._classify_content_type(filename)
+                title = self._normalize_korean_tokens(title)
+                title = self._post_clean_title(title)
+                special_episode = None
+                multi_episode = None
+                korean_season = None
+                korean_episode = None
+                is_movie = self._is_movie_file(filename)
+                
+                # 추가 정보 수집
+                extra_info = {
+                    'anitopy_result': anitopy_result,
+                    'guessit_result': guessit_result,
+                    'merged_result': merged_result,
+                    'content_type': content_type
+                }
+            
+            clean_elapsed = time.time() - clean_start
+            self.logger.debug(f"✅ [CLEANER] Title cleaning completed in {clean_elapsed:.3f}s")
+            
+            # 6단계: 결과 생성
+            self.logger.debug(f"📝 [CLEANER] Step 6: Creating final result")
+            
+            result = CleanResult(
+                title=title,
+                original_filename=file_path,
+                year=year,
+                season=season,
+                episode=episode,
+                episode_end=episode_end,
+                quality=quality,
+                resolution=resolution,
+                audio_codec=audio_codec,
+                video_codec=video_codec,
+                release_group=release_group,
+                language=language,
+                subtitles=subtitles,
+                is_anime=is_anime,
+                special_episode=special_episode,
+                multi_episode=multi_episode,
+                korean_season=korean_season,
+                korean_episode=korean_episode,
+                is_movie=is_movie,
+                extra_info=extra_info
+            )
+            
+            total_elapsed = time.time() - parse_start
+            self.logger.info(f"✅ [CLEANER] Filename parsing completed in {total_elapsed:.3f}s")
+            self.logger.info(f"📝 [CLEANER] Final result: '{result.title}' (anime: {result.is_anime}, year: {result.year})")
+            
+            return result
+            
+        except Exception as e:
+            total_elapsed = time.time() - parse_start
+            self.logger.error(f"❌ [CLEANER] Filename parsing failed after {total_elapsed:.3f}s: {e}")
+            
+            # 에러 시 기본 결과 반환
+            return CleanResult(
+                title=file_path.stem,
+                original_filename=file_path,
+                is_anime=True,
+                is_movie=False,
+                extra_info={'error': str(e)}
+            )
+    
+    def _parse_with_anitopy(self, filename: str) -> Optional[Dict[str, Any]]:
+        """Anitopy를 사용한 파싱 (타임아웃 적용)"""
+        if not anitopy:
+            self.logger.debug("⚠️ [CLEANER] Anitopy not available, skipping")
+            return None
+        
+        try:
+            self.logger.debug(f"🔍 [CLEANER] Anitopy parsing: {filename}")
+            
+            # 동기적으로 직접 호출 (이벤트 루프 충돌 방지)
+            result = anitopy.parse(filename)
+            
+            self.logger.debug(f"✅ [CLEANER] Anitopy parsing successful: {len(result) if result else 0} fields")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Anitopy parsing error for {filename}: {e}")
+            return None
+    
+    def _parse_with_guessit(self, filename: str) -> Dict[str, Any]:
+        """GuessIt을 사용한 파싱 (타임아웃 적용)"""
+        if not guessit:
+            self.logger.debug("⚠️ [CLEANER] GuessIt not available, using fallback")
+            return {}
+        
+        try:
+            self.logger.debug(f"🔍 [CLEANER] GuessIt parsing: {filename}")
+            
+            # 동기적으로 직접 호출 (이벤트 루프 충돌 방지)
+            result = guessit(filename)
+            
+            # GuessIt 결과를 딕셔너리로 변환
+            result_dict = {}
+            if result:
+                for key, value in result.items():
+                    if value is not None:
+                        result_dict[str(key)] = value
+            
+            self.logger.debug(f"✅ [CLEANER] GuessIt parsing successful: {len(result_dict)} fields")
+            return result_dict
+            
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] GuessIt parsing error for {filename}: {e}")
+            return {}
+    
+    @staticmethod
+    def _safe_regex_sub(pattern: str, repl: str, string: str, flags: int = 0, max_iterations: int = 10) -> str:
+        """안전한 정규식 치환 (무한 루프 방지)"""
+        try:
+            result = string
+            iterations = 0
+            while iterations < max_iterations:
+                new_result = re.sub(pattern, repl, result, flags=flags)
+                if new_result == result:
+                    break
+                result = new_result
+                iterations += 1
+            
+            if iterations >= max_iterations:
+                logging.getLogger("animesorter.file_cleaner").warning(
+                    f"⚠️ [CLEANER] Regex substitution reached max iterations for pattern: {pattern}"
+                )
+            
+            return result
+        except Exception as e:
+            logging.getLogger("animesorter.file_cleaner").error(
+                f"❌ [CLEANER] Regex substitution failed for pattern {pattern}: {e}"
+            )
+            return string
+    
+    def _pre_clean_filename(self, filename: str) -> str:
+        """파일명 전처리 (상세한 디버그 로그 포함)"""
+        self.logger.debug(f"🧹 [CLEANER] Pre-cleaning filename: '{filename}'")
+        clean_start = time.time()
+        
+        try:
+            result = filename
+            
+            # 릴리즈 그룹 제거
+            self.logger.debug("🧹 [CLEANER] Removing release groups...")
+            release_patterns = [
+                r'\[[^\]]*\]',  # 대괄호로 둘러싸인 모든 것
+                r'\([^)]*\)',   # 소괄호로 둘러싸인 모든 것
+                r'-[A-Za-z0-9]+$',  # 끝에 붙은 릴리즈 그룹
+            ]
+            
+            for pattern in release_patterns:
+                result = self._safe_regex_sub(pattern, '', result)
+            
+            # 해상도 제거
+            self.logger.debug("🧹 [CLEANER] Removing resolution...")
+            resolution_patterns = [
+                r'\b\d{3,4}p\b',
+                r'\bHD\b',
+                r'\bSD\b',
+                r'\bFHD\b',
+                r'\bUHD\b',
+                r'\b4K\b',
+                r'\b1080p\b',
+                r'\b720p\b',
+                r'\b480p\b',
+            ]
+            
+            for pattern in resolution_patterns:
+                result = self._safe_regex_sub(pattern, '', result, flags=re.IGNORECASE)
+            
+            # 코덱 제거
+            self.logger.debug("🧹 [CLEANER] Removing codecs...")
+            codec_patterns = [
+                r'\bH\.264\b',
+                r'\bH\.265\b',
+                r'\bHEVC\b',
+                r'\bAVC\b',
+                r'\bAAC\b',
+                r'\bAC3\b',
+                r'\bFLAC\b',
+                r'\bMP3\b',
+                r'\bOPUS\b',
+            ]
+            
+            for pattern in codec_patterns:
+                result = self._safe_regex_sub(pattern, '', result, flags=re.IGNORECASE)
+            
+            # 품질 제거
+            self.logger.debug("🧹 [CLEANER] Removing quality indicators...")
+            quality_patterns = [
+                r'\bHigh\b',
+                r'\bLow\b',
+                r'\bMedium\b',
+                r'\bWEB-DL\b',
+                r'\bBluRay\b',
+                r'\bBRRip\b',
+                r'\bHDRip\b',
+                r'\bDVDRip\b',
+            ]
+            
+            for pattern in quality_patterns:
+                result = self._safe_regex_sub(pattern, '', result, flags=re.IGNORECASE)
+            
+            # 언어 제거
+            self.logger.debug("🧹 [CLEANER] Removing language indicators...")
+            language_patterns = [
+                r'\bKOR\b',
+                r'\bENG\b',
+                r'\bJPN\b',
+                r'\bCHI\b',
+                r'\bKorean\b',
+                r'\bEnglish\b',
+                r'\bJapanese\b',
+                r'\bChinese\b',
+            ]
+            
+            for pattern in language_patterns:
+                result = self._safe_regex_sub(pattern, '', result, flags=re.IGNORECASE)
+            
+            # 메타데이터 패턴 제거
+            self.logger.debug("🧹 [CLEANER] Removing metadata patterns...")
+            metadata_patterns = [
+                r'\bSubbed\b',
+                r'\bDubbed\b',
+                r'\bUncensored\b',
+                r'\bCensored\b',
+                r'\bComplete\b',
+                r'\bSeason\b',
+                r'\bEpisode\b',
+                r'\bOVA\b',
+                r'\bMovie\b',
+                r'\bSpecial\b',
+            ]
+            
+            for pattern in metadata_patterns:
+                result = self._safe_regex_sub(pattern, '', result, flags=re.IGNORECASE)
+            
+            # 연속된 공백 정리
+            result = self._safe_regex_sub(r'\s+', ' ', result)
+            
+            # 앞뒤 공백 제거
+            result = result.strip()
+            
+            clean_elapsed = time.time() - clean_start
+            self.logger.debug(f"✅ [CLEANER] Pre-cleaning completed in {clean_elapsed:.3f}s")
+            self.logger.debug(f"📝 [CLEANER] Pre-cleaned result: '{result}'")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Pre-cleaning error: {e}")
+            return filename
+    
+    def _classify_content_type(self, filename: str) -> tuple[bool, str]:
+        """콘텐츠 타입 분류 (애니메 vs 드라마)"""
+        self.logger.debug(f"🏷️ [CLEANER] Classifying content type for: {filename}")
+        
+        try:
+            # 애니메 키워드
+            anime_keywords = [
+                'anime', '애니', '애니메', 'cartoon', 'animation',
+                'japan', 'japanese', '일본', 'manga', '만화'
+            ]
+            
+            # 드라마 키워드
+            drama_keywords = [
+                'drama', '드라마', 'series', '시리즈', 'tv', 'television',
+                'korea', 'korean', '한국', 'k-drama', '케이드라마'
+            ]
+            
+            filename_lower = filename.lower()
+            
+            anime_count = sum(1 for keyword in anime_keywords if keyword in filename_lower)
+            drama_count = sum(1 for keyword in drama_keywords if keyword in filename_lower)
+            
+            is_anime = anime_count >= drama_count
+            content_type = "anime" if is_anime else "drama"
+            
+            self.logger.debug(f"🏷️ [CLEANER] Content classification: {content_type} (anime: {anime_count}, drama: {drama_count})")
+            
+            return is_anime, content_type
+            
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Content classification error: {e}")
+            return True, "anime"  # 기본값
+    
+    def _normalize_korean_tokens(self, filename: str) -> str:
+        """한국어 토큰 정규화"""
+        self.logger.debug(f"🇰🇷 [CLEANER] Normalizing Korean tokens: '{filename}'")
+        
+        try:
+            result = filename
+            
+            # 한국어 시즌/에피소드 패턴 정규화
+            korean_patterns = [
+                (r'시즌\s*(\d+)', r'Season \1'),
+                (r'에피소드\s*(\d+)', r'Episode \1'),
+                (r'(\d+)화', r'Episode \1'),
+                (r'(\d+)회', r'Episode \1'),
+            ]
+            
+            for pattern, replacement in korean_patterns:
+                result = self._safe_regex_sub(pattern, replacement, result)
+            
+            self.logger.debug(f"🇰🇷 [CLEANER] Korean normalization result: '{result}'")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Korean normalization error: {e}")
+            return filename
+    
+    def _post_clean_title(self, title: str) -> str:
+        """제목 후처리"""
+        self.logger.debug(f"🧹 [CLEANER] Post-cleaning title: '{title}'")
+        
+        try:
+            result = title
+            
+            # 메타데이터 패턴 제거
+            metadata_patterns = [
+                r'\b\d{4}\b',  # 연도
+                r'\bSeason\s*\d+\b',
+                r'\bEpisode\s*\d+\b',
+                r'\bPart\s*\d+\b',
+                r'\bVol\s*\d+\b',
+            ]
+            
+            for pattern in metadata_patterns:
+                result = self._safe_regex_sub(pattern, '', result)
+            
+            # 연속된 공백 정리
+            result = self._safe_regex_sub(r'\s+', ' ', result)
+            
+            # 앞뒤 공백 제거
+            result = result.strip()
+            
+            # 빈 문자열 처리
+            if not result:
+                result = "Unknown Title"
+            
+            self.logger.debug(f"🧹 [CLEANER] Post-cleaning result: '{result}'")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Post-cleaning error: {e}")
+            return title
+    
+    def _extract_special_episode_info(self, filename: str) -> Optional[str]:
+        """특수 에피소드 정보 추출"""
+        try:
+            special_patterns = [
+                r'\bOVA\b',
+                r'\bMovie\b',
+                r'\bSpecial\b',
+                r'\bExtra\b',
+                r'\bBonus\b',
+            ]
+            
+            for pattern in special_patterns:
+                match = re.search(pattern, filename, re.IGNORECASE)
+                if match:
+                    return match.group()
+            
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Special episode extraction error: {e}")
+            return None
+    
+    def _extract_multi_episode_info(self, filename: str) -> Optional[str]:
+        """다중 에피소드 정보 추출"""
+        try:
+            multi_patterns = [
+                r'(\d+)-(\d+)',  # 1-12
+                r'(\d+)~(\d+)',  # 1~12
+                r'(\d+)_(\d+)',  # 1_12
+            ]
+            
+            for pattern in multi_patterns:
+                match = re.search(pattern, filename)
+                if match:
+                    return f"{match.group(1)}-{match.group(2)}"
+            
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Multi-episode extraction error: {e}")
+            return None
+    
+    def _extract_korean_season_info(self, filename: str) -> Optional[str]:
+        """한국어 시즌 정보 추출"""
+        try:
+            season_patterns = [
+                r'시즌\s*(\d+)',
+                r'Season\s*(\d+)',
+                r'S(\d+)',
+            ]
+            
+            for pattern in season_patterns:
+                match = re.search(pattern, filename, re.IGNORECASE)
+                if match:
+                    return match.group(1)
+            
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Korean season extraction error: {e}")
+            return None
+    
+    def _extract_korean_episode_info(self, filename: str) -> Optional[str]:
+        """한국어 에피소드 정보 추출"""
+        try:
+            episode_patterns = [
+                r'에피소드\s*(\d+)',
+                r'Episode\s*(\d+)',
+                r'E(\d+)',
+                r'(\d+)화',
+                r'(\d+)회',
+            ]
+            
+            for pattern in episode_patterns:
+                match = re.search(pattern, filename, re.IGNORECASE)
+                if match:
+                    return match.group(1)
+            
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Korean episode extraction error: {e}")
+            return None
+    
+    def _is_movie_file(self, filename: str) -> bool:
+        """영화 파일 여부 판단"""
+        try:
+            movie_keywords = [
+                'movie', '영화', 'theatrical', 'cinema', 'film',
+                'ova', 'oav', 'special', 'extra', 'bonus'
+            ]
+            
+            filename_lower = filename.lower()
+            
+            # 영화 관련 키워드가 있으면 영화로 판단
+            for keyword in movie_keywords:
+                if keyword in filename_lower:
+                    return True
+            
+            # 에피소드 번호가 없으면 영화로 판단
+            episode_patterns = [
+                r'\bE\d+\b',
+                r'\bEpisode\s*\d+\b',
+                r'\b\d+화\b',
+                r'\b\d+회\b',
+            ]
+            
+            for pattern in episode_patterns:
+                if re.search(pattern, filename, re.IGNORECASE):
+                    return False  # 에피소드가 있으면 영화가 아님
+            
+            return True  # 에피소드가 없으면 영화로 판단
+            
+        except Exception as e:
+            self.logger.error(f"❌ [CLEANER] Movie detection error: {e}")
+            return False 
