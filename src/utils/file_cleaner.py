@@ -636,20 +636,33 @@ class FileCleaner:
             return title
     
     def _extract_special_episode_info(self, filename: str) -> Optional[str]:
-        """특수 에피소드 정보 추출"""
+        """특수 에피소드 정보 추출 (개선된 버전)"""
         try:
+            # 특집(SP) 패턴들 (TMDB Season 0으로 분류)
             special_patterns = [
-                r'\bOVA\b',
-                r'\bMovie\b',
+                r'\bSP\d*\b',  # SP, SP1, SP2 등
                 r'\bSpecial\b',
+                r'\bOVA\b',
+                r'\bOAV\b',
+                r'\bMovie\b',
                 r'\bExtra\b',
                 r'\bBonus\b',
+                r'\b특집\b',
+                r'\b스페셜\b',
+                r'\b영화\b',
+                r'\b추가\b',
+                r'\b보너스\b',
+                r'\bS(?P<season>\d{1,2})SP(?P<sp>\d{1,2})\b',  # S01SP01 형태
+                r'\bEpisode\s*0\b',  # Episode 0
+                r'\bE0\b',  # E0
             ]
             
             for pattern in special_patterns:
                 match = re.search(pattern, filename, re.IGNORECASE)
                 if match:
-                    return match.group()
+                    special_type = match.group()
+                    self.logger.debug(f"🎬 [CLEANER] Special episode detected: '{special_type}' in '{filename}'")
+                    return special_type
             
             return None
         except Exception as e:

@@ -191,13 +191,15 @@ class PluginLoader:
                 
         return results
     
-    async def search_all_providers(self, title: str, year: Optional[int] = None) -> List[Any]:
+    async def search_all_providers(self, title: str, year: Optional[int] = None, season: Optional[int] = None, is_special: bool = False) -> List[Any]:
         """
         모든 활성화된 플러그인에서 검색
         
         Args:
             title: 검색할 제목
             year: 연도 (옵션)
+            season: 시즌 번호 (옵션)
+            is_special: 특집 여부 (옵션)
             
         Returns:
             List[SearchResult]: 검색 결과 목록
@@ -217,7 +219,7 @@ class PluginLoader:
                 
             # 비동기 검색 태스크 생성
             task = asyncio.create_task(
-                self._search_with_timeout(instance, title, year)
+                self._search_with_timeout(instance, title, year, season, is_special)
             )
             tasks.append((plugin_name, task))
         
@@ -234,7 +236,7 @@ class PluginLoader:
                 
         return results
     
-    async def _search_with_timeout(self, provider: MetadataProvider, title: str, year: Optional[int] = None) -> Optional[Any]:
+    async def _search_with_timeout(self, provider: MetadataProvider, title: str, year: Optional[int] = None, season: Optional[int] = None, is_special: bool = False) -> Optional[Any]:
         """
         타임아웃이 적용된 검색
         
@@ -242,6 +244,8 @@ class PluginLoader:
             provider: 메타데이터 제공자
             title: 검색할 제목
             year: 연도 (옵션)
+            season: 시즌 번호 (옵션)
+            is_special: 특집 여부 (옵션)
             
         Returns:
             SearchResult or None: 검색 결과
@@ -249,7 +253,7 @@ class PluginLoader:
         try:
             timeout = provider.config.timeout
             return await asyncio.wait_for(
-                provider.search(title, year),
+                provider.search(title, year, season, is_special),
                 timeout=timeout
             )
         except asyncio.TimeoutError:

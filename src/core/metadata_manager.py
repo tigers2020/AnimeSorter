@@ -162,13 +162,15 @@ class MetadataManager:
         except Exception as e:
             self.logger.error(f"❌ [METADATA] Error during Metadata Manager cleanup: {e}")
     
-    async def search(self, title: str, year: Optional[int] = None) -> Optional[SearchResult]:
+    async def search(self, title: str, year: Optional[int] = None, season: Optional[int] = None, is_special: bool = False) -> Optional[SearchResult]:
         """
         모든 활성화된 플러그인에서 메타데이터 검색 (타임아웃 및 에러 처리 강화)
         
         Args:
             title: 검색할 제목
             year: 연도 (옵션)
+            season: 시즌 번호 (옵션)
+            is_special: 특집 여부 (옵션)
             
         Returns:
             SearchResult or None: 검색 결과 또는 None
@@ -212,7 +214,7 @@ class MetadataManager:
                 
                 try:
                     results = await asyncio.wait_for(
-                        self.plugin_loader.search_all_providers(title, year),
+                        self.plugin_loader.search_all_providers(title, year, season, is_special),
                         timeout=self.SEARCH_TIMEOUT
                     )
                     search_providers_elapsed = time.time() - search_providers_start
