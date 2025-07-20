@@ -74,6 +74,9 @@ test_target/
 # Large data files
 *.json
 
+# Documentation (GitHub에서 제외)
+docs/
+
 # Windows
 Thumbs.db
 ehthumbs.db
