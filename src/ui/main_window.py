@@ -1,57 +1,42 @@
 import os
+import sys
 import time
-from pathlib import Path
-import json
 from datetime import datetime
-from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QMessageBox, QGroupBox, QFileDialog
-)
-from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QTableWidgetItem, QLabel
-from PyQt6.QtGui import QPixmap, QIcon
-from PyQt6.QtCore import Qt, QSize
-import requests
-from io import BytesIO
-from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool
-import gzip
-try:
-    from thefuzz import fuzz
-except ImportError:
-    # thefuzz가 없으면 간단한 유사도 함수 사용
-    def fuzz_ratio(s1, s2):
-        if not s1 or not s2:
-            return 0
-        s1_lower = s1.lower()
-        s2_lower = s2.lower()
-        if s1_lower == s2_lower:
-            return 100
-        # 간단한 부분 문자열 매칭
-        if s1_lower in s2_lower or s2_lower in s1_lower:
-            return 80
-        return 0
-    
-    class fuzz:
-        @staticmethod
-        def ratio(s1, s2):
-            return fuzz_ratio(s1, s2)
+from pathlib import Path
+from typing import Optional
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from PyQt6.QtCore import QTimer, QThreadPool, QSettings, QObject, pyqtSignal, QRunnable
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QWidget, 
+    QGroupBox, QMessageBox, QFileDialog, QTableWidgetItem
+)
+
+# 프로젝트 모듈 import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from .widgets import DirectorySelector, StatusPanel, FileListTable, ControlPanel
 from .widgets.settings_dialog import SettingsDialog
-from ..config.config_manager import ConfigManager
-from ..utils.file_cleaner import FileCleaner
+from src.config.config_manager import ConfigManager
+from src.utils.file_cleaner import FileCleaner
 from src.plugin.tmdb.provider import TMDBProvider
 
 # 새로운 모듈들 import
-from ..utils.logger import get_logger
-from ..exceptions import AnimeSorterError, ConfigError, FileManagerError, TMDBApiError
-from ..utils.error_messages import translate_error
-from ..cache.cache_db import CacheDB
-from ..security.key_manager import KeyManager
+from src.utils.logger import get_logger
+from src.exceptions import AnimeSorterError, ConfigError, FileManagerError, TMDBApiError
+from src.cache.cache_db import CacheDB
+from src.security.key_manager import KeyManager
 from .theme_manager import ThemeManager, ThemeMode, create_theme_manager
-from ..core.async_file_manager import AsyncFileManager, FileOperation
+from src.core.async_file_manager import AsyncFileManager, FileOperation
+
+# 스트리밍 파이프라인 관련 import
+from src.core.event_queue import QtEventQueue
+from src.core.events import EventType, FileProcessedEvent, ProgressEvent, PipelineEvent
+from src.core.streaming_pipeline import StreamingPipeline
+from src.core.file_cleaner import StreamingFileCleaner
+from src.core.metadata_provider import StreamingMetadataProvider
+from src.core.path_planner import PathPlanner
+from src.core.file_manager import FileManager
+from src.core.cancellation import CancelledError
 
 # Windows 폴더명에서 금지 문자 제거 함수
 import re
@@ -553,6 +538,31 @@ class MainWindow(QMainWindow):
             self.logger.error(f"TMDB 제공자 초기화 실패: {e}")
             QMessageBox.critical(self, "초기화 오류", f"TMDB 제공자 초기화 실패:\n{translate_error(e)}")
         
+        # 스트리밍 파이프라인 이벤트 큐 초기화
+        try:
+            self.event_queue = QtEventQueue()
+            self.logger.info("스트리밍 파이프라인 이벤트 큐 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"스트리밍 파이프라인 이벤트 큐 초기화 실패: {e}")
+            QMessageBox.critical(self, "초기화 오류", f"스트리밍 파이프라인 이벤트 큐 초기화 실패:\n{translate_error(e)}")
+        
+        # 스트리밍 파이프라인 컴포넌트 초기화
+        try:
+            self.streaming_file_cleaner = StreamingFileCleaner()
+            self.streaming_metadata_provider = StreamingMetadataProvider(
+                tmdb_provider=self.tmdb_provider,
+                cache_db=self.cache_db
+            )
+            self.path_planner = PathPlanner(
+                folder_template=self.config.get("folder_template", "{title} ({year})"),
+                keep_original_name=self.config.get("keep_original_name", True),
+                overwrite_existing=self.config.get("overwrite_existing", False)
+            )
+            self.logger.info("스트리밍 파이프라인 컴포넌트 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"스트리밍 파이프라인 컴포넌트 초기화 실패: {e}")
+            QMessageBox.critical(self, "초기화 오류", f"스트리밍 파이프라인 컴포넌트 초기화 실패:\n{translate_error(e)}")
+        
         # 중앙 위젯 설정
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -563,6 +573,9 @@ class MainWindow(QMainWindow):
         # UI 요소 초기화
         self._setup_ui()
         self._create_connections()
+        
+        # 스트리밍 파이프라인 이벤트 큐 연결
+        self._setup_streaming_pipeline_events()
         
         # 자동 저장 타이머 설정
         self._setup_autosave()
@@ -694,6 +707,9 @@ class MainWindow(QMainWindow):
         # 스캔과 동기화 버튼 연결 제거 (자동화됨)
         self.control_panel.move_button.clicked.connect(self._move_files)
         
+        # 취소 버튼 연결
+        self.control_panel.cancel_button.clicked.connect(self._cancel_streaming_pipeline)
+        
         # 디렉토리 선택기 연결 - 자동 스캔 실행
         self.source_selector.path_edit.textChanged.connect(self._on_source_dir_changed)
         self.target_selector.path_edit.textChanged.connect(self._on_target_dir_changed)
@@ -701,12 +717,327 @@ class MainWindow(QMainWindow):
         # 파일 목록 테이블 드래그 앤 드롭 연결
         self.file_list.files_dropped.connect(self._on_files_dropped)
         
+        # 스트리밍 파이프라인 버튼 연결 (컨트롤 패널에 버튼이 있다면)
+        if hasattr(self, 'control_panel') and hasattr(self.control_panel, 'streaming_button'):
+            self.control_panel.streaming_button.clicked.connect(self._run_streaming_pipeline)
+        
     def _setup_autosave(self):
         """자동 저장 타이머 설정"""
         self.autosave_timer = QTimer(self)
         self.autosave_timer.timeout.connect(self._save_settings)
         self.autosave_timer.start(30000)  # 30초마다 저장
         
+    def _setup_streaming_pipeline_events(self):
+        """스트리밍 파이프라인 이벤트 큐 연결"""
+        try:
+            # 이벤트 큐 시그널 연결
+            self.event_queue.file_processed.connect(self._handle_file_processed_event)
+            self.event_queue.progress_updated.connect(self._handle_progress_event)
+            self.event_queue.pipeline_event.connect(self._handle_pipeline_event)
+            self.event_queue.metadata_event.connect(self._handle_metadata_event)
+            
+            self.logger.info("스트리밍 파이프라인 이벤트 큐 연결 완료")
+        except Exception as e:
+            self.logger.error(f"스트리밍 파이프라인 이벤트 큐 연결 실패: {e}")
+            
+    def _handle_file_processed_event(self, event):
+        """파일 처리 완료 이벤트 처리"""
+        try:
+            file_path = Path(event.file_path)
+            status = event.status
+            
+            if status == ProcessingStatus.SUCCESS:
+                self.status_panel.log_message(f"✅ {file_path.name} 처리 완료")
+            elif status == ProcessingStatus.FAILED:
+                self.status_panel.log_message(f"❌ {file_path.name} 처리 실패: {event.error_message}")
+            elif status == ProcessingStatus.SKIPPED:
+                self.status_panel.log_message(f"⏭️ {file_path.name} 건너뜀: {event.error_message}")
+                
+        except Exception as e:
+            self.logger.error(f"파일 처리 이벤트 처리 오류: {e}")
+            
+    def _handle_progress_event(self, event):
+        """진행률 이벤트 처리"""
+        try:
+            if event.total > 0:
+                percent = int((event.current / event.total) * 100)
+                self.status_panel.set_progress(percent, event.message)
+            else:
+                self.status_panel.set_progress(0, event.message)
+        except Exception as e:
+            self.logger.error(f"진행률 이벤트 처리 오류: {e}")
+            
+    def _handle_pipeline_event(self, event):
+        """파이프라인 이벤트 처리"""
+        try:
+            self.status_panel.log_message(f"🔄 {event.event_type.value}: {event.message}")
+        except Exception as e:
+            self.logger.error(f"파이프라인 이벤트 처리 오류: {e}")
+            
+    def _handle_metadata_event(self, event):
+        """메타데이터 이벤트 처리"""
+        try:
+            file_path = Path(event.file_path)
+            metadata = event.metadata
+            
+            if metadata:
+                title = metadata.get('title', metadata.get('name', 'Unknown'))
+                self.status_panel.log_message(f"📋 {file_path.name} → {title}")
+            else:
+                self.status_panel.log_message(f"🔍 {file_path.name} → 메타데이터 없음")
+                
+        except Exception as e:
+            self.logger.error(f"메타데이터 이벤트 처리 오류: {e}")
+            
+    def _run_streaming_pipeline(self):
+        """스트리밍 파이프라인 실행"""
+        try:
+            source_dir = self.config.get("directories.source")
+            target_dir = self.config.get("directories.target")
+            
+            if not source_dir or not os.path.exists(source_dir):
+                QMessageBox.warning(self, "경고", "유효한 소스 디렉토리를 선택해주세요.")
+                return
+                
+            if not target_dir or not os.path.exists(target_dir):
+                QMessageBox.warning(self, "경고", "유효한 대상 디렉토리를 선택해주세요.")
+                return
+                
+            # 처리 상태 활성화
+            self.control_panel.set_processing_state(True)
+            self.status_panel.set_status("스트리밍 파이프라인 시작...")
+            self.status_panel.set_progress(0, "초기화 중...")
+            
+            # 스트리밍 파이프라인 설정
+            config = {
+                'tmdb_api_key': self.key_manager.get_api_key("TMDB_API_KEY"),
+                'folder_template': self.config.get("folder_template", "{title} ({year})"),
+                'keep_original_name': self.config.get("keep_original_name", True),
+                'overwrite_existing': self.config.get("overwrite_existing", False),
+                'max_concurrent_files': self.config.get("max_concurrent_files", 3),
+                'cache_db': self.cache_db
+            }
+            
+            # 스트리밍 파이프라인 실행
+            self._execute_streaming_pipeline(Path(source_dir), Path(target_dir), config)
+            
+        except Exception as e:
+            self.logger.error(f"스트리밍 파이프라인 실행 오류: {e}")
+            QMessageBox.critical(self, "오류", f"스트리밍 파이프라인 실행 중 오류가 발생했습니다:\n{translate_error(e)}")
+            # 오류 발생 시 처리 상태 비활성화
+            self.control_panel.set_processing_state(False)
+            
+    def _cancel_streaming_pipeline(self):
+        """스트리밍 파이프라인 취소"""
+        try:
+            # 이미 취소 중인지 확인
+            if not hasattr(self, 'streaming_pipeline_worker') or not self.streaming_pipeline_worker:
+                self.status_panel.set_status("취소할 작업이 없습니다.")
+                return
+                
+            reply = QMessageBox.question(
+                self, "작업 취소", 
+                "진행 중인 스트리밍 파이프라인을 취소하시겠습니까?\n\n취소하면 현재 처리 중인 파일은 완료되지만, 나머지 파일들은 처리되지 않습니다.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                # 취소 신호 전송
+                if hasattr(self.streaming_pipeline_worker, 'cancel'):
+                    self.streaming_pipeline_worker.cancel()
+                    
+                # 처리 상태 비활성화
+                self.control_panel.set_processing_state(False)
+                self.status_panel.set_status("취소 신호 전송됨...")
+                self.status_panel.set_progress(0, "취소 중...")
+                self.status_panel.log_message("🛑 스트리밍 파이프라인 취소 신호 전송됨")
+                
+        except Exception as e:
+            self.logger.error(f"스트리밍 파이프라인 취소 오류: {e}")
+            QMessageBox.critical(self, "오류", f"취소 중 오류가 발생했습니다:\n{translate_error(e)}")
+        
+    def _execute_streaming_pipeline(self, source_dir: Path, target_dir: Path, config: dict):
+        """스트리밍 파이프라인 실행 (비동기)"""
+        try:
+            # 스트리밍 파이프라인 워커 생성
+            from PyQt6.QtCore import QRunnable
+            
+            class StreamingPipelineWorker(QObject):
+                finished = pyqtSignal()
+                error = pyqtSignal(str)
+                cancelled = pyqtSignal()
+                
+                def __init__(self, source_dir, target_dir, config, event_queue):
+                    super().__init__()
+                    self.source_dir = source_dir
+                    self.target_dir = target_dir
+                    self.config = config
+                    self.event_queue = event_queue
+                    self._cancelled = False
+                    self.pipeline = None
+                    self.loop = None
+                    
+                def cancel(self):
+                    """취소 신호 전송"""
+                    self._cancelled = True
+                    if self.pipeline:
+                        self.pipeline.cancel()
+                    if self.loop and self.loop.is_running():
+                        # 이벤트 루프에서 취소 신호 전송
+                        self.loop.call_soon_threadsafe(self._cancel_in_loop)
+                    
+                def _cancel_in_loop(self):
+                    """이벤트 루프 내에서 취소 처리"""
+                    if self.pipeline:
+                        self.pipeline.cancel()
+                    
+                def run(self):
+                    try:
+                        import asyncio
+                        
+                        # 새로운 이벤트 루프 생성
+                        self.loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(self.loop)
+                        
+                        # 스트리밍 파이프라인 실행
+                        self.loop.run_until_complete(self._run_pipeline())
+                        
+                    except CancelledError:
+                        self.signals.cancelled.emit()
+                    except Exception as e:
+                        if self._cancelled:
+                            self.signals.cancelled.emit()
+                        else:
+                            self.signals.error.emit(str(e))
+                    finally:
+                        # 리소스 정리
+                        self.loop.run_until_complete(self._cleanup_resources())
+                        self.signals.finished.emit()
+                        if self.loop:
+                            self.loop.close()
+                        
+                async def _cleanup_resources(self):
+                    """리소스 정리"""
+                    try:
+                        if self.pipeline:
+                            await self.pipeline.close()
+                    except Exception as e:
+                        logger.error(f"Error during resource cleanup: {e}")
+                        
+                async def _run_pipeline(self):
+                    """스트리밍 파이프라인 실행"""
+                    try:
+                        # 파일 관리자 초기화
+                        file_manager = FileManager(
+                            source_dir=self.source_dir,
+                            target_dir=self.target_dir,
+                            overwrite_existing=self.config.get('overwrite_existing', False)
+                        )
+                        
+                        # 스트리밍 파이프라인 초기화
+                        self.pipeline = StreamingPipeline(
+                            file_cleaner=self.streaming_file_cleaner,
+                            metadata_provider=self.streaming_metadata_provider,
+                            path_planner=self.path_planner,
+                            file_manager=file_manager,
+                            event_queue=self.event_queue,
+                            max_concurrent_files=self.config.get('max_concurrent_files', 3)
+                        )
+                        
+                        # 파이프라인 실행
+                        await self.pipeline.run(self.source_dir)
+                        
+                    except CancelledError:
+                        raise
+                    except Exception as e:
+                        if self._cancelled:
+                            raise CancelledError("파이프라인이 취소되었습니다.")
+                        else:
+                            raise e
+                        
+            # 워커 생성 및 실행
+            self.streaming_pipeline_worker = StreamingPipelineWorker(source_dir, target_dir, config, self.event_queue)
+            self.streaming_pipeline_worker.finished.connect(self._on_streaming_pipeline_finished)
+            self.streaming_pipeline_worker.error.connect(self._on_streaming_pipeline_error)
+            self.streaming_pipeline_worker.cancelled.connect(self._on_streaming_pipeline_cancelled)
+            
+            self.threadpool.start(self.streaming_pipeline_worker)
+            
+        except Exception as e:
+            self.logger.error(f"스트리밍 파이프라인 실행 오류: {e}")
+            raise e
+            
+    def _on_streaming_pipeline_finished(self):
+        """스트리밍 파이프라인 완료 처리"""
+        try:
+            self.control_panel.set_processing_state(False)
+            self.status_panel.set_status("스트리밍 파이프라인 완료")
+            self.status_panel.set_progress(100, "완료")
+            self.status_panel.log_message("✅ 스트리밍 파이프라인 완료")
+        finally:
+            self.streaming_pipeline_worker = None
+        
+    def _on_streaming_pipeline_error(self, error_message: str):
+        """스트리밍 파이프라인 오류 처리"""
+        try:
+            self.control_panel.set_processing_state(False)
+            self.status_panel.set_status("스트리밍 파이프라인 오류")
+            self.status_panel.set_progress(0, "오류")
+            self.status_panel.log_message(f"❌ 스트리밍 파이프라인 오류: {error_message}")
+            
+            # 오류 메시지 표시
+            QMessageBox.critical(self, "오류", f"스트리밍 파이프라인 실행 중 오류가 발생했습니다:\n{error_message}")
+        finally:
+            self.streaming_pipeline_worker = None
+        
+    def _on_streaming_pipeline_cancelled(self):
+        """스트리밍 파이프라인 취소 처리"""
+        try:
+            self.control_panel.set_processing_state(False)
+            self.status_panel.set_status("스트리밍 파이프라인 취소됨")
+            self.status_panel.set_progress(0, "취소됨")
+            self.status_panel.log_message("🛑 스트리밍 파이프라인이 취소되었습니다.")
+            
+            # 취소 완료 메시지 표시
+            QMessageBox.information(self, "취소 완료", "스트리밍 파이프라인이 성공적으로 취소되었습니다.")
+        finally:
+            self.streaming_pipeline_worker = None
+            
+    def _cleanup_streaming_pipeline_resources(self):
+        """스트리밍 파이프라인 리소스 정리"""
+        try:
+            if hasattr(self, 'streaming_pipeline_worker') and self.streaming_pipeline_worker:
+                # 워커가 아직 실행 중인 경우 취소
+                if hasattr(self.streaming_pipeline_worker, 'cancel'):
+                    self.streaming_pipeline_worker.cancel()
+                    
+                # 워커가 완료될 때까지 잠시 대기
+                import time
+                start_time = time.time()
+                while (hasattr(self.streaming_pipeline_worker, 'loop') and 
+                       self.streaming_pipeline_worker.loop and 
+                       self.streaming_pipeline_worker.loop.is_running() and
+                       time.time() - start_time < 5.0):  # 최대 5초 대기
+                    time.sleep(0.1)
+                    
+                self.streaming_pipeline_worker = None
+                
+            # 이벤트 큐 정리
+            if hasattr(self, 'event_queue') and self.event_queue:
+                try:
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(self.event_queue.close())
+                    loop.close()
+                except Exception as e:
+                    self.logger.warning(f"Error closing event queue: {e}")
+                    
+            self.logger.info("Streaming pipeline resources cleaned up")
+            
+        except Exception as e:
+            self.logger.error(f"Error during streaming pipeline cleanup: {e}")
+    
     def _load_saved_settings(self):
         """저장된 설정 로드"""
         # 디렉토리 설정 로드
@@ -741,21 +1072,10 @@ class MainWindow(QMainWindow):
         self.config.set("directories.target", path)
         
     def _scan_files(self):
-        """파일 스캔"""
+        """파일 스캔 - 스트리밍 파이프라인 방식"""
         source_dir = self.config.get("directories.source")
         if not source_dir or not os.path.exists(source_dir):
             QMessageBox.warning(self, "경고", "유효한 소스 디렉토리를 선택해주세요.")
-            return
-            
-        # 스캔 버튼 비활성화 제거 (자동화됨)
-        
-        # 파일 경로 수집
-        file_paths = []
-        try:
-            for ext in self.config.get("file_extensions.video", [".mp4", ".mkv", ".avi"]):
-                file_paths.extend(Path(source_dir).rglob(f"*{ext}"))
-        except Exception as e:
-            QMessageBox.critical(self, "오류", f"파일 스캔 중 오류가 발생했습니다: {e}")
             return
             
         # 스캔 시작 시간 기록
@@ -764,72 +1084,198 @@ class MainWindow(QMainWindow):
         # 진행 상황 시각화 초기화
         self.status_panel.set_step_active("파일 스캔", True)
         self.status_panel.set_step_progress("파일 스캔", 0)
-        self.status_panel.set_progress(0, "파일 스캔 중...")
+        self.status_panel.set_progress(0, "스트리밍 파이프라인 시작...")
+        
+        # 스트리밍 파이프라인 설정
+        config = {
+            'tmdb_api_key': self.key_manager.get_api_key("TMDB_API_KEY"),
+            'folder_template': self.config.get("folder_template", "{title} ({year})"),
+            'keep_original_name': self.config.get("keep_original_name", True),
+            'overwrite_existing': self.config.get("overwrite_existing", False),
+            'max_concurrent_files': self.config.get("max_concurrent_files", 3),
+            'cache_db': self.cache_db,
+            'scan_only': True  # 스캔만 수행하고 파일 이동은 하지 않음
+        }
+        
+        # 스트리밍 파이프라인 실행 (스캔 모드)
+        self._execute_streaming_pipeline_scan(Path(source_dir), config)
+        
+    def _execute_streaming_pipeline_scan(self, source_dir: Path, config: dict):
+        """스트리밍 파이프라인 실행 (스캔 전용)"""
+        try:
+            # 스트리밍 파이프라인 워커 생성
+            from PyQt6.QtCore import QRunnable
             
-        # os.scandir()를 사용한 최적화된 파일 탐색 (5배 빠름)
-        self.zip_files = []
-        
-        def scan_directory_optimized(root_path):
-            """os.scandir()를 사용한 재귀적 파일 탐색"""
-            stack = [Path(root_path)]
+            class StreamingScanSignals(QObject):
+                finished = pyqtSignal()
+                error = pyqtSignal(str)
+                cancelled = pyqtSignal()
+                scan_result = pyqtSignal(dict)  # 스캔 결과 전송
+                
+            class StreamingScanWorker(QRunnable):
+                def __init__(self, source_dir, config, event_queue, signals, file_cleaner, metadata_provider, path_planner):
+                    super().__init__()
+                    self.source_dir = source_dir
+                    self.config = config
+                    self.event_queue = event_queue
+                    self.signals = signals
+                    self.streaming_file_cleaner = file_cleaner
+                    self.streaming_metadata_provider = metadata_provider
+                    self.path_planner = path_planner
+                    self._cancelled = False
+                    self.pipeline = None
+                    self.loop = None
+                    self.scan_results = {}  # 스캔 결과 저장
+                    
+                def cancel(self):
+                    """취소 신호 전송"""
+                    self._cancelled = True
+                    if self.pipeline:
+                        self.pipeline.cancel()
+                    if self.loop and self.loop.is_running():
+                        self.loop.call_soon_threadsafe(self._cancel_in_loop)
+                    
+                def _cancel_in_loop(self):
+                    """이벤트 루프 내에서 취소 처리"""
+                    if self.pipeline:
+                        self.pipeline.cancel()
+                    
+                def run(self):
+                    try:
+                        import asyncio
+                        
+                        # 새로운 이벤트 루프 생성
+                        self.loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(self.loop)
+                        
+                        # 스트리밍 파이프라인 실행
+                        self.loop.run_until_complete(self._run_scan_pipeline())
+                        
+                    except CancelledError:
+                        self.signals.cancelled.emit()
+                    except Exception as e:
+                        if self._cancelled:
+                            self.signals.cancelled.emit()
+                        else:
+                            self.signals.error.emit(str(e))
+                    finally:
+                        # 리소스 정리
+                        self.loop.run_until_complete(self._cleanup_resources())
+                        self.signals.finished.emit()
+                        if self.loop:
+                            self.loop.close()
+                        
+                async def _cleanup_resources(self):
+                    """리소스 정리"""
+                    try:
+                        if self.pipeline:
+                            await self.pipeline.close()
+                    except Exception as e:
+                        logger.error(f"Error during resource cleanup: {e}")
+                        
+                async def _run_scan_pipeline(self):
+                    """스트리밍 파이프라인 실행 (스캔 전용)"""
+                    try:
+                        # 스트리밍 파이프라인 초기화 (스캔 전용)
+                        self.pipeline = StreamingPipeline(
+                            file_cleaner=self.streaming_file_cleaner,
+                            metadata_provider=self.streaming_metadata_provider,
+                            path_planner=self.path_planner,
+                            file_manager=None,  # 파일 이동 없음
+                            event_queue=self.event_queue,
+                            max_concurrent_files=self.config.get('max_concurrent_files', 3)
+                        )
+                        
+                        # 스캔 전용 파이프라인 실행
+                        await self.pipeline.run_scan_only(self.source_dir, self._on_file_scanned)
+                        
+                    except CancelledError:
+                        raise
+                    except Exception as e:
+                        if self._cancelled:
+                            raise CancelledError("파이프라인이 취소되었습니다.")
+                        else:
+                            raise e
+                            
+                def _on_file_scanned(self, file_path: Path, clean_result, metadata):
+                    """파일 스캔 완료 시 호출"""
+                    # 스캔 결과를 grouped_files 형태로 저장
+                    key = (clean_result.title, clean_result.year, clean_result.season)
+                    if key not in self.scan_results:
+                        self.scan_results[key] = []
+                    
+                    file_info = {
+                        'original_filename': str(file_path),
+                        'title': clean_result.title,
+                        'year': clean_result.year,
+                        'season': clean_result.season,
+                        'episode': clean_result.episode,
+                        'metadata': metadata,
+                        'extra_info': clean_result.extra_info
+                    }
+                    self.scan_results[key].append(file_info)
+                        
+            # 워커 생성 및 실행
+            signals = StreamingScanSignals()
+            self.streaming_scan_worker = StreamingScanWorker(
+                source_dir, 
+                config, 
+                self.event_queue, 
+                signals,
+                self.streaming_file_cleaner,
+                self.streaming_metadata_provider,
+                self.path_planner
+            )
+            signals.finished.connect(self._on_streaming_scan_finished)
+            signals.error.connect(self._on_streaming_scan_error)
+            signals.cancelled.connect(self._on_streaming_scan_cancelled)
+            signals.scan_result.connect(self._on_streaming_scan_result)
             
-            while stack:
-                current_path = stack.pop()
-                try:
-                    with os.scandir(current_path) as entries:
-                        for entry in entries:
-                            if entry.is_dir(follow_symlinks=False):
-                                # 디렉토리면 스택에 추가하여 재귀 탐색
-                                stack.append(Path(entry.path))
-                            elif entry.is_file(follow_symlinks=False):
-                                # 파일이면 확장자에 따라 분류
-                                file_path = Path(entry.path)
-                                if file_path.suffix.lower() == ".zip":
-                                    self.zip_files.append(file_path)
-                                else:
-                                    file_paths.append(file_path)
-                except (PermissionError, OSError) as e:
-                    self.status_panel.log_message(f"[경고] 접근 불가: {current_path} - {e}")
-                    continue
-        
-        # 최적화된 파일 탐색 실행
-        scan_start = time.time()
-        scan_directory_optimized(source_dir)
-        scan_elapsed = time.time() - scan_start
-        
-        if not file_paths:
-            QMessageBox.information(self, "안내", "파일이 없습니다.")
-            self.status_panel.set_step_active("파일 스캔", False)
-            return
+            self.threadpool.start(self.streaming_scan_worker)
             
-        # 스캔 완료 - 진행률 업데이트
-        self.status_panel.set_step_progress("파일 스캔", 100)
-        self.status_panel.set_step_completed("파일 스캔", True)
-        
-        # 속도 계산 및 표시
-        scan_speed = len(file_paths) / scan_elapsed if scan_elapsed > 0 else 0
-        self.status_panel.update_speed(scan_speed)
-        
-        self.status_panel.log_message(f"[스캔] 파일 탐색 완료: {len(file_paths)}개 파일 ({scan_elapsed:.2f}초, {scan_speed:.1f}개/초)")
-        self.status_panel.log_message(f"[스캔] 총 {len(file_paths)}개 파일 스캔 시작... (zip 파일 {len(self.zip_files)}개 분리)")
-        
-        if self.zip_files:
-            self.status_panel.log_message(f"[스캔] 분리된 zip 파일: {[str(z) for z in self.zip_files]}")
+        except Exception as e:
+            self.logger.error(f"스트리밍 스캔 파이프라인 실행 오류: {e}")
+            raise e
             
-        # ETA 추적 시작
-        self.status_panel.start_tracking(len(file_paths))
+    def _on_streaming_scan_finished(self):
+        """스트리밍 스캔 완료 처리"""
+        try:
+            self.status_panel.set_status("스트리밍 스캔 완료")
+            self.status_panel.set_progress(100, "완료")
+            self.status_panel.log_message("✅ 스트리밍 스캔 완료")
             
-        worker = FileScanWorker(file_paths, self.file_cleaner, self.config)
-        worker.signals.progress.connect(self._on_scan_progress)
-        worker.signals.log.connect(self.status_panel.log_message)
-        
-        def on_result(grouped_files):
-            self.grouped_files = grouped_files
-            self._update_table_from_grouped_files()
+            # 스캔 결과가 있으면 테이블 업데이트
+            if hasattr(self.streaming_scan_worker, 'scan_results'):
+                self.grouped_files = self.streaming_scan_worker.scan_results
+                self._update_table_from_grouped_files()
+                
+        finally:
+            self.streaming_scan_worker = None
             
-        worker.signals.result.connect(on_result)
-        worker.signals.finished.connect(self._on_scan_finished)
-        self.threadpool.start(worker)
+    def _on_streaming_scan_error(self, error_message: str):
+        """스트리밍 스캔 오류 처리"""
+        try:
+            self.status_panel.set_status("스트리밍 스캔 오류")
+            self.status_panel.set_progress(0, "오류")
+            self.status_panel.log_message(f"❌ 스트리밍 스캔 오류: {error_message}")
+            
+            QMessageBox.critical(self, "오류", f"스트리밍 스캔 중 오류가 발생했습니다:\n{error_message}")
+        finally:
+            self.streaming_scan_worker = None
+            
+    def _on_streaming_scan_cancelled(self):
+        """스트리밍 스캔 취소 처리"""
+        try:
+            self.status_panel.set_status("스트리밍 스캔 취소됨")
+            self.status_panel.set_progress(0, "취소됨")
+            self.status_panel.log_message("🛑 스트리밍 스캔이 취소되었습니다.")
+        finally:
+            self.streaming_scan_worker = None
+            
+    def _on_streaming_scan_result(self, scan_results: dict):
+        """스트리밍 스캔 결과 처리"""
+        self.grouped_files = scan_results
+        self._update_table_from_grouped_files()
         
     def _on_scan_progress(self, percent: int, message: str):
         """스캔 진행률 업데이트"""
@@ -925,7 +1371,7 @@ class MainWindow(QMainWindow):
                 
             def run(self):
                 try:
-                    from utils.json_exporter import JSONExporter, ExportFormat
+                    from src.utils.json_exporter import JSONExporter, ExportFormat
                     
                     # JSON 내보내기 객체 생성
                     exporter = JSONExporter()
@@ -1043,7 +1489,7 @@ class MainWindow(QMainWindow):
         
         try:
             from PyQt6.QtWidgets import QFileDialog
-            from utils.json_exporter import JSONExporter, ExportFormat
+            from src.utils.json_exporter import JSONExporter, ExportFormat
             
             # 파일 저장 대화상자
             file_path, _ = QFileDialog.getSaveFileName(
@@ -1090,7 +1536,7 @@ class MainWindow(QMainWindow):
         
         try:
             from PyQt6.QtWidgets import QFileDialog
-            from utils.json_exporter import JSONExporter, ExportFormat
+            from src.utils.json_exporter import JSONExporter, ExportFormat
             
             # 파일 저장 대화상자
             file_path, _ = QFileDialog.getSaveFileName(
@@ -1135,7 +1581,7 @@ class MainWindow(QMainWindow):
         """저장된 JSON 파일에서 스캔 결과 로드"""
         try:
             from PyQt6.QtWidgets import QFileDialog
-            from utils.json_exporter import JSONExporter
+            from src.utils.json_exporter import JSONExporter
             
             # 파일 열기 대화상자
             file_path, _ = QFileDialog.getOpenFileName(
@@ -1160,7 +1606,7 @@ class MainWindow(QMainWindow):
                 
                 for file_info in group.files:
                     # CleanResult 객체 생성
-                    from utils.file_cleaner import CleanResult
+                    from src.utils.file_cleaner import CleanResult
                     clean_result = CleanResult(
                         title=group.title,
                         original_filename=file_info.original_path,
@@ -1325,7 +1771,7 @@ class MainWindow(QMainWindow):
 
     def _download_poster_async(self, row, poster_url):
         """포스터 이미지를 비동기로 다운로드"""
-        from PyQt6.QtCore import QThread, pyqtSignal, QObject
+        from PyQt6.QtCore import QThread
         
         class PosterDownloader(QObject):
             finished = pyqtSignal(int, str)  # row, poster_url
@@ -1928,6 +2374,9 @@ class MainWindow(QMainWindow):
             
             # 설정 저장
             self._save_settings()
+            
+            # 스트리밍 파이프라인 리소스 정리
+            self._cleanup_streaming_pipeline_resources()
             
             # QThreadPool 정리
             from PyQt6.QtCore import QThreadPool

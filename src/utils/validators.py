@@ -23,7 +23,7 @@ try:
 except ImportError:
     MAGIC_AVAILABLE = False
 
-from ..utils.logger import get_logger
+from src.utils.logger import get_logger
 
 
 @dataclass

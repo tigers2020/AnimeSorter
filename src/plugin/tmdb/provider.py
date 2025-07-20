@@ -10,7 +10,7 @@ from pathlib import Path
 import tmdbsimple as tmdb
 from rapidfuzz import fuzz, process
 from slugify import slugify
-from ...utils.safe_slugify import safe_slugify
+from src.utils.safe_slugify import safe_slugify
 
 import yaml
 import os

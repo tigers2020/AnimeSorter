@@ -13,8 +13,8 @@ from typing import List, Dict, Optional, Callable, Any
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
-from ..utils.logger import get_logger
-from ..exceptions import FileManagerError
+from src.utils.logger import get_logger
+from src.exceptions import FileManagerError
 
 
 @dataclass

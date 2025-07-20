@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Callable
 from contextlib import contextmanager
 
-from ..exceptions import AnimeSorterError
-from .error_messages import translate_error, ErrorContext, Language
-from .logger import get_logger
+from src.exceptions import AnimeSorterError
+from src.utils.error_messages import translate_error, ErrorContext, Language
+from src.utils.logger import get_logger
 
 
 class GlobalExceptionHandler:
