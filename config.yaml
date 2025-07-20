@@ -88,6 +88,10 @@ metadata:
   prefer_movie_over_tv: false
   save_metadata_with_files: true
 overwrite_existing: false
+post_process:
+  metadata_check: true
+  auto_metadata_sync: true
+  validate_file_integrity: true
 source_dir: F:/Python_Projects/AnimeSorter/test_source
 target_dir: F:/Python_Projects/AnimeSorter/test_target
 tmdb:

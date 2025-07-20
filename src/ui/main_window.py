@@ -846,10 +846,19 @@ class MainWindow(QMainWindow):
         self.status_panel.set_step_completed("파일명 정제", True)
         self.status_panel.set_step_active("파일 스캔", False)
         
+        # 설정 확인: 자동 메타데이터 동기화 활성화 여부
+        auto_metadata_sync = self.config.get("post_process.auto_metadata_sync", True)
+        
         # 스캔된 파일이 있으면 자동으로 메타데이터 동기화 실행
         if hasattr(self, 'grouped_files') and self.grouped_files:
-            self.status_panel.log_message("[자동] 스캔 완료, 메타데이터 동기화 시작...")
-            self._sync_metadata()
+            if auto_metadata_sync:
+                self.status_panel.log_message("[자동] 스캔 완료, 메타데이터 동기화 시작...")
+                self._sync_metadata()
+            else:
+                self.status_panel.log_message("[설정] 자동 메타데이터 동기화가 비활성화되어 있습니다.")
+                # 수동 동기화 버튼 활성화
+                if hasattr(self, 'control_panel') and hasattr(self.control_panel, 'sync_button'):
+                    self.control_panel.sync_button.setEnabled(True)
         
         # 스캔 버튼 활성화 제거 (자동화됨)
 
@@ -1412,17 +1421,20 @@ class MainWindow(QMainWindow):
     def _move_files(self):
         """파일 이동 처리"""
         if not self.grouped_files:
-            QMessageBox.warning(self, "경고", "이동할 파일이 없습니다.")
+            QMessageBox.warning(self, "경고", "먼저 파일을 스캔해주세요.")
             return
             
-        target_root = self.target_selector.get_path()
+        # 이동 버튼 비활성화
+        self.control_panel.move_button.setEnabled(False)
+        
+        # 대상 디렉토리 확인
+        target_root = self.target_selector.get_path() if hasattr(self, 'target_selector') else self.target_dir
         if not target_root:
-            QMessageBox.warning(self, "경고", "대상 폴더를 선택해주세요.")
+            QMessageBox.warning(self, "경고", "대상 디렉토리를 선택해주세요.")
+            self.control_panel.move_button.setEnabled(True)
             return
             
-        # 파일 이동 단계 활성화
-        self.status_panel.set_step_active("파일 이동", True)
-        self.status_panel.set_step_progress("파일 이동", 0)
+        # 상태 업데이트
         self.status_panel.set_status("파일 이동 중...")
         self.status_panel.set_progress(0)
         
@@ -1493,7 +1505,7 @@ class MainWindow(QMainWindow):
                             self.status_panel.log_message(f"[자막 이동] 중복 파일명 변경: {src.name} → {dst.name}")
                         
                         shutil.move(str(src), str(dst))
-                        self.status_panel.log_message(f"[자막 이동] {src} → {dst}")
+                        self.status_panel.log_message(f"[자막 이동 완료] {src} → {dst}")
                     except Exception as e:
                         self.status_panel.log_message(f"[자막 이동 실패] {src}: {e}")
                 elif res == max_res:
@@ -1553,7 +1565,6 @@ class MainWindow(QMainWindow):
                         dst = Path(target_root) / "영화" / "저해상도" / src.name
                     else:
                         dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
-                        
                     try:
                         dst.parent.mkdir(parents=True, exist_ok=True)
                         
@@ -1563,13 +1574,16 @@ class MainWindow(QMainWindow):
                             self.status_panel.log_message(f"[저해상도 이동] 중복 파일명 변경: {src.name} → {dst.name}")
                         
                         shutil.move(str(src), str(dst))
-                        self.status_panel.log_message(f"[저해상도 이동] {src} → {dst}")
+                        self.status_panel.log_message(f"[저해상도 이동 완료] {src} → {dst}")
                     except Exception as e:
                         self.status_panel.log_message(f"[저해상도 이동 실패] {src}: {e}")
-        self.status_panel.log_message("모든 파일 이동 완료.")
         
-        # 파일 이동 완료 - 진행률 업데이트
-        self.status_panel.set_progress(100, "파일 이동 완료")
+        # 이동 완료 후 메타데이터 검사 실행
+        self._run_metadata_inspection()
+        
+        # 상태 업데이트
+        self.status_panel.set_status("파일 이동 완료")
+        self.status_panel.set_progress(100)
         self.status_panel.set_step_completed("파일 이동", True)
         self.status_panel.set_step_active("파일 이동", False)
         
@@ -1590,168 +1604,128 @@ class MainWindow(QMainWindow):
                     except Exception as e:
                         self.status_panel.log_message(f"[빈 폴더 삭제 실패] {p}: {e}")
                         
-    async def _move_files_async(self, group_metadata, target_root, overwrite_existing):
-        """비동기 파일 이동 처리"""
+    def _run_metadata_inspection(self):
+        """파일 이동 후 메타데이터 검사 실행"""
+        # 설정 확인: 메타데이터 검사 활성화 여부
+        metadata_check = self.config.get("post_process.metadata_check", True)
+        
+        if not metadata_check:
+            self.status_panel.log_message("[설정] 메타데이터 검사가 비활성화되어 있습니다.")
+            return
+            
         try:
-            # 파일 작업 목록 생성
-            operations = []
+            self.status_panel.log_message("[검사] 메타데이터 무결성 검사 시작...")
             
-            for (title, year, season), group in self.grouped_files.items():
-                meta = group_metadata.get((title, year, season))
-                if meta:
-                    korean_title = meta.get('name') or meta.get('title') or title
-                    # 미디어 타입 확인 (tv: 애니메이션, movie: 영화)
-                    media_type = meta.get('media_type', 'tv')  # 기본값은 tv (애니메이션)
-                else:
-                    korean_title = title
-                    media_type = 'tv'  # 메타데이터가 없으면 기본적으로 애니메이션으로 분류
-                    
-                korean_title = sanitize_folder_name(korean_title)
+            # 검사할 파일 목록 수집
+            target_root = self.target_selector.get_path() if hasattr(self, 'target_selector') else self.target_dir
+            if not target_root:
+                self.status_panel.log_message("[검사] 대상 디렉토리를 찾을 수 없습니다.")
+                return
                 
-                def get_resolution(file):
-                    m = re.search(r'(\d{3,4})p', str(file.original_filename))
-                    return int(m.group(1)) if m else 0
-                    
-                resolutions = [get_resolution(f) for f in group]
-                max_res = max(resolutions) if resolutions else 0
-                
-                for file in group:
-                    res = get_resolution(file)
-                    src = Path(file.original_filename)
-                    season = getattr(file, "season", 1)
-                    
-                    # 시즌이 리스트면 첫 번째 값만 사용, int가 아니면 1로 fallback
-                    if isinstance(season, list):
-                        season = season[0] if season else 1
-                    try:
-                        season = int(season)
-                    except Exception:
-                        season = 1
-                        
-                    ext = src.suffix.lower()
-                    # 압축 파일 확장자 목록
-                    archive_exts = ['.zip', '.rar', '.7z']
-                    
-                    if ext in archive_exts:
-                        # 자막 폴더로 이동
-                        dst = Path(target_root) / "자막" / src.name
-                        operation = FileOperation(
-                            source=src,
-                            target=dst,
-                            operation_type="move",
-                            metadata={"type": "subtitle", "original_name": src.name}
-                        )
-                        operations.append(operation)
-                        
-                    elif res == max_res:
-                        # 미디어 타입에 따라 폴더 분리
-                        if media_type == "movie":
-                            # 영화: 영화 폴더에 저장
-                            dst = Path(target_root) / "영화" / korean_title / src.name
-                        else:
-                            # 애니메이션 (tv): 애니메이션 폴더에 시즌별로 저장
-                            dst = Path(target_root) / "애니메이션" / korean_title / f"Season {season}" / src.name
-                            
-                        operation = FileOperation(
-                            source=src,
-                            target=dst,
-                            operation_type="move",
-                            metadata={
-                                "type": "main_content",
-                                "media_type": media_type,
-                                "title": korean_title,
-                                "season": season,
-                                "resolution": res,
-                                "meta": meta
-                            }
-                        )
-                        operations.append(operation)
-                        
-                    else:
-                        # 저해상도 파일도 미디어 타입에 따라 분리
-                        if media_type == "movie":
-                            dst = Path(target_root) / "영화" / "저해상도" / src.name
-                        else:
-                            dst = Path(target_root) / "애니메이션" / "저해상도" / src.name
-                            
-                        operation = FileOperation(
-                            source=src,
-                            target=dst,
-                            operation_type="move",
-                            metadata={"type": "low_resolution", "media_type": media_type, "original_name": src.name}
-                        )
-                        operations.append(operation)
-                        
-            # 비동기 파일 관리자로 처리
-            async with AsyncFileManager(max_workers=4) as file_manager:
-                def progress_callback(current, total, message):
-                    percent = int((current / total) * 100) if total > 0 else 0
-                    self.status_panel.set_progress(percent, message)
-                    
-                results = await file_manager.process_files_batch(operations, progress_callback)
-                
-            # 결과 로깅
-            self.status_panel.log_message(f"파일 이동 완료: {results['completed']}/{results['total']} 성공")
+            # 검사 결과 저장
+            inspection_results = {
+                'timestamp': datetime.now().isoformat(),
+                'target_directory': str(target_root),
+                'total_files': 0,
+                'files_with_metadata': 0,
+                'files_without_metadata': 0,
+                'missing_posters': 0,
+                'missing_descriptions': 0,
+                'details': []
+            }
             
-            # 포스터 및 설명 저장 (비동기)
-            await self._save_metadata_async(group_metadata, target_root)
+            # 애니메이션 폴더 검사
+            anime_dir = Path(target_root) / "애니메이션"
+            if anime_dir.exists():
+                for series_dir in anime_dir.iterdir():
+                    if series_dir.is_dir():
+                        for season_dir in series_dir.iterdir():
+                            if season_dir.is_dir() and season_dir.name.startswith("Season"):
+                                for file_path in season_dir.iterdir():
+                                    if file_path.is_file() and file_path.suffix.lower() in ['.mp4', '.mkv', '.avi', '.mov']:
+                                        inspection_results['total_files'] += 1
+                                        
+                                        # 메타데이터 파일 확인
+                                        poster_file = season_dir / "poster.jpg"
+                                        desc_file = season_dir / "description.txt"
+                                        
+                                        file_info = {
+                                            'file_path': str(file_path),
+                                            'series': series_dir.name,
+                                            'season': season_dir.name,
+                                            'has_poster': poster_file.exists(),
+                                            'has_description': desc_file.exists()
+                                        }
+                                        
+                                        if poster_file.exists() and desc_file.exists():
+                                            inspection_results['files_with_metadata'] += 1
+                                        else:
+                                            inspection_results['files_without_metadata'] += 1
+                                            if not poster_file.exists():
+                                                inspection_results['missing_posters'] += 1
+                                            if not desc_file.exists():
+                                                inspection_results['missing_descriptions'] += 1
+                                                
+                                        inspection_results['details'].append(file_info)
             
-            # 빈 폴더 정리
-            source_root = self.source_selector.get_path() if hasattr(self, 'source_selector') else None
-            if source_root:
-                async with AsyncFileManager() as file_manager:
-                    cleaned_count = await file_manager.cleanup_empty_directories(Path(source_root))
-                    if cleaned_count > 0:
-                        self.status_panel.log_message(f"빈 폴더 {cleaned_count}개 정리 완료")
-                        
+            # 영화 폴더 검사
+            movie_dir = Path(target_root) / "영화"
+            if movie_dir.exists():
+                for movie_folder in movie_dir.iterdir():
+                    if movie_folder.is_dir():
+                        for file_path in movie_folder.iterdir():
+                            if file_path.is_file() and file_path.suffix.lower() in ['.mp4', '.mkv', '.avi', '.mov']:
+                                inspection_results['total_files'] += 1
+                                
+                                # 메타데이터 파일 확인
+                                poster_file = movie_folder / "poster.jpg"
+                                desc_file = movie_folder / "description.txt"
+                                
+                                file_info = {
+                                    'file_path': str(file_path),
+                                    'movie': movie_folder.name,
+                                    'has_poster': poster_file.exists(),
+                                    'has_description': desc_file.exists()
+                                }
+                                
+                                if poster_file.exists() and desc_file.exists():
+                                    inspection_results['files_with_metadata'] += 1
+                                else:
+                                    inspection_results['files_without_metadata'] += 1
+                                    if not poster_file.exists():
+                                        inspection_results['missing_posters'] += 1
+                                    if not desc_file.exists():
+                                        inspection_results['missing_descriptions'] += 1
+                                        
+                                inspection_results['details'].append(file_info)
+            
+            # 검사 결과 저장
+            inspection_dir = Path("./scan_results")
+            inspection_dir.mkdir(exist_ok=True)
+            inspection_file = inspection_dir / f"metadata_inspection_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            
+            with open(inspection_file, "w", encoding="utf-8") as f:
+                json.dump(inspection_results, f, ensure_ascii=False, indent=2)
+            
+            # 결과 요약 로그
+            total = inspection_results['total_files']
+            with_meta = inspection_results['files_with_metadata']
+            without_meta = inspection_results['files_without_metadata']
+            missing_posters = inspection_results['missing_posters']
+            missing_descriptions = inspection_results['missing_descriptions']
+            
+            self.status_panel.log_message(f"[검사] 메타데이터 검사 완료:")
+            self.status_panel.log_message(f"  └─ 총 파일: {total}개")
+            self.status_panel.log_message(f"  └─ 메타데이터 완전: {with_meta}개 ({with_meta/total*100:.1f}%)")
+            self.status_panel.log_message(f"  └─ 메타데이터 불완전: {without_meta}개 ({without_meta/total*100:.1f}%)")
+            self.status_panel.log_message(f"  └─ 포스터 누락: {missing_posters}개")
+            self.status_panel.log_message(f"  └─ 설명 누락: {missing_descriptions}개")
+            self.status_panel.log_message(f"  └─ 검사 결과 저장: {inspection_file}")
+            
         except Exception as e:
-            self.status_panel.log_message(f"파일 이동 중 오류 발생: {e}")
-            raise
-            
-    async def _save_metadata_async(self, group_metadata, target_root):
-        """메타데이터를 비동기로 저장"""
-        import aiofiles
-        import requests
-        import aiohttp
-        
-        async with aiohttp.ClientSession() as session:
-            for (title, year, season), meta in group_metadata.items():
-                if not meta:
-                    continue
-                    
-                korean_title = meta.get('name') or meta.get('title') or title
-                korean_title = sanitize_folder_name(korean_title)
-                
-                # 포스터 저장
-                poster_path_val = meta.get("poster_path")
-                if poster_path_val:
-                    poster_url = f"https://image.tmdb.org/t/p/w342{poster_path_val}"
-                    poster_file = Path(target_root) / korean_title / "poster.jpg"
-                    
-                    if not poster_file.exists():
-                        try:
-                            async with session.get(poster_url) as resp:
-                                if resp.status == 200:
-                                    poster_file.parent.mkdir(parents=True, exist_ok=True)
-                                    async with aiofiles.open(poster_file, 'wb') as f:
-                                        await f.write(await resp.read())
-                                    self.status_panel.log_message(f"[포스터 저장] {poster_file}")
-                        except Exception as e:
-                            self.status_panel.log_message(f"[포스터 저장 오류] {poster_url}: {e}")
-                            
-                # 설명 저장
-                overview = meta.get("overview")
-                if overview:
-                    desc_file = Path(target_root) / korean_title / "description.txt"
-                    if not desc_file.exists():
-                        try:
-                            desc_file.parent.mkdir(parents=True, exist_ok=True)
-                            async with aiofiles.open(desc_file, 'w', encoding='utf-8') as f:
-                                await f.write(overview)
-                            self.status_panel.log_message(f"[설명 저장] {desc_file}")
-                        except Exception as e:
-                            self.status_panel.log_message(f"[설명 저장 오류] {desc_file}: {e}")
-        
+            self.status_panel.log_message(f"[검사] 메타데이터 검사 중 오류 발생: {e}")
+            self.logger.error(f"메타데이터 검사 오류: {e}")
+
     def _open_settings_dialog(self):
         dlg = SettingsDialog(self.config, self)
         dlg.exec()
