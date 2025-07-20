@@ -174,6 +174,10 @@ class QtEventQueue(QObject):
         self._event_queue.stop()
         logger.info("Qt event queue stopped")
         
+    def close(self) -> None:
+        """이벤트 큐 종료 (stop과 동일)"""
+        self.stop()
+        
     def put(self, event: Union[FileProcessedEvent, ProgressEvent, PipelineEvent, MetadataEvent]) -> None:
         """
         이벤트를 큐에 추가

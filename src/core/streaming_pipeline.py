@@ -574,7 +574,11 @@ class StreamingPipeline:
             # 이벤트 큐 정리
             if hasattr(self.event_queue, 'close'):
                 try:
-                    await self.event_queue.close()
+                    # QtEventQueue.close()는 동기 메서드이므로 await 사용하지 않음
+                    if asyncio.iscoroutinefunction(self.event_queue.close):
+                        await self.event_queue.close()
+                    else:
+                        self.event_queue.close()
                     logger.debug("Event queue closed")
                 except Exception as e:
                     logger.warning(f"Error closing event queue: {e}")

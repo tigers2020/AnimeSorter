@@ -594,7 +594,7 @@ class TMDBProvider:
         
         return cache_result
     
-    def close(self):
+    async def close(self):
         """
         TMDB Provider 정리 (tmdbsimple은 별도 정리가 필요하지 않음)
         """

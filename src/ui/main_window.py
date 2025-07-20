@@ -1025,11 +1025,8 @@ class MainWindow(QMainWindow):
             # 이벤트 큐 정리
             if hasattr(self, 'event_queue') and self.event_queue:
                 try:
-                    import asyncio
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(self.event_queue.close())
-                    loop.close()
+                    # QtEventQueue.close()는 동기 메서드이므로 직접 호출
+                    self.event_queue.close()
                 except Exception as e:
                     self.logger.warning(f"Error closing event queue: {e}")
                     

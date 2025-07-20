@@ -27,8 +27,14 @@ class StreamingFileCleaner:
         """
         StreamingFileCleaner 초기화
         """
-        self.cleaner = FileCleaner()
         self.logger = logging.getLogger(__name__)
+        
+        try:
+            self.cleaner = FileCleaner()
+            self.logger.debug("FileCleaner instance created successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to create FileCleaner instance: {e}")
+            self.cleaner = None
         
     async def clean_filename(
         self, 
@@ -51,6 +57,11 @@ class StreamingFileCleaner:
         try:
             self.logger.debug(f"Cleaning filename: {file_path}")
             
+            # cleaner가 None인지 확인
+            if self.cleaner is None:
+                self.logger.error("FileCleaner instance is None, creating fallback result")
+                return self._create_fallback_result(file_path, "FileCleaner instance is None")
+            
             # CPU 바운드 작업을 스레드 풀에서 실행
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
@@ -59,6 +70,11 @@ class StreamingFileCleaner:
                 file_path, 
                 include_file_info
             )
+            
+            # 결과가 None인지 확인
+            if result is None:
+                self.logger.warning(f"FileCleaner returned None for: {file_path}")
+                return self._create_fallback_result(file_path, "FileCleaner returned None")
             
             self.logger.debug(f"Successfully cleaned filename: {file_path} -> {result.title}")
             return result
@@ -86,7 +102,17 @@ class StreamingFileCleaner:
         try:
             self.logger.debug(f"Cleaning filename (sync): {file_path}")
             
+            # cleaner가 None인지 확인
+            if self.cleaner is None:
+                self.logger.error("FileCleaner instance is None, creating fallback result")
+                return self._create_fallback_result(file_path, "FileCleaner instance is None")
+            
             result = self.cleaner.clean_filename(file_path, include_file_info=include_file_info)
+            
+            # 결과가 None인지 확인
+            if result is None:
+                self.logger.warning(f"FileCleaner returned None for: {file_path}")
+                return self._create_fallback_result(file_path, "FileCleaner returned None")
             
             self.logger.debug(f"Successfully cleaned filename (sync): {file_path} -> {result.title}")
             return result

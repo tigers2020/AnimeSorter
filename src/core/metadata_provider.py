@@ -184,7 +184,7 @@ class StreamingMetadataProvider:
         try:
             # TMDB provider 정리
             if hasattr(self.tmdb_provider, 'close'):
-                self.tmdb_provider.close()
+                await self.tmdb_provider.close()
                 
             # 캐시 데이터베이스 정리
             if self.cache_db:
