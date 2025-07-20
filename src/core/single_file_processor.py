@@ -16,6 +16,7 @@ from .events import FileProcessedEvent, ProgressEvent, EventType
 from .event_queue import EventQueue
 from .cancellation import CancellationManager, CancelledError
 from .error_logger import log_error, ErrorSeverity
+from src.utils.async_helpers import maybe_await
 
 logger = logging.getLogger(__name__)
 
@@ -381,11 +382,7 @@ class SingleFileProcessor:
             FilenameCleaningError: 파일명 정제 중 오류 발생 시
         """
         try:
-            if hasattr(self.file_cleaner, 'clean_filename'):
-                result = await self.file_cleaner.clean_filename(file_path)
-            else:
-                # 동기 메서드인 경우
-                result = self.file_cleaner.clean_filename(file_path)
+            result = await maybe_await(self.file_cleaner.clean_filename, file_path)
                 
             if not result:
                 logger.warning(f"Filename cleaning returned no result for: {file_path}")
@@ -433,11 +430,7 @@ class SingleFileProcessor:
                 logger.warning("No title available for metadata search")
                 return None
                 
-            if hasattr(self.metadata_provider, 'search'):
-                metadata = await self.metadata_provider.search(title, year)
-            else:
-                # 동기 메서드인 경우
-                metadata = self.metadata_provider.search(title, year)
+            metadata = await maybe_await(self.metadata_provider.search, title, year)
                 
             return metadata
             
@@ -488,15 +481,10 @@ class SingleFileProcessor:
             return None
             
         try:
-            if hasattr(self.path_planner, 'determine_path'):
-                target_path = await self.path_planner.determine_path(
-                    file_path, metadata, target_dir
-                )
-            else:
-                # 동기 메서드인 경우
-                target_path = self.path_planner.determine_path(
-                    file_path, metadata, target_dir
-                )
+            target_path = await maybe_await(
+                self.path_planner.determine_path,
+                file_path, metadata, target_dir
+            )
                 
             if not target_path:
                 logger.warning(f"Path planner returned no target path for: {file_path}")
@@ -545,11 +533,7 @@ class SingleFileProcessor:
             return True
             
         try:
-            if hasattr(self.file_manager, 'move_file'):
-                success = await self.file_manager.move_file(source_path, target_path)
-            else:
-                # 동기 메서드인 경우
-                success = self.file_manager.move_file(source_path, target_path)
+            success = await maybe_await(self.file_manager.move_file, source_path, target_path)
                 
             if not success:
                 logger.error(f"File move operation returned False for: {source_path} -> {target_path}")
