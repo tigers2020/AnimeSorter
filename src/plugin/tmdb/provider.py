@@ -183,11 +183,13 @@ class TMDBProvider:
                                     actual_season = 0 if is_special else season
                                     result = await self._add_season_info(result, actual_season)
                                 
-                                # 원본 제목으로 캐시에 저장
+                                # 원본 제목으로 캐시에 저장 (JSON 직렬화 가능한 형태로 변환)
                                 if self.cache_db:
                                     try:
                                         cache_key = self._generate_cache_key(title, year, season)
-                                        await self.cache_db.set_cache(cache_key, result, year)
+                                        # JSON 직렬화 가능한 형태로 변환
+                                        cache_result = self._prepare_for_cache(result)
+                                        await self.cache_db.set_cache(cache_key, cache_result, year)
                                     except Exception as e:
                                         self.logger.warning(f"[TMDB] Cache save error: {e}")
                                 
@@ -522,6 +524,75 @@ class TMDBProvider:
                 results.append(None)
         
         return results
+    
+    def _prepare_for_cache(self, result: dict) -> dict:
+        """
+        캐시 저장을 위해 결과를 JSON 직렬화 가능한 형태로 변환
+        
+        Args:
+            result: 원본 결과
+            
+        Returns:
+            dict: JSON 직렬화 가능한 결과
+        """
+        if not result:
+            return {}
+        
+        # 깊은 복사로 변환
+        cache_result = {}
+        
+        for key, value in result.items():
+            if key == 'images' and isinstance(value, dict):
+                # images는 poster_path와 backdrop_path만 유지
+                cache_result[key] = {
+                    'poster_path': value.get('poster_path'),
+                    'backdrop_path': value.get('backdrop_path')
+                }
+            elif key == 'seasons' and isinstance(value, list):
+                # seasons는 기본 정보만 유지
+                cache_result[key] = [
+                    {
+                        'id': season.get('id'),
+                        'name': season.get('name'),
+                        'season_number': season.get('season_number'),
+                        'episode_count': season.get('episode_count'),
+                        'air_date': season.get('air_date')
+                    }
+                    for season in value
+                ]
+            elif key == 'season_info' and isinstance(value, dict):
+                # season_info는 기본 정보만 유지
+                cache_result[key] = {
+                    'season_number': value.get('season_number'),
+                    'name': value.get('name'),
+                    'overview': value.get('overview'),
+                    'air_date': value.get('air_date'),
+                    'episode_count': value.get('episode_count'),
+                    'is_fallback': value.get('is_fallback', False)
+                }
+            elif key == 'credits' and isinstance(value, dict):
+                # credits는 기본 정보만 유지
+                cache_result[key] = {
+                    'cast': value.get('cast', [])[:10],  # 상위 10명만
+                    'crew': value.get('crew', [])[:5]    # 상위 5명만
+                }
+            elif isinstance(value, (str, int, float, bool, type(None))):
+                # 기본 타입은 그대로 유지
+                cache_result[key] = value
+            elif isinstance(value, list):
+                # 리스트는 기본 타입만 유지
+                cache_result[key] = [
+                    item for item in value 
+                    if isinstance(item, (str, int, float, bool, type(None), dict))
+                ]
+            elif isinstance(value, dict):
+                # 딕셔너리는 재귀적으로 처리
+                cache_result[key] = self._prepare_for_cache(value)
+            else:
+                # 기타 타입은 문자열로 변환
+                cache_result[key] = str(value)
+        
+        return cache_result
     
     def close(self):
         """

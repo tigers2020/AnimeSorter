@@ -47,19 +47,22 @@ def safe_slugify(text: str,
     normalized = re.sub(rf'[{re.escape(separator)}\s]+', separator, normalized)
     
     # 5단계: slugify 적용
-    result = slugify(
-        normalized,
-        separator=separator,
-        max_length=max_length,
-        word_boundary=True,
-        save_order=True,
-        stopwords=None,
-        regex_pattern=None,
-        allow_unicode=allow_unicode,
-        lowercase=True,
-        replacements=None,
-        allow_2byte_chars=allow_unicode
-    )
+    slugify_kwargs = {
+        'separator': separator,
+        'word_boundary': True,
+        'save_order': True,
+        'stopwords': None,
+        'regex_pattern': None,
+        'allow_unicode': allow_unicode,
+        'lowercase': True,
+        'replacements': None
+    }
+    
+    # max_length가 None이 아닌 경우에만 추가
+    if max_length is not None:
+        slugify_kwargs['max_length'] = max_length
+    
+    result = slugify(normalized, **slugify_kwargs)
     
     # 6단계: 최종 정리
     result = _final_cleanup(result, separator)
