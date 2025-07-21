@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description: AnimeSorter 프로젝트 구조 및 아키텍처 규칙
+globs: ["**/*.py", "**/*.md"]
 alwaysApply: false
 ---
 # AnimeSorter 프로젝트 구조 및 아키텍처 규칙

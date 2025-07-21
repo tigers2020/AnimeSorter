@@ -1,7 +1,7 @@
 ---
-description: 
-globs: 
-alwaysApply: true
+description: AnimeSorter 캐시 데이터베이스 모듈 규칙
+globs: ["**/*.py"]
+alwaysApply: false
 ---
  # AnimeSorter 캐시 데이터베이스 모듈 규칙
 

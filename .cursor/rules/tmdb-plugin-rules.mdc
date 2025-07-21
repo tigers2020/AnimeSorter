@@ -1,7 +1,7 @@
 ---
-description: 
-globs: 
-alwaysApply: true
+description: AnimeSorter TMDB 플러그인 규칙
+globs: ["**/*.py"]
+alwaysApply: false
 ---
 # AnimeSorter TMDB 플러그인 규칙
 

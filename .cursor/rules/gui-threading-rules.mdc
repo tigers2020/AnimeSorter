@@ -1,7 +1,7 @@
 ---
-description: 
-globs: 
-alwaysApply: true
+description: AnimeSorter GUI 및 스레딩 규칙
+globs: ["**/*.py"]
+alwaysApply: false
 ---
 # AnimeSorter GUI 및 스레딩 규칙
 

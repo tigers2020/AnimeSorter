@@ -1,7 +1,7 @@
 ---
 description: Python coding standards and best practices for the AnimeSorter project
 globs: ["*.py"]
-alwaysApply: true
+alwaysApply: false
 ---
 ---
 description: "Python Code Expert 서비스 및 데스크탑 앱 개발을 위한 고급 Python 코딩 가이드라인. 이 규칙은 생산성 높은 코드 작성, 객체 지향 설계, 성능 최적화, 에러 핸들링, 동시성/병렬처리 및 데스크탑 UI 응답성을 보장하기 위한 지침들을 포함합니다."

@@ -1,7 +1,7 @@
 ---
-description: 
-globs: 
-alwaysApply: true
+description: AnimeSorter 오류 처리 및 로깅 규칙
+globs: ["**/*.py"]
+alwaysApply: false
 ---
 # AnimeSorter 오류 처리 및 로깅 규칙
 

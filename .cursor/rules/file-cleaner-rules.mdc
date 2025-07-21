@@ -1,7 +1,7 @@
 ---
-description: 
-globs: 
-alwaysApply: true
+description: AnimeSorter 파일명 정제 모듈 규칙
+globs: ["**/*.py"]
+alwaysApply: false
 ---
 # AnimeSorter 파일명 정제 모듈 규칙
 
