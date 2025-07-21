@@ -1,620 +1,299 @@
 """
-메인 스트리밍 파이프라인
+스트리밍 파이프라인 모듈
 
-스트리밍 파일 이터레이터, 단일 파일 처리기, 이벤트 큐를 통합하여
-전체 파일 처리 파이프라인을 관리합니다.
+파일 하나씩 처리하여 파일명 정제 → 메타데이터 검색 → 파일 이동 → UI 업데이트를
+순차적으로 수행하는 스트리밍 파이프라인을 구현합니다.
 """
 
 import asyncio
-import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Optional, Callable, Dict, Any, List
+from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
 
-from .events import (
-    FileProcessedEvent, ProgressEvent, PipelineEvent, 
-    EventType, ProcessingStatus
-)
-from .event_queue import EventQueue
-from .streaming_file_iterator import iter_files
-from .single_file_processor import SingleFileProcessor
-from .cancellation import CancellationManager, CancelledError, CancellationReason
+from src.utils.file_cleaner import FileCleaner, CleanResult
+from src.plugin.tmdb.provider import TMDBProvider
+from src.core.async_file_manager import AsyncFileManager, FileOperation
+from src.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
-
+@dataclass
+class ProcessingResult:
+    """파일 처리 결과"""
+    file_path: Path
+    clean_result: Optional[CleanResult]
+    metadata: Optional[Dict[str, Any]]
+    target_path: Optional[Path]
+    success: bool
+    error_message: Optional[str] = None
+    processing_time: float = 0.0
 
 class StreamingPipeline:
-    """
-    메인 스트리밍 파이프라인
+    """스트리밍 파일 처리 파이프라인"""
     
-    파일을 하나씩 스트리밍 방식으로 처리하여 메모리 효율성과
-    실시간 UI 업데이트를 제공합니다.
-    """
-    
-    def __init__(
-        self,
-        file_cleaner,
-        metadata_provider,
-        path_planner,
-        file_manager,
-        event_queue: EventQueue,
-        max_concurrent_files: int = 1
-    ):
+    def __init__(self, 
+                 tmdb_provider: TMDBProvider,
+                 file_manager: AsyncFileManager,
+                 target_directory: Path,
+                 folder_template: str = "{title} ({year})"):
         """
         StreamingPipeline 초기화
         
         Args:
-            file_cleaner: 파일명 정제기
-            metadata_provider: 메타데이터 제공자
-            path_planner: 경로 계획자
-            file_manager: 파일 관리자
-            event_queue: 이벤트 큐
-            max_concurrent_files: 최대 동시 처리 파일 수 (기본값: 1)
+            tmdb_provider: TMDB 메타데이터 제공자
+            file_manager: 비동기 파일 관리자
+            target_directory: 대상 디렉토리
+            folder_template: 폴더 이름 템플릿
         """
-        self.file_cleaner = file_cleaner
-        self.metadata_provider = metadata_provider
-        self.path_planner = path_planner
+        self.tmdb_provider = tmdb_provider
         self.file_manager = file_manager
-        self.event_queue = event_queue
-        self.max_concurrent_files = max_concurrent_files
+        self.target_directory = target_directory
+        self.folder_template = folder_template
+        self.logger = get_logger(__name__)
         
-        # 파이프라인 상태
-        self._running = False
-        self._cancelled = False
-        self._stats = {
-            'total_files': 0,
-            'processed_files': 0,
-            'successful_files': 0,
-            'failed_files': 0,
-            'start_time': None,
-            'end_time': None
-        }
+        # 현재 메타데이터 (포스터 다운로드용)
+        self._current_metadata = None
         
-        # 취소 관리자
-        self.cancellation_manager = CancellationManager()
-        
-        # 리소스 정리 콜백 등록
-        self.cancellation_manager.register_cleanup_callback(self._cleanup_resources)
-        
-        # 단일 파일 처리기 (스캔 전용 모드에서는 file_manager가 None일 수 있음)
-        self.single_file_processor = SingleFileProcessor(
-            file_cleaner=file_cleaner,
-            metadata_provider=metadata_provider,
-            path_planner=path_planner,
-            file_manager=file_manager,  # None일 수 있음 (스캔 전용 모드)
-            event_queue=event_queue,
-            cancellation_manager=self.cancellation_manager
-        )
-        
-    async def run(
-        self, 
-        source_dir: Path, 
-        target_dir: Path,
-        recursive: bool = True
-    ) -> Dict[str, Any]:
+    async def process_single_file(self, file_path: Path) -> ProcessingResult:
         """
-        스트리밍 파이프라인 실행
+        단일 파일 처리
         
         Args:
-            source_dir: 소스 디렉토리
-            target_dir: 대상 디렉토리
-            recursive: 하위 디렉토리 포함 여부
+            file_path: 처리할 파일 경로
             
         Returns:
-            Dict[str, Any]: 처리 결과 통계
-            
-        Raises:
-            FileNotFoundError: 소스 디렉토리가 존재하지 않는 경우
-            PermissionError: 디렉토리 접근 권한이 없는 경우
-            CancelledError: 파이프라인이 취소된 경우
+            ProcessingResult: 처리 결과
         """
-        if not source_dir.exists():
-            raise FileNotFoundError(f"Source directory not found: {source_dir}")
-            
-        if not source_dir.is_dir():
-            raise ValueError(f"Source path is not a directory: {source_dir}")
-            
-        # 파이프라인 시작
-        self._running = True
-        self._cancelled = False
-        self._stats['start_time'] = time.time()
-        self._stats['total_files'] = 0
-        self._stats['processed_files'] = 0
-        self._stats['successful_files'] = 0
-        self._stats['failed_files'] = 0
-        
-        logger.info(f"Starting streaming pipeline: {source_dir} -> {target_dir}")
-        
-        # 파이프라인 시작 이벤트
-        await self.event_queue.put(
-            PipelineEvent.pipeline_started(0)  # 파일 수는 나중에 업데이트
+        start_time = time.time()
+        result = ProcessingResult(
+            file_path=file_path,
+            clean_result=None,
+            metadata=None,
+            target_path=None,
+            success=False
         )
         
         try:
-            # 취소 상태 확인
-            self.cancellation_manager.check_cancellation()
-            
-            # 파일 수 계산 (진행률 표시용)
-            file_count = await self._count_files(source_dir, recursive)
-            self._stats['total_files'] = file_count
-            
-            logger.info(f"Found {file_count} files to process")
-            
-            # 취소 상태 재확인
-            self.cancellation_manager.check_cancellation()
-            
-            # 스트리밍 파이프라인 실행
-            if self.max_concurrent_files == 1:
-                # 순차 처리
-                await self._run_sequential(source_dir, target_dir, recursive)
-            else:
-                # 병렬 처리
-                await self._run_parallel(source_dir, target_dir, recursive)
+            # 파일 존재 확인
+            if not file_path.exists():
+                result.error_message = f"파일이 존재하지 않습니다: {file_path}"
+                return result
                 
-        except CancelledError:
-            logger.info("Pipeline cancelled by user")
-            self._cancelled = True
-            await self.event_queue.put(
-                PipelineEvent.pipeline_cancelled("User cancelled")
-            )
-            raise
-        except asyncio.CancelledError:
-            logger.info("Pipeline cancelled by asyncio")
-            self._cancelled = True
-            await self.event_queue.put(
-                PipelineEvent.pipeline_cancelled("Asyncio cancelled")
-            )
-            raise
-        except Exception as e:
-            logger.error(f"Pipeline error: {e}")
-            await self.event_queue.put(
-                PipelineEvent.pipeline_error(str(e))
-            )
-            raise
-        finally:
-            # 파이프라인 종료
-            self._running = False
-            self._stats['end_time'] = time.time()
-            
-            # 파이프라인 완료 이벤트
-            await self.event_queue.put(
-                PipelineEvent.pipeline_completed(self._stats.copy())
-            )
-            
-            logger.info(f"Pipeline completed. Stats: {self._stats}")
-            
-        return self._stats.copy()
-        
-    async def run_scan_only(
-        self, 
-        source_dir: Path,
-        scan_callback=None,
-        recursive: bool = True
-    ) -> Dict[str, Any]:
-        """
-        스트리밍 파이프라인 실행 (스캔 전용)
-        
-        Args:
-            source_dir: 소스 디렉토리
-            scan_callback: 파일 스캔 완료 시 호출할 콜백 함수
-            recursive: 하위 디렉토리 포함 여부
-            
-        Returns:
-            Dict[str, Any]: 스캔 결과 통계
-            
-        Raises:
-            FileNotFoundError: 소스 디렉토리가 존재하지 않는 경우
-            PermissionError: 디렉토리 접근 권한이 없는 경우
-            CancelledError: 파이프라인이 취소된 경우
-        """
-        if not source_dir.exists():
-            raise FileNotFoundError(f"Source directory not found: {source_dir}")
-            
-        if not source_dir.is_dir():
-            raise ValueError(f"Source path is not a directory: {source_dir}")
-            
-        # 파이프라인 시작
-        self._running = True
-        self._cancelled = False
-        self._stats['start_time'] = time.time()
-        self._stats['total_files'] = 0
-        self._stats['processed_files'] = 0
-        self._stats['successful_files'] = 0
-        self._stats['failed_files'] = 0
-        
-        logger.info(f"Starting streaming scan pipeline: {source_dir}")
-        
-        # 파이프라인 시작 이벤트
-        await self.event_queue.put(
-            PipelineEvent.pipeline_started(0)  # 파일 수는 나중에 업데이트
-        )
-        
-        try:
-            # 취소 상태 확인
-            self.cancellation_manager.check_cancellation()
-            
-            # 파일 수 계산 (진행률 표시용)
-            file_count = await self._count_files(source_dir, recursive)
-            self._stats['total_files'] = file_count
-            
-            logger.info(f"Found {file_count} files to scan")
-            
-            # 취소 상태 재확인
-            self.cancellation_manager.check_cancellation()
-            
-            # 스트리밍 스캔 실행
-            if self.max_concurrent_files == 1:
-                # 순차 스캔
-                await self._run_scan_sequential(source_dir, recursive, scan_callback)
-            else:
-                # 병렬 스캔
-                await self._run_scan_parallel(source_dir, recursive, scan_callback)
-                
-        except CancelledError:
-            logger.info("Scan pipeline cancelled by user")
-            self._cancelled = True
-            await self.event_queue.put(
-                PipelineEvent.pipeline_cancelled("User cancelled")
-            )
-            raise
-        except asyncio.CancelledError:
-            logger.info("Scan pipeline cancelled by asyncio")
-            self._cancelled = True
-            await self.event_queue.put(
-                PipelineEvent.pipeline_cancelled("Asyncio cancelled")
-            )
-            raise
-        except Exception as e:
-            logger.error(f"Scan pipeline error: {e}")
-            await self.event_queue.put(
-                PipelineEvent.pipeline_error(str(e))
-            )
-            raise
-        finally:
-            # 파이프라인 종료
-            self._running = False
-            self._stats['end_time'] = time.time()
-            
-            # 파이프라인 완료 이벤트
-            await self.event_queue.put(
-                PipelineEvent.pipeline_completed(self._stats.copy())
-            )
-            
-            logger.info(f"Scan pipeline completed. Stats: {self._stats}")
-            
-        return self._stats.copy()
-        
-    async def _run_scan_sequential(
-        self, 
-        source_dir: Path, 
-        recursive: bool,
-        scan_callback=None
-    ):
-        """순차 스캔 방식"""
-        async for file_path in iter_files(source_dir, recursive):
-            # 취소 상태 확인
-            self.cancellation_manager.check_cancellation()
-            
-            if self._cancelled:
-                break
-                
+            # 1단계: 파일명 정제
+            self.logger.info(f"[스트리밍] 파일명 정제 시작: {file_path.name}")
             try:
-                # 파일 스캔 처리 (파일 이동 없음)
-                clean_result, metadata = await self.single_file_processor.process_file_scan_only(file_path)
-                
-                # 스캔 완료 이벤트
-                await self.event_queue.put(
-                    FileProcessedEvent.file_processed(
-                        file_path=str(file_path),
-                        clean_result=clean_result,
-                        metadata=metadata,
-                        status=ProcessingStatus.SUCCESS
-                    )
-                )
-                
-                # 진행률 업데이트
-                self._stats['processed_files'] += 1
-                self._stats['successful_files'] += 1
-                
-                await self.event_queue.put(
-                    ProgressEvent.progress_updated(
-                        current=self._stats['processed_files'],
-                        total=self._stats['total_files'],
-                        message=f"스캔 완료: {file_path.name}"
-                    )
-                )
-                
-                # 스캔 콜백 호출
-                if scan_callback:
-                    scan_callback(file_path, clean_result, metadata)
-                    
+                clean_result = await self._clean_filename(file_path)
+                if not clean_result:
+                    result.error_message = "파일명 정제 실패 - 정제 결과가 None입니다"
+                    return result
+                if not clean_result.title:
+                    result.error_message = "파일명 정제 실패 - 제목을 추출할 수 없습니다"
+                    return result
+                result.clean_result = clean_result
+                self.logger.info(f"[스트리밍] 파일명 정제 완료: {clean_result.title}")
             except Exception as e:
-                logger.error(f"Error scanning file {file_path}: {e}")
-                self._stats['processed_files'] += 1
-                self._stats['failed_files'] += 1
-                
-                # 오류 이벤트
-                await self.event_queue.put(
-                    FileProcessedEvent.file_processed(
-                        file_path=str(file_path),
-                        clean_result=None,
-                        metadata=None,
-                        status=ProcessingStatus.FAILED,
-                        error=str(e)
-                    )
-                )
-                
-    async def _run_scan_parallel(
-        self, 
-        source_dir: Path, 
-        recursive: bool,
-        scan_callback=None
-    ):
-        """병렬 스캔 방식"""
-        semaphore = asyncio.Semaphore(self.max_concurrent_files)
-        
-        async def scan_file_with_semaphore(file_path: Path):
-            async with semaphore:
-                # 취소 상태 확인
-                self.cancellation_manager.check_cancellation()
-                
-                if self._cancelled:
-                    return
-                    
-                try:
-                    # 파일 스캔 처리 (파일 이동 없음)
-                    clean_result, metadata = await self.single_file_processor.process_file_scan_only(file_path)
-                    
-                    # 스캔 완료 이벤트
-                    await self.event_queue.put(
-                        FileProcessedEvent.file_processed(
-                            file_path=str(file_path),
-                            clean_result=clean_result,
-                            metadata=metadata,
-                            status=ProcessingStatus.SUCCESS
-                        )
-                    )
-                    
-                    # 진행률 업데이트
-                    self._stats['processed_files'] += 1
-                    self._stats['successful_files'] += 1
-                    
-                    await self.event_queue.put(
-                        ProgressEvent.progress_updated(
-                            current=self._stats['processed_files'],
-                            total=self._stats['total_files'],
-                            message=f"스캔 완료: {file_path.name}"
-                        )
-                    )
-                    
-                    # 스캔 콜백 호출
-                    if scan_callback:
-                        scan_callback(file_path, clean_result, metadata)
-                        
-                except Exception as e:
-                    logger.error(f"Error scanning file {file_path}: {e}")
-                    self._stats['processed_files'] += 1
-                    self._stats['failed_files'] += 1
-                    
-                    # 오류 이벤트
-                    await self.event_queue.put(
-                        FileProcessedEvent.file_processed(
-                            file_path=str(file_path),
-                            clean_result=None,
-                            metadata=None,
-                            status=ProcessingStatus.FAILED,
-                            error=str(e)
-                        )
-                    )
-        
-        # 병렬 스캔 실행
-        tasks = []
-        async for file_path in iter_files(source_dir, recursive):
-            if self._cancelled:
-                break
-            task = asyncio.create_task(scan_file_with_semaphore(file_path))
-            tasks.append(task)
+                result.error_message = f"파일명 정제 중 오류: {str(e)}"
+                self.logger.error(f"파일명 정제 실패: {file_path} - {e}")
+                return result
             
-        # 모든 태스크 완료 대기
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        
-    async def _run_sequential(
-        self, 
-        source_dir: Path, 
-        target_dir: Path, 
-        recursive: bool
-    ):
-        """순차 처리 방식"""
-        async for file_path in iter_files(source_dir, recursive):
-            # 취소 상태 확인
-            self.cancellation_manager.check_cancellation()
-            
-            if self._cancelled:
-                break
-                
+            # 2단계: 메타데이터 검색 (즉시 실행)
+            self.logger.info(f"[스트리밍] 메타데이터 검색 시작: {clean_result.title}")
             try:
-                # 단일 파일 처리
-                result = await self.single_file_processor.process_single_file(
-                    file_path, target_dir
-                )
-                
-                # 통계 업데이트
-                self._stats['processed_files'] += 1
-                if result.success:
-                    self._stats['successful_files'] += 1
+                metadata = await self._search_metadata(clean_result)
+                result.metadata = metadata
+                # 현재 메타데이터 설정 (포스터 다운로드용)
+                self._set_current_metadata(metadata)
+                if metadata:
+                    self.logger.info(f"[스트리밍] 메타데이터 검색 완료: {metadata.get('title', 'Unknown')}")
                 else:
-                    self._stats['failed_files'] += 1
-                    
-                # 진행률 업데이트
-                progress = (self._stats['processed_files'] / self._stats['total_files']) * 100
-                await self.event_queue.put(
-                    ProgressEvent(
-                        current_index=self._stats['processed_files'],
-                        total_files=self._stats['total_files'],
-                        processed_files=self._stats['processed_files'],
-                        successful_files=self._stats['successful_files'],
-                        failed_files=self._stats['failed_files'],
-                        current_file=file_path,
-                        message=f"Processing {file_path.name}"
-                    )
-                )
-                
-            except CancelledError:
-                logger.info(f"File processing cancelled: {file_path}")
-                self._cancelled = True
-                break
+                    self.logger.info(f"[스트리밍] 메타데이터 검색 실패: {clean_result.title} - 메타데이터를 찾을 수 없습니다")
             except Exception as e:
-                logger.error(f"Error processing file {file_path}: {e}")
-                self._stats['processed_files'] += 1
-                self._stats['failed_files'] += 1
+                result.error_message = f"메타데이터 검색 중 오류: {str(e)}"
+                self.logger.error(f"메타데이터 검색 실패: {clean_result.title} - {e}")
+                # 메타데이터 검색 실패는 치명적이지 않으므로 계속 진행
+                result.metadata = None
+                self._set_current_metadata(None)
+            
+            # 3단계: 대상 경로 결정
+            try:
+                target_path = self._determine_target_path(file_path, clean_result, metadata)
+                if not target_path:
+                    result.error_message = "대상 경로 결정 실패 - 경로를 생성할 수 없습니다"
+                    return result
+                result.target_path = target_path
+                self.logger.info(f"[스트리밍] 대상 경로 결정 완료: {target_path}")
+            except Exception as e:
+                result.error_message = f"대상 경로 결정 중 오류: {str(e)}"
+                self.logger.error(f"대상 경로 결정 실패: {file_path} - {e}")
+                return result
+            
+            # 4단계: 파일 이동
+            try:
+                success = await self._move_file(file_path, target_path)
+                result.success = success
+                if not success:
+                    result.error_message = "파일 이동 실패 - 이동 작업이 실패했습니다"
+                    return result
+                self.logger.info(f"[스트리밍] 파일 이동 완료: {file_path} -> {target_path}")
+            except Exception as e:
+                result.error_message = f"파일 이동 중 오류: {str(e)}"
+                self.logger.error(f"파일 이동 실패: {file_path} -> {target_path} - {e}")
+                return result
                 
-                # 오류 이벤트
-                await self.event_queue.put(
-                    FileProcessedEvent(
-                        file_path=file_path,
-                        success=False,
-                        error_message=str(e)
-                    )
+        except Exception as e:
+            result.error_message = f"파일 처리 중 예상치 못한 오류: {str(e)}"
+            self.logger.error(f"파일 처리 중 오류 발생: {file_path} - {e}")
+            
+        finally:
+            result.processing_time = time.time() - start_time
+            
+        return result
+        
+    async def _clean_filename(self, file_path: Path) -> Optional[CleanResult]:
+        """파일명 정제 (비동기 래퍼)"""
+        try:
+            # CPU 바운드 작업을 스레드 풀에서 실행
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor() as executor:
+                clean_result = await loop.run_in_executor(
+                    executor, 
+                    FileCleaner.clean_filename, 
+                    file_path
                 )
-                
-    async def _run_parallel(
-        self, 
-        source_dir: Path, 
-        target_dir: Path, 
-        recursive: bool
-    ):
-        """병렬 처리 방식"""
-        semaphore = asyncio.Semaphore(self.max_concurrent_files)
-        
-        async def process_file_with_semaphore(file_path: Path):
-            async with semaphore:
-                # 취소 상태 확인
-                self.cancellation_manager.check_cancellation()
-                
-                if self._cancelled:
-                    return
-                    
-                try:
-                    result = await self.single_file_processor.process_single_file(
-                        file_path, target_dir
-                    )
-                    
-                    # 통계 업데이트 (스레드 안전하게)
-                    self._stats['processed_files'] += 1
-                    if result.success:
-                        self._stats['successful_files'] += 1
-                    else:
-                        self._stats['failed_files'] += 1
-                        
-                except CancelledError:
-                    logger.info(f"File processing cancelled: {file_path}")
-                    self._cancelled = True
-                    return
-                except Exception as e:
-                    logger.error(f"Error processing file {file_path}: {e}")
-                    self._stats['processed_files'] += 1
-                    self._stats['failed_files'] += 1
-                    
-        # 모든 파일을 동시에 처리
-        tasks = []
-        async for file_path in iter_files(source_dir, recursive):
-            # 취소 상태 확인
-            self.cancellation_manager.check_cancellation()
+            return clean_result
+        except Exception as e:
+            self.logger.error(f"파일명 정제 실패: {file_path} - {e}")
+            return None
             
-            if self._cancelled:
-                break
+    async def _search_metadata(self, clean_result: CleanResult) -> Optional[Dict[str, Any]]:
+        """메타데이터 검색"""
+        try:
+            if not clean_result.title:
+                return None
                 
-            task = asyncio.create_task(
-                process_file_with_semaphore(file_path)
+            # TMDB 검색
+            metadata = await self.tmdb_provider.search(
+                clean_result.title, 
+                clean_result.year
             )
-            tasks.append(task)
-            
-        # 모든 태스크 완료 대기
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-            
-    async def _count_files(self, source_dir: Path, recursive: bool) -> int:
-        """파일 수 계산"""
-        count = 0
-        async for _ in iter_files(source_dir, recursive):
-            count += 1
-        return count
-        
-    def cancel(self):
-        """파이프라인 취소"""
-        self._cancelled = True
-        self.cancellation_manager.cancel(
-            reason=CancellationReason.USER_REQUEST,
-            message="사용자 요청으로 파이프라인이 취소되었습니다."
-        )
-        logger.info("Pipeline cancellation requested")
-        
-    async def _cleanup_resources(self):
-        """리소스 정리"""
-        try:
-            logger.info("Cleaning up pipeline resources...")
-            
-            # 메타데이터 제공자 정리
-            if hasattr(self.metadata_provider, 'close'):
-                try:
-                    await self.metadata_provider.close()
-                    logger.debug("Metadata provider closed")
-                except Exception as e:
-                    logger.warning(f"Error closing metadata provider: {e}")
-                    
-            # 파일 관리자 정리 (스캔 전용 모드에서는 None일 수 있음)
-            if self.file_manager is not None and hasattr(self.file_manager, 'close'):
-                try:
-                    await self.file_manager.close()
-                    logger.debug("File manager closed")
-                except Exception as e:
-                    logger.warning(f"Error closing file manager: {e}")
-                    
-            # 이벤트 큐 정리
-            if hasattr(self.event_queue, 'close'):
-                try:
-                    # QtEventQueue.close()는 동기 메서드이므로 await 사용하지 않음
-                    if asyncio.iscoroutinefunction(self.event_queue.close):
-                        await self.event_queue.close()
-                    else:
-                        self.event_queue.close()
-                    logger.debug("Event queue closed")
-                except Exception as e:
-                    logger.warning(f"Error closing event queue: {e}")
-                    
-            logger.info("Pipeline resources cleaned up successfully")
-            
+            return metadata
         except Exception as e:
-            logger.error(f"Error during resource cleanup: {e}")
+            self.logger.error(f"메타데이터 검색 실패: {clean_result.title} - {e}")
+            return None
             
-    async def close(self):
-        """파이프라인 종료 및 리소스 정리"""
+    def _determine_target_path(self, 
+                             source_path: Path, 
+                             clean_result: CleanResult, 
+                             metadata: Optional[Dict[str, Any]]) -> Optional[Path]:
+        """대상 경로 결정"""
         try:
-            if self._running:
-                self.cancel()
+            # 기본 정보 추출
+            title = clean_result.title
+            year = clean_result.year or metadata.get("year") if metadata else None
+            
+            # 폴더명 생성
+            folder_name = self.folder_template.format(
+                title=title,
+                year=year or "",
+                type="TV Show" if metadata and metadata.get("media_type") == "tv" else "Movie"
+            ).strip()
+            
+            # 경로에 사용할 수 없는 문자 제거
+            folder_name = self._sanitize_filename(folder_name)
+            
+            # 시즌 정보 추가 (TV 시리즈인 경우)
+            if metadata and metadata.get("media_type") == "tv" and clean_result.season > 1:
+                folder_name = f"{folder_name}/Season {clean_result.season}"
                 
-            await self._cleanup_resources()
-            logger.info("Pipeline closed successfully")
+            # 최종 대상 경로
+            target_dir = self.target_directory / folder_name
+            target_path = target_dir / source_path.name
+            
+            return target_path
             
         except Exception as e:
-            logger.error(f"Error closing pipeline: {e}")
+            self.logger.error(f"대상 경로 결정 실패: {source_path} - {e}")
+            return None
             
-    def __del__(self):
-        """소멸자에서 리소스 정리"""
+    async def _move_file(self, source_path: Path, target_path: Path) -> bool:
+        """파일 이동"""
         try:
-            if self._running:
-                logger.warning("Pipeline destroyed while running, attempting cleanup")
-                # 비동기 정리는 소멸자에서 할 수 없으므로 경고만 출력
-        except Exception:
-            pass
+            # 대상 디렉토리 생성
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 파일 이동 작업 생성
+            operation = FileOperation(
+                source=source_path,
+                target=target_path,
+                operation_type="move"
+            )
+            
+            # 파일 이동 실행
+            results = await self.file_manager.process_files_batch([operation])
+            success = results.get("completed", 0) > 0
+            
+            if success:
+                # 포스터 및 설명 파일 저장 (비동기로 실행, 결과 대기하지 않음)
+                asyncio.create_task(self._save_metadata_files(target_path.parent))
+                
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"파일 이동 실패: {source_path} -> {target_path} - {e}")
+            return False
+            
+    async def _save_metadata_files(self, target_dir: Path):
+        """메타데이터 파일 저장 (포스터, 설명 등)"""
+        try:
+            # 현재 처리 중인 파일의 메타데이터 가져오기
+            if not hasattr(self, '_current_metadata') or not self._current_metadata:
+                return
+                
+            metadata = self._current_metadata
+            
+            # 1. 포스터 저장
+            poster_path = metadata.get("poster_path")
+            if poster_path:
+                poster_url = f"https://image.tmdb.org/t/p/w342{poster_path}"
+                poster_file = target_dir / "poster.jpg"
+                
+                if not poster_file.exists():
+                    try:
+                        import aiohttp
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(poster_url, timeout=10) as response:
+                                if response.status == 200:
+                                    content = await response.read()
+                                    with open(poster_file, "wb") as f:
+                                        f.write(content)
+                                    self.logger.debug(f"포스터 저장 완료: {poster_file}")
+                                else:
+                                    self.logger.warning(f"포스터 다운로드 실패: {poster_url} ({response.status})")
+                    except Exception as e:
+                        self.logger.error(f"포스터 저장 오류: {poster_url} - {e}")
+                        
+            # 2. 설명 저장
+            overview = metadata.get("overview")
+            if overview:
+                desc_file = target_dir / "description.txt"
+                if not desc_file.exists():
+                    try:
+                        with open(desc_file, "w", encoding="utf-8") as f:
+                            f.write(overview)
+                        self.logger.debug(f"설명 저장 완료: {desc_file}")
+                    except Exception as e:
+                        self.logger.error(f"설명 저장 오류: {desc_file} - {e}")
+                        
+        except Exception as e:
+            self.logger.error(f"메타데이터 파일 저장 중 오류: {e}")
+            
+    def _set_current_metadata(self, metadata: Optional[Dict[str, Any]]):
+        """현재 처리 중인 파일의 메타데이터 설정"""
+        self._current_metadata = metadata
         
-    @property
-    def is_running(self) -> bool:
-        """파이프라인 실행 중 여부"""
-        return self._running
-        
-    @property
-    def stats(self) -> Dict[str, Any]:
-        """현재 통계"""
-        return self._stats.copy() 
+    def _sanitize_filename(self, filename: str) -> str:
+        """파일명에서 사용할 수 없는 문자 제거"""
+        import re
+        # 경로에 사용할 수 없는 문자 제거/대체
+        invalid_chars = r'[\/:*?"<>|]'
+        return re.sub(invalid_chars, '', filename) 

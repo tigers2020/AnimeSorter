@@ -364,9 +364,17 @@ class FileCleaner:
             # 동기적으로 직접 호출 (이벤트 루프 충돌 방지)
             result = anitopy.parse(filename)
             
+            # 결과가 딕셔너리가 아닌 경우 처리
+            if not isinstance(result, dict):
+                self.logger.warning(f"⚠️ [CLEANER] Anitopy returned non-dict result: {type(result)}")
+                return None
+            
             self.logger.debug(f"✅ [CLEANER] Anitopy parsing successful: {len(result) if result else 0} fields")
             return result
             
+        except ValueError as e:
+            self.logger.error(f"❌ [CLEANER] Anitopy ValueError for {filename}: {e}")
+            return None
         except Exception as e:
             self.logger.error(f"❌ [CLEANER] Anitopy parsing error for {filename}: {e}")
             return None
@@ -386,6 +394,11 @@ class FileCleaner:
             # GuessIt 결과를 딕셔너리로 변환
             result_dict = {}
             if result:
+                # result가 딕셔너리가 아닌 경우 처리
+                if not hasattr(result, 'items'):
+                    self.logger.warning(f"⚠️ [CLEANER] GuessIt returned non-dict result: {type(result)}")
+                    return {}
+                
                 for key, value in result.items():
                     if value is not None:
                         result_dict[str(key)] = value
@@ -393,6 +406,9 @@ class FileCleaner:
             self.logger.debug(f"✅ [CLEANER] GuessIt parsing successful: {len(result_dict)} fields")
             return result_dict
             
+        except ValueError as e:
+            self.logger.error(f"❌ [CLEANER] GuessIt ValueError for {filename}: {e}")
+            return {}
         except Exception as e:
             self.logger.error(f"❌ [CLEANER] GuessIt parsing error for {filename}: {e}")
             return {}

@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from enum import Enum
 from dataclasses import dataclass
 
-from src.exceptions import AnimeSorterError
+from ..exceptions import AnimeSorterError
 
 
 class Language(Enum):

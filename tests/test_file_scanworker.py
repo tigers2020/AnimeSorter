@@ -10,7 +10,7 @@ import tempfile
 import os
 from pathlib import Path
 from unittest.mock import Mock, patch
-from PyQt6.QtCore import QObject
+from PyQt5.QtCore import QObject
 import threading
 import time
 
@@ -18,8 +18,8 @@ import time
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.ui.main_window import FileScanWorker, FileScanWorkerSignals
-from src.utils.file_cleaner import FileCleaner
+from ui.main_window import FileScanWorker, FileScanWorkerSignals
+from utils.file_cleaner import FileCleaner
 
 
 class TestFileScanWorkerRegression:
@@ -71,7 +71,7 @@ class TestFileScanWorkerRegression:
         
         # FileCleaner.clean_filename_static을 mock
         with patch.object(FileCleaner, 'clean_filename_static') as mock_clean:
-            from src.utils.file_cleaner import CleanResult
+            from utils.file_cleaner import CleanResult
             mock_clean.return_value = CleanResult(
                 title="test_anime",
                 original_filename="test_file.mp4",
@@ -138,7 +138,7 @@ class TestFileScanWorkerRegression:
             with thread_lock:
                 active_threads[0] -= 1
             
-            from src.utils.file_cleaner import CleanResult
+            from utils.file_cleaner import CleanResult
             return CleanResult(
                 title="test_anime",
                 original_filename=str(file_path),
@@ -186,7 +186,7 @@ class TestFileScanWorkerRegression:
         worker.stop()
         
         with patch.object(FileCleaner, 'clean_filename_static') as mock_clean:
-            from src.utils.file_cleaner import CleanResult
+            from utils.file_cleaner import CleanResult
             mock_clean.return_value = CleanResult(
                 title="test_anime",
                 original_filename="test_file.mp4",

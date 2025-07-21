@@ -16,7 +16,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.utils.logger import get_logger
+from utils.logger import get_logger
 from exceptions import FileManagerError
 
 

@@ -10,7 +10,7 @@ from pathlib import Path
 import tmdbsimple as tmdb
 from rapidfuzz import fuzz, process
 from slugify import slugify
-from src.utils.safe_slugify import safe_slugify
+from ...utils.safe_slugify import safe_slugify
 
 import yaml
 import os
@@ -594,7 +594,7 @@ class TMDBProvider:
         
         return cache_result
     
-    async def close(self):
+    def close(self):
         """
         TMDB Provider 정리 (tmdbsimple은 별도 정리가 필요하지 않음)
         """

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import logging
 
-from src.utils.file_cleaner import CleanResult
+from .file_cleaner import CleanResult
 
 logger = logging.getLogger(__name__)
 

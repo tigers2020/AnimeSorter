@@ -12,10 +12,10 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-from src.plugin.loader import PluginLoader
-from src.plugin.base import SearchResult, ProviderConfig
-from src.config.plugin_config import PluginConfigManager
-from src.cache.cache_db import CacheDB
+from ..plugin.loader import PluginLoader
+from ..plugin.base import SearchResult, ProviderConfig
+from ..config.plugin_config import PluginConfigManager
+from ..cache.cache_db import CacheDB
 
 
 logger = logging.getLogger(__name__)
@@ -296,7 +296,7 @@ class MetadataManager:
             
             # 2차 검색: 제목 정제 후 검색
             self.logger.debug(f"🔧 [METADATA] Fallback step 2: Cleaned title search")
-            from src.utils.file_cleaner import FileCleaner
+            from ..utils.file_cleaner import FileCleaner
             clean_title = FileCleaner.clean_title(title)
             
             if clean_title != title:
@@ -478,7 +478,7 @@ class MetadataManager:
         """캐시 키 생성 (에러 처리 강화)"""
         try:
             from slugify import slugify
-        from src.utils.safe_slugify import safe_slugify
+from ..utils.safe_slugify import safe_slugify
             normalized_title = safe_slugify(title, separator='_')
             year_part = f"_{year}" if year else "_any"
             return f"{normalized_title}{year_part}"

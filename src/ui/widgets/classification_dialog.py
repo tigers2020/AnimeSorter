@@ -17,11 +17,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QIcon
 
-from src.utils.advanced_classifier import (
+from ...utils.advanced_classifier import (
     AdvancedClassifier, ClassificationStrategy, ClassificationRule,
     SmartClassifier, TagBasedClassifier, RuleBasedClassifier
 )
-from src.config.config_manager import ConfigManager
+from ...config.config_manager import ConfigManager
 
 
 class ClassificationDialog(QDialog):
@@ -587,7 +587,7 @@ class ClassificationDialog(QDialog):
             return
             
         try:
-            from src.utils.file_cleaner import FileCleaner
+            from ...utils.file_cleaner import FileCleaner
             clean_result = FileCleaner.clean_filename_static(Path(filename))
             
             result = self.classifier.classify(clean_result)

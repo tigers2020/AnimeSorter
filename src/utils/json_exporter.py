@@ -16,7 +16,7 @@ from dataclasses import dataclass, asdict, field
 from enum import Enum
 
 try:
-    from src.utils.logger import get_logger
+    from utils.logger import get_logger
 except ImportError:
     from src.utils.logger import get_logger
 
