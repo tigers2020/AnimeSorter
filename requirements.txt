@@ -1,108 +1,29 @@
-# AnimeSorter - Required and Optional Libraries
+# AnimeSorter - PyQt5 기반 애니메이션 파일 정리 도구
+# Core dependencies
+PyQt5>=5.15.0
+PyQt5-Qt5>=5.15.0
+PyQt5-sip>=12.8.0
 
-# =============================================================================
-# Core GUI Framework
-# =============================================================================
-PyQt6>=6.4.0                    # Main GUI framework
-PyQt6-Qt6>=6.4.0               # PyQt6 Qt binaries
-PyQt6-sip>=13.4.0              # PyQt6 SIP bindings
+# File processing
+pathlib2>=2.3.0
+watchdog>=2.1.0
 
-# =============================================================================
-# Metadata API and Search
-# =============================================================================
-tmdbsimple>=2.9.1              # TMDB API client (tmdbsimple library)
-rapidfuzz>=3.0.0               # Fuzzy string matching (search accuracy improvement)
-python-slugify>=8.0.0          # Filename sanitization (Korean support)
+# API and networking
+requests>=2.25.0
+urllib3>=1.26.0
+tmdbsimple>=2.2.0
 
-# =============================================================================
-# File Processing and Parsing
-# =============================================================================
-anitopy>=2.1.0                 # Anime filename parsing
-guessit>=3.7.0                 # Media filename parsing
-aiofiles>=23.0.0               # Async file I/O
+# Data processing
+python-dateutil>=2.8.0
+Pillow>=8.0.0
+psutil>=5.8.0
 
-# =============================================================================
-# Database and Caching
-# =============================================================================
-aiosqlite>=0.19.0              # Async SQLite
+# Development and testing
+pytest>=6.0.0
+pytest-qt>=3.3.0
+black>=21.0.0
+flake8>=3.8.0
 
-# =============================================================================
-# Configuration and Data Processing
-# =============================================================================
-PyYAML>=6.0                   # YAML configuration files
-python-dotenv>=1.0.0          # Environment variable management
-
-# =============================================================================
-# Async Programming
-# =============================================================================
-aiohttp>=3.8.0                # Async HTTP client
-
-# =============================================================================
-# Utilities
-# =============================================================================
-requests>=2.31.0              # HTTP requests
-
-# =============================================================================
-# Logging and Monitoring
-# =============================================================================
-colorlog>=6.7.0               # Color logging
-structlog>=23.1.0             # Structured logging
-
-# =============================================================================
-# System Monitoring
-# =============================================================================
-psutil>=5.9.0                 # System and process monitoring
-
-# =============================================================================
-# Image Processing
-# =============================================================================
-Pillow>=10.0.0                # Image processing
-
-# =============================================================================
-# Security
-# =============================================================================
-cryptography>=41.0.0          # Encryption
-keyring>=24.2.0               # Key management
-
-# =============================================================================
-# Performance Analysis
-# =============================================================================
-memory-profiler>=0.61.0       # Memory profiling
-line-profiler>=4.1.0          # Line-by-line profiling
-
-# =============================================================================
-# Testing (Development)
-# =============================================================================
-pytest>=7.4.0                 # Testing framework
-pytest-asyncio>=0.21.0        # Async testing
-pytest-cov>=4.1.0             # Code coverage
-pytest-mock>=3.11.0           # Mocking
-pytest-xdist>=3.3.0           # Parallel test execution
-pytest-benchmark>=4.0.0       # Performance benchmarking
-
-# =============================================================================
-# Code Quality (Development)
-# =============================================================================
-black>=23.7.0                 # Code formatting
-flake8>=6.0.0                 # Code linting
-mypy>=1.5.0                   # Type checking
-bandit>=1.7.5                 # Security scanning
-isort>=5.12.0                 # Import sorting
-pre-commit>=3.3.0             # Git hooks
-
-# =============================================================================
-# Build Tools (Deployment)
-# =============================================================================
-pyinstaller>=5.13.0           # Executable generation
-setuptools>=68.0.0            # Package building
-wheel>=0.41.0                 # Wheel packages
-twine>=4.0.0                  # PyPI upload
-
-# =============================================================================
-# Documentation (Development)
-# =============================================================================
-sphinx>=7.1.0                 # Documentation generation
-sphinx-rtd-theme>=1.3.0       # ReadTheDocs theme
-myst-parser>=2.0.0            # Markdown parsing
-
-# Python >= 3.8 required
+# Documentation
+Sphinx>=4.0.0
+sphinx-rtd-theme>=0.5.0
