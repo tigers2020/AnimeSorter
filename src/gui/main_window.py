@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
     QTabWidget, QTextEdit, QFrame, QMessageBox, QTreeWidget, QTreeWidgetItem,
     QApplication, QListWidget, QListWidgetItem, QScrollArea, QGridLayout, QSpinBox
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QAbstractTableModel, QModelIndex, QVariant, QSortFilterProxyModel, QThread, pyqtSignal as Signal, QDateTime
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QAbstractTableModel, QModelIndex, QVariant, QSortFilterProxyModel, QThread, QDateTime
 from PyQt5.QtGui import QIcon, QFont, QPalette, QColor, QPixmap
 
 # Local imports
@@ -77,9 +77,10 @@ class ItemsTableModel(QAbstractTableModel):
         "포스터", "제목(TMDB)", "대상 경로", "시즌", "에피소드", "년도", "해상도", "TMDB ID", "작업", "상태"
     ]
 
-    def __init__(self, items: List[ParsedItem]):
+    def __init__(self, items: List[ParsedItem], tmdb_client=None):
         super().__init__()
         self.items = items
+        self.tmdb_client = tmdb_client  # TMDB 클라이언트 직접 주입
 
     def rowCount(self, parent=QModelIndex()) -> int:
         return len(self.items)
@@ -138,25 +139,16 @@ class ItemsTableModel(QAbstractTableModel):
         
         elif role == Qt.DecorationRole:
             if col == 0:  # 포스터 컬럼에 이미지 표시
-                if item.tmdbMatch and item.tmdbMatch.poster_path:
+                if item.tmdbMatch and item.tmdbMatch.poster_path and self.tmdb_client:
                     try:
-                        # MainWindow의 TMDB 클라이언트 사용 (전역 변수로 접근)
-                        import sys
-                        main_window = None
-                        for widget in QApplication.topLevelWidgets():
-                            if hasattr(widget, 'tmdb_client'):
-                                main_window = widget
-                                break
+                        poster_path = self.tmdb_client.get_poster_path(item.tmdbMatch.poster_path, 'w92')
                         
-                        if main_window and main_window.tmdb_client:
-                            poster_path = main_window.tmdb_client.get_poster_path(item.tmdbMatch.poster_path, 'w92')
-                            
-                            if poster_path and os.path.exists(poster_path):
-                                pixmap = QPixmap(poster_path)
-                                if not pixmap.isNull():
-                                    # 60x90 크기로 스케일링 (포스터 비율 유지)
-                                    scaled_pixmap = pixmap.scaled(60, 90, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                                    return scaled_pixmap
+                        if poster_path and os.path.exists(poster_path):
+                            pixmap = QPixmap(poster_path)
+                            if not pixmap.isNull():
+                                # 60x90 크기로 스케일링 (포스터 비율 유지)
+                                scaled_pixmap = pixmap.scaled(60, 90, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                                return scaled_pixmap
                     except Exception as e:
                         print(f"포스터 로딩 오류: {e}")
                 
@@ -1929,7 +1921,7 @@ class MainWindow(QMainWindow):
         tab_widget = QTabWidget()
         
         # 테이블 뷰
-        self.model = ItemsTableModel([])  # 빈 리스트로 초기화
+        self.model = ItemsTableModel([], self.tmdb_client)  # TMDB 클라이언트 전달
         self.proxy = ItemsFilterProxy()
         self.proxy.setSourceModel(self.model)
         

@@ -704,4 +704,21 @@ filenames.txt
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# ===== GitHub에서 제거할 파일들 =====
+
+# Cursor IDE 설정
+.cursor/
+
+# Taskmaster 설정
+.taskmaster/
+
+# GitHub Actions 및 워크플로우
+.github/
+
+# Roo 설정
+.roo/
+
+# AnimeSorter 캐시
+.animesorter_cache/ 

@@ -8,6 +8,7 @@ tmdbsimple 라이브러리를 기반으로 구현되었습니다.
 import os
 import json
 import time
+import logging
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import requests
@@ -109,14 +110,19 @@ class TMDBClient:
             search_params = {
                 'query': query,
                 'language': self.language,
-                'include_adult': include_adult,
-                'sort_by': 'popularity.desc'
+                'include_adult': include_adult
             }
             
+            # 연도 필터 추가
             if year:
                 search_params['first_air_date_year'] = year
-            if first_air_date_year:
+            elif first_air_date_year:
                 search_params['first_air_date_year'] = first_air_date_year
+            else:
+                # 연도가 지정되지 않은 경우 최근 10년 범위로 검색
+                current_year = datetime.now().year
+                search_params['with_first_air_date_gte'] = f"{current_year-10}-01-01"
+                search_params['with_first_air_date_lte'] = f"{current_year}-12-31"
             
             response = search.tv(**search_params)
             
@@ -144,7 +150,7 @@ class TMDBClient:
             return anime_info_list
             
         except Exception as e:
-            print(f"TMDB 검색 오류: {e}")
+            logging.error(f"TMDB 검색 오류: {e}")
             return []
     
     def get_anime_details(self, tv_id: int, language: Optional[str] = None) -> Optional[TMDBAnimeInfo]:
@@ -187,7 +193,7 @@ class TMDBClient:
                     'watch_providers': watch_providers
                 })
             except Exception as e:
-                print(f"추가 정보 조회 실패: {e}")
+                logging.warning(f"추가 정보 조회 실패: {e}")
             
             # TMDBAnimeInfo 객체로 변환
             anime_info = self._convert_to_anime_info(response)
@@ -199,7 +205,7 @@ class TMDBClient:
             return anime_info
             
         except Exception as e:
-            print(f"TMDB 상세 정보 조회 오류: {e}")
+            logging.error(f"TMDB 상세 정보 조회 오류: {e}")
             return None
     
     def search_anime_optimized(self, query: str, language: str = 'ko-KR') -> List[TMDBAnimeInfo]:
@@ -243,7 +249,7 @@ class TMDBClient:
             return anime_info_list
             
         except Exception as e:
-            print(f"TMDB 최적화 검색 오류: {e}")
+            logging.error(f"TMDB 최적화 검색 오류: {e}")
             return []
     
     def get_anime_season(self, tv_id: int, season_number: int, language: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -266,7 +272,7 @@ class TMDBClient:
             return response
             
         except Exception as e:
-            print(f"TMDB 시즌 정보 조회 오류: {e}")
+            logging.error(f"TMDB 시즌 정보 조회 오류: {e}")
             return None
     
     def get_anime_episode(self, tv_id: int, season_number: int, episode_number: int, 
@@ -290,7 +296,7 @@ class TMDBClient:
             return response
             
         except Exception as e:
-            print(f"TMDB 에피소드 정보 조회 오류: {e}")
+            logging.error(f"TMDB 에피소드 정보 조회 오류: {e}")
             return None
     
     def _convert_to_anime_info(self, tmdb_data: Dict[str, Any]) -> Optional[TMDBAnimeInfo]:
@@ -342,7 +348,7 @@ class TMDBClient:
             return anime_info
             
         except Exception as e:
-            print(f"TMDB 데이터 변환 오류: {e}")
+            logging.error(f"TMDB 데이터 변환 오류: {e}")
             return None
     
     def _get_cache(self, key: str) -> Optional[Any]:
@@ -361,7 +367,7 @@ class TMDBClient:
                     # 만료된 캐시 삭제
                     cache_file.unlink()
         except Exception as e:
-            print(f"캐시 읽기 오류: {e}")
+            logging.warning(f"캐시 읽기 오류: {e}")
         
         return None
     
@@ -375,16 +381,16 @@ class TMDBClient:
             with open(cache_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"캐시 저장 오류: {e}")
+            logging.warning(f"캐시 저장 오류: {e}")
     
     def clear_cache(self) -> None:
         """캐시 초기화"""
         try:
             for cache_file in self.cache_dir.glob("*.json"):
                 cache_file.unlink()
-            print("캐시가 초기화되었습니다.")
+            logging.info("캐시가 초기화되었습니다.")
         except Exception as e:
-            print(f"캐시 초기화 오류: {e}")
+            logging.error(f"캐시 초기화 오류: {e}")
     
     def get_cache_info(self) -> Dict[str, Any]:
         """캐시 정보 반환"""
@@ -450,11 +456,11 @@ class TMDBClient:
             with open(cache_path, 'wb') as f:
                 f.write(response.content)
             
-            print(f"포스터 다운로드 완료: {cache_filename}")
+            logging.info(f"포스터 다운로드 완료: {cache_filename}")
             return str(cache_path)
             
         except Exception as e:
-            print(f"포스터 다운로드 실패: {e}")
+            logging.error(f"포스터 다운로드 실패: {e}")
             return None
     
     def get_poster_path(self, poster_path: str, size: str = 'w185') -> Optional[str]:

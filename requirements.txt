@@ -1,16 +1,12 @@
 # AnimeSorter - PyQt5 기반 애니메이션 파일 정리 도구
 # Core dependencies
 PyQt5>=5.15.0
-PyQt5-Qt5>=5.15.0
-PyQt5-sip>=12.8.0
 
 # File processing
-pathlib2>=2.3.0
 watchdog>=2.1.0
 
 # API and networking
 requests>=2.25.0
-urllib3>=1.26.0
 tmdbsimple>=2.2.0
 
 # Data processing
@@ -18,12 +14,6 @@ python-dateutil>=2.8.0
 Pillow>=8.0.0
 psutil>=5.8.0
 
-# Development and testing
+# Development and testing (optional)
 pytest>=6.0.0
 pytest-qt>=3.3.0
-black>=21.0.0
-flake8>=3.8.0
-
-# Documentation
-Sphinx>=4.0.0
-sphinx-rtd-theme>=0.5.0
