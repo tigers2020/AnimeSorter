@@ -702,10 +702,6 @@ anime-offline-database.json
 filenames.txt
 총 59개의 그룹(제목) 파일을 찾았습니다. (자동 정제 및 그.txt 
 
-# Task files
-# tasks.json
-# tasks/
-
 # ===== GitHub에서 제거할 파일들 =====
 
 # Cursor IDE 설정
@@ -722,3 +718,7 @@ filenames.txt
 
 # AnimeSorter 캐시
 .animesorter_cache/ 
+
+# Task files
+# tasks.json
+# tasks/ 

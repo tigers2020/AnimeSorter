@@ -40,7 +40,7 @@ class FileParser:
         """파싱 패턴 컴파일 (패턴, 타입, 신뢰도)"""
         patterns = [
             # 패턴 1: [Group] Title - Episode (추가정보).ext
-            (re.compile(r'^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*\([^)]*(\d+x\d+|\d+p)[^)]*\)', re.IGNORECASE), 
+            (re.compile(r'^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*\([^)]*(\d{3,4}x\d{3,4}|\d{3,4}p)[^)]*\)', re.IGNORECASE), 
              'group_title_episode_with_resolution', 0.9),
             
             # 패턴 2: [Group] Title - Episode (기타정보).ext
@@ -98,11 +98,14 @@ class FileParser:
         if not filename:
             return None
         
+        # 파일 경로에서 파일명만 추출
+        basename = os.path.basename(filename)
+        
         # 확장자 제거
-        name_without_ext = os.path.splitext(filename)[0]
+        name_without_ext = os.path.splitext(basename)[0]
         
         # 컨테이너 추출
-        container = os.path.splitext(filename)[1].lower()
+        container = os.path.splitext(basename)[1].lower()
         
         # 패턴 매칭 시도
         for pattern, pattern_type, base_confidence in self.patterns:
@@ -247,7 +250,7 @@ class FileParser:
             episode_match = re.search(r'(\d{1,2})', filename)
             episode = int(episode_match.group(1)) if episode_match else None
             
-            # 해상도 추출
+            # 해상도 추출 (더 정확한 패턴)
             resolution = self._extract_resolution(filename)
             
             # 제목 정리 (에피소드 번호 제거)
@@ -270,17 +273,52 @@ class FileParser:
             return None
     
     def _extract_resolution(self, text: str) -> Optional[str]:
-        """텍스트에서 해상도 추출"""
+        """텍스트에서 해상도 추출 (개선된 버전)"""
+        # 해상도 패턴들 (우선순위 순)
         resolution_patterns = [
-            r'(\d{3,4}x\d{3,4})',
-            r'(\d{3,4}p)',
-            r'(HD|SD|4K|8K)'
+            (r'(\d{3,4}x\d{3,4})', 'exact'),      # 1920x1080 형태
+            (r'(\d{3,4}p)', 'p'),                 # 720p, 1080p 형태
+            (r'(4K|2160p)', '4k'),                # 4K
+            (r'(2K|1440p)', '2k'),                # 2K
+            (r'(HD|720p)', '720p'),               # HD/720p
+            (r'(SD|480p)', '480p'),               # SD/480p
+            (r'(\d{3,4}i)', 'interlaced'),        # 인터레이스
+            (r'(\d{3,4}v)', 'vertical'),          # 수직 해상도만
         ]
         
-        for pattern in resolution_patterns:
+        for pattern, res_type in resolution_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                return match.group(1)
+                resolution = match.group(1).upper()
+                
+                # 해상도 정규화
+                if res_type == 'exact':
+                    # 1920x1080 형태를 1080p로 변환
+                    if '1920x1080' in resolution or '1080x1920' in resolution:
+                        return '1080p'
+                    elif '1280x720' in resolution or '720x1280' in resolution:
+                        return '720p'
+                    elif '854x480' in resolution or '480x854' in resolution:
+                        return '480p'
+                    else:
+                        return resolution
+                
+                elif res_type == 'p':
+                    # 080p는 1080p로 수정
+                    if resolution == '080P':
+                        return '1080p'
+                    return resolution
+                
+                elif res_type == '4k':
+                    return '4K'
+                elif res_type == '2k':
+                    return '2K'
+                elif res_type == '720p':
+                    return '720p'
+                elif res_type == '480p':
+                    return '480p'
+                else:
+                    return resolution
         
         return None
     

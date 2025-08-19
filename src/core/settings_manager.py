@@ -46,7 +46,11 @@ class AppSettings:
     table_column_widths: Optional[Dict[str, int]] = None
     last_source_directory: str = ""
     last_destination_directory: str = ""
+    last_source_files: Optional[List[str]] = None
     splitter_positions: Optional[List[int]] = None
+    
+    # 세션 관리
+    remember_last_session: bool = True
 
 
 class SettingsManager(QObject):
@@ -58,6 +62,7 @@ class SettingsManager(QObject):
         """초기화"""
         super().__init__()
         self.config_file = Path(config_file)
+        self.settings_file = str(self.config_file)  # settings_file 속성 추가
         self.settings = AppSettings()
         self.load_settings()
     
@@ -126,15 +131,20 @@ class SettingsManager(QObject):
     def update_settings(self, new_settings: Dict[str, Any]) -> bool:
         """여러 설정을 한 번에 업데이트"""
         try:
+            print(f"🔍 SettingsManager.update_settings 호출됨")
+            print(f"  받은 설정: {new_settings}")
             updated = False
             for key, value in new_settings.items():
                 if hasattr(self.settings, key):
+                    old_value = getattr(self.settings, key)
                     setattr(self.settings, key, value)
+                    print(f"  ✅ {key}: '{old_value}' -> '{value}'")
                     updated = True
                 else:
                     print(f"⚠️ 알 수 없는 설정 키: {key}")
             
             if updated:
+                print(f"  🔔 settingsChanged 시그널 발생")
                 self.settingsChanged.emit()
                 
             return updated
@@ -157,12 +167,14 @@ class SettingsManager(QObject):
         """설정 유효성 검사"""
         errors = {}
         
-        # 필수 설정 검사
+        # 경고 수준 검사 (애플리케이션 실행은 가능하지만 기능 제한)
+        warnings = {}
+        
         if not self.settings.tmdb_api_key:
-            errors['tmdb_api_key'] = "TMDB API 키가 필요합니다"
+            warnings['tmdb_api_key'] = "TMDB API 키가 설정되지 않았습니다. TMDB 검색 기능이 제한됩니다."
         
         if not self.settings.destination_root:
-            errors['destination_root'] = "대상 디렉토리를 설정해야 합니다"
+            warnings['destination_root'] = "대상 디렉토리가 설정되지 않았습니다. 파일 정리 기능이 제한됩니다."
         elif not os.path.exists(self.settings.destination_root):
             errors['destination_root'] = "대상 디렉토리가 존재하지 않습니다"
         
@@ -173,6 +185,7 @@ class SettingsManager(QObject):
         if self.settings.max_backup_count < 1:
             errors['max_backup_count'] = "최대 백업 개수는 최소 1개여야 합니다"
         
+        # 경고는 errors에 포함하지 않음 (애플리케이션 실행 가능)
         return errors
     
     def export_settings(self, export_path: str) -> bool:
@@ -216,6 +229,10 @@ class SettingsManager(QObject):
             print(f"❌ 설정 가져오기 실패: {e}")
             return False
     
+    def get_default_settings(self) -> AppSettings:
+        """기본 설정 반환"""
+        return AppSettings()
+        
     def get_settings_summary(self) -> Dict[str, Any]:
         """설정 요약 반환"""
         return {

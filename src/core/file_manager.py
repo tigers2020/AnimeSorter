@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Callable
 from dataclasses import dataclass
 from datetime import datetime
+import json
 
 
 @dataclass
@@ -23,6 +24,7 @@ class FileOperationResult:
     operation_type: str = ""  # copy, move, rename
     file_size: Optional[int] = None
     processing_time: Optional[float] = None
+    backup_path: Optional[str] = None  # 백업 파일 경로
 
 
 class FileManager:
@@ -35,11 +37,196 @@ class FileManager:
         self.naming_scheme = "standard"  # standard, minimal, detailed
         self.logger = logging.getLogger(__name__)
         
+        # 백업 시스템 설정
+        self.backup_enabled = True
+        self.backup_dir = self.destination_root / "_backup"
+        self.backup_metadata_file = self.backup_dir / "backup_metadata.json"
+        self.backup_metadata = {}
+
+        # 세션 내 생성된 대상 경로 추적 (중복 파일명 자동 조정 시 사용)
+        self._recent_destinations: set[Path] = set()
+        
         # 지원되는 비디오 확장자
         self.video_extensions = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.flv', '.webm'}
         
         # 지원되는 자막 확장자
         self.subtitle_extensions = {'.srt', '.ass', '.ssa', '.sub', '.idx', '.smi', '.vtt'}
+        
+        # 백업 디렉토리 초기화
+        self._init_backup_system()
+
+    def _get_non_conflicting_path(self, target_path: Path) -> Path:
+        """기존 파일이 있을 경우 중복되지 않는 경로를 생성"""
+        try:
+            if not target_path.exists():
+                return target_path
+            base_stem = target_path.stem
+            suffix = target_path.suffix
+            index = 1
+            while True:
+                candidate = target_path.with_name(f"{base_stem} ({index}){suffix}")
+                if not candidate.exists():
+                    return candidate
+                index += 1
+        except Exception as e:
+            self.logger.error(f"고유 경로 생성 실패: {e}")
+            return target_path
+    
+    def _init_backup_system(self):
+        """백업 시스템 초기화"""
+        try:
+            if self.backup_enabled:
+                self.backup_dir.mkdir(exist_ok=True)
+                self._load_backup_metadata()
+                self.logger.info(f"백업 시스템 초기화 완료: {self.backup_dir}")
+        except Exception as e:
+            self.logger.error(f"백업 시스템 초기화 실패: {e}")
+            self.backup_enabled = False
+    
+    def _load_backup_metadata(self):
+        """백업 메타데이터 로드"""
+        try:
+            if self.backup_metadata_file.exists():
+                with open(self.backup_metadata_file, 'r', encoding='utf-8') as f:
+                    self.backup_metadata = json.load(f)
+                self.logger.info(f"백업 메타데이터 로드 완료: {len(self.backup_metadata)}개 항목")
+        except Exception as e:
+            self.logger.error(f"백업 메타데이터 로드 실패: {e}")
+            self.backup_metadata = {}
+    
+    def _save_backup_metadata(self):
+        """백업 메타데이터 저장"""
+        try:
+            with open(self.backup_metadata_file, 'w', encoding='utf-8') as f:
+                json.dump(self.backup_metadata, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.logger.error(f"백업 메타데이터 저장 실패: {e}")
+    
+    def _create_backup(self, source_path: Path, operation_id: str) -> Optional[Path]:
+        """파일 백업 생성"""
+        if not self.backup_enabled or not self.safe_mode:
+            return None
+        
+        try:
+            # 백업 파일명 생성 (타임스탬프 포함)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_filename = f"{operation_id}_{timestamp}_{source_path.name}"
+            backup_path = self.backup_dir / backup_filename
+            
+            # 파일 복사 (메타데이터 포함)
+            shutil.copy2(source_path, backup_path)
+            
+            # 백업 메타데이터 기록 (원본 경로는 백업 시점의 경로로 저장)
+            self.backup_metadata[operation_id] = {
+                'original_source_path': str(source_path),
+                'backup_path': str(backup_path),
+                'timestamp': timestamp,
+                'file_size': source_path.stat().st_size,
+                'operation_type': 'backup',
+                'status': 'created'  # 백업 상태 추가
+            }
+            self._save_backup_metadata()
+            
+            self.logger.info(f"백업 생성 완료: {backup_path}")
+            return backup_path
+            
+        except Exception as e:
+            self.logger.error(f"백업 생성 실패: {e}")
+            return None
+    
+    def _restore_from_backup(self, operation_id: str) -> bool:
+        """백업에서 파일 복원"""
+        try:
+            if operation_id not in self.backup_metadata:
+                self.logger.warning(f"백업 메타데이터를 찾을 수 없음: {operation_id}")
+                return False
+            
+            backup_info = self.backup_metadata[operation_id]
+            backup_path = Path(backup_info['backup_path'])
+            
+            if not backup_path.exists():
+                self.logger.error(f"백업 파일이 존재하지 않음: {backup_path}")
+                return False
+            
+            # 백업 파일을 원본 위치로 복원
+            original_source_path = Path(backup_info['original_source_path'])
+            
+            # 원본 디렉토리가 존재하지 않으면 생성
+            original_source_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 백업에서 원본 위치로 복원
+            shutil.copy2(backup_path, original_source_path)
+            
+            # 백업 메타데이터에서 제거
+            del self.backup_metadata[operation_id]
+            self._save_backup_metadata()
+            
+            self.logger.info(f"백업에서 복원 완료: {original_source_path}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"백업 복원 실패: {e}")
+            return False
+    
+    def rollback_operation(self, operation_id: str) -> bool:
+        """작업 롤백"""
+        try:
+            if operation_id not in self.backup_metadata:
+                self.logger.warning(f"롤백할 작업을 찾을 수 없음: {operation_id}")
+                return False
+            
+            success = self._restore_from_backup(operation_id)
+            if success:
+                self.logger.info(f"작업 롤백 완료: {operation_id}")
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"작업 롤백 실패: {e}")
+            return False
+    
+    def get_backup_info(self) -> Dict:
+        """백업 정보 조회"""
+        return {
+            'backup_enabled': self.backup_enabled,
+            'backup_dir': str(self.backup_dir),
+            'backup_count': len(self.backup_metadata),
+            'backup_size': self._get_backup_size()
+        }
+    
+    def _get_backup_size(self) -> int:
+        """백업 디렉토리 크기 계산"""
+        try:
+            total_size = 0
+            for file_path in self.backup_dir.rglob('*'):
+                if file_path.is_file():
+                    total_size += file_path.stat().st_size
+            return total_size
+        except Exception as e:
+            self.logger.error(f"백업 크기 계산 실패: {e}")
+            return 0
+    
+    def cleanup_backups(self, max_age_days: int = 7) -> int:
+        """오래된 백업 정리"""
+        try:
+            cutoff_time = datetime.now().timestamp() - (max_age_days * 24 * 3600)
+            cleaned_count = 0
+            
+            for operation_id, backup_info in list(self.backup_metadata.items()):
+                backup_path = Path(backup_info['backup_path'])
+                if backup_path.exists():
+                    file_time = backup_path.stat().st_mtime
+                    if file_time < cutoff_time:
+                        backup_path.unlink()
+                        del self.backup_metadata[operation_id]
+                        cleaned_count += 1
+            
+            self._save_backup_metadata()
+            self.logger.info(f"백업 정리 완료: {cleaned_count}개 파일 삭제")
+            return cleaned_count
+            
+        except Exception as e:
+            self.logger.error(f"백업 정리 실패: {e}")
+            return 0
     
     def set_destination_root(self, path: str) -> bool:
         """대상 루트 디렉토리 설정"""
@@ -71,6 +258,7 @@ class FileManager:
     def organize_file(self, source_path: str, metadata: Dict, operation: str = "copy") -> FileOperationResult:
         """단일 파일 정리"""
         start_time = datetime.now()
+        operation_id = f"{operation}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
         
         try:
             source_file = Path(source_path)
@@ -81,6 +269,12 @@ class FileManager:
                     error_message="소스 파일이 존재하지 않습니다",
                     operation_type=operation
                 )
+            
+            # 파일 크기는 이동/이름변경 전 미리 계산해 둔다
+            source_file_size = source_file.stat().st_size
+            
+            # 백업 생성은 실제 이동 직전에 수행 (충돌로 실패하는 경우 백업이 남지 않도록)
+            backup_path = None
             
             # 대상 경로 생성
             destination_path = self._generate_destination_path(source_file, metadata)
@@ -96,11 +290,33 @@ class FileManager:
             destination_dir = destination_path.parent
             destination_dir.mkdir(parents=True, exist_ok=True)
             
+            # 충돌 처리 정책
+            if destination_path.exists():
+                if destination_path in self._recent_destinations:
+                    # 이번 세션에서 생성했던 경로와 충돌: 자동으로 비충돌 이름 생성
+                    destination_path = self._get_non_conflicting_path(destination_path)
+                elif self.safe_mode:
+                    # 기존 파일과 충돌: 안전 모드에서는 실패로 처리
+                    return FileOperationResult(
+                        success=False,
+                        source_path=source_path,
+                        destination_path=str(destination_path),
+                        error_message="대상 파일이 이미 존재합니다 (안전 모드)",
+                        operation_type=operation
+                    )
+            
             # 파일 작업 수행
             if operation == "copy":
                 result = self._copy_file(source_file, destination_path)
             elif operation == "move":
+                if self.safe_mode:
+                    backup_path = self._create_backup(source_file, operation_id)
                 result = self._move_file(source_file, destination_path)
+                # 이동 작업 성공 시 백업 메타데이터 업데이트
+                if result.success and backup_path and operation_id in self.backup_metadata:
+                    self.backup_metadata[operation_id]['final_destination_path'] = str(destination_path)
+                    self.backup_metadata[operation_id]['status'] = 'completed'
+                    self._save_backup_metadata()
             else:
                 return FileOperationResult(
                     success=False,
@@ -108,17 +324,32 @@ class FileManager:
                     error_message=f"지원되지 않는 작업: {operation}",
                     operation_type=operation
                 )
-            
+
+            # 작업 성공 시 이번 세션의 대상 경로로 기록
+            if result.success:
+                self._recent_destinations.add(destination_path)
+
             # 결과 정보 추가
             if result.success:
                 result.destination_path = str(destination_path)
-                result.file_size = source_file.stat().st_size
+                result.file_size = source_file_size
                 result.processing_time = (datetime.now() - start_time).total_seconds()
+                result.backup_path = str(backup_path) if backup_path else None
+            else:
+                # 작업 실패 시 백업에서 복원
+                if backup_path and operation == "move":
+                    self._restore_from_backup(operation_id)
+                    self.logger.info(f"작업 실패로 인한 백업 복원 완료: {operation_id}")
             
             return result
             
         except Exception as e:
             self.logger.error(f"파일 정리 실패: {e}")
+            # 예외 발생 시 백업에서 복원
+            if backup_path and operation == "move":
+                self._restore_from_backup(operation_id)
+                self.logger.info(f"예외 발생으로 인한 백업 복원 완료: {operation_id}")
+            
             return FileOperationResult(
                 success=False,
                 source_path=source_path,
@@ -283,7 +514,7 @@ class FileManager:
                     operation_type="move"
                 )
             
-            # 파일 이동
+            # 파일 이동 (백업은 이미 organize_file에서 생성됨)
             shutil.move(str(source), str(destination))
             
             self.logger.info(f"파일 이동 완료: {source.name} -> {destination}")

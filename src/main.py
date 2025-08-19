@@ -8,7 +8,9 @@ AnimeSorter - PyQt5 기반 애니메이션 파일 정리 도구
 
 import sys
 import os
+import logging
 from pathlib import Path
+from datetime import datetime
 
 # PyQt5 imports
 from PyQt5.QtWidgets import QApplication
@@ -17,6 +19,66 @@ from PyQt5.QtGui import QFont
 
 # Local imports
 from gui.main_window import MainWindow
+
+
+def setup_logging():
+    """로깅 시스템 설정"""
+    try:
+        # 기존 핸들러 제거 (테스트 환경에서 안정성을 위해)
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers[:]:
+            handler.close()  # 핸들러를 명시적으로 닫기
+            root_logger.removeHandler(handler)
+        
+        # 로그 디렉토리 생성
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        
+        # 로그 파일명 (날짜별)
+        log_filename = log_dir / f"animesorter_{datetime.now().strftime('%Y%m%d')}.log"
+        
+        # 로깅 설정
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(log_filename, encoding='utf-8', mode='a'),
+                logging.StreamHandler(sys.stdout)
+            ],
+            force=True  # 기존 설정을 강제로 덮어쓰기
+        )
+        
+        # 특정 모듈의 로그 레벨 조정
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('requests').setLevel(logging.WARNING)
+        
+        # 로그 메시지 기록 및 즉시 플러시
+        logging.info("로깅 시스템 초기화 완료")
+        logging.info(f"로그 파일: {log_filename}")
+        
+        # 핸들러에 즉시 플러시
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+        
+        # 로깅 시스템이 제대로 작동하는지 확인
+        test_logger = logging.getLogger("animesorter.test")
+        test_logger.info("로깅 시스템 테스트 메시지")
+        
+        # 모든 핸들러에 즉시 플러시
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+        
+        # 파일이 실제로 생성되었는지 확인
+        if not log_filename.exists():
+            # 파일이 생성되지 않았으면 다시 시도
+            logging.info("로그 파일 재생성 시도")
+            for handler in logging.getLogger().handlers:
+                handler.flush()
+        
+    except Exception as e:
+        print(f"로깅 설정 실패: {e}")
+        # 기본 로깅 설정
+        logging.basicConfig(level=logging.INFO, force=True)
 
 
 def setup_application_style():
@@ -125,6 +187,9 @@ def setup_application_style():
 
 def main():
     """메인 애플리케이션 함수"""
+    # 로깅 시스템 초기화
+    setup_logging()
+    
     # QApplication 인스턴스 생성
     app = QApplication(sys.argv)
     

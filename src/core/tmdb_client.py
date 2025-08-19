@@ -14,6 +14,7 @@ from pathlib import Path
 import requests
 import tmdbsimple as tmdb
 from dataclasses import dataclass, asdict
+from datetime import datetime
 
 
 @dataclass
