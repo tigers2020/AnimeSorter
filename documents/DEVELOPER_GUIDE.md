@@ -170,10 +170,10 @@ file_parser.py
 def parse_filename(file_path: str) -> dict:
     """
     파일명에서 메타데이터를 추출합니다.
-    
+
     Args:
         file_path (str): 파싱할 파일 경로
-        
+
     Returns:
         dict: 추출된 메타데이터
             {
@@ -182,7 +182,7 @@ def parse_filename(file_path: str) -> dict:
                 'episode': int,
                 'quality': str
             }
-            
+
     Raises:
         ValueError: 파일명 형식이 올바르지 않은 경우
     """
@@ -308,7 +308,7 @@ def _find_subtitle_files(self, video_path: str) -> List[str]:
     """비디오 파일과 연관된 자막 파일들을 찾습니다"""
     # 지원하는 자막 확장자
     subtitle_extensions = {'.srt', '.ass', '.ssa', '.sub', '.vtt', '.idx', '.smi', '.sami', '.txt'}
-    
+
     # 파일명 매칭 패턴:
     # 1. 정확히 일치: video.mkv ↔ video.srt
     # 2. 언어 코드 포함: video.mkv ↔ video.ko.srt
@@ -388,15 +388,15 @@ def _sanitize_title(self, representative):
         raw_title = representative.tmdbMatch.name
     else:
         raw_title = representative.title or "Unknown"
-    
+
     # 특수문자 제거 (알파벳, 숫자, 한글, 공백만 허용)
     safe_title = re.sub(r'[^a-zA-Z0-9가-힣\s]', '', raw_title)
     safe_title = re.sub(r'\s+', ' ', safe_title).strip()
-    
+
     # 길이 제한 (100자)
     if len(safe_title) > 100:
         safe_title = safe_title[:100].strip()
-    
+
     return safe_title or "Unknown"
 ```
 
@@ -405,18 +405,18 @@ def _sanitize_title(self, representative):
 def _resolve_target_path(self, target_base_dir, filename):
     """대상 경로 결정 및 충돌 처리"""
     target_path = os.path.join(target_base_dir, filename)
-    
+
     counter = 1
     original_target_path = target_path
     while os.path.exists(target_path):
         name, ext = os.path.splitext(original_target_path)
         target_path = f"{name} ({counter}){ext}"
         counter += 1
-        
+
         # 무한 루프 방지
         if counter > 1000:
             break
-    
+
     return target_path
 ```
 
@@ -456,17 +456,17 @@ from src.plugins.base import MetadataProvider
 
 class MyCustomProvider(MetadataProvider):
     """사용자 정의 메타데이터 제공자"""
-    
+
     def __init__(self):
         super().__init__()
         self.name = "My Custom Provider"
         self.version = "1.0.0"
-    
+
     def search(self, query: str) -> list:
         """메타데이터 검색"""
         # 구현 로직
         pass
-    
+
     def get_details(self, item_id: str) -> dict:
         """상세 정보 조회"""
         # 구현 로직
@@ -519,20 +519,20 @@ class TestFileParser:
     def setup_method(self):
         """각 테스트 메서드 실행 전 호출"""
         self.parser = FileParser()
-    
+
     def test_parse_standard_filename(self):
         """표준 파일명 파싱 테스트"""
         filename = "Attack on Titan S01E01.mkv"
         result = self.parser.parse(filename)
-        
+
         assert result['title'] == "Attack on Titan"
         assert result['season'] == 1
         assert result['episode'] == 1
-    
+
     def test_parse_invalid_filename(self):
         """잘못된 파일명 파싱 테스트"""
         filename = "invalid_filename.txt"
-        
+
         with pytest.raises(ValueError):
             self.parser.parse(filename)
 ```
@@ -547,10 +547,10 @@ def test_tmdb_client_search():
         mock_get.return_value.json.return_value = {
             'results': [{'title': 'Test Anime'}]
         }
-        
+
         client = TMDBClient("fake_api_key")
         results = client.search_anime("Test")
-        
+
         assert len(results) == 1
         assert results[0]['title'] == 'Test Anime'
 ```
@@ -571,7 +571,7 @@ def test_tmdb_client_search():
    ## [2.0.1] - 2024-12-XX
    ### Added
    - 새로운 기능 추가
-   
+
    ### Fixed
    - 버그 수정
    ```

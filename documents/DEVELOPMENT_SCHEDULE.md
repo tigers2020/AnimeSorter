@@ -365,16 +365,16 @@ def search_anime_optimized(query, language='ko-KR'):
             first_air_date_year=2020,  # 최신 작품 우선
             sort_by='popularity.desc'   # 인기도 순 정렬
         )
-        
+
         # 결과 필터링 (애니메이션 장르 우선)
         anime_results = [
             result for result in search.results
-            if any(genre_id in result.get('genre_ids', []) 
+            if any(genre_id in result.get('genre_ids', [])
                    for genre_id in [16, 10759])  # 애니메이션, 액션&어드벤처
         ]
-        
+
         return anime_results[:10]  # 상위 10개 결과만 반환
-        
+
     except Exception as e:
         logger.error(f"TMDB 검색 오류: {e}")
         return []
@@ -387,18 +387,18 @@ def get_anime_details(tv_id, language='ko-KR'):
     try:
         tv = tmdb.TV(tv_id)
         response = tv.info(language=language)
-        
+
         # 추가 정보 조회
         credits = tv.credits()
         images = tv.images()
-        
+
         return {
             'basic_info': response,
             'credits': credits,
             'images': images,
             'poster_path': f"https://image.tmdb.org/t/p/w500{response.get('poster_path', '')}"
         }
-        
+
     except Exception as e:
         logger.error(f"TMDB 상세 정보 조회 오류: {e}")
         return None
@@ -419,7 +419,7 @@ def get_anime_details(tv_id, language='ko-KR'):
 
 ---
 
-**마지막 업데이트**: 2025년 8월 16일  
-**다음 리뷰**: 2025년 8월 23일 (Week 1 완료 후)  
-**문서 버전**: 1.0  
+**마지막 업데이트**: 2025년 8월 16일
+**다음 리뷰**: 2025년 8월 23일 (Week 1 완료 후)
+**문서 버전**: 1.0
 **작성자**: 개발팀

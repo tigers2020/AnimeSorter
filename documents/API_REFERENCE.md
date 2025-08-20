@@ -30,7 +30,7 @@ class FileParser:
 def __init__(self, patterns: Optional[List[str]] = None):
     """
     FileParser 초기화
-    
+
     Args:
         patterns: 사용자 정의 파싱 패턴 리스트
     """
@@ -43,10 +43,10 @@ def __init__(self, patterns: Optional[List[str]] = None):
 def parse(self, filename: str) -> Dict[str, Any]:
     """
     파일명에서 메타데이터를 추출합니다.
-    
+
     Args:
         filename: 파싱할 파일명
-        
+
     Returns:
         추출된 메타데이터 딕셔너리
         {
@@ -60,7 +60,7 @@ def parse(self, filename: str) -> Dict[str, Any]:
             'year': int,            # 제작년도
             'original_filename': str # 원본 파일명
         }
-        
+
     Raises:
         ValueError: 파일명 형식이 올바르지 않은 경우
         FileNotFoundError: 파일이 존재하지 않는 경우
@@ -82,10 +82,10 @@ print(metadata['quality'])  # "1080p"
 def extract_title(self, filename: str) -> str:
     """
     파일명에서 제목을 추출합니다.
-    
+
     Args:
         filename: 파일명
-        
+
     Returns:
         추출된 제목
     """
@@ -96,10 +96,10 @@ def extract_title(self, filename: str) -> str:
 def extract_episode_info(self, filename: str) -> Tuple[int, int]:
     """
     파일명에서 시즌과 에피소드 정보를 추출합니다.
-    
+
     Args:
         filename: 파일명
-        
+
     Returns:
         (시즌 번호, 에피소드 번호) 튜플
     """
@@ -120,7 +120,7 @@ class TMDBClient:
 def __init__(self, api_key: str, language: str = 'ko-KR'):
     """
     TMDBClient 초기화
-    
+
     Args:
         api_key: TMDB API 키
         language: 검색 언어 (기본값: 'ko-KR')
@@ -134,11 +134,11 @@ def __init__(self, api_key: str, language: str = 'ko-KR'):
 def search_anime(self, query: str, page: int = 1) -> List[Dict[str, Any]]:
     """
     TMDB에서 애니메이션을 검색합니다.
-    
+
     Args:
         query: 검색어
         page: 페이지 번호 (기본값: 1)
-        
+
     Returns:
         검색 결과 리스트
         [
@@ -155,7 +155,7 @@ def search_anime(self, query: str, page: int = 1) -> List[Dict[str, Any]]:
             },
             ...
         ]
-        
+
     Raises:
         requests.RequestException: API 요청 실패
         ValueError: 잘못된 검색어
@@ -175,10 +175,10 @@ for result in results:
 def get_details(self, tmdb_id: int) -> Dict[str, Any]:
     """
     TMDB ID로 상세 정보를 조회합니다.
-    
+
     Args:
         tmdb_id: TMDB ID
-        
+
     Returns:
         상세 정보 딕셔너리
     """
@@ -189,11 +189,11 @@ def get_details(self, tmdb_id: int) -> Dict[str, Any]:
 def get_episodes(self, tmdb_id: int, season_number: int) -> List[Dict[str, Any]]:
     """
     특정 시즌의 에피소드 목록을 조회합니다.
-    
+
     Args:
         tmdb_id: TMDB ID
         season_number: 시즌 번호
-        
+
     Returns:
         에피소드 목록
     """
@@ -214,7 +214,7 @@ class FileManager:
 def __init__(self, destination_root: str = "", safe_mode: bool = True):
     """
     FileManager 초기화
-    
+
     Args:
         destination_root: 대상 폴더 경로
         safe_mode: 안전 모드 활성화 여부
@@ -225,19 +225,19 @@ def __init__(self, destination_root: str = "", safe_mode: bool = True):
 
 ##### organize_file
 ```python
-def organize_file(self, source_path: str, metadata: Dict[str, Any], 
+def organize_file(self, source_path: str, metadata: Dict[str, Any],
                  operation: str = 'move') -> str:
     """
     파일을 정리합니다.
-    
+
     Args:
         source_path: 원본 파일 경로
         metadata: 메타데이터
         operation: 작업 유형 ('move', 'copy', 'hardlink')
-        
+
     Returns:
         정리된 파일의 새 경로
-        
+
     Raises:
         FileNotFoundError: 원본 파일이 존재하지 않는 경우
         PermissionError: 권한 부족
@@ -264,10 +264,10 @@ new_path = manager.organize_file(
 def create_directory_structure(self, metadata: Dict[str, Any]) -> str:
     """
     메타데이터를 기반으로 디렉토리 구조를 생성합니다.
-    
+
     Args:
         metadata: 메타데이터
-        
+
     Returns:
         생성된 디렉토리 경로
     """
@@ -278,11 +278,11 @@ def create_directory_structure(self, metadata: Dict[str, Any]) -> str:
 def rename_file(self, old_path: str, new_name: str) -> str:
     """
     파일명을 변경합니다.
-    
+
     Args:
         old_path: 원본 파일 경로
         new_name: 새 파일명
-        
+
     Returns:
         변경된 파일의 새 경로
     """
@@ -375,10 +375,10 @@ class MetadataProvider(ABC):
 def search(self, query: str) -> List[Dict[str, Any]]:
     """
     메타데이터를 검색합니다.
-    
+
     Args:
         query: 검색어
-        
+
     Returns:
         검색 결과 리스트
     """
@@ -390,10 +390,10 @@ def search(self, query: str) -> List[Dict[str, Any]]:
 def get_details(self, item_id: str) -> Dict[str, Any]:
     """
     상세 정보를 조회합니다.
-    
+
     Args:
         item_id: 아이템 ID
-        
+
     Returns:
         상세 정보 딕셔너리
     """
@@ -406,18 +406,18 @@ from src.plugins.base import MetadataProvider
 
 class MyAnimeListProvider(MetadataProvider):
     """MyAnimeList 메타데이터 제공자"""
-    
+
     def __init__(self):
         super().__init__()
         self.name = "MyAnimeList"
         self.version = "1.0.0"
         self.api_url = "https://api.myanimelist.net/v2"
-    
+
     def search(self, query: str) -> List[Dict[str, Any]]:
         """MyAnimeList에서 검색"""
         # 구현 로직
         pass
-    
+
     def get_details(self, item_id: str) -> Dict[str, Any]:
         """상세 정보 조회"""
         # 구현 로직
@@ -529,11 +529,11 @@ class SettingsManager:
 def get_setting(self, key: str, default: Any = None) -> Any:
     """
     설정값을 조회합니다.
-    
+
     Args:
         key: 설정 키
         default: 기본값
-        
+
     Returns:
         설정값
     """
@@ -544,7 +544,7 @@ def get_setting(self, key: str, default: Any = None) -> Any:
 def set_setting(self, key: str, value: Any) -> None:
     """
     설정값을 저장합니다.
-    
+
     Args:
         key: 설정 키
         value: 설정값
@@ -571,26 +571,26 @@ DEFAULT_SETTINGS = {
     'tmdb_api_key': '',
     'tmdb_language': 'ko-KR',
     'tmdb_search_results': 10,
-    
+
     # 파일 정리 설정
     'destination_root': '',
     'organize_mode': 'move',  # 'move', 'copy', 'hardlink'
     'naming_scheme': 'standard',  # 'standard', 'minimal', 'detailed'
-    
+
     # 파싱 설정
     'file_extensions': ['.mp4', '.mkv', '.avi', '.mov'],
     'auto_detect_season': True,
-    
+
     # 안전 모드 설정
     'safe_mode': True,
     'backup_location': '',
     'backup_retention_days': 30,
-    
+
     # GUI 설정
     'remember_session': True,
     'window_geometry': '',
     'splitter_sizes': [],
-    
+
     # 고급 설정
     'log_level': 'INFO',
     'cache_enabled': True,
@@ -663,6 +663,6 @@ settings.save_settings()
 
 ---
 
-**버전**: 2.0.0  
-**최종 업데이트**: 2024년 12월  
+**버전**: 2.0.0
+**최종 업데이트**: 2024년 12월
 **라이선스**: MIT License

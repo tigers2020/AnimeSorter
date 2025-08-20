@@ -133,4 +133,4 @@ AnimeSorter/
 
 - [The Movie Database (TMDB)](https://www.themoviedb.org/) - 메타데이터 제공
 - [PyQt5](https://www.riverbankcomputing.com/software/pyqt/) - GUI 프레임워크
-- [tmdbsimple](https://github.com/celiao/tmdbsimple) - TMDB API 클라이언트 
+- [tmdbsimple](https://github.com/celiao/tmdbsimple) - TMDB API 클라이언트

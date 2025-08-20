@@ -42,7 +42,7 @@ AnimeSorter는 애니메이션 파일을 자동으로 정리하고 메타데이�
    # Windows
    python -m venv venv
    venv\Scripts\activate
-   
+
    # macOS/Linux
    python3 -m venv venv
    source venv/bin/activate
@@ -330,6 +330,6 @@ A: 설정 파일은 자동으로 저장되며, 수동으로 백업할 수도 있
 
 ---
 
-**버전**: 2.0.0  
-**최종 업데이트**: 2024년 12월  
+**버전**: 2.0.0
+**최종 업데이트**: 2024년 12월
 **라이선스**: MIT License

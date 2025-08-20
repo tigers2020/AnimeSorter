@@ -9,28 +9,20 @@ from .file_commands import (
     ChooseFilesCommand,
     ChooseFolderCommand,
     StartScanCommand,
-    StopScanCommand
+    StopScanCommand,
 )
-from .tmdb_commands import (
-    StartTMDBSearchCommand,
-    SelectTMDBAnimeCommand,
-    SkipTMDBGroupCommand
-)
-from .organize_commands import (
-    StartOrganizeCommand,
-    CancelOrganizeCommand
-)
+from .organize_commands import CancelOrganizeCommand, StartOrganizeCommand
+from .tmdb_commands import SelectTMDBAnimeCommand, SkipTMDBGroupCommand, StartTMDBSearchCommand
 
 __all__ = [
-    'BaseCommand',
-    'ChooseFilesCommand',
-    'ChooseFolderCommand', 
-    'StartScanCommand',
-    'StopScanCommand',
-    'StartTMDBSearchCommand',
-    'SelectTMDBAnimeCommand',
-    'SkipTMDBGroupCommand',
-    'StartOrganizeCommand',
-    'CancelOrganizeCommand'
+    "BaseCommand",
+    "ChooseFilesCommand",
+    "ChooseFolderCommand",
+    "StartScanCommand",
+    "StopScanCommand",
+    "StartTMDBSearchCommand",
+    "SelectTMDBAnimeCommand",
+    "SkipTMDBGroupCommand",
+    "StartOrganizeCommand",
+    "CancelOrganizeCommand",
 ]
-

@@ -3,59 +3,62 @@
 
 파일 목록과 그룹화된 데이터를 관리하는 뷰모델
 """
-from typing import Dict, Any, Optional, List, Set
-from PyQt5.QtCore import QObject, pyqtSignal, pyqtProperty
-from dataclasses import dataclass
 
-from src.gui.interfaces.i_view_model import IViewModel
-from src.gui.interfaces.i_event_bus import IEventBus
-from src.gui.managers.anime_data_manager import ParsedItem
+from dataclasses import dataclass
+from typing import Any
+
+from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
+
 from src.core.tmdb_client import TMDBAnimeInfo
+from src.gui.interfaces.i_event_bus import IEventBus
+from src.gui.interfaces.i_view_model import IViewModel
+from src.gui.managers.anime_data_manager import ParsedItem
 
 
 @dataclass
 class GroupInfo:
     """그룹 정보"""
+
     key: str
     title: str
-    season: Optional[int]
+    season: int | None
     episode_count: int
     total_size: int
-    tmdb_match: Optional[TMDBAnimeInfo] = None
+    tmdb_match: TMDBAnimeInfo | None = None
     final_path: str = ""
 
 
 class FileListViewModel(QObject, IViewModel):
     """파일 리스트 뷰모델"""
-    
+
     # 시그널 정의
     data_changed = pyqtSignal()  # 데이터 변경
     selection_changed = pyqtSignal()  # 선택 변경
     group_updated = pyqtSignal(str)  # 그룹 업데이트 (그룹 키)
-    
+
     def __init__(self, event_bus: IEventBus, parent=None):
         super().__init__(parent)
         self.event_bus = event_bus
-        
+
         # 데이터
-        self._parsed_items: List[ParsedItem] = []
-        self._grouped_items: Dict[str, List[ParsedItem]] = {}
-        self._group_info: Dict[str, GroupInfo] = {}
-        self._selected_items: Set[str] = set()
-        self._tmdb_matches: Dict[str, TMDBAnimeInfo] = {}
-        
+        self._parsed_items: list[ParsedItem] = []
+        self._grouped_items: dict[str, list[ParsedItem]] = {}
+        self._group_info: dict[str, GroupInfo] = {}
+        self._selected_items: set[str] = set()
+        self._tmdb_matches: dict[str, TMDBAnimeInfo] = {}
+
         # 필터링
         self._filter_text: str = ""
-        self._filter_season: Optional[int] = None
+        self._filter_season: int | None = None
         self._show_only_selected: bool = False
-        
+
         # 정렬
         self._sort_by: str = "title"
         self._sort_ascending: bool = True
-        
+
         # 이벤트 버스 연결
         self._connect_event_bus()
-        
+
     def initialize(self) -> bool:
         """뷰모델 초기화"""
         try:
@@ -64,7 +67,7 @@ class FileListViewModel(QObject, IViewModel):
         except Exception as e:
             print(f"❌ FileListViewModel 초기화 실패: {e}")
             return False
-    
+
     def cleanup(self):
         """뷰모델 정리"""
         try:
@@ -73,7 +76,7 @@ class FileListViewModel(QObject, IViewModel):
             print("🧹 FileListViewModel 정리 완료")
         except Exception as e:
             print(f"❌ FileListViewModel 정리 실패: {e}")
-    
+
     def _connect_event_bus(self):
         """이벤트 버스 연결"""
         if self.event_bus:
@@ -82,7 +85,7 @@ class FileListViewModel(QObject, IViewModel):
             self.event_bus.subscribe("grouped_items_updated", self._on_grouped_items_updated)
             self.event_bus.subscribe("tmdb_matches_updated", self._on_tmdb_matches_updated)
             self.event_bus.subscribe("selected_items_updated", self._on_selected_items_updated)
-    
+
     def _disconnect_event_bus(self):
         """이벤트 버스 연결 해제"""
         if self.event_bus:
@@ -90,45 +93,45 @@ class FileListViewModel(QObject, IViewModel):
             self.event_bus.unsubscribe("grouped_items_updated", self._on_grouped_items_updated)
             self.event_bus.unsubscribe("tmdb_matches_updated", self._on_tmdb_matches_updated)
             self.event_bus.unsubscribe("selected_items_updated", self._on_selected_items_updated)
-    
+
     # === 이벤트 핸들러 ===
-    
-    def _on_parsed_items_updated(self, items: List[ParsedItem]):
+
+    def _on_parsed_items_updated(self, items: list[ParsedItem]):
         """파싱된 아이템 업데이트"""
         self._parsed_items = items
         self._update_group_info()
         self.data_changed.emit()
-    
-    def _on_grouped_items_updated(self, grouped: Dict[str, List[ParsedItem]]):
+
+    def _on_grouped_items_updated(self, grouped: dict[str, list[ParsedItem]]):
         """그룹화된 아이템 업데이트"""
         self._grouped_items = grouped
         self._update_group_info()
         self.data_changed.emit()
-    
-    def _on_tmdb_matches_updated(self, matches: Dict[str, TMDBAnimeInfo]):
+
+    def _on_tmdb_matches_updated(self, matches: dict[str, TMDBAnimeInfo]):
         """TMDB 매치 업데이트"""
         self._tmdb_matches = matches
         self._update_group_info()
         self.data_changed.emit()
-    
-    def _on_selected_items_updated(self, selected: Set[str]):
+
+    def _on_selected_items_updated(self, selected: set[str]):
         """선택된 아이템 업데이트"""
         self._selected_items = selected
         self.selection_changed.emit()
-    
+
     # === 데이터 관리 ===
-    
+
     def _update_group_info(self):
         """그룹 정보 업데이트"""
         self._group_info.clear()
-        
+
         for group_key, items in self._grouped_items.items():
             if not items:
                 continue
-            
+
             # 첫 번째 아이템에서 기본 정보 추출
             first_item = items[0]
-            
+
             # 그룹 정보 생성
             group_info = GroupInfo(
                 key=group_key,
@@ -136,97 +139,98 @@ class FileListViewModel(QObject, IViewModel):
                 season=first_item.season,
                 episode_count=len(items),
                 total_size=sum(item.file_size for item in items if item.file_size),
-                tmdb_match=self._tmdb_matches.get(group_key)
+                tmdb_match=self._tmdb_matches.get(group_key),
             )
-            
+
             # 최종 경로 계산
             group_info.final_path = self._calculate_final_path(group_info)
-            
+
             self._group_info[group_key] = group_info
-    
+
     def _calculate_final_path(self, group_info: GroupInfo) -> str:
         """최종 경로 계산"""
         try:
             # TMDB 매치가 있으면 한글 제목 사용, 없으면 파싱된 제목 사용
             title = group_info.tmdb_match.name if group_info.tmdb_match else group_info.title
-            
+
             # 제목 정제 (특수문자 제거, 공백 정규화)
             sanitized_title = self._sanitize_title(title)
-            
+
             # 시즌 정보 추가
             if group_info.season:
                 season_str = f"Season{group_info.season:02d}"
                 return f"{sanitized_title}/{season_str}"
-            else:
-                return sanitized_title
-                
+            return sanitized_title
+
         except Exception as e:
             print(f"❌ 최종 경로 계산 실패: {e}")
             return group_info.title
-    
+
     def _sanitize_title(self, title: str) -> str:
         """제목 정제 (특수문자 제거, 공백 정규화)"""
         import re
-        
+
         # 특수문자 제거 (한글, 영문, 숫자, 공백만 허용)
-        sanitized = re.sub(r'[^\w\s가-힣]', '', title)
-        
+        sanitized = re.sub(r"[^\w\s가-힣]", "", title)
+
         # 연속된 공백을 하나로 정규화
-        sanitized = re.sub(r'\s+', ' ', sanitized)
-        
+        sanitized = re.sub(r"\s+", " ", sanitized)
+
         # 앞뒤 공백 제거
         sanitized = sanitized.strip()
-        
+
         return sanitized
-    
+
     # === 필터링 ===
-    
+
     def set_filter_text(self, text: str):
         """필터 텍스트 설정"""
         self._filter_text = text.lower()
         self.data_changed.emit()
-    
-    def set_filter_season(self, season: Optional[int]):
+
+    def set_filter_season(self, season: int | None):
         """시즌 필터 설정"""
         self._filter_season = season
         self.data_changed.emit()
-    
+
     def set_show_only_selected(self, show: bool):
         """선택된 항목만 표시 설정"""
         self._show_only_selected = show
         self.data_changed.emit()
-    
-    def get_filtered_groups(self) -> List[GroupInfo]:
+
+    def get_filtered_groups(self) -> list[GroupInfo]:
         """필터링된 그룹 목록 반환"""
         filtered_groups = []
-        
+
         for group_info in self._group_info.values():
             # 텍스트 필터
             if self._filter_text:
-                if (self._filter_text not in group_info.title.lower() and
-                    (group_info.tmdb_match and self._filter_text not in group_info.tmdb_match.name.lower())):
+                if self._filter_text not in group_info.title.lower() and (
+                    group_info.tmdb_match
+                    and self._filter_text not in group_info.tmdb_match.name.lower()
+                ):
                     continue
-            
+
             # 시즌 필터
             if self._filter_season is not None and group_info.season != self._filter_season:
                 continue
-            
+
             # 선택된 항목만 표시
             if self._show_only_selected:
                 if group_info.key not in self._selected_items:
                     continue
-            
+
             filtered_groups.append(group_info)
-        
+
         # 정렬
         self._sort_groups(filtered_groups)
-        
+
         return filtered_groups
-    
-    def _sort_groups(self, groups: List[GroupInfo]):
+
+    def _sort_groups(self, groups: list[GroupInfo]):
         """그룹 정렬"""
         reverse = not self._sort_ascending
-        
+
         if self._sort_by == "title":
             groups.sort(key=lambda g: g.title.lower(), reverse=reverse)
         elif self._sort_by == "season":
@@ -237,75 +241,75 @@ class FileListViewModel(QObject, IViewModel):
             groups.sort(key=lambda g: g.total_size, reverse=reverse)
         elif self._sort_by == "final_path":
             groups.sort(key=lambda g: g.final_path.lower(), reverse=reverse)
-    
+
     # === 선택 관리 ===
-    
+
     def select_group(self, group_key: str):
         """그룹 선택"""
         self._selected_items.add(group_key)
         self.selection_changed.emit()
-    
+
     def deselect_group(self, group_key: str):
         """그룹 선택 해제"""
         self._selected_items.discard(group_key)
         self.selection_changed.emit()
-    
+
     def select_all_groups(self):
         """모든 그룹 선택"""
         self._selected_items.update(self._group_info.keys())
         self.selection_changed.emit()
-    
+
     def deselect_all_groups(self):
         """모든 그룹 선택 해제"""
         self._selected_items.clear()
         self.selection_changed.emit()
-    
+
     def toggle_group_selection(self, group_key: str):
         """그룹 선택 토글"""
         if group_key in self._selected_items:
             self.deselect_group(group_key)
         else:
             self.select_group(group_key)
-    
+
     # === 프로퍼티 (PyQt 바인딩용) ===
-    
+
     @pyqtProperty(int, notify=data_changed)
     def total_groups(self) -> int:
         """전체 그룹 수"""
         return len(self._group_info)
-    
+
     @pyqtProperty(int, notify=data_changed)
     def filtered_groups_count(self) -> int:
         """필터링된 그룹 수"""
         return len(self.get_filtered_groups())
-    
+
     @pyqtProperty(int, notify=selection_changed)
     def selected_groups_count(self) -> int:
         """선택된 그룹 수"""
         return len(self._selected_items)
-    
+
     @pyqtProperty(bool, notify=selection_changed)
     def has_selected_groups(self) -> bool:
         """선택된 그룹이 있는지 확인"""
         return len(self._selected_items) > 0
-    
+
     @pyqtProperty(bool, notify=data_changed)
     def has_groups(self) -> bool:
         """그룹이 있는지 확인"""
         return len(self._group_info) > 0
-    
+
     @pyqtProperty(str, notify=data_changed)
     def filter_text(self) -> str:
         """필터 텍스트"""
         return self._filter_text
-    
+
     @pyqtProperty(bool, notify=data_changed)
     def show_only_selected(self) -> bool:
         """선택된 항목만 표시 여부"""
         return self._show_only_selected
-    
+
     # === IViewModel 인터페이스 구현 ===
-    
+
     def set_property(self, name: str, value: Any, validate: bool = True) -> bool:
         """프로퍼티 설정"""
         try:
@@ -316,7 +320,7 @@ class FileListViewModel(QObject, IViewModel):
         except Exception as e:
             print(f"❌ 프로퍼티 설정 실패: {name} = {value} - {e}")
             return False
-    
+
     def get_property(self, name: str) -> Any:
         """프로퍼티 가져오기"""
         try:
@@ -326,56 +330,56 @@ class FileListViewModel(QObject, IViewModel):
         except Exception as e:
             print(f"❌ 프로퍼티 가져오기 실패: {name} - {e}")
             return None
-    
-    def get_all_properties(self) -> Dict[str, Any]:
+
+    def get_all_properties(self) -> dict[str, Any]:
         """모든 프로퍼티 가져오기"""
         properties = {}
         for attr_name in dir(self):
-            if attr_name.startswith('_') and not attr_name.startswith('__'):
+            if attr_name.startswith("_") and not attr_name.startswith("__"):
                 prop_name = attr_name[1:]  # 언더스코어 제거
                 properties[prop_name] = getattr(self, attr_name)
         return properties
-    
+
     # === 공개 메서드 ===
-    
-    def get_group_info(self, group_key: str) -> Optional[GroupInfo]:
+
+    def get_group_info(self, group_key: str) -> GroupInfo | None:
         """그룹 정보 가져오기"""
         return self._group_info.get(group_key)
-    
-    def get_group_items(self, group_key: str) -> List[ParsedItem]:
+
+    def get_group_items(self, group_key: str) -> list[ParsedItem]:
         """그룹의 아이템 목록 가져오기"""
         return self._grouped_items.get(group_key, [])
-    
-    def get_selected_groups(self) -> List[str]:
+
+    def get_selected_groups(self) -> list[str]:
         """선택된 그룹 목록 반환"""
         return list(self._selected_items)
-    
-    def get_selected_items(self) -> List[ParsedItem]:
+
+    def get_selected_items(self) -> list[ParsedItem]:
         """선택된 그룹의 모든 아이템 반환"""
         selected_items = []
         for group_key in self._selected_items:
             selected_items.extend(self._grouped_items.get(group_key, []))
         return selected_items
-    
+
     def is_group_selected(self, group_key: str) -> bool:
         """그룹이 선택되었는지 확인"""
         return group_key in self._selected_items
-    
-    def get_tmdb_match(self, group_key: str) -> Optional[TMDBAnimeInfo]:
+
+    def get_tmdb_match(self, group_key: str) -> TMDBAnimeInfo | None:
         """그룹의 TMDB 매치 가져오기"""
         return self._tmdb_matches.get(group_key)
-    
+
     def set_sort_by(self, sort_by: str, ascending: bool = True):
         """정렬 설정"""
         self._sort_by = sort_by
         self._sort_ascending = ascending
         self.data_changed.emit()
-    
+
     def refresh_data(self):
         """데이터 새로고침"""
         self._update_group_info()
         self.data_changed.emit()
-    
+
     def clear_data(self):
         """데이터 초기화"""
         self._parsed_items.clear()

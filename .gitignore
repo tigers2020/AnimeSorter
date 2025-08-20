@@ -114,7 +114,7 @@ Thumbs.db
 # Windows
 Thumbs.db
 ehthumbs.db
-Desktop.ini 
+Desktop.ini
 
 logs
 npm-debug.log*
@@ -143,7 +143,7 @@ api_response/
 tmdb_exports/
 
 # Cleaning results and temp data
-cleaning_results_*.json 
+cleaning_results_*.json
 
 # ===== AnimeSorter 특화 제외 파일들 =====
 
@@ -700,7 +700,7 @@ setup_exe_config.py
 demo_input_validation.py
 anime-offline-database.json
 filenames.txt
-총 59개의 그룹(제목) 파일을 찾았습니다. (자동 정제 및 그.txt 
+총 59개의 그룹(제목) 파일을 찾았습니다. (자동 정제 및 그.txt
 
 # ===== GitHub에서 제거할 파일들 =====
 
@@ -717,8 +717,8 @@ filenames.txt
 .roo/
 
 # AnimeSorter 캐시
-.animesorter_cache/ 
+.animesorter_cache/
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/

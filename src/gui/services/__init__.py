@@ -8,8 +8,4 @@ from .file_service import FileService
 from .metadata_service import MetadataService
 from .state_service import StateService
 
-__all__ = [
-    'FileService',
-    'MetadataService',
-    'StateService'
-]
+__all__ = ["FileService", "MetadataService", "StateService"]
