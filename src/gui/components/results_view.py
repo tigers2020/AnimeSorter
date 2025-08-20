@@ -5,7 +5,7 @@
 
 from PyQt5.QtWidgets import (
     QTabWidget, QTableView, QTreeWidget, QHeaderView, QWidget, QVBoxLayout,
-    QHBoxLayout, QLabel, QPushButton, QSplitter, QFrame
+    QHBoxLayout, QLabel, QPushButton, QSplitter, QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
@@ -17,8 +17,6 @@ class ResultsView(QTabWidget):
     # 시그널 정의
     group_selected = pyqtSignal(dict)  # 그룹 정보
     group_double_clicked = pyqtSignal(dict)  # 그룹 더블클릭
-    bulk_action_requested = pyqtSignal()
-    smart_filter_requested = pyqtSignal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -35,6 +33,7 @@ class ResultsView(QTabWidget):
         self.group_table.setSelectionBehavior(QTableView.SelectRows)
         self.group_table.setAlternatingRowColors(True)
         self.group_table.setWordWrap(True)
+        self.group_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # 상세 파일 목록 (그룹 선택 시 표시)
         self.detail_table = QTableView()
@@ -42,14 +41,18 @@ class ResultsView(QTabWidget):
         self.detail_table.setSelectionBehavior(QTableView.SelectRows)
         self.detail_table.setAlternatingRowColors(True)
         self.detail_table.setWordWrap(True)
+        self.detail_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # 스플리터로 분할
         self.splitter = QSplitter(Qt.Vertical)
+        self.splitter.setChildrenCollapsible(False)  # 패널이 완전히 접히지 않도록
+        self.splitter.setHandleWidth(6)  # 핸들 너비 설정
         
         # 상단: 그룹 리스트
         group_widget = QWidget()
         group_layout = QVBoxLayout(group_widget)
         group_layout.setContentsMargins(0, 0, 0, 0)
+        group_layout.setSpacing(5)
         
         group_label = QLabel("📋 애니메이션 그룹")
         group_font = QFont()
@@ -63,22 +66,30 @@ class ResultsView(QTabWidget):
         detail_widget = QWidget()
         detail_layout = QVBoxLayout(detail_widget)
         detail_layout.setContentsMargins(0, 0, 0, 0)
+        detail_layout.setSpacing(5)
         
         detail_label = QLabel("📁 선택된 그룹의 파일들")
         detail_font = QFont()
         detail_font.setPointSize(12)
         detail_font.setBold(True)
-        detail_label.setFont(group_font)
+        detail_label.setFont(detail_font)
         detail_layout.addWidget(detail_label)
         detail_layout.addWidget(self.detail_table)
         
         # 스플리터에 추가
         self.splitter.addWidget(group_widget)
         self.splitter.addWidget(detail_widget)
-        self.splitter.setSizes([400, 300])
+        
+        # 스플리터 비율 설정 (반응형)
+        self.splitter.setSizes([400, 300])  # 초기 비율
+        self.splitter.setStretchFactor(0, 2)  # 그룹 리스트가 더 큰 비율
+        self.splitter.setStretchFactor(1, 1)  # 상세 목록은 작은 비율
         
         # 탭 추가 (그룹 리스트만 사용)
         self.addTab(self.splitter, "📋 그룹별 보기")
+        
+        # 크기 정책 설정
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
     def setup_connections(self):
         """시그널 연결 설정"""
@@ -102,18 +113,6 @@ class ResultsView(QTabWidget):
         layout.addWidget(title_label)
         layout.addStretch(1)
         
-        # 스마트 필터 및 벌크 액션 버튼
-        self.btnSmartFilter = QPushButton("🧠 스마트 필터")
-        self.btnSmartFilter.setStyleSheet(self.get_button_style("#9b59b6"))
-        self.btnSmartFilter.clicked.connect(self.smart_filter_requested.emit)
-        
-        self.btnBulk = QPushButton("📦 일괄 작업...")
-        self.btnBulk.setStyleSheet(self.get_button_style("#e67e22"))
-        self.btnBulk.clicked.connect(self.bulk_action_requested.emit)
-        
-        layout.addWidget(self.btnSmartFilter)
-        layout.addWidget(self.btnBulk)
-        
         # 헤더를 탭 위젯 위에 추가
         self.setCornerWidget(header_widget, Qt.TopLeftCorner)
         
@@ -121,15 +120,18 @@ class ResultsView(QTabWidget):
         """그룹 리스트 모델 설정"""
         self.group_table.setModel(model)
         
-        # 포스터 컬럼 너비 고정 (이미지 표시용)
-        self.group_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
-        self.group_table.setColumnWidth(0, 120)  # 포스터 컬럼 너비 증가
-        
-        # 나머지 컬럼은 자동 크기 조정
-        for i in range(1, model.columnCount()):
-            self.group_table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
-        
-        self.group_table.horizontalHeader().setStretchLastSection(True)
+        # 모델에서 컬럼 정보를 가져와서 설정
+        if hasattr(model, 'get_column_widths'):
+            self.adjust_group_table_columns(model)
+        else:
+            # 기본 설정 (기존 코드)
+            self.group_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+            self.group_table.setColumnWidth(0, 120)
+            
+            for i in range(1, model.columnCount()):
+                self.group_table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
+            
+            self.group_table.horizontalHeader().setStretchLastSection(True)
         
         # 모델 설정 후 시그널 연결
         self.setup_connections()
@@ -138,15 +140,46 @@ class ResultsView(QTabWidget):
         """상세 파일 목록 모델 설정"""
         self.detail_table.setModel(model)
         
-        # 포스터 컬럼 너비 고정
-        self.detail_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
-        self.detail_table.setColumnWidth(0, 120)  # 포스터 컬럼 너비 증가
+        # 모델에서 컬럼 정보를 가져와서 설정
+        if hasattr(model, 'get_column_widths'):
+            self.adjust_detail_table_columns(model)
+        else:
+            # 기본 설정 (기존 코드)
+            self.detail_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+            self.detail_table.setColumnWidth(0, 120)
+            
+            for i in range(1, model.columnCount()):
+                self.detail_table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
+            
+            self.detail_table.horizontalHeader().setStretchLastSection(True)
+    
+    def adjust_group_table_columns(self, model):
+        """그룹 테이블 컬럼 크기 조정"""
+        header = self.group_table.horizontalHeader()
+        column_widths = model.get_column_widths()
+        stretch_columns = model.get_stretch_columns()
         
-        # 나머지 컬럼은 자동 크기 조정
-        for i in range(1, model.columnCount()):
-            self.detail_table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        for col in range(header.count()):
+            if col in stretch_columns:
+                header.setSectionResizeMode(col, QHeaderView.Stretch)
+            else:
+                header.setSectionResizeMode(col, QHeaderView.Fixed)
+                if col in column_widths:
+                    header.resizeSection(col, column_widths[col])
+    
+    def adjust_detail_table_columns(self, model):
+        """상세 테이블 컬럼 크기 조정"""
+        header = self.detail_table.horizontalHeader()
+        column_widths = model.get_column_widths()
+        stretch_columns = model.get_stretch_columns()
         
-        self.detail_table.horizontalHeader().setStretchLastSection(True)
+        for col in range(header.count()):
+            if col in stretch_columns:
+                header.setSectionResizeMode(col, QHeaderView.Stretch)
+            else:
+                header.setSectionResizeMode(col, QHeaderView.Fixed)
+                if col in column_widths:
+                    header.resizeSection(col, column_widths[col])
         
     def on_group_selection_changed(self, selected, deselected):
         """그룹 선택 변경 시 호출"""
@@ -178,18 +211,4 @@ class ResultsView(QTabWidget):
             return indexes[0].row()
         return -1
     
-    def get_button_style(self, color: str) -> str:
-        """버튼 스타일 생성"""
-        return f"""
-            QPushButton {{
-                background-color: {color};
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: {color}dd;
-            }}
-        """
+

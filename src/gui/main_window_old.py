@@ -14,7 +14,6 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QHeaderView # Added for QHeaderView
 
 # Local imports
 from core.file_parser import FileParser
@@ -158,37 +157,47 @@ class MainWindow(QMainWindow):
         self.destination_directory = None
         
     def init_ui(self):
-        """UI 초기화"""
+        """사용자 인터페이스 초기화"""
         # 윈도우 기본 설정
         self.setWindowTitle("AnimeSorter v2.0.0 - 애니메이션 파일 정리 도구")
-        self.setMinimumSize(1200, 800)  # 최소 크기 설정
-        self.resize(1600, 1000)  # 기본 크기 설정
+        self.setGeometry(100, 100, 1400, 900)
+        self.setMinimumSize(1000, 700)
         
-        # 중앙 위젯 생성
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        # 메인 레이아웃
-        parent_layout = QVBoxLayout(central_widget)
-        parent_layout.setSpacing(10)
-        parent_layout.setContentsMargins(10, 10, 10, 10)
+        # 애플리케이션 아이콘 설정
+        self.setWindowIcon(QIcon("🎬"))
         
         # 메뉴바 생성
         self.create_menu_bar()
         
-        # 메인 툴바 생성
-        self.main_toolbar = MainToolbar()
-        parent_layout.addWidget(self.main_toolbar)
+        # 중앙 위젯 설정
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
         
-        # 메인 스플리터 생성 (좌우 분할)
+        # 메인 레이아웃
+        main_layout = QVBoxLayout(central_widget)
+        
+        # 상단 툴바 영역
+        self.toolbar = MainToolbar()
+        main_layout.addWidget(self.toolbar)
+        
+        # 구분선
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        main_layout.addWidget(line)
+        
+        # 메인 콘텐츠 영역 (스플리터)
+        self.create_main_content(main_layout)
+        
+        # 상태바 생성
+        self.create_status_bar()
+        
+    def create_main_content(self, parent_layout):
+        """메인 콘텐츠 영역 생성"""
+        # 스플리터를 사용하여 좌우 분할
         splitter = QSplitter(Qt.Horizontal)
-        splitter.setChildrenCollapsible(False)  # 패널이 완전히 접히지 않도록
-        splitter.setHandleWidth(8)  # 핸들 너비 증가
         
-        # 왼쪽 패널: 빠른 작업, 통계, 필터
+        # 왼쪽 패널: 컨트롤 및 통계
         self.left_panel = LeftPanel()
-        self.left_panel.setMinimumWidth(350)  # 최소 너비 설정
-        self.left_panel.setMaximumWidth(500)  # 최대 너비 제한
         splitter.addWidget(self.left_panel)
         
         # 오른쪽 패널: 결과 및 로그
@@ -213,20 +222,12 @@ class MainWindow(QMainWindow):
         # 그룹 선택 시 상세 파일 목록 업데이트
         self.results_view.group_selected.connect(self.on_group_selected)
         
-        # 스플리터 비율 설정 (반응형)
-        splitter.setSizes([400, 1200])  # 초기 비율
-        splitter.setStretchFactor(0, 0)  # 왼쪽 패널은 고정 크기
-        splitter.setStretchFactor(1, 1)  # 오른쪽 패널은 확장 가능
+        # 스플리터 비율 설정
+        splitter.setSizes([400, 1000])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
         
         parent_layout.addWidget(splitter)
-        
-        # 상태바 생성
-        self.create_status_bar()
-        
-        # 윈도우 크기 변경 이벤트 처리
-        self.resizeEvent = self.on_resize_event
-        
-
         
     def create_menu_bar(self):
         """메뉴바 생성"""
@@ -350,8 +351,8 @@ class MainWindow(QMainWindow):
     def setup_connections(self):
         """시그널/슬롯 연결 설정"""
         # 툴바 연결
-        self.main_toolbar.btnSettings.clicked.connect(self.open_settings)
-        self.main_toolbar.organize_requested.connect(self.start_file_organization)
+        self.toolbar.btnSettings.clicked.connect(self.open_settings)
+        self.toolbar.organize_requested.connect(self.start_file_organization)
         
         # 왼쪽 패널 연결
         self.left_panel.source_folder_selected.connect(self.on_source_folder_selected)
@@ -360,6 +361,7 @@ class MainWindow(QMainWindow):
         self.left_panel.scan_started.connect(self.start_scan)
         self.left_panel.scan_paused.connect(self.stop_scan)
         self.left_panel.completed_cleared.connect(self.clear_completed)
+        self.left_panel.filters_reset.connect(self.reset_filters)
         
         # 오른쪽 패널 연결
         self.right_panel.commit_requested.connect(self.commit_organization)
@@ -419,7 +421,7 @@ class MainWindow(QMainWindow):
             has_groups = len(grouped_items) > 0 and any(group_id != "ungrouped" for group_id in grouped_items.keys())
         
         has_destination = self.destination_directory and os.path.exists(self.destination_directory)
-        self.main_toolbar.set_organize_enabled(has_groups and has_destination)
+        self.toolbar.set_organize_enabled(has_groups and has_destination)
         
         if has_source:
             if self.source_directory:
@@ -798,7 +800,8 @@ class MainWindow(QMainWindow):
         
     def reset_filters(self):
         """필터 초기화"""
-        self.main_toolbar.reset_filters()
+        self.left_panel.reset_filters()
+        self.toolbar.reset_filters()
         self.update_status_bar("필터가 초기화되었습니다")
         
     def commit_organization(self):
@@ -1088,7 +1091,7 @@ class MainWindow(QMainWindow):
                 # 정리 실행 버튼 상태 업데이트
                 has_groups = len(grouped_items) > 0 and any(group_id != "ungrouped" for group_id in grouped_items.keys())
                 has_destination = self.destination_directory and os.path.exists(self.destination_directory)
-                self.main_toolbar.set_organize_enabled(has_groups and has_destination)
+                self.toolbar.set_organize_enabled(has_groups and has_destination)
                 
                 # 로그는 한 번만 출력
                 print(f"✅ {group_count}개 그룹 표시 완료")
@@ -1301,79 +1304,6 @@ class MainWindow(QMainWindow):
             except:
                 self.status_memory.setText("메모리: N/A")
                 self._last_memory_update = True
-    
-    def on_resize_event(self, event):
-        """윈도우 크기 변경 이벤트 처리"""
-        # 기본 리사이즈 이벤트 처리
-        super().resizeEvent(event)
-        
-        # 레이아웃 업데이트
-        self.update_layout_on_resize()
-        
-    def update_layout_on_resize(self):
-        """크기 변경 시 레이아웃 업데이트"""
-        # 현재 윈도우 크기
-        window_width = self.width()
-        window_height = self.height()
-        
-        # 왼쪽 패널 크기 조정
-        if hasattr(self, 'left_panel'):
-            # 윈도우가 작을 때는 왼쪽 패널을 더 작게
-            if window_width < 1400:
-                self.left_panel.setMaximumWidth(350)
-            else:
-                self.left_panel.setMaximumWidth(450)
-        
-        # 결과 뷰의 테이블 컬럼 크기 조정
-        if hasattr(self, 'results_view') and hasattr(self.results_view, 'group_table'):
-            self.adjust_table_columns()
-    
-    def adjust_table_columns(self):
-        """테이블 컬럼 크기를 윈도우 크기에 맞게 조정"""
-        if not hasattr(self, 'results_view'):
-            return
-            
-        # 그룹 테이블 컬럼 조정
-        if hasattr(self.results_view, 'group_table'):
-            group_table = self.results_view.group_table
-            if group_table.model():
-                header = group_table.horizontalHeader()
-                model = group_table.model()
-                
-                # 모델에서 컬럼 정보 가져오기
-                if hasattr(model, 'get_column_widths'):
-                    column_widths = model.get_column_widths()
-                    stretch_columns = model.get_stretch_columns()
-                    
-                    # 각 컬럼 설정
-                    for col in range(header.count()):
-                        if col in stretch_columns:
-                            header.setSectionResizeMode(col, QHeaderView.Stretch)
-                        else:
-                            header.setSectionResizeMode(col, QHeaderView.Fixed)
-                            if col in column_widths:
-                                header.resizeSection(col, column_widths[col])
-        
-        # 상세 테이블 컬럼 조정
-        if hasattr(self.results_view, 'detail_table'):
-            detail_table = self.results_view.detail_table
-            if detail_table.model():
-                header = detail_table.horizontalHeader()
-                model = detail_table.model()
-                
-                # 모델에서 컬럼 정보 가져오기
-                if hasattr(model, 'get_column_widths'):
-                    column_widths = model.get_column_widths()
-                    stretch_columns = model.get_stretch_columns()
-                    
-                    # 각 컬럼 설정
-                    for col in range(header.count()):
-                        if col in stretch_columns:
-                            header.setSectionResizeMode(col, QHeaderView.Stretch)
-                        else:
-                            header.setSectionResizeMode(col, QHeaderView.Fixed)
-                            if col in column_widths:
-                                header.resizeSection(col, column_widths[col])
     
     def closeEvent(self, event):
         """프로그램 종료 시 이벤트 처리"""

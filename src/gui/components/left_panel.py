@@ -7,7 +7,7 @@ import os
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout, QLabel, 
     QPushButton, QLineEdit, QComboBox, QCheckBox, QProgressBar, QFrame,
-    QSpinBox
+    QSpinBox, QSizePolicy
 )
 from PyQt5.QtCore import pyqtSignal
 
@@ -23,7 +23,6 @@ class LeftPanel(QWidget):
     scan_paused = pyqtSignal()
     settings_opened = pyqtSignal()
     completed_cleared = pyqtSignal()
-    filters_reset = pyqtSignal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,6 +33,7 @@ class LeftPanel(QWidget):
         """UI 초기화"""
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # 빠른 작업 그룹
         quick_actions = self.create_quick_actions_group()
@@ -43,11 +43,11 @@ class LeftPanel(QWidget):
         stats_group = self.create_stats_group()
         layout.addWidget(stats_group)
         
-        # 필터 그룹
-        filter_group = self.create_filter_group()
-        layout.addWidget(filter_group)
-        
+        # 하단 여백 (고정 크기)
         layout.addStretch(1)
+        
+        # 크기 정책 설정
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         
     def create_quick_actions_group(self):
         """빠른 작업 그룹 생성"""
@@ -224,51 +224,7 @@ class LeftPanel(QWidget):
         
         return group
         
-    def create_filter_group(self):
-        """필터 그룹 생성"""
-        group = QGroupBox("🔍 필터")
-        group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                border: 2px solid #bdc3c7;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """)
-        
-        layout = QFormLayout(group)
-        layout.setSpacing(8)
-        
-        # 필터 콤보박스들
-        self.cmbResolution = QComboBox()
-        self.cmbResolution.addItems(["전체", "2160p", "1080p", "720p"])
-        
-        self.cmbContainer = QComboBox()
-        self.cmbContainer.addItems(["전체", "MKV", "MP4"])
-        
-        self.cmbCodec = QComboBox()
-        self.cmbCodec.addItems(["전체", "HEVC", "H.264"])
-        
-        self.cmbYear = QComboBox()
-        self.cmbYear.addItems(["전체", "2025", "2024", "2023"])
-        
-        # 필터 초기화 버튼
-        self.btnResetFilters = QPushButton("🔄 필터 초기화")
-        self.btnResetFilters.setStyleSheet(self.get_button_style("#e67e22"))
-        
-        layout.addRow("해상도:", self.cmbResolution)
-        layout.addRow("컨테이너:", self.cmbContainer)
-        layout.addRow("코덱:", self.cmbCodec)
-        layout.addRow("년도:", self.cmbYear)
-        layout.addRow("", self.btnResetFilters)
-        
-        return group
+
         
     def setup_connections(self):
         """시그널/슬롯 연결 설정"""
@@ -278,7 +234,6 @@ class LeftPanel(QWidget):
         self.btnStart.clicked.connect(self.scan_started.emit)
         self.btnPause.clicked.connect(self.scan_paused.emit)
         self.btnClearCompleted.clicked.connect(self.completed_cleared.emit)
-        self.btnResetFilters.clicked.connect(self.filters_reset.emit)
         
     def on_source_folder_clicked(self):
         """소스 폴더 선택 버튼 클릭"""
@@ -355,12 +310,7 @@ class LeftPanel(QWidget):
         if hasattr(self, 'lblGroups'):
             self.lblGroups.setText(str(groups))
         
-    def reset_filters(self):
-        """필터 초기화"""
-        self.cmbResolution.setCurrentIndex(0)
-        self.cmbContainer.setCurrentIndex(0)
-        self.cmbCodec.setCurrentIndex(0)
-        self.cmbYear.setCurrentIndex(0)
+
         
     def update_source_directory_display(self, directory: str):
         """소스 디렉토리 표시 업데이트"""

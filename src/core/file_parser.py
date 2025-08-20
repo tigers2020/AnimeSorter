@@ -9,6 +9,7 @@ import os
 from typing import Dict, Optional, List, Tuple
 from dataclasses import dataclass
 from pathlib import Path
+from functools import lru_cache
 
 
 @dataclass
@@ -30,71 +31,71 @@ class ParsedMetadata:
 
 
 class FileParser:
-    """애니메이션 파일명 파싱 엔진"""
+    """애니메이션 파일명 파싱 엔진 (최적화됨)"""
     
     def __init__(self):
         """파서 초기화"""
         self.patterns = self._compile_patterns()
+        # 캐시 크기 설정 (메모리 사용량과 성능의 균형)
+        self._parse_cache_size = 256
     
     def _compile_patterns(self) -> List[Tuple[re.Pattern, str, float]]:
-        """파싱 패턴 컴파일 (패턴, 타입, 신뢰도)"""
+        """파싱 패턴 컴파일 (최적화된 순서)"""
         patterns = [
-            # 패턴 1: [Group] Title - Episode (추가정보).ext
-            (re.compile(r'^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*\([^)]*(\d{3,4}x\d{3,4}|\d{3,4}p)[^)]*\)', re.IGNORECASE), 
-             'group_title_episode_with_resolution', 0.9),
-            
-            # 패턴 2: [Group] Title - Episode (기타정보).ext
-            (re.compile(r'^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*(?:\([^)]+\))?', re.IGNORECASE), 
-             'group_title_episode', 0.8),
-            
-            # 패턴 3: Title - Episode [Resolution].ext
-            (re.compile(r'^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*\[([^\]]*(?:\d+p)[^\]]*)\]', re.IGNORECASE), 
-             'group_title_episode_bracket_resolution', 0.9),
-            
-            # 패턴 4: Title Season Episode.ext (공백으로 구분)
-            (re.compile(r'^(.+?)\s+(?:Season\s*(\d+))?\s*(\d+)$', re.IGNORECASE), 
-             'title_season_episode_space', 0.7),
-            
-            # 패턴 5: Title.S##E##.Resolution.codec.ext
+            # 가장 일반적이고 정확한 패턴들을 먼저 배치
+            # 패턴 1: Title.S##E##.Resolution.codec.ext (가장 정확함)
             (re.compile(r'^(.+?)\.S(\d+)E(\d+)\.(\d+p)\.([^.]+)\.([^.]+)$', re.IGNORECASE), 
-             'title_season_episode_resolution_dots', 0.9),
+             'title_season_episode_resolution_dots', 0.95),
             
-            # 패턴 5-1: Title.E## 형태 (Exx 표기)
+            # 패턴 2: Title.E## 형태 (Exx 표기 - 매우 일반적)
             (re.compile(r'^(.+?)\.E(\d+)', re.IGNORECASE), 
              'title_episode_exx', 0.9),
             
-            # 패턴 5-2: Title.E##.Resolution 형태
+            # 패턴 3: [Group] Title - Episode (추가정보).ext
+            (re.compile(r'^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*\([^)]*(\d{3,4}x\d{3,4}|\d{3,4}p)[^)]*\)', re.IGNORECASE), 
+             'group_title_episode_with_resolution', 0.9),
+            
+            # 패턴 4: Title - Episode화/話 형태 (한국어)
+            (re.compile(r'^(.+?)\s*(\d+)화?\s*(?:\([^)]*(\d+x\d+|\d+p)[^)]*\))?', re.IGNORECASE), 
+             'title_episode_korean', 0.85),
+            
+            # 패턴 5: Title.E##.Resolution 형태
             (re.compile(r'^(.+?)\.E(\d+)\.(\d+p)', re.IGNORECASE), 
              'title_episode_exx_resolution', 0.9),
             
-            # 패턴 5-3: Title.E##.Date.Resolution 형태
-            (re.compile(r'^(.+?)\.E(\d+)\.(\d{6})\.(\d+p)', re.IGNORECASE), 
-             'title_episode_exx_date_resolution', 0.9),
+            # 패턴 6: [Group] Title - Episode (기타정보).ext
+            (re.compile(r'^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*(?:\([^)]+\))?', re.IGNORECASE), 
+             'group_title_episode', 0.8),
             
-            # 패턴 6: Title - Episode화/話 형태
-            (re.compile(r'^(.+?)\s*(\d+)화?\s*(?:\([^)]*(\d+x\d+|\d+p)[^)]*\))?', re.IGNORECASE), 
-             'title_episode_korean', 0.8),
+            # 패턴 7: Title - Episode [Resolution].ext
+            (re.compile(r'^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*\[([^\]]*(?:\d+p)[^\]]*)\]', re.IGNORECASE), 
+             'group_title_episode_bracket_resolution', 0.9),
             
-            # 패턴 7: Title EP## 형태
+            # 패턴 8: Title EP## 형태
             (re.compile(r'^(.+?)\s+EP(\d+)', re.IGNORECASE), 
              'title_episode_ep', 0.8),
-            
-            # 패턴 8: [Group]Title Episode.ext (공백 없음)
-            (re.compile(r'^\[([^\]]+)\]([^-\s]+)\s*(\d+)', re.IGNORECASE), 
-             'group_title_episode_nospace', 0.7),
             
             # 패턴 9: Title - Episode RAW/END 등
             (re.compile(r'^(.+?)\s*-\s*(\d+)\s*(RAW|END|FIN|COMPLETE)', re.IGNORECASE), 
              'title_episode_special', 0.8),
             
-            # 패턴 10: Title Episode.ext (간단한 형태)
+            # 패턴 10: Title Season Episode.ext (공백으로 구분)
+            (re.compile(r'^(.+?)\s+(?:Season\s*(\d+))?\s*(\d+)$', re.IGNORECASE), 
+             'title_season_episode_space', 0.7),
+            
+            # 패턴 11: [Group]Title Episode.ext (공백 없음)
+            (re.compile(r'^\[([^\]]+)\]([^-\s]+)\s*(\d+)', re.IGNORECASE), 
+             'group_title_episode_nospace', 0.7),
+            
+            # 패턴 12: Title Episode.ext (간단한 형태) - 마지막에 배치
             (re.compile(r'^(.+?)\s+(\d+)$', re.IGNORECASE), 
              'title_episode_simple', 0.6)
         ]
         return patterns
     
+    @lru_cache(maxsize=256)
     def parse_filename(self, filename: str) -> Optional[ParsedMetadata]:
-        """파일명에서 메타데이터 추출"""
+        """파일명에서 메타데이터 추출 (캐시됨)"""
         if not filename:
             return None
         
@@ -107,7 +108,7 @@ class FileParser:
         # 컨테이너 추출
         container = os.path.splitext(basename)[1].lower()
         
-        # 패턴 매칭 시도
+        # 패턴 매칭 시도 (최적화된 순서)
         for pattern, pattern_type, base_confidence in self.patterns:
             match = pattern.match(name_without_ext)
             if match:
@@ -119,17 +120,60 @@ class FileParser:
         return self._improved_fallback_parse(name_without_ext, container)
     
     def _extract_metadata(self, match, pattern_type: str, base_confidence: float, container: str) -> Optional[ParsedMetadata]:
-        """매치된 패턴에서 메타데이터 추출"""
+        """매치된 패턴에서 메타데이터 추출 (최적화됨)"""
         try:
             groups = match.groups()
             
-            if pattern_type == 'group_title_episode_with_resolution':
+            if pattern_type == 'title_season_episode_resolution_dots':
+                title, season, episode, resolution, codec, _ = groups
+                return ParsedMetadata(
+                    title=self._clean_title(title),
+                    season=int(season),
+                    episode=int(episode),
+                    resolution=resolution,
+                    codec=codec,
+                    container=container,
+                    confidence=base_confidence
+                )
+            
+            elif pattern_type == 'title_episode_exx':
+                title, episode = groups
+                return ParsedMetadata(
+                    title=self._clean_title(title),
+                    season=1,  # Exx 형태는 보통 시즌 1
+                    episode=int(episode),
+                    container=container,
+                    confidence=base_confidence
+                )
+            
+            elif pattern_type == 'group_title_episode_with_resolution':
                 group, title, episode, resolution = groups
                 return ParsedMetadata(
                     title=self._clean_title(title),
                     episode=int(episode),
                     resolution=resolution,
                     group=group,
+                    container=container,
+                    confidence=base_confidence
+                )
+            
+            elif pattern_type == 'title_episode_korean':
+                title, episode, resolution = groups
+                return ParsedMetadata(
+                    title=self._clean_title(title),
+                    episode=int(episode),
+                    resolution=resolution,
+                    container=container,
+                    confidence=base_confidence
+                )
+            
+            elif pattern_type == 'title_episode_exx_resolution':
+                title, episode, resolution = groups
+                return ParsedMetadata(
+                    title=self._clean_title(title),
+                    season=1,
+                    episode=int(episode),
+                    resolution=resolution,
                     container=container,
                     confidence=base_confidence
                 )
@@ -155,54 +199,30 @@ class FileParser:
                     confidence=base_confidence
                 )
             
+            elif pattern_type == 'title_episode_ep':
+                title, episode = groups
+                return ParsedMetadata(
+                    title=self._clean_title(title),
+                    episode=int(episode),
+                    container=container,
+                    confidence=base_confidence
+                )
+            
+            elif pattern_type == 'title_episode_special':
+                title, episode, special = groups
+                return ParsedMetadata(
+                    title=self._clean_title(title),
+                    episode=int(episode),
+                    quality=special,
+                    container=container,
+                    confidence=base_confidence
+                )
+            
             elif pattern_type == 'title_season_episode_space':
                 title, season, episode = groups
                 return ParsedMetadata(
                     title=self._clean_title(title),
                     season=int(season) if season else 1,
-                    episode=int(episode),
-                    container=container,
-                    confidence=base_confidence
-                )
-            
-            elif pattern_type == 'title_season_episode_resolution_dots':
-                title, season, episode, resolution, codec, _ = groups
-                return ParsedMetadata(
-                    title=self._clean_title(title),
-                    season=int(season),
-                    episode=int(episode),
-                    resolution=resolution,
-                    codec=codec,
-                    container=container,
-                    confidence=base_confidence
-                )
-            
-            elif pattern_type in ['title_episode_exx', 'title_episode_exx_resolution', 'title_episode_exx_date_resolution']:
-                title, episode = groups[:2]
-                resolution = groups[2] if len(groups) > 2 else None
-                return ParsedMetadata(
-                    title=self._clean_title(title),
-                    season=1,  # Exx 형태는 보통 시즌 1
-                    episode=int(episode),
-                    resolution=resolution,
-                    container=container,
-                    confidence=base_confidence
-                )
-            
-            elif pattern_type == 'title_episode_korean':
-                title, episode, resolution = groups
-                return ParsedMetadata(
-                    title=self._clean_title(title),
-                    episode=int(episode),
-                    resolution=resolution,
-                    container=container,
-                    confidence=base_confidence
-                )
-            
-            elif pattern_type == 'title_episode_ep':
-                title, episode = groups
-                return ParsedMetadata(
-                    title=self._clean_title(title),
                     episode=int(episode),
                     container=container,
                     confidence=base_confidence
@@ -214,16 +234,6 @@ class FileParser:
                     title=self._clean_title(title),
                     episode=int(episode),
                     group=group,
-                    container=container,
-                    confidence=base_confidence
-                )
-            
-            elif pattern_type == 'title_episode_special':
-                title, episode, special = groups
-                return ParsedMetadata(
-                    title=self._clean_title(title),
-                    episode=int(episode),
-                    quality=special,
                     container=container,
                     confidence=base_confidence
                 )
@@ -243,22 +253,23 @@ class FileParser:
         
         return None
     
+    @lru_cache(maxsize=128)
     def _improved_fallback_parse(self, filename: str, container: str) -> Optional[ParsedMetadata]:
-        """개선된 fallback 파싱"""
+        """개선된 fallback 파싱 (캐시됨)"""
         try:
             # 에피소드 번호 추출 (더 정확한 방법)
             episode_match = re.search(r'(\d{1,2})', filename)
             episode = int(episode_match.group(1)) if episode_match else None
             
-            # 해상도 추출 (더 정확한 패턴)
-            resolution = self._extract_resolution(filename)
+            # 해상도 추출 (캐시된 함수 사용)
+            resolution = self._extract_resolution_cached(filename)
             
             # 제목 정리 (에피소드 번호 제거)
             title = filename
             if episode:
                 title = re.sub(rf'\D{episode}\D', ' ', title)
             
-            title = self._clean_title(title)
+            title = self._clean_title_cached(title)
             
             return ParsedMetadata(
                 title=title,
@@ -272,8 +283,9 @@ class FileParser:
             print(f"Fallback 파싱 오류: {e}")
             return None
     
-    def _extract_resolution(self, text: str) -> Optional[str]:
-        """텍스트에서 해상도 추출 (개선된 버전)"""
+    @lru_cache(maxsize=64)
+    def _extract_resolution_cached(self, text: str) -> Optional[str]:
+        """텍스트에서 해상도 추출 (캐시됨)"""
         # 해상도 패턴들 (우선순위 순)
         resolution_patterns = [
             (r'(\d{3,4}x\d{3,4})', 'exact'),      # 1920x1080 형태
@@ -322,8 +334,9 @@ class FileParser:
         
         return None
     
-    def _clean_title(self, title: str) -> str:
-        """제목에서 불필요한 정보 제거"""
+    @lru_cache(maxsize=128)
+    def _clean_title_cached(self, title: str) -> str:
+        """제목에서 불필요한 정보 제거 (캐시됨)"""
         if not title:
             return ""
         
@@ -341,7 +354,7 @@ class FileParser:
         title = re.sub(r'\b\d{6,8}\b', '', title)
         
         # 5단계: 기술 정보 제거
-        title = self._remove_technical_info(title)
+        title = self._remove_technical_info_cached(title)
         
         # 6단계: 최종 정리
         title = title.strip()
@@ -349,8 +362,9 @@ class FileParser:
         
         return title
     
-    def _remove_technical_info(self, title: str) -> str:
-        """기술적 정보 제거"""
+    @lru_cache(maxsize=64)
+    def _remove_technical_info_cached(self, title: str) -> str:
+        """기술적 정보 제거 (캐시됨)"""
         # 코덱 정보
         codecs = ['x264', 'x265', 'H.264', 'H.265', 'AVC', 'HEVC', 'DivX', 'XviD']
         for codec in codecs:
@@ -382,6 +396,19 @@ class FileParser:
         
         return title
     
+    # 기존 메서드들 (하위 호환성을 위해 유지)
+    def _extract_resolution(self, text: str) -> Optional[str]:
+        """텍스트에서 해상도 추출 (기존 메서드)"""
+        return self._extract_resolution_cached(text)
+    
+    def _clean_title(self, title: str) -> str:
+        """제목에서 불필요한 정보 제거 (기존 메서드)"""
+        return self._clean_title_cached(title)
+    
+    def _remove_technical_info(self, title: str) -> str:
+        """기술적 정보 제거 (기존 메서드)"""
+        return self._remove_technical_info_cached(title)
+    
     def get_supported_formats(self) -> List[str]:
         """지원되는 파일 형식 반환"""
         return ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.m4v', '.flv', '.webm', '.srt', '.ass', '.ssa', '.sub', '.idx', '.smi', '.vtt']
@@ -410,4 +437,30 @@ class FileParser:
                 'medium': len([r for r in results if 0.5 <= r.confidence < 0.8]),
                 'low': len([r for r in results if r.confidence < 0.5])
             }
+        }
+    
+    def clear_cache(self):
+        """캐시를 모두 지웁니다 (메모리 관리용)"""
+        self.parse_filename.cache_clear()
+        self._improved_fallback_parse.cache_clear()
+        self._extract_resolution_cached.cache_clear()
+        self._clean_title_cached.cache_clear()
+        self._remove_technical_info_cached.cache_clear()
+    
+    def get_cache_info(self) -> Dict[str, int]:
+        """캐시 정보를 반환합니다"""
+        parse_cache_info = self.parse_filename.cache_info()
+        fallback_cache_info = self._improved_fallback_parse.cache_info()
+        resolution_cache_info = self._extract_resolution_cached.cache_info()
+        title_cache_info = self._clean_title_cached.cache_info()
+        tech_cache_info = self._remove_technical_info_cached.cache_info()
+        
+        return {
+            'parse_filename_cache_size': parse_cache_info.currsize,
+            'parse_filename_cache_hits': parse_cache_info.hits,
+            'parse_filename_cache_misses': parse_cache_info.misses,
+            'fallback_parse_cache_size': fallback_cache_info.currsize,
+            'resolution_cache_size': resolution_cache_info.currsize,
+            'title_clean_cache_size': title_cache_info.currsize,
+            'technical_info_cache_size': tech_cache_info.currsize
         }

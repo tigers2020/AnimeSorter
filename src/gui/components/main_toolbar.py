@@ -4,7 +4,7 @@
 """
 
 from PyQt5.QtWidgets import (
-    QWidget, QHBoxLayout, QLineEdit, QLabel, QComboBox, QPushButton
+    QWidget, QHBoxLayout, QLineEdit, QLabel, QComboBox, QPushButton, QSizePolicy
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import pyqtSignal
@@ -24,6 +24,7 @@ class MainToolbar(QWidget):
         """UI 초기화"""
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 5, 10, 5)
+        layout.setSpacing(10)
         
         # 앱 제목
         title_label = QLabel("🎬 AnimeSorter")
@@ -32,19 +33,27 @@ class MainToolbar(QWidget):
         title_font.setBold(True)
         title_label.setFont(title_font)
         title_label.setStyleSheet("color: #2c3e50;")
+        title_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         layout.addWidget(title_label)
         
         layout.addStretch(1)
         
         # 검색 및 필터
         search_label = QLabel("🔍 검색:")
+        search_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        
         self.search = QLineEdit()
         self.search.setPlaceholderText("제목, 경로로 검색...")
-        self.search.setMinimumWidth(250)
+        self.search.setMinimumWidth(200)
+        self.search.setMaximumWidth(400)
+        self.search.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         
         status_label = QLabel("상태:")
+        status_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        
         self.statusFilter = QComboBox()
         self.statusFilter.addItems(["전체", "parsed", "needs_review", "error"])
+        self.statusFilter.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         # 정리 실행 버튼
         self.btnOrganize = QPushButton("📁 정리 실행")
@@ -65,6 +74,7 @@ class MainToolbar(QWidget):
                 color: #ecf0f1;
             }
         """)
+        self.btnOrganize.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.btnOrganize.clicked.connect(self.organize_requested.emit)
         
         # 설정 버튼
@@ -82,6 +92,7 @@ class MainToolbar(QWidget):
                 background-color: #2980b9;
             }
         """)
+        self.btnSettings.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         layout.addWidget(search_label)
         layout.addWidget(self.search)
@@ -89,6 +100,9 @@ class MainToolbar(QWidget):
         layout.addWidget(self.statusFilter)
         layout.addWidget(self.btnOrganize)
         layout.addWidget(self.btnSettings)
+        
+        # 툴바의 크기 정책 설정
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
     
     def get_search_text(self) -> str:
         """검색 텍스트 반환"""

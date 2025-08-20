@@ -242,6 +242,22 @@ class GroupedListModel(QAbstractTableModel):
             return self._group_list[row]
         return None
 
+    def get_column_widths(self) -> Dict[int, int]:
+        """컬럼별 권장 너비 반환"""
+        return {
+            0: 80,   # 포스터
+            1: 300,  # 제목
+            2: 250,  # 최종 이동 경로
+            3: 80,   # 시즌
+            4: 100,  # 에피소드 수
+            5: 100,  # 최고 해상도
+            6: 100   # 상태
+        }
+    
+    def get_stretch_columns(self) -> List[int]:
+        """확장 가능한 컬럼 인덱스 반환"""
+        return [1]  # 제목 컬럼만 확장 가능
+
 
 class DetailFileModel(QAbstractTableModel):
     """그룹 내 상세 파일 목록을 표시하는 모델"""
@@ -320,3 +336,19 @@ class DetailFileModel(QAbstractTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self.headers[section]
         return QVariant()
+    
+    def get_column_widths(self) -> Dict[int, int]:
+        """컬럼별 권장 너비 반환"""
+        return {
+            0: 60,   # 포스터
+            1: 300,  # 파일명
+            2: 80,   # 시즌
+            3: 80,   # 에피소드
+            4: 100,  # 해상도
+            5: 100,  # 코덱
+            6: 100   # 상태
+        }
+    
+    def get_stretch_columns(self) -> List[int]:
+        """확장 가능한 컬럼 인덱스 반환"""
+        return [1]  # 파일명 컬럼만 확장 가능

@@ -5,7 +5,7 @@
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, 
-    QTabWidget
+    QTabWidget, QSizePolicy
 )
 from PyQt5.QtCore import pyqtSignal
 
@@ -26,6 +26,7 @@ class RightPanel(QWidget):
         """UI 초기화"""
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
         
         # 하단 액션
         bottom_actions = self.create_bottom_actions()
@@ -34,6 +35,9 @@ class RightPanel(QWidget):
         # 로그 탭
         log_tabs = self.create_log_tabs()
         layout.addWidget(log_tabs)
+        
+        # 크기 정책 설정
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
     def create_bottom_actions(self):
         """하단 액션 생성"""
@@ -65,17 +69,20 @@ class RightPanel(QWidget):
         # 활동 로그
         self.txtLog = QTextEdit()
         self.txtLog.setReadOnly(True)
-        self.txtLog.setMaximumHeight(120)
+        self.txtLog.setMinimumHeight(100)  # 최소 높이만 설정
         self.txtLog.setText("애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다.")
         
         # 오류 로그
         self.txtErr = QTextEdit()
         self.txtErr.setReadOnly(True)
-        self.txtErr.setMaximumHeight(120)
+        self.txtErr.setMinimumHeight(100)  # 최소 높이만 설정
         self.txtErr.setText("오류 로그가 여기에 표시됩니다.")
         
         tab_widget.addTab(self.txtLog, "📝 활동 로그")
         tab_widget.addTab(self.txtErr, "⚠️ 오류 로그")
+        
+        # 탭 위젯의 크기 정책 설정
+        tab_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         return tab_widget
         
