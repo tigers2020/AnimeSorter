@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 from .events import BaseEvent
@@ -66,8 +66,8 @@ class FileScanProgressEvent(BaseEvent):
     scan_id: UUID = field(default_factory=uuid4)
     current_file: Path = field(default_factory=lambda: Path())
     processed_count: int = 0
-    total_estimated: Optional[int] = None
-    progress_percentage: Optional[float] = None
+    total_estimated: int | None = None
+    progress_percentage: float | None = None
 
 
 @dataclass
@@ -79,7 +79,7 @@ class FilesScannedEvent(BaseEvent):
     found_files: list[Path] = field(default_factory=list)
     scan_duration_seconds: float = 0.0
     status: ScanStatus = ScanStatus.COMPLETED
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 # === 메타데이터 이벤트 ===
@@ -102,7 +102,7 @@ class MetadataExtractionCompletedEvent(BaseEvent):
     metadata: dict[str, Any] = field(default_factory=dict)
     extraction_duration_seconds: float = 0.0
     success: bool = True
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 @dataclass
@@ -126,9 +126,9 @@ class FileOperationPlannedEvent(BaseEvent):
     operation_id: UUID = field(default_factory=uuid4)
     operation_type: OperationType = OperationType.COPY
     source_path: Path = field(default_factory=lambda: Path())
-    target_path: Optional[Path] = None
-    file_id: Optional[UUID] = None
-    group_id: Optional[UUID] = None
+    target_path: Path | None = None
+    file_id: UUID | None = None
+    group_id: UUID | None = None
     estimated_size_bytes: int = 0
     backup_required: bool = False
     conflicts: list[str] = field(default_factory=list)
@@ -156,7 +156,7 @@ class FileOperationStartedEvent(BaseEvent):
     operation_id: UUID = field(default_factory=uuid4)
     operation_type: OperationType = OperationType.COPY
     source_path: Path = field(default_factory=lambda: Path())
-    target_path: Optional[Path] = None
+    target_path: Path | None = None
 
 
 @dataclass
@@ -177,11 +177,11 @@ class FileOperationAppliedEvent(BaseEvent):
     operation_id: UUID = field(default_factory=uuid4)
     operation_type: OperationType = OperationType.COPY
     source_path: Path = field(default_factory=lambda: Path())
-    target_path: Optional[Path] = None
+    target_path: Path | None = None
     actual_bytes_processed: int = 0
     operation_duration_seconds: float = 0.0
     status: OperationStatus = OperationStatus.COMPLETED
-    backup_path: Optional[Path] = None
+    backup_path: Path | None = None
 
 
 @dataclass
@@ -204,12 +204,12 @@ class BatchOperationCompletedEvent(BaseEvent):
 class OperationFailedEvent(BaseEvent):
     """조작 실패 이벤트"""
 
-    operation_id: Optional[UUID] = None
-    operation_type: Optional[OperationType] = None
+    operation_id: UUID | None = None
+    operation_type: OperationType | None = None
     error_code: str = ""
     error_message: str = ""
-    file_path: Optional[Path] = None
-    stack_trace: Optional[str] = None
+    file_path: Path | None = None
+    stack_trace: str | None = None
     retry_count: int = 0
     is_recoverable: bool = False
 
@@ -218,8 +218,8 @@ class OperationFailedEvent(BaseEvent):
 class ValidationFailedEvent(BaseEvent):
     """검증 실패 이벤트"""
 
-    file_id: Optional[UUID] = None
-    file_path: Optional[Path] = None
+    file_id: UUID | None = None
+    file_path: Path | None = None
     validation_type: str = ""
     expected_value: Any = None
     actual_value: Any = None
@@ -257,7 +257,7 @@ class MediaFileDeletedEvent(BaseEvent):
     file_id: UUID
     file_path: Path
     was_grouped: bool = False
-    group_id: Optional[UUID] = None
+    group_id: UUID | None = None
 
 
 @dataclass
@@ -268,7 +268,7 @@ class MediaFileFlagChangedEvent(BaseEvent):
     file_path: Path
     flag: str = ""
     added: bool = True  # True: 추가, False: 제거
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 # === 미디어 그룹 이벤트 ===
@@ -280,7 +280,7 @@ class MediaGroupCreatedEvent(BaseEvent):
 
     group_id: UUID = field(default_factory=uuid4)
     title: str = ""
-    season: Optional[int] = None
+    season: int | None = None
     initial_episode_count: int = 0
 
 
@@ -322,7 +322,7 @@ class MediaGroupCompletedEvent(BaseEvent):
 
     group_id: UUID
     title: str = ""
-    season: Optional[int] = None
+    season: int | None = None
     total_episodes: int = 0
     completion_time: datetime = field(default_factory=datetime.now)
 
@@ -348,7 +348,7 @@ class ExternalMetadataFoundEvent(BaseEvent):
     provider: str = ""
     external_id: str = ""
     title: str = ""
-    year: Optional[int] = None
+    year: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     confidence_score: float = 0.0
 
@@ -374,8 +374,8 @@ class UserActionEvent(BaseEvent):
 
     action_type: str = ""
     action_data: dict[str, Any] = field(default_factory=dict)
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
+    user_id: str | None = None
+    session_id: str | None = None
 
 
 @dataclass

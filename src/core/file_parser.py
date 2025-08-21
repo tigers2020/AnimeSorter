@@ -4,10 +4,9 @@
 애니메이션 파일명에서 메타데이터를 추출하는 기능을 제공합니다.
 """
 
-import os
 import re
 from dataclasses import dataclass
-from functools import lru_cache
+from pathlib import Path
 
 
 @dataclass
@@ -40,7 +39,7 @@ class FileParser:
 
     def _compile_patterns(self) -> list[tuple[re.Pattern, str, float]]:
         """파싱 패턴 컴파일 (최적화된 순서)"""
-        patterns = [
+        return [
             # 가장 일반적이고 정확한 패턴들을 먼저 배치
             # 패턴 1: Title.S##E##.Resolution.codec.ext (가장 정확함)
             (
@@ -123,22 +122,20 @@ class FileParser:
             # 패턴 12: Title Episode.ext (간단한 형태) - 마지막에 배치
             (re.compile(r"^(.+?)\s+(\d+)$", re.IGNORECASE), "title_episode_simple", 0.6),
         ]
-        return patterns
 
-    @lru_cache(maxsize=256)
     def parse_filename(self, filename: str) -> ParsedMetadata | None:
         """파일명에서 메타데이터 추출 (캐시됨)"""
         if not filename:
             return None
 
         # 파일 경로에서 파일명만 추출
-        basename = os.path.basename(filename)
+        path = Path(filename)
 
         # 확장자 제거
-        name_without_ext = os.path.splitext(basename)[0]
+        name_without_ext = path.stem
 
         # 컨테이너 추출
-        container = os.path.splitext(basename)[1].lower()
+        container = path.suffix.lower()
 
         # 패턴 매칭 시도 (최적화된 순서)
         for pattern, pattern_type, base_confidence in self.patterns:
@@ -312,7 +309,6 @@ class FileParser:
 
         return None
 
-    @lru_cache(maxsize=128)
     def _improved_fallback_parse(self, filename: str, container: str) -> ParsedMetadata | None:
         """개선된 fallback 파싱 (캐시됨)"""
         try:
@@ -342,7 +338,6 @@ class FileParser:
             print(f"Fallback 파싱 오류: {e}")
             return None
 
-    @lru_cache(maxsize=64)
     def _extract_resolution_cached(self, text: str) -> str | None:
         """텍스트에서 해상도 추출 (캐시됨)"""
         # 해상도 패턴들 (우선순위 순) - 수정됨
@@ -402,7 +397,6 @@ class FileParser:
 
         return None
 
-    @lru_cache(maxsize=128)
     def _clean_title_cached(self, title: str) -> str:
         """제목에서 불필요한 정보 제거 (캐시됨)"""
         if not title:
@@ -430,11 +424,8 @@ class FileParser:
 
         # 6단계: 최종 정리
         title = title.strip()
-        title = re.sub(r"\s+", " ", title)
+        return re.sub(r"\s+", " ", title)
 
-        return title
-
-    @lru_cache(maxsize=64)
     def _remove_technical_info_cached(self, title: str) -> str:
         """기술적 정보 제거 (캐시됨)"""
         # 코덱 정보
@@ -536,26 +527,17 @@ class FileParser:
 
     def clear_cache(self):
         """캐시를 모두 지웁니다 (메모리 관리용)"""
-        self.parse_filename.cache_clear()
-        self._improved_fallback_parse.cache_clear()
-        self._extract_resolution_cached.cache_clear()
-        self._clean_title_cached.cache_clear()
-        self._remove_technical_info_cached.cache_clear()
+        # lru_cache가 제거되었으므로 캐시 클리어는 더 이상 필요하지 않음
 
     def get_cache_info(self) -> dict[str, int]:
         """캐시 정보를 반환합니다"""
-        parse_cache_info = self.parse_filename.cache_info()
-        fallback_cache_info = self._improved_fallback_parse.cache_info()
-        resolution_cache_info = self._extract_resolution_cached.cache_info()
-        title_cache_info = self._clean_title_cached.cache_info()
-        tech_cache_info = self._remove_technical_info_cached.cache_info()
+        # lru_cache가 제거되었으므로 빈 딕셔너리 반환
+        return {}
 
-        return {
-            "parse_filename_cache_size": parse_cache_info.currsize,
-            "parse_filename_cache_hits": parse_cache_info.hits,
-            "parse_filename_cache_misses": parse_cache_info.misses,
-            "fallback_parse_cache_size": fallback_cache_info.currsize,
-            "resolution_cache_size": resolution_cache_info.currsize,
-            "title_clean_cache_size": title_cache_info.currsize,
-            "technical_info_cache_size": tech_cache_info.currsize,
-        }
+    def batch_parse(self, filenames: list[str]) -> list[ParsedMetadata | None]:
+        """여러 파일명을 일괄 파싱 (테스트 호환성)"""
+        results = []
+        for filename in filenames:
+            result = self.parse_filename(filename)
+            results.append(result)
+        return results

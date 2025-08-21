@@ -5,12 +5,11 @@ TMDB API 검색, 메타데이터 가져오기, 포스터 캐싱 등을 관리합
 
 import json
 import os
-
-# 상대 경로로 수정
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 from core.tmdb_client import TMDBAnimeInfo, TMDBClient
 from plugins.base import PluginManager
 
@@ -217,7 +216,7 @@ class TMDBManager:
 
         try:
             poster_file_path = self.tmdb_client.get_poster_path(poster_path, size)
-            if poster_file_path and os.path.exists(poster_file_path):
+            if poster_file_path and Path(poster_file_path).exists():
                 # 캐시에 저장
                 self.poster_cache[cache_key] = poster_file_path
                 return poster_file_path
@@ -270,7 +269,7 @@ class TMDBManager:
 
         results = {}
         for i, item in enumerate(parsed_items):
-            print(f"진행률: {i+1}/{len(parsed_items)} - {item.detectedTitle}")
+            print(f"진행률: {i + 1}/{len(parsed_items)} - {item.detectedTitle}")
 
             # 이미 TMDB 매칭이 되어 있으면 건너뛰기
             if item.tmdbId:
@@ -327,9 +326,7 @@ class TMDBManager:
         length_similarity = 1.0 - (length_diff / max_length) if max_length > 0 else 0.0
 
         # 최종 유사도 (Jaccard 70%, 길이 30%)
-        final_similarity = (jaccard_similarity * 0.7) + (length_similarity * 0.3)
-
-        return final_similarity
+        return (jaccard_similarity * 0.7) + (length_similarity * 0.3)
 
     def clear_cache(self):
         """캐시 초기화"""
@@ -353,7 +350,7 @@ class TMDBManager:
                 "stats": self.get_cache_stats(),
             }
 
-            with open(filepath, "w", encoding="utf-8") as f:
+            with Path(filepath).open("w", encoding="utf-8") as f:
                 json.dump(cache_info, f, ensure_ascii=False, indent=2)
 
             print(f"✅ 캐시 정보 내보내기 완료: {filepath}")

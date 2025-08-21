@@ -5,7 +5,6 @@
 """
 
 import logging
-import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -207,10 +206,10 @@ class FileService(IService):
             # 오류 시 기본 정보 반환
             return FileInfo(
                 path=file_path,
-                name=os.path.basename(file_path),
+                name=Path(file_path).name,
                 size=0,
                 extension="",
-                directory=os.path.dirname(file_path),
+                directory=str(Path(file_path).parent),
                 exists=False,
             )
 
@@ -248,7 +247,7 @@ class FileService(IService):
                 )
 
             # 권한 확인
-            if not os.access(file_path, os.R_OK):
+            if not Path(file_path).exists() or not Path(file_path).is_file():
                 validation_result["issues"].append("파일 읽기 권한이 없습니다")
 
             # 문제가 있으면 유효하지 않음으로 표시
@@ -269,7 +268,7 @@ class FileService(IService):
     def scan_directory(self, directory: str, file_types: list[str] = None) -> list[FileInfo]:
         """디렉토리 스캔"""
         try:
-            if not os.path.exists(directory):
+            if not Path(directory).exists():
                 self.logger.warning(f"디렉토리가 존재하지 않습니다: {directory}")
                 return []
 
@@ -278,9 +277,9 @@ class FileService(IService):
 
             files = []
 
-            for root, dirs, filenames in os.walk(directory):
-                for filename in filenames:
-                    file_path = os.path.join(root, filename)
+            for file_path_obj in Path(directory).rglob("*"):
+                if file_path_obj.is_file():
+                    file_path = str(file_path_obj)
                     file_info = self.get_file_info(file_path)
 
                     # 파일 타입 필터링
@@ -340,13 +339,12 @@ class FileService(IService):
 
             # 대상 디렉토리 생성
             if self.get_config("create_directories", True):
-                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+                Path(destination_path).parent.mkdir(parents=True, exist_ok=True)
 
             # 기존 파일 확인
-            if os.path.exists(destination_path):
-                if not self.get_config("overwrite_existing", False):
-                    operation.error_message = "대상 파일이 이미 존재합니다"
-                    return operation
+            if Path(destination_path).exists() and not self.get_config("overwrite_existing", False):
+                operation.error_message = "대상 파일이 이미 존재합니다"
+                return operation
 
             # 백업 생성
             if self.get_config("backup_before_move", False):
@@ -361,10 +359,8 @@ class FileService(IService):
                 subtitle_files = self.find_subtitle_files(source_path)
                 for subtitle_file in subtitle_files:
                     try:
-                        subtitle_name = os.path.basename(subtitle_file)
-                        subtitle_dest = os.path.join(
-                            os.path.dirname(destination_path), subtitle_name
-                        )
+                        subtitle_name = Path(subtitle_file).name
+                        subtitle_dest = str(Path(destination_path).parent / subtitle_name)
                         shutil.move(subtitle_file, subtitle_dest)
                         self.logger.debug(f"자막 파일 이동: {subtitle_file} -> {subtitle_dest}")
                     except Exception as e:
@@ -390,7 +386,7 @@ class FileService(IService):
 
             # 대상 디렉토리 생성
             if self.get_config("create_directories", True):
-                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+                Path(destination_path).parent.mkdir(parents=True, exist_ok=True)
 
             # 파일 복사
             shutil.copy2(source_path, destination_path)
@@ -407,7 +403,7 @@ class FileService(IService):
     def create_directory(self, directory_path: str) -> bool:
         """디렉토리 생성"""
         try:
-            os.makedirs(directory_path, exist_ok=True)
+            Path(directory_path).mkdir(parents=True, exist_ok=True)
             self.logger.debug(f"디렉토리 생성: {directory_path}")
             return True
         except Exception as e:
@@ -419,12 +415,13 @@ class FileService(IService):
         try:
             deleted_count = 0
 
-            for root, dirs, files in os.walk(root_directory, topdown=False):
-                for directory in dirs:
-                    dir_path = os.path.join(root, directory)
+            for dir_path in sorted(
+                Path(root_directory).rglob("*"), key=lambda p: len(p.parts), reverse=True
+            ):
+                if dir_path.is_dir():
                     try:
-                        if not os.listdir(dir_path):  # 빈 디렉토리인지 확인
-                            os.rmdir(dir_path)
+                        if not list(dir_path.iterdir()):  # 빈 디렉토리인지 확인
+                            dir_path.rmdir()
                             deleted_count += 1
                             self.logger.debug(f"빈 디렉토리 삭제: {dir_path}")
                     except OSError:

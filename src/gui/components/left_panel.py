@@ -3,7 +3,7 @@
 빠른 작업, 통계, 필터 그룹을 포함하는 왼쪽 패널을 관리합니다.
 """
 
-import os
+from pathlib import Path
 
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import (
@@ -12,7 +12,6 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QProgressBar,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -170,27 +169,7 @@ class LeftPanel(QWidget):
         scan_layout.addWidget(self.btnStart)
         scan_layout.addWidget(self.btnPause)
 
-        # 진행률 표시
-        progress_label = QLabel("진행률:")
-        self.progressBar = QProgressBar()
-        self.progressBar.setStyleSheet(
-            """
-            QProgressBar {
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-                text-align: center;
-                font-weight: bold;
-            }
-            QProgressBar::chunk {
-                background-color: #3498db;
-                border-radius: 3px;
-            }
-        """
-        )
-
         layout.addLayout(scan_layout)
-        layout.addWidget(progress_label)
-        layout.addWidget(self.progressBar)
 
         return group
 
@@ -323,10 +302,6 @@ class LeftPanel(QWidget):
         """스캔 시작 버튼 활성화 상태 업데이트"""
         self.btnStart.setEnabled(has_source)
 
-    def update_progress(self, value: int):
-        """진행률 업데이트"""
-        self.progressBar.setValue(value)
-
     def update_stats(self, total: int, parsed: int, pending: int, groups: int = 0):
         """통계 업데이트"""
         self.lblTotal.setText(str(total))
@@ -339,7 +314,7 @@ class LeftPanel(QWidget):
 
     def update_source_directory_display(self, directory: str):
         """소스 디렉토리 표시 업데이트"""
-        if directory and os.path.exists(directory):
+        if directory and Path(directory).exists():
             self.source_dir_label.setText(f"소스 폴더: {directory}")
             self.source_dir_label.setStyleSheet(
                 """
@@ -359,7 +334,7 @@ class LeftPanel(QWidget):
 
     def update_destination_directory_display(self, directory: str):
         """대상 디렉토리 표시 업데이트"""
-        if directory and os.path.exists(directory):
+        if directory and Path(directory).exists():
             self.dest_dir_label.setText(f"대상 폴더: {directory}")
             self.dest_dir_label.setStyleSheet(
                 """

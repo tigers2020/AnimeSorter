@@ -5,7 +5,10 @@ Application Services Module
 """
 
 from .background_task_service import BackgroundTaskService, IBackgroundTaskService
+from .file_organization_service import FileOrganizationService, IFileOrganizationService
 from .file_scan_service import FileScanService, IFileScanService
+from .media_data_service import IMediaDataService, MediaDataService
+from .tmdb_search_service import ITMDBSearchService, TMDBSearchService
 from .ui_update_service import IUIUpdateService, UIUpdateService
 
 __all__ = [
@@ -15,4 +18,10 @@ __all__ = [
     "UIUpdateService",
     "IBackgroundTaskService",
     "BackgroundTaskService",
+    "IFileOrganizationService",
+    "FileOrganizationService",
+    "IMediaDataService",
+    "MediaDataService",
+    "ITMDBSearchService",
+    "TMDBSearchService",
 ]

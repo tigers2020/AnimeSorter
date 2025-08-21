@@ -6,15 +6,22 @@
 
 import logging
 import threading
+from typing import TypeVar
 
 from .container import get_container
 from .events import TypedEventBus, set_event_bus
 from .services import (
     BackgroundTaskService,
+    FileOrganizationService,
     FileScanService,
     IBackgroundTaskService,
+    IFileOrganizationService,
     IFileScanService,
+    IMediaDataService,
+    ITMDBSearchService,
     IUIUpdateService,
+    MediaDataService,
+    TMDBSearchService,
     UIUpdateService,
 )
 
@@ -49,8 +56,23 @@ def setup_application_services() -> None:
             container.register_singleton(IUIUpdateService, UIUpdateService)
             logger.info("IUIUpdateService가 UIUpdateService로 등록되었습니다")
 
+        # FileOrganizationService 등록 (Singleton)
+        if not container.is_registered(IFileOrganizationService):
+            container.register_singleton(IFileOrganizationService, FileOrganizationService)
+            logger.info("IFileOrganizationService가 FileOrganizationService로 등록되었습니다")
+
+        # MediaDataService 등록 (Singleton)
+        if not container.is_registered(IMediaDataService):
+            container.register_singleton(IMediaDataService, MediaDataService)
+            logger.info("IMediaDataService가 MediaDataService로 등록되었습니다")
+
+        # TMDBSearchService 등록 (Singleton)
+        if not container.is_registered(ITMDBSearchService):
+            container.register_singleton(ITMDBSearchService, TMDBSearchService)
+            logger.info("ITMDBSearchService가 TMDBSearchService로 등록되었습니다")
+
         # 추가 서비스들은 여기에 등록
-        # TODO: MetadataService, FileOperationService 등
+        # TODO: 향후 추가 서비스들
 
         logger.info("애플리케이션 서비스 등록 완료")
 
@@ -58,9 +80,6 @@ def setup_application_services() -> None:
         logger.error(f"애플리케이션 서비스 등록 실패: {e}")
         raise
 
-
-# 타입 변수
-from typing import TypeVar
 
 T = TypeVar("T")
 
@@ -111,6 +130,15 @@ def initialize_application() -> None:
 
         ui_update_service = get_service(IUIUpdateService)
         logger.info(f"UIUpdateService 인스턴스 생성: {id(ui_update_service)}")
+
+        file_organization_service = get_service(IFileOrganizationService)
+        logger.info(f"FileOrganizationService 인스턴스 생성: {id(file_organization_service)}")
+
+        media_data_service = get_service(IMediaDataService)
+        logger.info(f"MediaDataService 인스턴스 생성: {id(media_data_service)}")
+
+        tmdb_search_service = get_service(ITMDBSearchService)
+        logger.info(f"TMDBSearchService 인스턴스 생성: {id(tmdb_search_service)}")
 
         logger.info("애플리케이션 초기화 완료")
 

@@ -2,15 +2,24 @@
 설정 관리 모듈 - AnimeSorter
 
 애플리케이션 설정을 관리하고 저장/로드하는 기능을 제공합니다.
+기존 SettingsManager와 새로운 ConfigManager를 통합하여
+계층화된 설정 시스템을 제공합니다.
 """
 
 import json
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtSignal
+
+# 새로운 계층화된 설정 시스템 import
+try:
+    from .config import config_manager
+
+    NEW_CONFIG_AVAILABLE = True
+except ImportError:
+    NEW_CONFIG_AVAILABLE = False
 
 
 @dataclass
@@ -58,7 +67,7 @@ class AppSettings:
 class SettingsManager(QObject):
     """설정 관리자"""
 
-    settingsChanged = pyqtSignal()
+    settings_changed = pyqtSignal()
 
     def __init__(self, config_file: str = "animesorter_config.json"):
         """초기화"""
@@ -66,13 +75,19 @@ class SettingsManager(QObject):
         self.config_file = Path(config_file)
         self.settings_file = str(self.config_file)  # settings_file 속성 추가
         self.settings = AppSettings()
+
+        # 새로운 계층화된 설정 시스템이 사용 가능한 경우
+        if NEW_CONFIG_AVAILABLE:
+            # 설정 변경 콜백 등록
+            config_manager.add_change_callback(self._on_config_changed)
+
         self.load_settings()
 
     def load_settings(self) -> bool:
         """설정 파일에서 설정 로드"""
         try:
             if self.config_file.exists():
-                with open(self.config_file, encoding="utf-8") as f:
+                with self.config_file.open(encoding="utf-8") as f:
                     data = json.load(f)
 
                 # 기존 설정과 병합
@@ -101,7 +116,7 @@ class SettingsManager(QObject):
             # None 값 제거
             settings_dict = {k: v for k, v in settings_dict.items() if v is not None}
 
-            with open(self.config_file, "w", encoding="utf-8") as f:
+            with self.config_file.open("w", encoding="utf-8") as f:
                 json.dump(settings_dict, f, ensure_ascii=False, indent=2)
 
             print(f"✅ 설정 저장 완료: {self.config_file}")
@@ -120,7 +135,7 @@ class SettingsManager(QObject):
         try:
             if hasattr(self.settings, key):
                 setattr(self.settings, key, value)
-                self.settingsChanged.emit()
+                self.settings_changed.emit()
                 return True
             print(f"⚠️ 알 수 없는 설정 키: {key}")
             return False
@@ -145,7 +160,7 @@ class SettingsManager(QObject):
 
             if updated:
                 print("  🔔 settingsChanged 시그널 발생")
-                self.settingsChanged.emit()
+                self.settings_changed.emit()
 
             return updated
 
@@ -157,7 +172,7 @@ class SettingsManager(QObject):
         """기본값으로 설정 초기화"""
         try:
             self.settings = AppSettings()
-            self.settingsChanged.emit()
+            self.settings_changed.emit()
             return True
         except Exception as e:
             print(f"❌ 설정 초기화 실패: {e}")
@@ -179,7 +194,7 @@ class SettingsManager(QObject):
             warnings[
                 "destination_root"
             ] = "대상 디렉토리가 설정되지 않았습니다. 파일 정리 기능이 제한됩니다."
-        elif not os.path.exists(self.settings.destination_root):
+        elif not Path(self.settings.destination_root).exists():
             errors["destination_root"] = "대상 디렉토리가 존재하지 않습니다"
 
         # 값 범위 검사
@@ -199,7 +214,7 @@ class SettingsManager(QObject):
             export_file.parent.mkdir(parents=True, exist_ok=True)
 
             settings_dict = asdict(self.settings)
-            with open(export_file, "w", encoding="utf-8") as f:
+            with export_file.open("w", encoding="utf-8") as f:
                 json.dump(settings_dict, f, ensure_ascii=False, indent=2)
 
             print(f"✅ 설정 내보내기 완료: {export_file}")
@@ -217,7 +232,7 @@ class SettingsManager(QObject):
                 print(f"⚠️ 가져올 파일이 없습니다: {import_file}")
                 return False
 
-            with open(import_file, encoding="utf-8") as f:
+            with import_file.open(encoding="utf-8") as f:
                 data = json.load(f)
 
             # 기존 설정과 병합
@@ -225,7 +240,7 @@ class SettingsManager(QObject):
                 if hasattr(self.settings, key):
                     setattr(self.settings, key, value)
 
-            self.settingsChanged.emit()
+            self.settings_changed.emit()
             print(f"✅ 설정 가져오기 완료: {import_file}")
             return True
 
@@ -239,10 +254,125 @@ class SettingsManager(QObject):
 
     def get_settings_summary(self) -> dict[str, Any]:
         """설정 요약 반환"""
-        return {
+        summary = {
             "total_settings": len(asdict(self.settings)),
             "configured_settings": len([v for v in asdict(self.settings).values() if v]),
             "validation_errors": len(self.validate_settings()),
             "config_file_path": str(self.config_file),
             "config_file_exists": self.config_file.exists(),
         }
+
+        # 새로운 설정 시스템 정보 추가
+        if NEW_CONFIG_AVAILABLE:
+            summary.update(
+                {
+                    "new_config_available": True,
+                    "config_source_info": config_manager.get_source_info(),
+                    "new_config_validation": config_manager.validate(),
+                }
+            )
+        else:
+            summary["new_config_available"] = False
+
+        return summary
+
+    def _on_config_changed(self, key: str, value: Any) -> None:
+        """새로운 설정 시스템에서 설정이 변경되었을 때 호출"""
+        try:
+            if key == "__reload__":
+                # 전체 설정 재로드
+                self._sync_with_new_config()
+            elif key == "__all__":
+                # 기본값으로 초기화
+                self._sync_with_new_config()
+            else:
+                # 특정 설정 동기화
+                self._sync_specific_setting(key, value)
+        except Exception as e:
+            print(f"⚠️ 설정 동기화 실패: {e}")
+
+    def _sync_with_new_config(self) -> None:
+        """새로운 설정 시스템과 동기화"""
+        if not NEW_CONFIG_AVAILABLE:
+            return
+
+        try:
+            new_config = config_manager.config
+
+            # 주요 설정들을 동기화
+            if new_config.destination_root != self.settings.destination_root:
+                self.settings.destination_root = new_config.destination_root
+
+            if new_config.organize_mode != self.settings.organize_mode:
+                self.settings.organize_mode = new_config.organize_mode
+
+            if new_config.tmdb_api_key != self.settings.tmdb_api_key:
+                self.settings.tmdb_api_key = new_config.tmdb_api_key
+
+            if new_config.log_level != self.settings.log_level:
+                self.settings.log_level = new_config.log_level
+
+            # 설정 변경 시그널 발생
+            self.settings_changed.emit()
+            print("✅ 새로운 설정 시스템과 동기화 완료")
+
+        except Exception as e:
+            print(f"❌ 설정 동기화 실패: {e}")
+
+    def _sync_specific_setting(self, key: str, value: Any) -> None:
+        """특정 설정 동기화"""
+        if not NEW_CONFIG_AVAILABLE:
+            return
+
+        try:
+            # 키 매핑 (새로운 설정 키 -> 기존 설정 키)
+            key_mapping = {
+                "destination_root": "destination_root",
+                "organize_mode": "organize_mode",
+                "tmdb_api_key": "tmdb_api_key",
+                "log_level": "log_level",
+                "safe_mode": "safe_mode",
+                "backup_before_organize": "backup_before_organize",
+            }
+
+            if key in key_mapping:
+                old_key = key_mapping[key]
+                if hasattr(self.settings, old_key):
+                    old_value = getattr(self.settings, old_key)
+                    setattr(self.settings, old_key, value)
+                    print(f"✅ 설정 동기화: {old_key} = {old_value} -> {value}")
+
+                    # 설정 변경 시그널 발생
+                    self.settings_changed.emit()
+
+        except Exception as e:
+            print(f"❌ 특정 설정 동기화 실패: {e}")
+
+    # === 새로운 설정 시스템 메서드들 ===
+
+    def use_new_config_system(self) -> bool:
+        """새로운 설정 시스템 사용 여부"""
+        return NEW_CONFIG_AVAILABLE
+
+    def get_new_config(self) -> Any:
+        """새로운 설정 시스템의 설정 반환"""
+        if NEW_CONFIG_AVAILABLE:
+            return config_manager.config
+        return None
+
+    def set_new_config(self, key: str, value: Any) -> bool:
+        """새로운 설정 시스템에 설정 값 설정"""
+        if NEW_CONFIG_AVAILABLE:
+            return config_manager.set(key, value)
+        return False
+
+    def save_new_config_to_yaml(self) -> bool:
+        """새로운 설정을 YAML 파일로 저장"""
+        if NEW_CONFIG_AVAILABLE:
+            return config_manager.save_to_yaml()
+        return False
+
+    def reload_new_config(self) -> None:
+        """새로운 설정 시스템 재로드"""
+        if NEW_CONFIG_AVAILABLE:
+            config_manager.reload()

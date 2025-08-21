@@ -5,16 +5,15 @@
 
 import os
 import shutil
-
-# 상대 경로로 수정
 import sys
 import threading
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 from core.file_manager import FileManager
 from core.file_parser import FileParser
 
@@ -67,7 +66,7 @@ class FileProcessingManager:
 
     def scan_directory(self, directory_path: str, recursive: bool = True) -> list[str]:
         """디렉토리 스캔하여 비디오 파일 찾기"""
-        if not os.path.exists(directory_path):
+        if not Path(directory_path).exists():
             print(f"❌ 디렉토리가 존재하지 않습니다: {directory_path}")
             return []
 
@@ -76,16 +75,13 @@ class FileProcessingManager:
 
         try:
             if recursive:
-                for root, dirs, files in os.walk(directory_path):
-                    for file in files:
-                        if Path(file).suffix.lower() in video_extensions:
-                            full_path = os.path.join(root, file)
-                            video_files.append(full_path)
+                for root, _dirs, _files in Path(directory_path).rglob("*"):
+                    if root.is_file() and root.suffix.lower() in video_extensions:
+                        video_files.append(str(root))
             else:
-                for file in os.listdir(directory_path):
-                    if Path(file).suffix.lower() in video_extensions:
-                        full_path = os.path.join(directory_path, file)
-                        video_files.append(full_path)
+                for file_path in Path(directory_path).iterdir():
+                    if file_path.is_file() and file_path.suffix.lower() in video_extensions:
+                        video_files.append(str(file_path))
 
             print(f"🔍 디렉토리 스캔 완료: {len(video_files)}개 비디오 파일 발견")
             return video_files
@@ -106,14 +102,14 @@ class FileProcessingManager:
             try:
                 # 진행률 표시
                 progress = int((i / len(file_paths)) * 100)
-                print(f"진행률: {progress}% - {os.path.basename(file_path)}")
+                print(f"진행률: {progress}% - {Path(file_path).name}")
 
                 # 파일 파싱
                 parsed_metadata = self.file_parser.parse_filename(file_path)
 
                 if parsed_metadata and parsed_metadata.title:
                     # 파일 크기 계산
-                    file_size = os.path.getsize(file_path)
+                    file_size = Path(file_path).stat().st_size
                     size_mb = file_size // (1024 * 1024)
 
                     # ParsedItem 생성
@@ -147,7 +143,7 @@ class FileProcessingManager:
                         parsingConfidence=0.0,
                     )
                     parsed_items.append(parsed_item)
-                    print(f"❌ 파싱 실패: {os.path.basename(file_path)}")
+                    print(f"❌ 파싱 실패: {Path(file_path).name}")
 
             except Exception as e:
                 print(f"❌ 파일 처리 오류: {file_path} - {e}")
@@ -186,12 +182,12 @@ class FileProcessingManager:
 
                 # 백업 경로 생성 (안전 모드인 경우)
                 backup_path = None
-                if self.safe_mode and os.path.exists(target_path):
+                if self.safe_mode and Path(target_path).exists():
                     backup_path = self._generate_backup_path(target_path)
 
                 # 파일 크기 계산
                 file_size = (
-                    os.path.getsize(item.sourcePath) if os.path.exists(item.sourcePath) else 0
+                    Path(item.sourcePath).stat().st_size if Path(item.sourcePath).exists() else 0
                 )
                 size_mb = file_size // (1024 * 1024)
                 total_size += size_mb
@@ -228,10 +224,10 @@ class FileProcessingManager:
             return item.sourcePath
 
         # 기본 디렉토리 구조
-        base_dir = os.path.join(
-            self.destination_root,
-            item.title or "Unknown",
-            f"Season {item.season:02d}" if item.season else "Unknown",
+        base_dir = (
+            Path(self.destination_root)
+            / (item.title or "Unknown")
+            / (f"Season {item.season:02d}" if item.season else "Unknown")
         )
 
         # 파일명 생성
@@ -240,7 +236,7 @@ class FileProcessingManager:
         elif naming_scheme == "compact":
             filename = f"S{item.season:02d}E{item.episode:02d}"
         else:
-            filename = os.path.splitext(os.path.basename(item.sourcePath))[0]
+            filename = Path(item.sourcePath).stem
 
         # 해상도 정보 추가
         if item.resolution and item.resolution != "Unknown":
@@ -251,14 +247,12 @@ class FileProcessingManager:
         filename += extension
 
         # 전체 경로 생성
-        target_path = os.path.join(base_dir, filename)
-
-        return target_path
+        return str(base_dir / filename)
 
     def _generate_backup_path(self, original_path: str) -> str:
         """백업 경로 생성"""
         path = Path(original_path)
-        backup_name = f"{path.stem}_backup_{int(os.time.time())}{path.suffix}"
+        backup_name = f"{path.stem}_backup_{int(time.time())}{path.suffix}"
         backup_path = path.parent / backup_name
         return str(backup_path)
 
@@ -266,12 +260,12 @@ class FileProcessingManager:
         """파일 충돌 확인"""
         conflicts = []
 
-        if os.path.exists(target_path):
+        if Path(target_path).exists():
             conflicts.append("파일이 이미 존재함")
 
         # 디렉토리 권한 확인
-        target_dir = os.path.dirname(target_path)
-        if not os.access(target_dir, os.W_OK):
+        target_dir = Path(target_path).parent
+        if not target_dir.exists() or not os.access(str(target_dir), os.W_OK):
             conflicts.append("디렉토리 쓰기 권한 없음")
 
         return conflicts
@@ -389,11 +383,11 @@ class FileProcessingManager:
         """단일 처리 계획 실행"""
         try:
             # 대상 디렉토리 생성
-            target_dir = os.path.dirname(plan.target_path)
-            os.makedirs(target_dir, exist_ok=True)
+            target_dir = Path(plan.target_path).parent
+            target_dir.mkdir(parents=True, exist_ok=True)
 
             # 백업 생성 (필요한 경우)
-            if plan.backup_path and os.path.exists(plan.target_path):
+            if plan.backup_path and Path(plan.target_path).exists():
                 shutil.copy2(plan.target_path, plan.backup_path)
                 print(f"💾 백업 생성: {plan.backup_path}")
 
@@ -404,7 +398,7 @@ class FileProcessingManager:
                 shutil.move(plan.source_path, plan.target_path)
 
             print(
-                f"✅ 파일 처리 완료: {os.path.basename(plan.source_path)} → {os.path.basename(plan.target_path)}"
+                f"✅ 파일 처리 완료: {Path(plan.source_path).name} → {Path(plan.target_path).name}"
             )
             return True
 
@@ -447,7 +441,7 @@ class FileProcessingManager:
 
             import json
 
-            with open(filepath, "w", encoding="utf-8") as f:
+            with Path(filepath).open("w", encoding="utf-8") as f:
                 json.dump(report, f, ensure_ascii=False, indent=2)
 
             print(f"✅ 처리 계획 내보내기 완료: {filepath}")
@@ -476,14 +470,14 @@ class FileProcessingManager:
                     target_path=target_path,
                     action=organize_mode,
                     estimated_size=(
-                        os.path.getsize(item.sourcePath or item.path)
-                        if os.path.exists(item.sourcePath or item.path)
+                        Path(item.sourcePath or item.path).stat().st_size
+                        if Path(item.sourcePath or item.path).exists()
                         else None
                     ),
                 )
 
                 # 충돌 검사
-                if os.path.exists(target_path):
+                if Path(target_path).exists():
                     plan.conflicts.append(f"대상 파일이 이미 존재함: {target_path}")
 
                 plans.append(plan)
@@ -542,9 +536,7 @@ class FileProcessingManager:
             return item.sourcePath or item.path
 
         # 파일명 생성 (기본적으로 원본 파일명 사용)
-        filename = os.path.basename(item.sourcePath or item.path)
+        filename = Path(item.sourcePath or item.path).name
 
         # 대상 경로 조합
-        target_path = os.path.join(self.destination_root, filename)
-
-        return target_path
+        return str(Path(self.destination_root) / filename)

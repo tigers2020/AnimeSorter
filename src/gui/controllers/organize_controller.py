@@ -6,6 +6,7 @@
 
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 from PyQt5.QtCore import QObject
@@ -138,7 +139,7 @@ class OrganizeController(IController):
 
     def _set_destination_directory(self, directory: str) -> None:
         """대상 디렉토리 설정"""
-        if os.path.exists(directory):
+        if Path(directory).exists():
             self.destination_directory = directory
             self.logger.info(f"대상 디렉토리 설정: {directory}")
         else:
@@ -208,7 +209,7 @@ class OrganizeController(IController):
                 return False
 
             # 대상 디렉토리 확인
-            if not self.destination_directory or not os.path.exists(self.destination_directory):
+            if not self.destination_directory or not Path(self.destination_directory).exists():
                 self.event_bus.publish(
                     "error_occurred", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
                 )

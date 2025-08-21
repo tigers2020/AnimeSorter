@@ -8,7 +8,6 @@ FileScanService의 로직을 BaseTask 기반으로 재구현하여
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 from ..background_events import TaskPriority
 from ..background_task import BaseTask, TaskResult
@@ -24,7 +23,7 @@ class FileScanTask(BaseTask):
         event_bus: TypedEventBus,
         directory_path: str,
         recursive: bool = True,
-        extensions: Optional[set[str]] = None,
+        extensions: set[str] | None = None,
         min_size_mb: float = 1.0,
         max_size_gb: float = 50.0,
         priority: TaskPriority = TaskPriority.NORMAL,
@@ -97,7 +96,7 @@ class FileScanTask(BaseTask):
 
                     # 진행률 업데이트 (20% ~ 90%)
                     progress = 20 + int((i / total_files) * 70)
-                    self.update_progress(progress, f"파일 처리 중... ({i+1}/{total_files})")
+                    self.update_progress(progress, f"파일 처리 중... ({i + 1}/{total_files})")
 
                 except Exception as e:
                     self.logger.warning(f"파일 처리 실패: {file_path} - {e}")
@@ -186,10 +185,7 @@ class FileScanTask(BaseTask):
             if file_size < self.min_size_bytes:
                 return False
 
-            if file_size > self.max_size_bytes:
-                return False
-
-            return True
+            return not file_size > self.max_size_bytes
 
         except Exception as e:
             self.logger.warning(f"파일 검사 실패: {file_path} - {e}")

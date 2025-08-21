@@ -321,7 +321,7 @@ class StateService(QObject, IService):
                 "current_state": self._current_state.value,
             }
 
-            with open(self._state_file, "w", encoding="utf-8") as f:
+            with self._state_file.open("w", encoding="utf-8") as f:
                 json.dump(state_data, f, ensure_ascii=False, indent=2)
 
             print(f"💾 상태 저장 완료: {self._state_file}")
@@ -332,7 +332,7 @@ class StateService(QObject, IService):
         """파일에서 상태 로드"""
         try:
             if self._state_file.exists():
-                with open(self._state_file, encoding="utf-8") as f:
+                with self._state_file.open(encoding="utf-8") as f:
                     state_data = json.load(f)
 
                 self._app_data.last_scan_directory = state_data.get("last_scan_directory", "")

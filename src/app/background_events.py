@@ -7,10 +7,10 @@ QThread/QRunnable 기반 비동기 작업과 UI 간의 통신에 사용됩니다
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
-from .events import BaseEvent
+from app.events import BaseEvent
 
 
 class TaskStatus(Enum):
@@ -39,7 +39,7 @@ class TaskStartedEvent(BaseEvent):
     task_id: str = field(default_factory=lambda: str(uuid4()))
     task_type: str = ""
     task_name: str = ""
-    estimated_duration: Optional[float] = None  # 초 단위 예상 소요시간
+    estimated_duration: float | None = None  # 초 단위 예상 소요시간
     priority: TaskPriority = TaskPriority.NORMAL
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -54,7 +54,7 @@ class TaskProgressEvent(BaseEvent):
     items_processed: int = 0
     total_items: int = 0
     elapsed_time: float = 0.0  # 초 단위 경과시간
-    estimated_remaining: Optional[float] = None  # 초 단위 예상 남은시간
+    estimated_remaining: float | None = None  # 초 단위 예상 남은시간
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

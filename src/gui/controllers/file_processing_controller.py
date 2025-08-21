@@ -5,7 +5,7 @@
 """
 
 import logging
-import os
+from pathlib import Path
 from typing import Any
 
 from managers.anime_data_manager import ParsedItem
@@ -47,7 +47,7 @@ class FileProcessingWorker(QThread):
                 try:
                     # 진행률 업데이트
                     progress = int((i / total_files) * 100)
-                    filename = os.path.basename(file_path)
+                    filename = Path(file_path).name
                     self.progress_updated.emit(progress, f"처리 중: {filename}")
 
                     # 파일 크기 확인 (1MB 미만 제외)
@@ -77,7 +77,7 @@ class FileProcessingWorker(QThread):
 
                         # 파일 크기 정보 추가
                         try:
-                            file_size = os.path.getsize(file_path)
+                            file_size = Path(file_path).stat().st_size
                             parsed_item.sizeMB = file_size / (1024 * 1024)
                         except OSError:
                             parsed_item.sizeMB = 0
@@ -101,9 +101,7 @@ class FileProcessingWorker(QThread):
 
                 except Exception as e:
                     self.logger.error(f"파일 처리 오류: {file_path} - {e}")
-                    self.error_occurred.emit(
-                        f"파일 처리 오류: {os.path.basename(file_path)} - {str(e)}"
-                    )
+                    self.error_occurred.emit(f"파일 처리 오류: {Path(file_path).name} - {str(e)}")
 
             # 완료 신호 발송
             if not self._should_stop:
@@ -122,7 +120,7 @@ class FileProcessingWorker(QThread):
     def _validate_file_size(self, file_path: str) -> bool:
         """파일 크기 유효성 검사"""
         try:
-            file_size = os.path.getsize(file_path)
+            file_size = Path(file_path).stat().st_size
             return file_size >= 1024 * 1024  # 1MB 이상
         except OSError:
             return False
@@ -266,7 +264,7 @@ class FileProcessingController(IController):
 
     def set_source_directory(self, directory: str) -> None:
         """소스 디렉토리 설정"""
-        if os.path.exists(directory):
+        if Path(directory).exists():
             self.source_directory = directory
             self.source_files = []  # 디렉토리 설정 시 개별 파일 목록 초기화
             self.event_bus.publish("status_update", {"message": f"소스 폴더 설정: {directory}"})
@@ -275,7 +273,7 @@ class FileProcessingController(IController):
 
     def set_source_files(self, file_paths: list[str]) -> None:
         """소스 파일 목록 설정"""
-        valid_files = [f for f in file_paths if os.path.exists(f)]
+        valid_files = [f for f in file_paths if Path(f).exists()]
         self.source_files = valid_files
         self.source_directory = None  # 개별 파일 설정 시 디렉토리 초기화
 
@@ -351,11 +349,9 @@ class FileProcessingController(IController):
         if self.source_directory:
             # 디렉토리에서 비디오 파일 검색
             video_files = []
-            for root, dirs, files in os.walk(self.source_directory):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    if self._is_video_file(file_path):
-                        video_files.append(file_path)
+            for file_path in Path(self.source_directory).rglob("*"):
+                if file_path.is_file() and self._is_video_file(str(file_path)):
+                    video_files.append(str(file_path))
             return video_files
 
         return []
@@ -371,7 +367,7 @@ class FileProcessingController(IController):
 
     def _on_file_processed(self, parsed_item: ParsedItem) -> None:
         """개별 파일 처리 완료"""
-        filename = os.path.basename(parsed_item.sourcePath)
+        filename = Path(parsed_item.sourcePath).name
         if parsed_item.status != "error":
             log_message = f"✅ {filename} - {parsed_item.detectedTitle} S{parsed_item.season:02d}E{parsed_item.episode:02d}"
         else:

@@ -3,8 +3,8 @@
 파일 정리 실행 전 요약 정보를 표시하고 사용자 확인을 받습니다.
 """
 
-import os
 import re
+from pathlib import Path
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
@@ -185,12 +185,12 @@ class OrganizePreflightDialog(QDialog):
                     if (
                         hasattr(item, "sourcePath")
                         and item.sourcePath
-                        and os.path.exists(item.sourcePath)
+                        and Path(item.sourcePath).exists()
                     ):
                         try:
-                            file_size = os.path.getsize(item.sourcePath)
+                            file_size = Path(item.sourcePath).stat().st_size
                             total_size_mb += file_size / (1024 * 1024)
-                        except:
+                        except OSError:
                             pass
 
                 # 샘플 경로 생성 (처음 5개 그룹만)
@@ -282,12 +282,11 @@ class OrganizePreflightDialog(QDialog):
             if hasattr(representative, "filename") and representative.filename:
                 filename = representative.filename
             elif hasattr(representative, "sourcePath") and representative.sourcePath:
-                filename = os.path.basename(representative.sourcePath)
+                filename = Path(representative.sourcePath).name
             else:
                 filename = "example.mkv"
 
-            sample_path = f"{self.destination_directory}/{safe_title}/{season_folder}/{filename}"
-            return sample_path
+            return f"{self.destination_directory}/{safe_title}/{season_folder}/{filename}"
 
         except Exception as e:
             print(f"⚠️ 샘플 경로 생성 실패: {e}")

@@ -27,6 +27,18 @@ class FileOperationResult:
     processing_time: float | None = None
     backup_path: str | None = None  # 백업 파일 경로
 
+    @property
+    def error(self) -> str | None:
+        """error_message 별칭 (테스트 호환성)"""
+        return self.error_message
+
+    @property
+    def message(self) -> str:
+        """상태 메시지 (테스트 호환성)"""
+        if self.success:
+            return f"작업 성공: {self.operation_type}"
+        return f"작업 실패: {self.error_message or '알 수 없는 오류'}"
+
 
 class FileManager:
     """파일 관리자"""
@@ -73,6 +85,10 @@ class FileManager:
             self.logger.error(f"고유 경로 생성 실패: {e}")
             return target_path
 
+    def _handle_filename_conflict(self, target_path: Path) -> Path:
+        """파일명 충돌 해결 (테스트 호환성)"""
+        return self._get_non_conflicting_path(target_path)
+
     def _init_backup_system(self):
         """백업 시스템 초기화"""
         try:
@@ -88,7 +104,7 @@ class FileManager:
         """백업 메타데이터 로드"""
         try:
             if self.backup_metadata_file.exists():
-                with open(self.backup_metadata_file, encoding="utf-8") as f:
+                with self.backup_metadata_file.open(encoding="utf-8") as f:
                     self.backup_metadata = json.load(f)
                 self.logger.info(f"백업 메타데이터 로드 완료: {len(self.backup_metadata)}개 항목")
         except Exception as e:
@@ -98,7 +114,7 @@ class FileManager:
     def _save_backup_metadata(self):
         """백업 메타데이터 저장"""
         try:
-            with open(self.backup_metadata_file, "w", encoding="utf-8") as f:
+            with self.backup_metadata_file.open("w", encoding="utf-8") as f:
                 json.dump(self.backup_metadata, f, ensure_ascii=False, indent=2)
         except Exception as e:
             self.logger.error(f"백업 메타데이터 저장 실패: {e}")
@@ -256,11 +272,18 @@ class FileManager:
             self.logger.warning(f"지원되지 않는 파일명 지정 방식: {scheme}")
 
     def organize_file(
-        self, source_path: str, metadata: dict, operation: str = "copy"
+        self,
+        source_path: str,
+        metadata: dict,
+        destination_root: str = None,
+        operation: str = "copy",
     ) -> FileOperationResult:
         """단일 파일 정리"""
         start_time = datetime.now()
         operation_id = f"{operation}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+
+        # destination_root 복원을 위해 미리 저장
+        original_destination_root = self.destination_root
 
         try:
             source_file = Path(source_path)
@@ -271,6 +294,10 @@ class FileManager:
                     error_message="소스 파일이 존재하지 않습니다",
                     operation_type=operation,
                 )
+
+            # destination_root가 제공된 경우 임시로 설정
+            if destination_root:
+                self.destination_root = Path(destination_root)
 
             # 파일 크기는 이동/이름변경 전 미리 계산해 둔다
             source_file_size = source_file.stat().st_size
@@ -360,6 +387,10 @@ class FileManager:
                 error_message=str(e),
                 operation_type=operation,
             )
+        finally:
+            # destination_root 복원
+            if destination_root:
+                self.destination_root = original_destination_root
 
     def batch_organize(
         self,
@@ -405,10 +436,7 @@ class FileManager:
             title = self._clean_title_for_path(title)
 
             # 시즌 디렉토리명 생성
-            if season == 1:
-                season_dir = title
-            else:
-                season_dir = f"{title} Season {season}"
+            season_dir = title if season == 1 else f"{title} Season {season}"
 
             # 에피소드 파일명 생성
             if episode:
@@ -419,9 +447,7 @@ class FileManager:
                 episode_filename = f"{title}{source_file.suffix}"
 
             # 전체 경로 구성
-            destination_path = self.destination_root / season_dir / episode_filename
-
-            return destination_path
+            return self.destination_root / season_dir / episode_filename
 
         except Exception as e:
             self.logger.error(f"대상 경로 생성 실패: {e}")
@@ -681,3 +707,14 @@ class FileManager:
 
         except Exception as e:
             return {"error": str(e)}
+
+    def get_stats(self) -> dict[str, any]:
+        """통계 정보 조회 (테스트 호환성)"""
+        return {
+            "recent_destinations_count": len(self._recent_destinations),
+            "backup_count": len(self.backup_metadata),
+            "safe_mode": self.safe_mode,
+            "naming_scheme": self.naming_scheme,
+            "destination_root": str(self.destination_root),
+            "backup_enabled": self.backup_enabled,
+        }

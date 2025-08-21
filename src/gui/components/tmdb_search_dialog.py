@@ -3,6 +3,8 @@ TMDB 검색 결과 선택 다이얼로그
 그룹화된 애니메이션에 대한 TMDB 검색 결과를 표시하고 사용자가 선택할 수 있는 다이얼로그입니다.
 """
 
+import contextlib
+
 import requests
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
@@ -228,10 +230,8 @@ class TMDBSearchDialog(QDialog):
                 widget = self.create_result_item_widget(anime)  # Create the custom widget
                 self.resultsList.setItemWidget(item, widget)  # Set the custom widget for the item
                 # Ensure the row height matches the custom widget
-                try:
+                with contextlib.suppress(Exception):
                     item.setSizeHint(widget.sizeHint())
-                except Exception:
-                    pass
             except Exception as e:
                 print(f"❌ 결과 아이템 생성 실패: {e}")
                 # 간단한 텍스트 아이템으로 대체
@@ -268,7 +268,7 @@ class TMDBSearchDialog(QDialog):
                     poster_label.setPixmap(
                         pixmap.scaled(60, 90, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     )
-            except:
+            except Exception:
                 poster_label.setText("🎬")
         else:
             poster_label.setText("🎬")

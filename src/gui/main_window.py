@@ -4,43 +4,28 @@
 """
 
 import os
-import sys
+from pathlib import Path
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
-    QApplication,
-    QDialog,
     QHeaderView,  # Added for QHeaderView
-    QLabel,
     QMainWindow,
     QMessageBox,
-    QProgressBar,
-    QSplitter,
-    QVBoxLayout,
-    QWidget,
 )
 
 # New Architecture Components
 from app import (
-    ErrorMessageEvent,
-    FileCountUpdateEvent,
-    FilesScannedEvent,
+    IFileOrganizationService,
     IFileScanService,
+    IMediaDataService,
+    ITMDBSearchService,
     IUIUpdateService,
-    MemoryUsageUpdateEvent,
-    ProgressUpdateEvent,
-    ScanStatus,
-    # UI 이벤트들
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TaskCancelledEvent,
-    TaskCompletedEvent,
-    TaskFailedEvent,
-    TaskProgressEvent,
-    TaskStartedEvent,
+    # Journal System Events
     get_event_bus,
     get_service,
 )
+
+# UI Command Bridge
 from core.file_manager import FileManager
 
 # Local imports
@@ -49,18 +34,19 @@ from core.settings_manager import SettingsManager
 from core.tmdb_client import TMDBClient
 
 # UI Components
-from .components import LeftPanel, MainToolbar, ResultsView, RightPanel, SettingsDialog
-from .components.organize_preflight_dialog import OrganizePreflightDialog
-from .components.organize_progress_dialog import OrganizeProgressDialog
-from .components.tmdb_search_dialog import TMDBSearchDialog
+# Event Handler Manager
+from .handlers.event_handler_manager import EventHandlerManager
+
+# UI Initializer
+from .initializers.ui_initializer import UIInitializer
 
 # Data Models
 from .managers.anime_data_manager import AnimeDataManager, ParsedItem
 from .managers.file_processing_manager import FileProcessingManager
+from .managers.status_bar_manager import StatusBarManager
 from .managers.tmdb_manager import TMDBManager
 
 # Table Models
-from .table_models import DetailFileModel, GroupedListModel
 
 
 class MainWindow(QMainWindow):
@@ -75,8 +61,25 @@ class MainWindow(QMainWindow):
         # 새로운 아키텍처 관련 초기화
         self.event_bus = None
         self.file_scan_service = None
+        self.file_organization_service = None
+        self.media_data_service = None
+        self.tmdb_search_service = None
         self.ui_update_service = None
         self.current_scan_id = None
+        self.current_organization_id = None
+        self.current_tmdb_search_id = None
+
+        # UI Command 시스템 관련 초기화
+        self.undo_stack_bridge = None
+        self.staging_manager = None
+        self.journal_manager = None
+        self.ui_command_bridge = None
+
+        # Event Handler Manager 초기화
+        self.event_handler_manager = None
+
+        # Status Bar Manager 초기화
+        self.status_bar_manager = None
 
         # 핵심 컴포넌트 초기화
         self.init_core_components()
@@ -90,9 +93,8 @@ class MainWindow(QMainWindow):
         # 초기 데이터 설정
         self.initialize_data()
 
-        # UI 초기화
-        self.init_ui()
-        self.setup_connections()
+        # 새로운 아키텍처 컴포넌트 초기화 (데이터 관리자 초기화 이후에 호출)
+        self.init_new_architecture()
 
         # 이전 세션 상태 복원
         self.restore_session_state()
@@ -110,7 +112,7 @@ class MainWindow(QMainWindow):
             api_key = self.settings_manager.get_setting("tmdb_api_key") or os.getenv("TMDB_API_KEY")
             if api_key:
                 self.tmdb_client = TMDBClient(api_key=api_key)
-                print("✅ TMDBClient 초기화 성공")
+                print(f"✅ TMDBClient 초기화 성공 (API 키: {api_key[:8]}...)")
 
                 # 포스터 캐시 초기화
                 self.poster_cache = {}  # 포스터 이미지 캐시
@@ -128,8 +130,12 @@ class MainWindow(QMainWindow):
             naming_scheme = self.settings_manager.get_setting("naming_scheme", "standard")
             self.file_manager.set_naming_scheme(naming_scheme)
 
-            # 새로운 아키텍처 컴포넌트 초기화
-            self.init_new_architecture()
+            # ViewModel 초기화
+            self.init_view_model()
+
+            # Event Handler Manager 초기화 (event_bus가 설정된 후에 초기화됨)
+            # self.event_handler_manager = EventHandlerManager(self)
+            # self.event_handler_manager.setup_event_subscriptions()
 
             # 설정을 UI 컴포넌트에 적용
             self.apply_settings_to_ui()
@@ -149,20 +155,71 @@ class MainWindow(QMainWindow):
             self.event_bus = get_event_bus()
             print(f"✅ EventBus 연결됨: {id(self.event_bus)}")
 
-            # FileScanService 가져오기 (DI Container에서)
+            # 모든 서비스들 가져오기 (DI Container에서)
             self.file_scan_service = get_service(IFileScanService)
             print(f"✅ FileScanService 연결됨: {id(self.file_scan_service)}")
 
-            # UIUpdateService 가져오기 (DI Container에서)
+            self.file_organization_service = get_service(IFileOrganizationService)
+            print(f"✅ FileOrganizationService 연결됨: {id(self.file_organization_service)}")
+
+            self.media_data_service = get_service(IMediaDataService)
+            print(f"✅ MediaDataService 연결됨: {id(self.media_data_service)}")
+
+            self.tmdb_search_service = get_service(ITMDBSearchService)
+            print(f"✅ TMDBSearchService 연결됨: {id(self.tmdb_search_service)}")
+
             self.ui_update_service = get_service(IUIUpdateService)
             print(f"✅ UIUpdateService 연결됨: {id(self.ui_update_service)}")
+
+            # Safety System 초기화
+            self.init_safety_system()
+            print("✅ Safety System 초기화 완료")
+
+            # Command System 초기화
+            self.init_command_system()
+            print("✅ Command System 초기화 완료")
+
+            # Preflight System 초기화는 FileOrganizationHandler에서 처리됩니다
+
+            # Journal System 초기화
+            self.init_journal_system()
+            print("✅ Journal System 초기화 완료")
+
+            # Undo/Redo System 초기화
+            self.init_undo_redo_system()
+            print("✅ Undo/Redo System 초기화 완료")
 
             # UIUpdateService 초기화 (MainWindow 전달)
             self.ui_update_service.initialize(self)
             print("✅ UIUpdateService 초기화 완료")
 
-            # 이벤트 구독 설정
-            self.setup_event_subscriptions()
+            # EventHandlerManager 초기화 및 이벤트 구독 설정
+            self.event_handler_manager = EventHandlerManager(self, self.event_bus)
+            self.event_handler_manager.setup_event_subscriptions()
+
+            # UI 초기화
+            self.ui_initializer = UIInitializer(self)
+            self.ui_initializer.init_ui()
+
+            # TMDBSearchHandler 초기화
+            from .handlers.tmdb_search_handler import TMDBSearchHandler
+
+            self.tmdb_search_handler = TMDBSearchHandler(self)
+            print("✅ TMDB Search Handler 초기화 완료")
+
+            # FileOrganizationHandler 초기화
+            from .handlers.file_organization_handler import FileOrganizationHandler
+
+            self.file_organization_handler = FileOrganizationHandler(self)
+            self.file_organization_handler.init_preflight_system()
+            print("✅ File Organization Handler 초기화 완료")
+
+            # Status Bar Manager 초기화
+            self.status_bar_manager = StatusBarManager(self)
+            print("✅ Status Bar Manager 초기화 완료")
+
+            # UI 초기화 완료 후 연결 설정
+            self.setup_connections()
 
             print("✅ 새로운 아키텍처 컴포넌트 초기화 완료")
 
@@ -171,119 +228,95 @@ class MainWindow(QMainWindow):
             # 기본값으로 설정 (기존 동작 유지)
             self.event_bus = None
             self.file_scan_service = None
+            self.file_organization_service = None
+            self.media_data_service = None
+            self.tmdb_search_service = None
             self.ui_update_service = None
 
-    def setup_event_subscriptions(self):
-        """이벤트 구독 설정"""
-        if not self.event_bus:
-            return
-
+    def init_safety_system(self):
+        """Safety System 초기화"""
         try:
-            # FilesScannedEvent 구독
-            self.event_bus.subscribe(
-                FilesScannedEvent,
-                self.on_files_scanned,
-                weak_ref=False,  # MainWindow가 존재하는 동안 구독 유지
-            )
-            print("✅ 파일 스캔 이벤트 구독 설정")
+            from .managers.safety_system_manager import SafetySystemManager
 
-            # 백그라운드 작업 이벤트 구독
-            self.event_bus.subscribe(TaskStartedEvent, self.on_task_started, weak_ref=False)
-            self.event_bus.subscribe(TaskProgressEvent, self.on_task_progress, weak_ref=False)
-            self.event_bus.subscribe(TaskCompletedEvent, self.on_task_completed, weak_ref=False)
-            self.event_bus.subscribe(TaskFailedEvent, self.on_task_failed, weak_ref=False)
-            self.event_bus.subscribe(TaskCancelledEvent, self.on_task_cancelled, weak_ref=False)
-            print("✅ 백그라운드 작업 이벤트 구독 설정")
+            # Safety System Manager 초기화
+            self.safety_system_manager = SafetySystemManager(self)
+            print("✅ Safety System Manager 초기화 완료")
 
         except Exception as e:
-            print(f"❌ 이벤트 구독 설정 실패: {e}")
+            print(f"⚠️ Safety System 초기화 실패: {e}")
+            self.safety_system_manager = None
 
-    def on_files_scanned(self, event: FilesScannedEvent):
-        """파일 스캔 완료 이벤트 핸들러"""
-        print(
-            f"📨 [MainWindow] 파일 스캔 이벤트 수신: {event.status.value} - {len(event.found_files)}개 파일"
-        )
-        print(f"🔍 [DEBUG] 스캔 ID: {event.scan_id}")
-        print(f"🔍 [DEBUG] 디렉토리: {event.directory_path}")
-
+    def init_command_system(self):
+        """Command System 초기화"""
         try:
-            if event.status == ScanStatus.STARTED:
-                self.update_status_bar("파일 스캔 시작됨")
-                self.left_panel.update_progress(0)
+            from .managers.command_system_manager import CommandSystemManager
 
-            elif event.status == ScanStatus.IN_PROGRESS:
-                progress = 0
-                if event.scanned_files_count > 0:
-                    # 대략적인 진행률 계산
-                    progress = min(50, (event.scanned_files_count // 10) * 5)  # 최대 50%까지
-                self.left_panel.update_progress(progress)
-                self.update_status_bar(f"파일 스캔 중... ({event.total_files_found}개 발견)")
-
-            elif event.status == ScanStatus.COMPLETED:
-                self.left_panel.update_progress(100)
-                self.update_status_bar(f"스캔 완료: {event.total_files_found}개 파일 발견")
-
-                # 스캔 완료 후 파일 처리
-                if event.found_files:
-                    self.on_scan_completed(event.found_files)
-                else:
-                    self.update_status_bar("비디오 파일을 찾을 수 없습니다")
-
-            elif event.status == ScanStatus.FAILED:
-                self.update_status_bar(f"스캔 실패: {event.error_message}")
-                self.left_panel.update_progress(0)
-
-            elif event.status == ScanStatus.CANCELLED:
-                self.update_status_bar("스캔이 취소되었습니다")
-                self.left_panel.update_progress(0)
+            # Command System Manager 초기화
+            self.command_system_manager = CommandSystemManager(self)
+            print("✅ Command System Manager 초기화 완료")
 
         except Exception as e:
-            print(f"❌ 파일 스캔 이벤트 처리 실패: {e}")
+            print(f"⚠️ Command System 초기화 실패: {e}")
+            self.command_system_manager = None
 
-    def on_task_started(self, event: TaskStartedEvent):
-        """백그라운드 작업 시작 이벤트 핸들러"""
-        print(f"🚀 [MainWindow] 작업 시작: {event.task_name} (ID: {event.task_id})")
-        self.update_status_bar(f"작업 시작: {event.task_name}", 0)
+    # Preflight System 초기화는 FileOrganizationHandler에서 처리됩니다
 
-    def on_task_progress(self, event: TaskProgressEvent):
-        """백그라운드 작업 진행률 이벤트 핸들러"""
-        print(f"📊 [MainWindow] 작업 진행률: {event.progress_percent}% - {event.current_step}")
-        self.update_status_bar(
-            f"{event.current_step} ({event.items_processed}개 처리됨)", event.progress_percent
-        )
-        if hasattr(self, "left_panel"):
-            self.left_panel.update_progress(event.progress_percent)
-
-    def on_task_completed(self, event: TaskCompletedEvent):
-        """백그라운드 작업 완료 이벤트 핸들러"""
-        print(f"✅ [MainWindow] 작업 완료: {event.task_name} (소요시간: {event.duration:.2f}초)")
-        self.update_status_bar(
-            f"작업 완료: {event.task_name} ({event.items_processed}개 처리됨)", 100
-        )
-        if hasattr(self, "left_panel"):
-            self.left_panel.update_progress(100)
-
-    def on_task_failed(self, event: TaskFailedEvent):
-        """백그라운드 작업 실패 이벤트 핸들러"""
-        print(f"❌ [MainWindow] 작업 실패: {event.task_name} - {event.error_message}")
-        self.show_error_message(f"작업 실패: {event.task_name}", event.error_message, "task_failed")
-
-    def on_task_cancelled(self, event: TaskCancelledEvent):
-        """백그라운드 작업 취소 이벤트 핸들러"""
-        print(f"🚫 [MainWindow] 작업 취소: {event.task_name} - {event.reason}")
-        self.update_status_bar(f"작업 취소됨: {event.task_name}")
-
-    def on_scan_completed(self, found_files: list):
-        """스캔 완료 후 파일 처리"""
+    def init_journal_system(self):
+        """Journal System 초기화"""
         try:
-            # Path 객체를 문자열로 변환
-            file_paths = [str(file_path) for file_path in found_files]
+            from app import IJournalManager, IRollbackEngine
 
-            # 기존 process_selected_files 메서드 호출
-            self.process_selected_files(file_paths)
+            # Journal Manager 가져오기
+            self.journal_manager = get_service(IJournalManager)
+            print(f"✅ JournalManager 연결됨: {id(self.journal_manager)}")
+
+            # Rollback Engine 가져오기
+            self.rollback_engine = get_service(IRollbackEngine)
+            print(f"✅ RollbackEngine 연결됨: {id(self.rollback_engine)}")
 
         except Exception as e:
-            print(f"❌ 스캔 완료 후 처리 실패: {e}")
+            print(f"⚠️ Journal System 초기화 실패: {e}")
+            self.journal_manager = None
+            self.rollback_engine = None
+
+    def init_undo_redo_system(self):
+        """Undo/Redo System 초기화"""
+        try:
+            # CommandSystemManager에서 이미 처리됨
+            print("✅ Undo/Redo System 초기화 완료 (CommandSystemManager에서 처리)")
+
+        except Exception as e:
+            print(f"⚠️ Undo/Redo System 초기화 실패: {e}")
+
+    # UI Command 시스템 초기화는 CommandSystemManager에서 처리됩니다
+
+    def init_view_model(self):
+        """ViewModel 초기화"""
+        try:
+            from gui.view_models.main_window_view_model_new import MainWindowViewModelNew
+
+            print("📋 [MainWindow] ViewModel 초기화 시작...")
+
+            # ViewModel 인스턴스 생성
+            self.view_model = MainWindowViewModelNew()
+            print(f"✅ [MainWindow] ViewModel 생성됨: {id(self.view_model)}")
+
+            # ViewModel과 MainWindow 바인딩 설정
+            if self.event_bus:
+                print("🔗 [MainWindow] ViewModel과 EventBus 연결 중...")
+                # ViewModel의 이벤트 발행을 MainWindow에서 처리할 필요가 있다면 여기서 설정
+                # 현재는 ViewModel이 독립적으로 EventBus를 통해 통신함
+
+            print("✅ [MainWindow] ViewModel 초기화 완료")
+
+        except Exception as e:
+            print(f"❌ [MainWindow] ViewModel 초기화 실패: {e}")
+            # 폴백: ViewModel 없이 동작
+            self.view_model = None
+
+    # 이벤트 구독 설정은 EventHandlerManager에서 처리됩니다
+
+    # 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
 
     def init_data_managers(self):
         """데이터 관리자 초기화"""
@@ -334,224 +367,87 @@ class MainWindow(QMainWindow):
         self.source_files = []
         self.destination_directory = None
 
-    def init_ui(self):
-        """UI 초기화"""
-        # 윈도우 기본 설정
-        self.setWindowTitle("AnimeSorter v2.0.0 - 애니메이션 파일 정리 도구")
-        self.setMinimumSize(1200, 800)  # 최소 크기 설정
-        self.resize(1600, 1000)  # 기본 크기 설정
+    # UI 초기화는 UIInitializer에서 처리됩니다
+    # def init_ui(self):
+    #     """UI 초기화"""
+    #     # UIInitializer로 이동됨
 
-        # 중앙 위젯 생성
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+    # 메뉴바 생성은 MenuBuilder에서 처리됩니다
+    # def create_menu_bar(self):
+    #     """메뉴바 생성"""
+    #     # MenuBuilder로 이동됨
 
-        # 메인 레이아웃
-        parent_layout = QVBoxLayout(central_widget)
-        parent_layout.setSpacing(10)
-        parent_layout.setContentsMargins(10, 10, 10, 10)
-
-        # 메뉴바 생성
-        self.create_menu_bar()
-
-        # 메인 툴바 생성
-        self.main_toolbar = MainToolbar()
-        parent_layout.addWidget(self.main_toolbar)
-
-        # 메인 스플리터 생성 (좌우 분할)
-        splitter = QSplitter(Qt.Horizontal)
-        splitter.setChildrenCollapsible(False)  # 패널이 완전히 접히지 않도록
-        splitter.setHandleWidth(8)  # 핸들 너비 증가
-
-        # 왼쪽 패널: 빠른 작업, 통계, 필터
-        self.left_panel = LeftPanel()
-        self.left_panel.setMinimumWidth(350)  # 최소 너비 설정
-        self.left_panel.setMaximumWidth(500)  # 최대 너비 제한
-        splitter.addWidget(self.left_panel)
-
-        # 오른쪽 패널: 결과 및 로그
-        self.right_panel = RightPanel()
-        splitter.addWidget(self.right_panel)
-
-        # 결과 뷰 생성 (그룹 리스트 중심)
-        self.results_view = ResultsView()
-        self.right_panel.layout().addWidget(self.results_view)
-
-        # 모델들 초기화
-        # 대상 폴더 정보 가져오기
-        self.destination_directory = self.settings_manager.get_setting(
-            "destination_root", "대상 폴더"
-        )
-
-        self.grouped_model = GroupedListModel(
-            {}, self.tmdb_client, self.destination_directory
-        )  # 그룹 리스트용
-        self.detail_model = DetailFileModel([], self.tmdb_client)  # 상세 파일 목록용
-
-        # 결과 뷰에 모델 설정
-        self.results_view.set_group_model(self.grouped_model)
-        self.results_view.set_detail_model(self.detail_model)
-
-        # 그룹 선택 시 상세 파일 목록 업데이트
-        self.results_view.group_selected.connect(self.on_group_selected)
-
-        # 스플리터 비율 설정 (반응형)
-        splitter.setSizes([400, 1200])  # 초기 비율
-        splitter.setStretchFactor(0, 0)  # 왼쪽 패널은 고정 크기
-        splitter.setStretchFactor(1, 1)  # 오른쪽 패널은 확장 가능
-
-        parent_layout.addWidget(splitter)
-
-        # 상태바 생성
-        self.create_status_bar()
-
-        # 윈도우 크기 변경 이벤트 처리
-        self.resizeEvent = self.on_resize_event
-
-    def create_menu_bar(self):
-        """메뉴바 생성"""
-        menubar = self.menuBar()
-
-        # 파일 메뉴
-        file_menu = menubar.addMenu("파일(&F)")
-
-        # 파일 선택 액션
-        open_files_action = file_menu.addAction("파일 선택(&O)")
-        open_files_action.setShortcut("Ctrl+O")
-        open_files_action.setStatusTip("애니메이션 파일을 선택합니다")
-        open_files_action.triggered.connect(self.choose_files)
-
-        open_folder_action = file_menu.addAction("폴더 선택(&F)")
-        open_folder_action.setShortcut("Ctrl+Shift+O")
-        open_folder_action.setStatusTip("애니메이션 파일이 있는 폴더를 선택합니다")
-        open_folder_action.triggered.connect(self.choose_folder)
-
-        file_menu.addSeparator()
-
-        # 내보내기 액션
-        export_action = file_menu.addAction("결과 내보내기(&E)")
-        export_action.setShortcut("Ctrl+E")
-        export_action.setStatusTip("스캔 결과를 CSV 파일로 내보냅니다")
-        export_action.triggered.connect(self.export_results)
-
-        file_menu.addSeparator()
-
-        # 종료 액션
-        exit_action = file_menu.addAction("종료(&X)")
-        exit_action.setShortcut("Ctrl+Q")
-        exit_action.setStatusTip("애플리케이션을 종료합니다")
-        exit_action.triggered.connect(self.close)
-
-        # 편집 메뉴
-        edit_menu = menubar.addMenu("편집(&E)")
-
-        # 설정 액션
-        settings_action = edit_menu.addAction("설정(&S)")
-        settings_action.setShortcut("Ctrl+,")
-        settings_action.setStatusTip("애플리케이션 설정을 변경합니다")
-        settings_action.triggered.connect(self.open_settings)
-
-        edit_menu.addSeparator()
-
-        # 필터 초기화 액션
-        reset_filters_action = edit_menu.addAction("필터 초기화(&R)")
-        reset_filters_action.setShortcut("Ctrl+R")
-        reset_filters_action.setStatusTip("모든 필터를 초기화합니다")
-        reset_filters_action.triggered.connect(self.reset_filters)
-
-        # 도구 메뉴
-        tools_menu = menubar.addMenu("도구(&T)")
-
-        # 스캔 시작/중지 액션
-        start_scan_action = tools_menu.addAction("스캔 시작(&S)")
-        start_scan_action.setShortcut("F5")
-        start_scan_action.setStatusTip("파일 스캔을 시작합니다")
-        start_scan_action.triggered.connect(self.start_scan)
-
-        stop_scan_action = tools_menu.addAction("스캔 중지(&P)")
-        stop_scan_action.setShortcut("F6")
-        stop_scan_action.setStatusTip("파일 스캔을 중지합니다")
-        stop_scan_action.triggered.connect(self.stop_scan)
-
-        tools_menu.addSeparator()
-
-        # 정리 실행 액션
-        commit_action = tools_menu.addAction("정리 실행(&C)")
-        commit_action.setShortcut("F7")
-        commit_action.setStatusTip("파일 정리를 실행합니다")
-        commit_action.triggered.connect(self.commit_organization)
-
-        # 시뮬레이션 액션
-        simulate_action = tools_menu.addAction("시뮬레이션(&M)")
-        simulate_action.setShortcut("F8")
-        simulate_action.setStatusTip("파일 정리를 시뮬레이션합니다")
-        simulate_action.triggered.connect(self.simulate_organization)
-
-        # 도움말 메뉴
-        help_menu = menubar.addMenu("도움말(&H)")
-
-        # 정보 액션
-        about_action = help_menu.addAction("정보(&A)")
-        about_action.setStatusTip("AnimeSorter에 대한 정보를 표시합니다")
-        about_action.triggered.connect(self.show_about)
-
-        # 사용법 액션
-        help_action = help_menu.addAction("사용법(&H)")
-        help_action.setShortcut("F1")
-        help_action.setStatusTip("사용법을 표시합니다")
-        help_action.triggered.connect(self.show_help)
-
-    def create_status_bar(self):
-        """상태바 생성"""
-        status_bar = self.statusBar()
-
-        # 기본 상태 메시지
-        self.status_label = QLabel("준비됨")
-        status_bar.addWidget(self.status_label)
-
-        # 진행률 표시
-        status_bar.addPermanentWidget(QLabel("진행률:"))
-        self.status_progress = QProgressBar()
-        self.status_progress.setMaximumWidth(200)
-        self.status_progress.setMaximumHeight(20)
-        status_bar.addPermanentWidget(self.status_progress)
-
-        # 파일 수 표시
-        self.status_file_count = QLabel("파일: 0")
-        status_bar.addPermanentWidget(self.status_file_count)
-
-        # 메모리 사용량 표시
-        self.status_memory = QLabel("메모리: 0MB")
-        status_bar.addPermanentWidget(self.status_memory)
-
-        # 초기 상태 설정
-        self.update_status_bar("애플리케이션이 준비되었습니다")
+    # 상태바 생성은 UIInitializer에서 처리됩니다
+    # def create_status_bar(self):
+    #     """상태바 생성"""
+    #     # UIInitializer로 이동됨
 
     def setup_connections(self):
         """시그널/슬롯 연결 설정"""
-        # 툴바 연결
-        self.main_toolbar.btnSettings.clicked.connect(self.open_settings)
-        self.main_toolbar.organize_requested.connect(self.start_file_organization)
+        try:
+            # 툴바 연결 (안전하게 연결)
+            if hasattr(self, "main_toolbar") and self.main_toolbar:
+                # 기본 툴바의 경우 이미 액션들이 연결되어 있음
+                pass
 
-        # 왼쪽 패널 연결
-        self.left_panel.source_folder_selected.connect(self.on_source_folder_selected)
-        self.left_panel.source_files_selected.connect(self.on_source_files_selected)
-        self.left_panel.destination_folder_selected.connect(self.on_destination_folder_selected)
-        self.left_panel.scan_started.connect(self.start_scan)
-        self.left_panel.scan_paused.connect(self.stop_scan)
-        self.left_panel.completed_cleared.connect(self.clear_completed)
+            # 패널 연결 (패널이 존재하는 경우에만)
+            if hasattr(self, "left_panel") and self.left_panel:
+                try:
+                    self.left_panel.source_folder_selected.connect(self.on_source_folder_selected)
+                    self.left_panel.source_files_selected.connect(self.on_source_files_selected)
+                    self.left_panel.destination_folder_selected.connect(
+                        self.on_destination_folder_selected
+                    )
+                    self.left_panel.scan_started.connect(self.start_scan)
+                    self.left_panel.scan_paused.connect(self.stop_scan)
+                    self.left_panel.completed_cleared.connect(self.clear_completed)
+                except Exception as e:
+                    print(f"⚠️ 왼쪽 패널 연결 실패: {e}")
 
-        # 오른쪽 패널 연결
-        self.right_panel.commit_requested.connect(self.commit_organization)
-        self.right_panel.simulate_requested.connect(self.simulate_organization)
+            if hasattr(self, "right_panel") and self.right_panel:
+                try:
+                    # 파일 정리 관련 시그널을 FileOrganizationHandler로 위임
+                    if hasattr(self, "file_organization_handler"):
+                        self.right_panel.commit_requested.connect(
+                            self.file_organization_handler.commit_organization
+                        )
+                        self.right_panel.simulate_requested.connect(
+                            self.file_organization_handler.simulate_organization
+                        )
+                    else:
+                        # 폴백: 직접 연결 (FileOrganizationHandler가 없는 경우)
+                        self.right_panel.commit_requested.connect(
+                            lambda: print("FileOrganizationHandler가 초기화되지 않았습니다")
+                        )
+                        self.right_panel.simulate_requested.connect(
+                            lambda: print("FileOrganizationHandler가 초기화되지 않았습니다")
+                        )
+                except Exception as e:
+                    print(f"⚠️ 오른쪽 패널 연결 실패: {e}")
 
-        # TMDB 검색 시그널 연결
-        self.anime_data_manager.tmdb_search_requested.connect(self.on_tmdb_search_requested)
-        self.anime_data_manager.tmdb_anime_selected.connect(self.on_tmdb_anime_selected)
+            # TMDB 검색 시그널 연결 (매니저가 존재하는 경우에만)
+            if hasattr(self, "anime_data_manager") and self.anime_data_manager:
+                try:
+                    # TMDB 검색 시그널을 TMDBSearchHandler로 위임
+                    if hasattr(self, "tmdb_search_handler"):
+                        self.anime_data_manager.tmdb_search_requested.connect(
+                            self.tmdb_search_handler.on_tmdb_search_requested
+                        )
+                        self.anime_data_manager.tmdb_anime_selected.connect(
+                            self.tmdb_search_handler.on_tmdb_anime_selected
+                        )
+                except Exception as e:
+                    print(f"⚠️ TMDB 매니저 연결 실패: {e}")
+            else:
+                print("⚠️ anime_data_manager가 초기화되지 않았습니다")
 
-        # 타이머 설정 제거 - 불필요한 반복 호출 방지
-        # self.timer = QTimer(self)
-        # self.timer.setInterval(700)
-        # self.timer.timeout.connect(self.on_scan_tick)
+            # 타이머 설정 제거 - 불필요한 반복 호출 방지
+            # self.timer = QTimer(self)
+            # self.timer.setInterval(700)
+            # self.timer.timeout.connect(self.on_scan_tick)
+
+        except Exception as e:
+            print(f"❌ setup_connections 실패: {e}")
 
     def on_source_folder_selected(self, folder_path: str):
         """소스 폴더 선택 처리"""
@@ -584,7 +480,7 @@ class MainWindow(QMainWindow):
     def update_scan_button_state(self):
         """스캔 시작 버튼 활성화 상태 업데이트"""
         # 소스 디렉토리나 파일이 선택되어 있으면 버튼 활성화
-        has_source = (self.source_directory and os.path.exists(self.source_directory)) or (
+        has_source = (self.source_directory and Path(self.source_directory).exists()) or (
             self.source_directory and len(self.source_files) > 0
         )
 
@@ -595,10 +491,10 @@ class MainWindow(QMainWindow):
         if hasattr(self, "anime_data_manager"):
             grouped_items = self.anime_data_manager.get_grouped_items()
             has_groups = len(grouped_items) > 0 and any(
-                group_id != "ungrouped" for group_id in grouped_items.keys()
+                group_id != "ungrouped" for group_id in grouped_items
             )
 
-        has_destination = self.destination_directory and os.path.exists(self.destination_directory)
+        has_destination = self.destination_directory and Path(self.destination_directory).exists()
         self.main_toolbar.set_organize_enabled(has_groups and has_destination)
 
         if has_source:
@@ -609,110 +505,7 @@ class MainWindow(QMainWindow):
         else:
             self.update_status_bar("소스 디렉토리나 파일을 선택해주세요")
 
-    def on_tmdb_search_requested(self, group_id: str):
-        """TMDB 검색 요청 처리"""
-        try:
-            # 그룹 정보 가져오기
-            grouped_items = self.anime_data_manager.get_grouped_items()
-            if group_id not in grouped_items:
-                print(f"❌ 그룹 {group_id}를 찾을 수 없습니다")
-                return
-
-            group_items = grouped_items[group_id]
-            if not group_items:
-                print(f"❌ 그룹 {group_id}에 아이템이 없습니다")
-                return
-
-            # 그룹 제목 가져오기
-            group_title = group_items[0].title or group_items[0].detectedTitle or "Unknown"
-
-            print(f"🔍 TMDB 검색 시작: {group_title} (그룹 {group_id})")
-
-            # 먼저 TMDB 검색을 실행하여 결과 개수 확인
-            try:
-                search_results = self.tmdb_client.search_anime(group_title)
-
-                if len(search_results) == 1:
-                    # 결과가 1개면 자동 선택하고 다이얼로그를 띄우지 않음
-                    selected_anime = search_results[0]
-                    print(f"✅ 검색 결과 1개 - 자동 선택: {selected_anime.name}")
-                    self.on_tmdb_anime_selected(group_id, selected_anime)
-                    return
-
-                if len(search_results) == 0:
-                    # 결과가 없으면 다이얼로그를 띄워서 수동 검색 가능하게 함
-                    print("⚠️ 검색 결과 없음 - 다이얼로그 표시")
-                else:
-                    # 결과가 2개 이상이면 다이얼로그를 띄워서 선택하게 함
-                    print(f"📋 검색 결과 {len(search_results)}개 - 다이얼로그 표시")
-
-            except Exception as e:
-                print(f"❌ TMDB 검색 실패: {e}")
-                # 검색 실패 시에도 다이얼로그를 띄워서 수동 검색 가능하게 함
-
-            # 다이얼로그가 필요한 경우에만 생성
-            print(f"🔍 TMDB 검색 다이얼로그 생성: {group_title} (그룹 {group_id})")
-
-            # 이미 열린 다이얼로그가 있으면 포커스
-            if group_id in self.tmdb_search_dialogs:
-                dialog = self.tmdb_search_dialogs[group_id]
-                if dialog.isVisible():
-                    dialog.raise_()
-                    dialog.activateWindow()
-                    return
-
-            # 새 다이얼로그 생성
-            dialog = TMDBSearchDialog(group_title, self.tmdb_client, self)
-            dialog.anime_selected.connect(
-                lambda anime: self.on_tmdb_anime_selected(group_id, anime)
-            )
-
-            # 다이얼로그 저장
-            self.tmdb_search_dialogs[group_id] = dialog
-
-            # 다이얼로그 표시
-            dialog.show()
-
-            print(f"✅ TMDB 검색 다이얼로그 표시됨: {group_title}")
-
-        except Exception as e:
-            print(f"❌ TMDB 검색 다이얼로그 생성 실패: {e}")
-            self.update_status_bar(f"TMDB 검색 다이얼로그 생성 실패: {str(e)}")
-
-    def on_tmdb_anime_selected(self, group_id: str, tmdb_anime):
-        """TMDB 애니메이션 선택 처리"""
-        try:
-            # 데이터 관리자에 TMDB 매치 결과 설정
-            self.anime_data_manager.set_tmdb_match_for_group(group_id, tmdb_anime)
-
-            # 그룹 모델 업데이트
-            self.update_group_model()
-
-            # 상태바 업데이트 (name 속성 사용)
-            self.update_status_bar(f"✅ {tmdb_anime.name} 매치 완료")
-
-            # 다이얼로그 닫기
-            if group_id in self.tmdb_search_dialogs:
-                dialog = self.tmdb_search_dialogs[group_id]
-                dialog.close()
-                del self.tmdb_search_dialogs[group_id]
-
-            # 순차적 처리를 위해 다음 그룹 처리 (잠시 대기 후)
-            QTimer.singleShot(500, self.process_next_tmdb_group)
-
-        except Exception as e:
-            print(f"❌ TMDB 애니메이션 선택 처리 실패: {e}")
-            # 에러가 발생해도 다음 그룹 처리
-            QTimer.singleShot(500, self.process_next_tmdb_group)
-
-    def update_group_model(self):
-        """그룹 모델 업데이트"""
-        try:
-            if hasattr(self, "grouped_model"):
-                grouped_items = self.anime_data_manager.get_grouped_items()
-                self.grouped_model.set_grouped_items(grouped_items)
-        except Exception as e:
-            print(f"❌ 그룹 모델 업데이트 실패: {e}")
+    # TMDB 검색 관련 메서드들은 TMDBSearchHandler에서 처리됩니다
 
     def restore_table_column_widths(self):
         """테이블 컬럼 너비 복원"""
@@ -810,30 +603,30 @@ class MainWindow(QMainWindow):
                 # 진행률 업데이트
                 progress = int((i / len(file_paths)) * 100)
                 self.update_status_bar(
-                    f"파일 파싱 중... {i+1}/{len(file_paths)} ({progress}%)", progress
+                    f"파일 파싱 중... {i + 1}/{len(file_paths)} ({progress}%)", progress
                 )
 
                 # 비디오 파일 크기 확인 (1MB 미만 제외 - 더미 파일 방지)
                 # 참고: 자막 파일은 별도로 연관 검색하므로 여기서 제외하지 않음
                 try:
-                    file_size = os.path.getsize(file_path)
+                    file_size = Path(file_path).stat().st_size
                     if file_size < 1024 * 1024:  # 1MB 미만
                         print(
-                            f"⚠️ 비디오 파일 크기가 너무 작음 (제외): {os.path.basename(file_path)} ({file_size} bytes)"
+                            f"⚠️ 비디오 파일 크기가 너무 작음 (제외): {Path(file_path).name} ({file_size} bytes)"
                         )
                         self.right_panel.add_activity_log(
-                            f"⚠️ 제외됨: {os.path.basename(file_path)} (크기: {file_size} bytes)"
+                            f"⚠️ 제외됨: {Path(file_path).name} (크기: {file_size} bytes)"
                         )
                         continue
                 except OSError:
-                    print(f"⚠️ 파일 크기 확인 실패 (제외): {os.path.basename(file_path)}")
+                    print(f"⚠️ 파일 크기 확인 실패 (제외): {Path(file_path).name}")
                     self.right_panel.add_activity_log(
-                        f"⚠️ 제외됨: {os.path.basename(file_path)} (파일 접근 불가)"
+                        f"⚠️ 제외됨: {Path(file_path).name} (파일 접근 불가)"
                     )
                     continue
 
                 # 파일 파싱
-                print(f"🔍 파싱 시작: {os.path.basename(file_path)}")
+                print(f"🔍 파싱 시작: {Path(file_path).name}")
                 parsed_metadata = self.file_parser.parse_filename(file_path)
 
                 if parsed_metadata and parsed_metadata.title:
@@ -855,7 +648,7 @@ class MainWindow(QMainWindow):
                     parsed_items.append(parsed_item)
 
                     # 활동 로그 업데이트
-                    log_message = f"✅ {os.path.basename(file_path)} - {parsed_metadata.title} S{parsed_item.season:02d}E{parsed_item.episode:02d}"
+                    log_message = f"✅ {Path(file_path).name} - {parsed_metadata.title} S{parsed_item.season:02d}E{parsed_item.episode:02d}"
                     self.right_panel.add_activity_log(log_message)
 
                 else:
@@ -868,7 +661,7 @@ class MainWindow(QMainWindow):
                         parsingConfidence=0.0,
                     )
                     parsed_items.append(parsed_item)
-                    self.update_status_bar(f"파일명 파싱 실패: {os.path.basename(file_path)}")
+                    self.update_status_bar(f"파일명 파싱 실패: {Path(file_path).name}")
 
             except Exception as e:
                 print(f"❌ 파일 처리 오류: {file_path} - {e}")
@@ -881,14 +674,14 @@ class MainWindow(QMainWindow):
                     parsingConfidence=0.0,
                 )
                 parsed_items.append(parsed_item)
-                self.update_status_bar(f"파일 처리 오류: {os.path.basename(file_path)} - {str(e)}")
+                self.update_status_bar(f"파일 처리 오류: {Path(file_path).name} - {str(e)}")
 
         # 파싱된 항목들을 데이터 관리자에 추가
         if parsed_items:
             self.anime_data_manager.add_items(parsed_items)
 
             # 그룹화 수행
-            grouped_items = self.anime_data_manager.group_similar_titles()
+            self.anime_data_manager.group_similar_titles()
             self.anime_data_manager.display_grouped_results()
 
             # 통계 업데이트
@@ -913,7 +706,7 @@ class MainWindow(QMainWindow):
 
         self.scanning = True
         self.progress = 0
-        self.left_panel.update_progress(0)
+
         self.status_progress.setValue(0)
         self.left_panel.btnStart.setEnabled(False)
         self.left_panel.btnPause.setEnabled(True)
@@ -932,11 +725,15 @@ class MainWindow(QMainWindow):
         # self.timer.start() # 타이머 설정 제거
 
     def scan_directory(self, directory_path: str):
-        """디렉토리 스캔 (백그라운드 FileScanService 사용)"""
+        """디렉토리 스캔 - ViewModel로 위임"""
         try:
-            if self.file_scan_service:
-                # 백그라운드 파일 스캔 서비스 사용
-                print(f"🚀 백그라운드 서비스로 디렉토리 스캔: {directory_path}")
+            # 비즈니스 로직은 ViewModel에서 처리
+            if hasattr(self, "view_model") and self.view_model:
+                print(f"📋 [MainWindow] ViewModel을 통한 디렉토리 스캔: {directory_path}")
+                self.view_model.start_directory_scan(directory_path)
+            elif self.file_scan_service:
+                # 폴백: 직접 서비스 호출
+                print(f"🚀 [MainWindow] 백그라운드 서비스로 디렉토리 스캔: {directory_path}")
                 self.current_scan_id = self.file_scan_service.scan_directory(
                     directory_path=directory_path,
                     recursive=True,
@@ -944,18 +741,18 @@ class MainWindow(QMainWindow):
                     min_size_mb=1.0,
                     max_size_gb=50.0,
                 )
-                print(f"🆔 백그라운드 작업 ID: {self.current_scan_id}")
+                print(f"🆔 [MainWindow] 백그라운드 작업 ID: {self.current_scan_id}")
 
                 # UI 상태 업데이트
                 self.update_status_bar("백그라운드에서 파일 스캔 중...", 0)
             else:
-                # 폴백: 기존 방식 사용
-                print("⚠️ FileScanService를 사용할 수 없음, 기존 방식으로 스캔")
+                # 마지막 폴백: 기존 방식 사용
+                print("⚠️ [MainWindow] FileScanService를 사용할 수 없음, 기존 방식으로 스캔")
                 self._scan_directory_legacy(directory_path)
 
         except Exception as e:
-            self.update_status_bar(f"디렉토리 스캔 오류: {str(e)}")
-            print(f"디렉토리 스캔 오류: {e}")
+            self.show_error_message(f"디렉토리 스캔 오류: {str(e)}")
+            print(f"❌ [MainWindow] 디렉토리 스캔 오류: {e}")
             # 폴백: 기존 방식으로 재시도
             self._scan_directory_legacy(directory_path)
 
@@ -965,28 +762,27 @@ class MainWindow(QMainWindow):
             video_extensions = (".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm")
             video_files = []
 
-            for root, dirs, files in os.walk(directory_path):
-                for file in files:
-                    if file.lower().endswith(video_extensions):
-                        full_path = os.path.join(root, file)
-
-                        # 비디오 파일 크기 확인 (1MB 미만 제외 - 더미 파일 방지)
-                        try:
-                            file_size = os.path.getsize(full_path)
-                            if file_size < 1024 * 1024:  # 1MB 미만
-                                print(
-                                    f"⚠️ 비디오 파일 크기가 너무 작음 (제외): {file} ({file_size} bytes)"
-                                )
-                                self.right_panel.add_activity_log(
-                                    f"⚠️ 제외됨: {file} (크기: {file_size} bytes)"
-                                )
-                                continue
-                        except OSError:
-                            print(f"⚠️ 파일 크기 확인 실패 (제외): {file}")
-                            self.right_panel.add_activity_log(f"⚠️ 제외됨: {file} (파일 접근 불가)")
+            for file_path in Path(directory_path).rglob("*"):
+                if file_path.is_file() and file_path.suffix.lower() in video_extensions:
+                    # 비디오 파일 크기 확인 (1MB 미만 제외 - 더미 파일 방지)
+                    try:
+                        file_size = file_path.stat().st_size
+                        if file_size < 1024 * 1024:  # 1MB 미만
+                            print(
+                                f"⚠️ 비디오 파일 크기가 너무 작음 (제외): {file_path.name} ({file_size} bytes)"
+                            )
+                            self.right_panel.add_activity_log(
+                                f"⚠️ 제외됨: {file_path.name} (크기: {file_size} bytes)"
+                            )
                             continue
+                    except OSError:
+                        print(f"⚠️ 파일 크기 확인 실패 (제외): {file_path.name}")
+                        self.right_panel.add_activity_log(
+                            f"⚠️ 제외됨: {file_path.name} (파일 접근 불가)"
+                        )
+                        continue
 
-                        video_files.append(full_path)
+                    video_files.append(str(file_path))
 
             if video_files:
                 self.update_status_bar(f"디렉토리에서 {len(video_files)}개 비디오 파일 발견")
@@ -999,24 +795,42 @@ class MainWindow(QMainWindow):
             print(f"디렉토리 스캔 오류: {e}")
 
     def stop_scan(self):
-        """스캔 중지"""
-        self.scanning = False
-        # self.timer.stop() # 타이머 설정 제거
+        """스캔 중지 - ViewModel로 위임"""
+        try:
+            # 비즈니스 로직은 ViewModel에서 처리
+            if hasattr(self, "view_model") and self.view_model:
+                print("📋 [MainWindow] ViewModel을 통한 스캔 중지")
+                self.view_model.stop_current_scan()
+            else:
+                # 폴백: 직접 서비스 호출
+                self.scanning = False
 
-        # 새로운 FileScanService의 스캔 취소 시도
-        if self.file_scan_service and hasattr(self, "current_scan_id") and self.current_scan_id:
-            try:
-                success = self.file_scan_service.cancel_scan(self.current_scan_id)
-                if success:
-                    print(f"✅ 스캔 취소 요청 성공: {self.current_scan_id}")
-                else:
-                    print(f"⚠️ 스캔 취소 실패: {self.current_scan_id}")
-            except Exception as e:
-                print(f"❌ 스캔 취소 중 오류: {e}")
+                # 새로운 FileScanService의 스캔 취소 시도
+                if (
+                    self.file_scan_service
+                    and hasattr(self, "current_scan_id")
+                    and self.current_scan_id
+                ):
+                    try:
+                        success = self.file_scan_service.cancel_scan(self.current_scan_id)
+                        if success:
+                            print(f"✅ [MainWindow] 스캔 취소 요청 성공: {self.current_scan_id}")
+                        else:
+                            print(f"⚠️ [MainWindow] 스캔 취소 실패: {self.current_scan_id}")
+                    except Exception as e:
+                        print(f"❌ [MainWindow] 스캔 취소 중 오류: {e}")
 
-        self.left_panel.btnStart.setEnabled(True)
-        self.left_panel.btnPause.setEnabled(False)
-        self.update_status_bar("스캔이 중지되었습니다")
+                # UI 상태 업데이트
+                self.left_panel.btnStart.setEnabled(True)
+                self.left_panel.btnPause.setEnabled(False)
+                self.update_status_bar("스캔이 중지되었습니다")
+
+        except Exception as e:
+            print(f"❌ [MainWindow] 스캔 중지 처리 실패: {e}")
+            # 직접 UI 업데이트
+            self.left_panel.btnStart.setEnabled(True)
+            self.left_panel.btnPause.setEnabled(False)
+            self.show_error_message("스캔 중지 중 오류가 발생했습니다")
 
     # def on_scan_tick(self):
     #     """스캔 진행률 업데이트 - 타이머 제거로 인해 주석 처리"""
@@ -1044,13 +858,7 @@ class MainWindow(QMainWindow):
         self.main_toolbar.reset_filters()
         self.update_status_bar("필터가 초기화되었습니다")
 
-    def commit_organization(self):
-        """정리 실행"""
-        QMessageBox.information(self, "정리 실행", "파일 정리 계획을 실행합니다. (구현 예정)")
-
-    def simulate_organization(self):
-        """정리 시뮬레이션"""
-        QMessageBox.information(self, "시뮬레이션", "파일 이동을 시뮬레이션합니다. (구현 예정)")
+    # 파일 정리 관련 메서드들은 FileOrganizationHandler에서 처리됩니다
 
     def open_settings(self):
         """설정 다이얼로그 열기"""
@@ -1088,7 +896,7 @@ class MainWindow(QMainWindow):
 
                 items = self.anime_data_manager.get_items()
 
-                with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+                with Path(filename).open("w", newline="", encoding="utf-8") as csvfile:
                     fieldnames = [
                         "상태",
                         "제목",
@@ -1148,26 +956,6 @@ class MainWindow(QMainWindow):
             <p><b>개발:</b> AnimeSorter 개발팀</p>
             <p><b>라이선스:</b> MIT License</p>""",
         )
-
-    def open_settings(self):
-        """설정 다이얼로그 열기"""
-        try:
-            if not self.settings_manager:
-                QMessageBox.warning(self, "경고", "설정 관리자가 초기화되지 않았습니다.")
-                return
-
-            # 설정 다이얼로그 생성 및 표시
-            settings_dialog = SettingsDialog(self.settings_manager, self)
-            settings_dialog.settingsChanged.connect(self.on_settings_changed)
-
-            if settings_dialog.exec_() == QDialog.Accepted:
-                # 설정이 변경되었을 때 UI에 적용
-                self.apply_settings_to_ui()
-                print("✅ 설정이 업데이트되었습니다")
-
-        except Exception as e:
-            print(f"❌ 설정 다이얼로그 열기 실패: {e}")
-            QMessageBox.critical(self, "오류", f"설정 다이얼로그를 열 수 없습니다:\n{e}")
 
     def on_settings_changed(self):
         """설정 변경 시 호출되는 메서드"""
@@ -1253,15 +1041,14 @@ class MainWindow(QMainWindow):
 
             # 마지막으로 선택한 디렉토리들 복원
             if settings.remember_last_session:
-                if settings.last_source_directory and os.path.exists(
-                    settings.last_source_directory
-                ):
+                if settings.last_source_directory and Path(settings.last_source_directory).exists():
                     self.source_directory = settings.last_source_directory
                     # UI 업데이트
                     self.left_panel.update_source_directory_display(self.source_directory)
 
-                if settings.last_destination_directory and os.path.exists(
+                if (
                     settings.last_destination_directory
+                    and Path(settings.last_destination_directory).exists()
                 ):
                     self.destination_directory = settings.last_destination_directory
                     # UI 업데이트
@@ -1269,7 +1056,7 @@ class MainWindow(QMainWindow):
 
                 # 마지막으로 선택한 파일들 복원
                 if settings.last_source_files:
-                    self.source_files = [f for f in settings.last_source_files if os.path.exists(f)]
+                    self.source_files = [f for f in settings.last_source_files if Path(f).exists()]
                     if self.source_files:
                         # UI 업데이트
                         self.left_panel.update_source_files_display(len(self.source_files))
@@ -1281,7 +1068,7 @@ class MainWindow(QMainWindow):
                     if len(geometry_parts) == 4:
                         x, y, width, height = map(int, geometry_parts)
                         self.setGeometry(x, y, width, height)
-                except:
+                except (ValueError, IndexError):
                     pass  # 기하학 복원 실패 시 기본값 사용
 
             # 테이블 컬럼 너비 복원
@@ -1359,10 +1146,10 @@ class MainWindow(QMainWindow):
 
                 # 정리 실행 버튼 상태 업데이트
                 has_groups = len(grouped_items) > 0 and any(
-                    group_id != "ungrouped" for group_id in grouped_items.keys()
+                    group_id != "ungrouped" for group_id in grouped_items
                 )
-                has_destination = self.destination_directory and os.path.exists(
-                    self.destination_directory
+                has_destination = (
+                    self.destination_directory and Path(self.destination_directory).exists()
                 )
                 self.main_toolbar.set_organize_enabled(has_groups and has_destination)
 
@@ -1372,189 +1159,16 @@ class MainWindow(QMainWindow):
                 # TMDB 검색 시작 (한 번만 실행되도록 플래그 확인)
                 if not getattr(self, "_tmdb_search_started", False):
                     self._tmdb_search_started = True
-                    self.start_tmdb_search_for_groups()
+                    if hasattr(self, "tmdb_search_handler"):
+                        self.tmdb_search_handler.start_tmdb_search_for_groups()
+                    else:
+                        print("⚠️ TMDBSearchHandler가 초기화되지 않았습니다")
         except Exception as e:
             print(f"⚠️ 결과 표시 업데이트 실패: {e}")
 
-    def start_tmdb_search_for_groups(self):
-        """그룹화 후 TMDB 검색 시작 (순차적 처리)"""
-        try:
-            if not self.tmdb_client:
-                print("⚠️ TMDB 클라이언트가 초기화되지 않아 검색을 건너뜁니다")
-                self.update_status_bar("TMDB API 키가 설정되지 않아 검색을 건너뜁니다")
-                return
+    # TMDB 검색 관련 메서드들은 TMDBSearchHandler에서 처리됩니다
 
-            grouped_items = self.anime_data_manager.get_grouped_items()
-            self.pending_tmdb_groups = []
-
-            # 검색할 그룹들을 수집
-            for group_id, group_items in grouped_items.items():
-                if group_id == "ungrouped":
-                    continue
-
-                # 이미 TMDB 매치가 있는 그룹은 건너뛰기
-                if self.anime_data_manager.get_tmdb_match_for_group(group_id):
-                    continue
-
-                # 그룹 제목으로 TMDB 검색 대기열에 추가
-                group_title = group_items[0].title or group_items[0].detectedTitle or "Unknown"
-                self.pending_tmdb_groups.append((group_id, group_title))
-
-            if self.pending_tmdb_groups:
-                print(
-                    f"🔍 {len(self.pending_tmdb_groups)}개 그룹에 대해 순차적 TMDB 검색을 시작합니다"
-                )
-                self.update_status_bar(
-                    f"TMDB 검색 시작: {len(self.pending_tmdb_groups)}개 그룹 (순차적 처리)"
-                )
-                # 첫 번째 그룹부터 시작
-                self.process_next_tmdb_group()
-            else:
-                print("✅ 모든 그룹이 이미 TMDB 매치가 완료되었습니다")
-                self.update_status_bar("모든 그룹의 TMDB 매치가 완료되었습니다")
-
-        except Exception as e:
-            print(f"❌ TMDB 검색 시작 실패: {e}")
-            self.update_status_bar(f"TMDB 검색 시작 실패: {str(e)}")
-
-    def process_next_tmdb_group(self):
-        """다음 TMDB 그룹 처리"""
-        if not hasattr(self, "pending_tmdb_groups") or not self.pending_tmdb_groups:
-            print("✅ 모든 TMDB 검색이 완료되었습니다")
-            self.update_status_bar("모든 TMDB 검색이 완료되었습니다")
-            return
-
-        group_id, group_title = self.pending_tmdb_groups.pop(0)
-        print(
-            f"🔍 TMDB 검색 시작: '{group_title}' (그룹 {group_id}) - {len(self.pending_tmdb_groups)}개 남음"
-        )
-        self.update_status_bar(
-            f"TMDB 검색 중: {group_title} ({len(self.pending_tmdb_groups)}개 남음)"
-        )
-
-        # 현재 그룹에 대해 TMDB 검색 시작
-        self.anime_data_manager.search_tmdb_for_group(group_id, group_title)
-
-    def start_file_organization(self):
-        """파일 정리 실행 시작"""
-        try:
-            # 기본 검증
-            if not hasattr(self, "anime_data_manager"):
-                QMessageBox.warning(
-                    self, "경고", "스캔된 데이터가 없습니다. 먼저 파일을 스캔해주세요."
-                )
-                return
-
-            grouped_items = self.anime_data_manager.get_grouped_items()
-            if not grouped_items:
-                QMessageBox.warning(
-                    self, "경고", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요."
-                )
-                return
-
-            # 대상 폴더 확인
-            if not self.destination_directory or not os.path.exists(self.destination_directory):
-                QMessageBox.warning(
-                    self, "경고", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
-                )
-                return
-
-            # 프리플라이트 다이얼로그 표시
-            dialog = OrganizePreflightDialog(grouped_items, self.destination_directory, self)
-            dialog.proceed_requested.connect(self.on_organize_proceed)
-
-            result = dialog.exec_()
-
-            if result == QDialog.Accepted:
-                print("✅ 프리플라이트 확인 완료 - 파일 정리 실행 준비")
-            else:
-                print("❌ 파일 정리 실행이 취소되었습니다")
-                self.update_status_bar("파일 정리 실행이 취소되었습니다")
-
-        except Exception as e:
-            print(f"❌ 파일 정리 실행 시작 실패: {e}")
-            QMessageBox.critical(self, "오류", f"파일 정리 실행 중 오류가 발생했습니다:\n{str(e)}")
-            self.update_status_bar(f"파일 정리 실행 실패: {str(e)}")
-
-    def on_organize_proceed(self):
-        """프리플라이트 확인 후 실제 정리 실행"""
-        try:
-            print("🚀 파일 정리 실행 시작")
-            self.update_status_bar("파일 정리 실행 중...")
-
-            # 그룹화된 아이템 가져오기
-            grouped_items = self.anime_data_manager.get_grouped_items()
-
-            # 진행률 다이얼로그 생성 및 실행
-            progress_dialog = OrganizeProgressDialog(
-                grouped_items, self.destination_directory, self
-            )
-            progress_dialog.start_organization()
-
-            result = progress_dialog.exec_()
-
-            if result == QDialog.Accepted:
-                # 결과 가져오기
-                organize_result = progress_dialog.get_result()
-                if organize_result:
-                    self.on_organization_completed(organize_result)
-                else:
-                    print("⚠️ 파일 정리 결과를 가져올 수 없습니다")
-                    self.update_status_bar("파일 정리 완료 (결과 확인 불가)")
-            else:
-                print("❌ 파일 정리가 취소되었습니다")
-                self.update_status_bar("파일 정리가 취소되었습니다")
-
-        except Exception as e:
-            print(f"❌ 파일 정리 실행 실패: {e}")
-            QMessageBox.critical(self, "오류", f"파일 정리 실행 중 오류가 발생했습니다:\n{str(e)}")
-            self.update_status_bar(f"파일 정리 실행 실패: {str(e)}")
-
-    def on_organization_completed(self, result):
-        """파일 정리 완료 처리"""
-        try:
-            # 결과 요약 메시지 생성
-            message = "파일 정리가 완료되었습니다.\n\n"
-            message += "📊 결과 요약:\n"
-            message += f"• 성공: {result.success_count}개 파일\n"
-            message += f"• 실패: {result.error_count}개 파일\n"
-            message += f"• 건너뜀: {result.skip_count}개 파일\n\n"
-
-            if result.errors:
-                message += "❌ 오류 목록:\n"
-                for i, error in enumerate(result.errors[:5], 1):  # 처음 5개만 표시
-                    message += f"{i}. {error}\n"
-                if len(result.errors) > 5:
-                    message += f"... 및 {len(result.errors) - 5}개 더\n"
-                message += "\n"
-
-            if result.skipped_files:
-                message += "⏭️ 건너뛴 파일:\n"
-                for i, skipped in enumerate(result.skipped_files[:3], 1):  # 처음 3개만 표시
-                    message += f"{i}. {skipped}\n"
-                if len(result.skipped_files) > 3:
-                    message += f"... 및 {len(result.skipped_files) - 3}개 더\n"
-                message += "\n"
-
-            # 결과 다이얼로그 표시
-            QMessageBox.information(self, "파일 정리 완료", message)
-
-            # 상태바 업데이트
-            if result.success_count > 0:
-                self.update_status_bar(f"파일 정리 완료: {result.success_count}개 파일 이동 성공")
-            else:
-                self.update_status_bar("파일 정리 완료 (성공한 파일 없음)")
-
-            # 모델 리프레시 (필요한 경우)
-            # TODO: 파일 이동 후 모델 업데이트 로직 구현
-
-            print(
-                f"✅ 파일 정리 완료: 성공 {result.success_count}, 실패 {result.error_count}, 건너뜀 {result.skip_count}"
-            )
-
-        except Exception as e:
-            print(f"❌ 파일 정리 완료 처리 실패: {e}")
-            self.update_status_bar(f"파일 정리 완료 처리 실패: {str(e)}")
+    # 파일 정리 관련 메서드들은 FileOrganizationHandler에서 처리됩니다
 
     def on_group_selected(self, group_info: dict):
         """그룹 선택 시 상세 파일 목록 업데이트"""
@@ -1573,115 +1187,36 @@ class MainWindow(QMainWindow):
             print(f"⚠️ 그룹 선택 처리 실패: {e}")
 
     def update_status_bar(self, message, progress=None):
-        """상태바 업데이트 - EventBus 기반으로 전환됨"""
-        if not self.event_bus:
-            # EventBus가 없으면 기존 방식으로 fallback
-            self._update_status_bar_direct(message, progress)
-            return
-
-        try:
-            # StatusBarUpdateEvent 발행
-            self.event_bus.publish(StatusBarUpdateEvent(message=message, progress=progress))
-
-            # 파일 수 업데이트 (한 번만 호출)
-            if hasattr(self, "anime_data_manager") and not hasattr(self, "_last_stats_update"):
-                stats = self.anime_data_manager.get_stats()
-                self.event_bus.publish(FileCountUpdateEvent(count=stats["total"]))
-                self._last_stats_update = True
-
-            # 메모리 사용량 계산 (간단한 추정) - 주기적으로만 업데이트
-            if not hasattr(self, "_last_memory_update") or not self._last_memory_update:
-                import psutil
-
-                try:
-                    process = psutil.Process()
-                    memory_mb = process.memory_info().rss / 1024 / 1024
-                    cpu_percent = process.cpu_percent()
-
-                    self.event_bus.publish(
-                        MemoryUsageUpdateEvent(memory_mb=memory_mb, cpu_percent=cpu_percent)
-                    )
-                    self._last_memory_update = True
-                except Exception as e:
-                    print(f"메모리 사용량 계산 실패: {e}")
-                    self.event_bus.publish(MemoryUsageUpdateEvent(memory_mb=0.0))
-                    self._last_memory_update = True
-
-        except Exception as e:
-            print(f"EventBus를 통한 상태바 업데이트 실패: {e}")
-            # Fallback to direct update
-            self._update_status_bar_direct(message, progress)
-
-    def _update_status_bar_direct(self, message, progress=None):
-        """직접 상태바 업데이트 (Fallback 용도)"""
-        self.status_label.setText(message)
-        if progress is not None:
-            self.status_progress.setValue(progress)
-
-        # 파일 수 업데이트 (한 번만 호출)
-        if hasattr(self, "anime_data_manager") and not hasattr(self, "_last_stats_update"):
-            stats = self.anime_data_manager.get_stats()
-            self.status_file_count.setText(f"파일: {stats['total']}")
-            self._last_stats_update = True
-
-        # 메모리 사용량 계산 (간단한 추정) - 주기적으로만 업데이트
-        if not hasattr(self, "_last_memory_update") or not self._last_memory_update:
-            import psutil
-
-            try:
-                process = psutil.Process()
-                memory_mb = process.memory_info().rss / 1024 / 1024
-                self.status_memory.setText(f"메모리: {memory_mb:.1f}MB")
-                self._last_memory_update = True
-            except:
-                self.status_memory.setText("메모리: N/A")
-                self._last_memory_update = True
+        """상태바 업데이트 - StatusBarManager로 위임"""
+        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
+            self.status_bar_manager.update_status_bar(message, progress)
+        else:
+            # Fallback: 직접 업데이트
+            if hasattr(self, "status_label"):
+                self.status_label.setText(message)
+            if progress is not None and hasattr(self, "status_progress"):
+                self.status_progress.setValue(progress)
 
     def show_error_message(self, message: str, details: str = "", error_type: str = "error"):
-        """오류 메시지 표시 - EventBus 기반"""
-        if self.event_bus:
-            try:
-                self.event_bus.publish(
-                    ErrorMessageEvent(message=message, details=details, error_type=error_type)
-                )
-            except Exception as e:
-                print(f"EventBus를 통한 오류 메시지 발행 실패: {e}")
-                # Fallback
-                self.update_status_bar(f"❌ {message}")
+        """오류 메시지 표시 - StatusBarManager로 위임"""
+        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
+            self.status_bar_manager.show_error_message(message, details, error_type)
         else:
             # Fallback
             self.update_status_bar(f"❌ {message}")
 
     def show_success_message(self, message: str, details: str = "", auto_clear: bool = True):
-        """성공 메시지 표시 - EventBus 기반"""
-        if self.event_bus:
-            try:
-                self.event_bus.publish(
-                    SuccessMessageEvent(message=message, details=details, auto_clear=auto_clear)
-                )
-            except Exception as e:
-                print(f"EventBus를 통한 성공 메시지 발행 실패: {e}")
-                # Fallback
-                self.update_status_bar(f"✅ {message}")
+        """성공 메시지 표시 - StatusBarManager로 위임"""
+        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
+            self.status_bar_manager.show_success_message(message, details, auto_clear)
         else:
             # Fallback
             self.update_status_bar(f"✅ {message}")
 
     def update_progress(self, current: int, total: int, message: str = ""):
-        """진행률 업데이트 - EventBus 기반"""
-        if self.event_bus:
-            try:
-                self.event_bus.publish(
-                    ProgressUpdateEvent(current=current, total=total, message=message)
-                )
-            except Exception as e:
-                print(f"EventBus를 통한 진행률 업데이트 실패: {e}")
-                # Fallback
-                if total > 0:
-                    progress = int((current / total) * 100)
-                    self.update_status_bar(f"{message} ({current}/{total})", progress)
-                else:
-                    self.update_status_bar(message)
+        """진행률 업데이트 - StatusBarManager로 위임"""
+        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
+            self.status_bar_manager.update_progress(current, total, message)
         else:
             # Fallback
             if total > 0:
@@ -1702,7 +1237,6 @@ class MainWindow(QMainWindow):
         """크기 변경 시 레이아웃 업데이트"""
         # 현재 윈도우 크기
         window_width = self.width()
-        window_height = self.height()
 
         # 왼쪽 패널 크기 조정
         if hasattr(self, "left_panel"):
@@ -1763,6 +1297,8 @@ class MainWindow(QMainWindow):
                             if col in column_widths:
                                 header.resizeSection(col, column_widths[col])
 
+    # FileOrganizationService, MediaDataService, TMDBSearchService 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
+
     def closeEvent(self, event):
         """프로그램 종료 시 이벤트 처리"""
         try:
@@ -1775,9 +1311,17 @@ class MainWindow(QMainWindow):
         # 기본 종료 처리
         super().closeEvent(event)
 
+    # Safety System 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
+    # Command System 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
+
+    # Preflight System 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
+
+    # Journal System 및 Undo/Redo System 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
+
+    # Safety System 관련 메서드들은 SafetySystemManager에서 처리됩니다
+
+    # Command System 관련 메서드들은 CommandSystemManager에서 처리됩니다
+
+
+# MainWindow 클래스는 main.py에서 사용됩니다

@@ -12,7 +12,6 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
 
 # PyQt5 imports
 from PyQt5.QtWidgets import QApplication
@@ -88,7 +87,7 @@ def setup_application_style():
     app = QApplication.instance()
 
     # 기본 폰트 설정
-    default_font = QFont("Segoe UI", 9)  # Windows 기본 폰트
+    default_font = QApplication.font()  # Windows 기본 폰트
     app.setFont(default_font)
 
     # 애플리케이션 스타일시트

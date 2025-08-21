@@ -3,8 +3,9 @@ UI 업데이트 서비스
 
 EventBus를 통해 UI 업데이트 이벤트를 처리하는 서비스
 """
+
 import logging
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QMainWindow, QProgressBar, QStatusBar
@@ -53,12 +54,12 @@ class UIUpdateService(QObject):
         self.logger = logging.getLogger(__name__)
 
         # UI 요소 참조들
-        self.main_window: Optional[QMainWindow] = None
-        self.status_bar: Optional[QStatusBar] = None
-        self.status_label: Optional[QLabel] = None
-        self.status_progress: Optional[QProgressBar] = None
-        self.status_file_count: Optional[QLabel] = None
-        self.status_memory: Optional[QLabel] = None
+        self.main_window: QMainWindow | None = None
+        self.status_bar: QStatusBar | None = None
+        self.status_label: QLabel | None = None
+        self.status_progress: QProgressBar | None = None
+        self.status_file_count: QLabel | None = None
+        self.status_memory: QLabel | None = None
 
         # 자동 클리어용 타이머
         self.clear_timer = QTimer()
@@ -277,10 +278,7 @@ class UIUpdateService(QObject):
     def _handle_window_title_update(self, title: str, subtitle: str) -> None:
         """윈도우 타이틀 업데이트 처리 (메인 스레드)"""
         if self.main_window:
-            if subtitle:
-                full_title = f"{title} - {subtitle}"
-            else:
-                full_title = title
+            full_title = f"{title} - {subtitle}" if subtitle else title
             self.main_window.setWindowTitle(full_title)
 
     def _handle_menu_state_update(

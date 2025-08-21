@@ -177,9 +177,7 @@ class FileListViewModel(QObject, IViewModel):
         sanitized = re.sub(r"\s+", " ", sanitized)
 
         # 앞뒤 공백 제거
-        sanitized = sanitized.strip()
-
-        return sanitized
+        return sanitized.strip()
 
     # === 필터링 ===
 
@@ -204,21 +202,23 @@ class FileListViewModel(QObject, IViewModel):
 
         for group_info in self._group_info.values():
             # 텍스트 필터
-            if self._filter_text:
-                if self._filter_text not in group_info.title.lower() and (
+            if (
+                self._filter_text
+                and self._filter_text not in group_info.title.lower()
+                and (
                     group_info.tmdb_match
                     and self._filter_text not in group_info.tmdb_match.name.lower()
-                ):
-                    continue
+                )
+            ):
+                continue
 
             # 시즌 필터
             if self._filter_season is not None and group_info.season != self._filter_season:
                 continue
 
             # 선택된 항목만 표시
-            if self._show_only_selected:
-                if group_info.key not in self._selected_items:
-                    continue
+            if self._show_only_selected and group_info.key not in self._selected_items:
+                continue
 
             filtered_groups.append(group_info)
 

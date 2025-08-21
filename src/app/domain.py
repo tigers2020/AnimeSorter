@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 
@@ -62,25 +62,25 @@ class MediaSource(Enum):
 class MediaMetadata:
     """미디어 메타데이터"""
 
-    duration_seconds: Optional[int] = None
-    resolution_width: Optional[int] = None
-    resolution_height: Optional[int] = None
-    bitrate_kbps: Optional[int] = None
-    codec_video: Optional[str] = None
-    codec_audio: Optional[str] = None
+    duration_seconds: int | None = None
+    resolution_width: int | None = None
+    resolution_height: int | None = None
+    bitrate_kbps: int | None = None
+    codec_video: str | None = None
+    codec_audio: str | None = None
     file_size_bytes: int = 0
     quality: MediaQuality = MediaQuality.UNKNOWN
     source: MediaSource = MediaSource.UNKNOWN
 
     @property
-    def resolution(self) -> Optional[str]:
+    def resolution(self) -> str | None:
         """해상도 문자열 반환"""
         if self.resolution_width and self.resolution_height:
             return f"{self.resolution_width}x{self.resolution_height}"
         return None
 
     @property
-    def duration_formatted(self) -> Optional[str]:
+    def duration_formatted(self) -> str | None:
         """포맷된 재생 시간 반환"""
         if self.duration_seconds is None:
             return None
@@ -91,8 +91,7 @@ class MediaMetadata:
 
         if hours > 0:
             return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-        else:
-            return f"{minutes:02d}:{seconds:02d}"
+        return f"{minutes:02d}:{seconds:02d}"
 
 
 @dataclass
@@ -108,11 +107,11 @@ class MediaFile:
     path: Path = field(default_factory=lambda: Path())
 
     # 그룹 관련
-    group_id: Optional[UUID] = None
+    group_id: UUID | None = None
 
     # 에피소드 정보
-    episode: Optional[int] = None
-    season: Optional[int] = None
+    episode: int | None = None
+    season: int | None = None
 
     # 파일 정보
     extension: str = ""
@@ -122,11 +121,11 @@ class MediaFile:
     flags: set[ProcessingFlag] = field(default_factory=set)
 
     # 메타데이터
-    metadata: Optional[MediaMetadata] = None
+    metadata: MediaMetadata | None = None
 
     # 추가 정보
-    original_name: Optional[str] = None
-    parsed_title: Optional[str] = None
+    original_name: str | None = None
+    parsed_title: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -214,16 +213,16 @@ class MediaGroup:
     title: str = ""
 
     # 시즌/에피소드 정보
-    season: Optional[int] = None
-    total_episodes: Optional[int] = None
+    season: int | None = None
+    total_episodes: int | None = None
 
     # 그룹에 속한 에피소드들
     episodes: dict[int, UUID] = field(default_factory=dict)  # episode_number -> file_id
 
     # 메타데이터
-    original_title: Optional[str] = None
-    year: Optional[int] = None
-    description: Optional[str] = None
+    original_title: str | None = None
+    year: int | None = None
+    description: str | None = None
     genres: set[str] = field(default_factory=set)
 
     # 외부 ID (TMDB, TVDB 등)
@@ -274,7 +273,7 @@ class MediaGroup:
         if self.total_episodes and len(self.episodes) >= self.total_episodes:
             self.is_complete = True
 
-    def remove_episode(self, episode_number: int) -> Optional[UUID]:
+    def remove_episode(self, episode_number: int) -> UUID | None:
         """에피소드 제거"""
         file_id = self.episodes.pop(episode_number, None)
         if file_id:
@@ -286,7 +285,7 @@ class MediaGroup:
         """에피소드 존재 여부 확인"""
         return episode_number in self.episodes
 
-    def get_episode_file_id(self, episode_number: int) -> Optional[UUID]:
+    def get_episode_file_id(self, episode_number: int) -> UUID | None:
         """에피소드의 파일 ID 가져오기"""
         return self.episodes.get(episode_number)
 
@@ -304,7 +303,7 @@ class MediaGroup:
         self.external_ids[provider] = external_id
         self.updated_at = datetime.now()
 
-    def get_external_id(self, provider: str) -> Optional[str]:
+    def get_external_id(self, provider: str) -> str | None:
         """외부 ID 가져오기"""
         return self.external_ids.get(provider)
 
@@ -335,14 +334,14 @@ class MediaLibrary:
     groups: dict[UUID, MediaGroup] = field(default_factory=dict)
 
     # 라이브러리 메타데이터
-    base_path: Optional[Path] = None
-    description: Optional[str] = None
+    base_path: Path | None = None
+    description: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
     # 통계 정보 (캐시됨)
-    _stats_cache: Optional[dict[str, Any]] = field(default=None, init=False)
-    _stats_cache_time: Optional[datetime] = field(default=None, init=False)
+    _stats_cache: dict[str, Any] | None = field(default=None, init=False)
+    _stats_cache_time: datetime | None = field(default=None, init=False)
 
     def add_file(self, media_file: MediaFile) -> None:
         """파일 추가"""
@@ -350,7 +349,7 @@ class MediaLibrary:
         self.updated_at = datetime.now()
         self._invalidate_stats_cache()
 
-    def remove_file(self, file_id: UUID) -> Optional[MediaFile]:
+    def remove_file(self, file_id: UUID) -> MediaFile | None:
         """파일 제거"""
         file = self.files.pop(file_id, None)
         if file:
@@ -365,7 +364,7 @@ class MediaLibrary:
 
         return file
 
-    def get_file(self, file_id: UUID) -> Optional[MediaFile]:
+    def get_file(self, file_id: UUID) -> MediaFile | None:
         """파일 가져오기"""
         return self.files.get(file_id)
 
@@ -375,7 +374,7 @@ class MediaLibrary:
         self.updated_at = datetime.now()
         self._invalidate_stats_cache()
 
-    def remove_group(self, group_id: UUID) -> Optional[MediaGroup]:
+    def remove_group(self, group_id: UUID) -> MediaGroup | None:
         """그룹 제거"""
         group = self.groups.pop(group_id, None)
         if group:
@@ -389,7 +388,7 @@ class MediaLibrary:
 
         return group
 
-    def get_group(self, group_id: UUID) -> Optional[MediaGroup]:
+    def get_group(self, group_id: UUID) -> MediaGroup | None:
         """그룹 가져오기"""
         return self.groups.get(group_id)
 

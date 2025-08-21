@@ -11,12 +11,12 @@ import traceback
 
 # from abc import abstractmethod  # ABC 제거로 인해 불필요
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
-from .background_events import (
+from app.background_events import (
     TaskCancelledEvent,
     TaskCompletedEvent,
     TaskFailedEvent,
@@ -25,7 +25,7 @@ from .background_events import (
     TaskStartedEvent,
     TaskStatus,
 )
-from .events import TypedEventBus
+from app.events import TypedEventBus
 
 
 @dataclass
@@ -67,7 +67,7 @@ class BaseTask(QRunnable):
         event_bus: TypedEventBus,
         task_name: str = "",
         priority: TaskPriority = TaskPriority.NORMAL,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         super().__init__()
 
@@ -83,7 +83,7 @@ class BaseTask(QRunnable):
         # 작업 상태 관리
         self._status = TaskStatus.PENDING
         self._cancelled = False
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
         self._items_processed = 0
         self._success_count = 0
         self._error_count = 0

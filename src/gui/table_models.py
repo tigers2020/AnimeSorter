@@ -3,8 +3,8 @@
 파싱된 애니메이션 아이템을 테이블에 표시하고 필터링하는 기능을 제공합니다.
 """
 
-import os
 import re
+from pathlib import Path
 
 from managers.anime_data_manager import ParsedItem
 from PyQt5.QtCore import QAbstractTableModel, QModelIndex, Qt, QVariant
@@ -150,20 +150,18 @@ class GroupedListModel(QAbstractTableModel):
                 if hasattr(item, "filename") and item.filename:
                     file_names.append(item.filename)
                 elif hasattr(item, "sourcePath") and item.sourcePath:
-                    file_names.append(os.path.basename(item.sourcePath))
+                    file_names.append(Path(item.sourcePath).name)
 
             # 파일명이 있으면 첫 번째 파일명 표시, 없으면 "original_file_names"
             if file_names:
                 file_name_display = file_names[0]
                 if len(file_names) > 1:
-                    file_name_display += f" (+{len(file_names)-1}개)"
+                    file_name_display += f" (+{len(file_names) - 1}개)"
             else:
                 file_name_display = "original_file_names"
 
             # 최종 경로 구성
-            final_path = f"{base_destination}/{safe_title}/{season_folder}/{file_name_display}"
-
-            return final_path
+            return f"{base_destination}/{safe_title}/{season_folder}/{file_name_display}"
 
         except Exception as e:
             print(f"⚠️ 최종 경로 계산 실패: {e}")
@@ -224,14 +222,13 @@ class GroupedListModel(QAbstractTableModel):
                             group_info["tmdb_match"].poster_path, "w154"
                         )
 
-                        if poster_path and os.path.exists(poster_path):
+                        if poster_path and Path(poster_path).exists():
                             pixmap = QPixmap(poster_path)
                             if not pixmap.isNull():
                                 # 80x120 크기로 스케일링 (포스터 비율 유지)
-                                scaled_pixmap = pixmap.scaled(
+                                return pixmap.scaled(
                                     80, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation
                                 )
-                                return scaled_pixmap
                     except Exception as e:
                         print(f"포스터 로드 실패: {e}")
 
@@ -301,7 +298,7 @@ class DetailFileModel(QAbstractTableModel):
             if col == 0:  # 포스터 - 이미지만 표시하므로 빈 문자열 반환
                 return ""
             if col == 1:  # 파일명
-                return os.path.basename(item.sourcePath) if item.sourcePath else "—"
+                return Path(item.sourcePath).name if item.sourcePath else "—"
             if col == 2:  # 시즌
                 return f"S{item.season:02d}" if item.season is not None else "-"
             if col == 3:  # 에피소드
@@ -328,14 +325,13 @@ class DetailFileModel(QAbstractTableModel):
                             item.tmdbMatch.poster_path, "w92"
                         )
 
-                        if poster_path and os.path.exists(poster_path):
+                        if poster_path and Path(poster_path).exists():
                             pixmap = QPixmap(poster_path)
                             if not pixmap.isNull():
                                 # 60x90 크기로 스케일링 (포스터 비율 유지)
-                                scaled_pixmap = pixmap.scaled(
+                                return pixmap.scaled(
                                     60, 90, Qt.KeepAspectRatio, Qt.SmoothTransformation
                                 )
-                                return scaled_pixmap
                     except Exception as e:
                         print(f"포스터 로드 실패: {e}")
 

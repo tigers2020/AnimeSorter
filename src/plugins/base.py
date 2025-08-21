@@ -7,7 +7,6 @@
 import importlib
 import importlib.util
 import logging
-import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,7 +105,7 @@ class PluginManager:
     def __init__(self, plugin_dirs: list[str] | None = None):
         self.logger = logging.getLogger(__name__)
         self.plugins: dict[str, BasePlugin] = {}
-        self.plugin_dirs = plugin_dirs or [os.path.join(os.path.dirname(__file__), "providers")]
+        self.plugin_dirs = plugin_dirs or [str(Path(__file__).parent / "providers")]
         self.metadata_providers: dict[str, MetadataProvider] = {}
         self.file_processors: dict[str, FileProcessor] = {}
 

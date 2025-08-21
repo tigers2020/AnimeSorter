@@ -3,16 +3,16 @@
 파싱된 애니메이션 파일들의 데이터를 관리하고 그룹화하는 기능을 제공합니다.
 """
 
-import os
 import re
 
 # 상대 경로로 수정
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 from core.tmdb_client import TMDBAnimeInfo
 
 
@@ -49,9 +49,9 @@ class ParsedItem:
 
             self.id = str(uuid.uuid4())[:8]
         if not self.filename and self.sourcePath:
-            import os
+            from pathlib import Path
 
-            self.filename = os.path.basename(self.sourcePath)
+            self.filename = Path(self.sourcePath).name
         if not self.path and self.sourcePath:
             self.path = self.sourcePath
         if not self.title and self.detectedTitle:
@@ -155,9 +155,7 @@ class AnimeDataManager(QObject):
             normalized = re.sub(pattern, "", normalized)
 
         # 앞뒤 공백 제거
-        normalized = normalized.strip()
-
-        return normalized
+        return normalized.strip()
 
     def group_similar_titles(self) -> list[ParsedItem]:
         """유사한 제목을 가진 파일들을 그룹화"""
@@ -180,7 +178,7 @@ class AnimeDataManager(QObject):
             best_match = None
             best_similarity = 0.8  # 최소 유사도 임계값
 
-            for existing_title, group_id in title_groups.items():
+            for existing_title, _group_id in title_groups.items():
                 similarity = self.calculate_title_similarity(normalized_title, existing_title)
                 if similarity > best_similarity:
                     best_similarity = similarity
@@ -232,9 +230,7 @@ class AnimeDataManager(QObject):
         length_similarity = 1.0 - (length_diff / max_length) if max_length > 0 else 0.0
 
         # 최종 유사도 (Jaccard 70%, 길이 30%)
-        final_similarity = (jaccard_similarity * 0.7) + (length_similarity * 0.3)
-
-        return final_similarity
+        return (jaccard_similarity * 0.7) + (length_similarity * 0.3)
 
     def get_grouped_items(self) -> dict:
         """그룹별로 정리된 아이템들 반환"""
@@ -260,7 +256,9 @@ class AnimeDataManager(QObject):
             return
 
         print(f"🔍 TMDB 검색 시작: '{group_title}' (그룹 {group_id})")
+        print(f"🔍 시그널 발행: tmdb_search_requested.emit({group_id})")
         self.tmdb_search_requested.emit(group_id)
+        print(f"🔍 시그널 발행 완료: {group_id}")
 
     def set_tmdb_match_for_group(self, group_id: str, tmdb_anime: TMDBAnimeInfo):
         """그룹에 TMDB 매치 결과 설정"""
@@ -283,7 +281,7 @@ class AnimeDataManager(QObject):
         """그룹의 최종 이동 경로 생성"""
         tmdb_anime = self.get_tmdb_match_for_group(group_id)
         if not tmdb_anime:
-            return os.path.join(base_destination, "Unknown")
+            return str(Path(base_destination) / "Unknown")
 
         # TMDB 제목으로 폴더명 생성 (특수문자 제거)
         safe_title = re.sub(r'[<>:"/\\|?*]', "", tmdb_anime.name)
@@ -292,8 +290,8 @@ class AnimeDataManager(QObject):
         group_items = [item for item in self.items if item.groupId == group_id]
         if group_items and group_items[0].season:
             season_folder = f"Season{group_items[0].season:02d}"
-            return os.path.join(base_destination, safe_title, season_folder)
-        return os.path.join(base_destination, safe_title)
+            return str(Path(base_destination) / safe_title / season_folder)
+        return str(Path(base_destination) / safe_title)
 
     def get_group_display_info(self, group_id: str) -> dict:
         """그룹의 표시 정보 반환"""
@@ -308,10 +306,7 @@ class AnimeDataManager(QObject):
         if episodes:
             min_ep = min(episodes)
             max_ep = max(episodes)
-            if min_ep == max_ep:
-                episode_info = f"E{min_ep:02d}"
-            else:
-                episode_info = f"E{min_ep:02d}-E{max_ep:02d}"
+            episode_info = f"E{min_ep:02d}" if min_ep == max_ep else f"E{min_ep:02d}-E{max_ep:02d}"
         else:
             episode_info = "Unknown"
 

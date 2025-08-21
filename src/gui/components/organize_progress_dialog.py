@@ -3,10 +3,10 @@
 파일 이동 작업을 QThread로 수행하고 진행률을 표시합니다.
 """
 
-import os
 import re
 import shutil
 from dataclasses import dataclass
+from pathlib import Path
 
 from PyQt5.QtCore import QMutex, Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
@@ -118,9 +118,7 @@ class FileOrganizeWorker(QThread):
                 season_folder = f"Season{season:02d}"
 
                 # 대상 디렉토리 경로 생성 및 검증
-                target_base_dir = os.path.join(
-                    self.destination_directory, safe_title, season_folder
-                )
+                target_base_dir = str(Path(self.destination_directory) / safe_title / season_folder)
 
                 # 경로 길이 검증 (Windows 260자 제한, 여유분 20자)
                 if len(target_base_dir) > 240:
@@ -132,7 +130,7 @@ class FileOrganizeWorker(QThread):
 
                 # 대상 디렉토리 생성
                 try:
-                    os.makedirs(target_base_dir, exist_ok=True)
+                    Path(target_base_dir).mkdir(parents=True, exist_ok=True)
                 except PermissionError:
                     error_msg = f"권한 오류: 디렉토리 생성 실패 - {target_base_dir}"
                     result.errors.append(error_msg)
@@ -163,20 +161,20 @@ class FileOrganizeWorker(QThread):
                         continue
 
                     source_path = item.sourcePath
-                    if not os.path.exists(source_path):
+                    if not Path(source_path).exists():
                         error_msg = f"소스 파일이 존재하지 않음: {source_path}"
                         result.errors.append(error_msg)
                         result.error_count += 1
-                        self.file_processed.emit(os.path.basename(source_path), error_msg, False)
+                        self.file_processed.emit(Path(source_path).name, error_msg, False)
                         processed_files += 1
                         continue
 
                     # 소스 디렉토리 추적
-                    source_dir = os.path.dirname(source_path)
+                    source_dir = str(Path(source_path).parent)
                     source_directories.add(source_dir)
 
-                    filename = os.path.basename(source_path)
-                    target_path = os.path.join(target_base_dir, filename)
+                    filename = Path(source_path).name
+                    target_path = str(Path(target_base_dir) / filename)
 
                     try:
                         # 파일 이동
@@ -189,7 +187,7 @@ class FileOrganizeWorker(QThread):
 
                         for subtitle_path in subtitle_files:
                             try:
-                                subtitle_filename = os.path.basename(subtitle_path)
+                                subtitle_filename = Path(subtitle_path).name
                                 subtitle_target_path = self._resolve_target_path(
                                     target_base_dir, subtitle_filename
                                 )
@@ -214,9 +212,7 @@ class FileOrganizeWorker(QThread):
                             except Exception as e:
                                 error_msg = f"자막 파일 이동 실패: {subtitle_path} - {str(e)}"
                                 result.errors.append(error_msg)
-                                self.file_processed.emit(
-                                    os.path.basename(subtitle_path), error_msg, False
-                                )
+                                self.file_processed.emit(Path(subtitle_path).name, error_msg, False)
 
                         if not subtitle_files:
                             pass  # Removed debug print
@@ -277,43 +273,40 @@ class FileOrganizeWorker(QThread):
 
         try:
             # 비디오 파일의 디렉토리와 기본명 추출
-            video_dir = os.path.dirname(video_path)
-            video_basename = os.path.splitext(os.path.basename(video_path))[0]
+            video_dir = str(Path(video_path).parent)
+            video_basename = Path(video_path).stem
 
             # 디렉토리 내 모든 파일 검사
-            for filename in os.listdir(video_dir):
-                file_path = os.path.join(video_dir, filename)
-
-                # 파일인지 확인
-                if not os.path.isfile(file_path):
+            for file_path_obj in Path(video_dir).iterdir():
+                if not file_path_obj.is_file():
                     continue
 
                 # 자막 파일 확장자인지 확인
-                file_ext = os.path.splitext(filename)[1].lower()
+                file_ext = file_path_obj.suffix.lower()
                 if file_ext not in self.subtitle_extensions:
                     continue
 
                 # 파일명이 비디오 파일과 연관된 자막인지 확인
-                subtitle_basename = os.path.splitext(filename)[0]
+                subtitle_basename = file_path_obj.stem
 
                 # 이미 추가된 파일인지 확인 (중복 방지)
-                if file_path in subtitle_files:
+                if str(file_path_obj) in subtitle_files:
                     continue
 
                 # 정확히 일치하는 경우
                 if subtitle_basename == video_basename:
-                    subtitle_files.append(file_path)
+                    subtitle_files.append(str(file_path_obj))
                     continue
 
                 # 부분 일치하는 경우 (예: video.mkv와 video.ko.srt)
                 if subtitle_basename.startswith(video_basename + "."):
-                    subtitle_files.append(file_path)
+                    subtitle_files.append(str(file_path_obj))
                     continue
 
                 # 특수 패턴 매칭 (예: video.mkv와 video.ass)
                 # 자막 파일명에서 비디오 파일명을 포함하는 경우
                 if video_basename in subtitle_basename and subtitle_basename != video_basename:
-                    subtitle_files.append(file_path)
+                    subtitle_files.append(str(file_path_obj))
                     continue
 
             return subtitle_files
@@ -357,13 +350,13 @@ class FileOrganizeWorker(QThread):
 
     def _resolve_target_path(self, target_base_dir, filename):
         """대상 경로 결정 및 충돌 처리"""
-        target_path = os.path.join(target_base_dir, filename)
+        target_path = str(Path(target_base_dir) / filename)
 
         # 파일명 충돌 처리
         counter = 1
         original_target_path = target_path
-        while os.path.exists(target_path):
-            name, ext = os.path.splitext(original_target_path)
+        while Path(target_path).exists():
+            name, ext = Path(original_target_path).stem, Path(original_target_path).suffix
             target_path = f"{name} ({counter}){ext}"
             counter += 1
 
@@ -383,7 +376,7 @@ class FileOrganizeWorker(QThread):
             if "cross-device" in str(e).lower() or "invalid cross-device" in str(e).lower():
                 # 복사 후 삭제 방식으로 처리
                 shutil.copy2(source_path, target_path)
-                os.remove(source_path)
+                Path(source_path).unlink()
             else:
                 raise
 
@@ -394,7 +387,7 @@ class FileOrganizeWorker(QThread):
         for source_dir in source_directories:
             try:
                 # 디렉토리가 존재하는지 확인
-                if not os.path.exists(source_dir):
+                if not Path(source_dir).exists():
                     continue
 
                 # 재귀적으로 빈 디렉토리 삭제
@@ -411,18 +404,18 @@ class FileOrganizeWorker(QThread):
 
         try:
             # 디렉토리 내 모든 항목 확인
-            items = os.listdir(directory)
+            directory_path = Path(directory)
+            items = list(directory_path.iterdir())
 
             # 하위 디렉토리들을 먼저 처리 (재귀)
-            for item in items:
-                item_path = os.path.join(directory, item)
-                if os.path.isdir(item_path):
-                    cleaned_count += self._remove_empty_dirs_recursive(item_path)
+            for item_path in items:
+                if item_path.is_dir():
+                    cleaned_count += self._remove_empty_dirs_recursive(str(item_path))
 
             # 현재 디렉토리가 비었는지 다시 확인 (하위 디렉토리 삭제 후)
-            if not os.listdir(directory):
+            if not list(directory_path.iterdir()):
                 try:
-                    os.rmdir(directory)
+                    directory_path.rmdir()
                     cleaned_count += 1
                     print(f"🗑️ 빈 디렉토리 삭제: {directory}")
                 except OSError as e:

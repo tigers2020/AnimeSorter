@@ -333,13 +333,13 @@ class TypedEventBus(QObject):
             for i, handler in enumerate(handlers):
                 try:
                     print(
-                        f"📤 [EventBus] 핸들러 {i+1} 실행 중: {handler.__name__ if hasattr(handler, '__name__') else str(handler)}"
+                        f"📤 [EventBus] 핸들러 {i + 1} 실행 중: {handler.__name__ if hasattr(handler, '__name__') else str(handler)}"
                     )
                     handler(event)
                     executed_count += 1
-                    print(f"✅ [EventBus] 핸들러 {i+1} 실행 완료")
+                    print(f"✅ [EventBus] 핸들러 {i + 1} 실행 완료")
                 except Exception as e:
-                    print(f"❌ [EventBus] 핸들러 {i+1} 실행 실패: {e}")
+                    print(f"❌ [EventBus] 핸들러 {i + 1} 실행 실패: {e}")
                     self.logger.error(
                         f"이벤트 핸들러 실행 실패: {handler.__name__ if hasattr(handler, '__name__') else str(handler)} "
                         f"for {event_type.__name__} - {e}"
@@ -363,11 +363,10 @@ class TypedEventBus(QObject):
                 if hasattr(self, "_strong_subscribers"):
                     count += len(self._strong_subscribers.get(event_type, {}))
                 return count
-            else:
-                total = sum(len(handlers) for handlers in self._subscribers.values())
-                if hasattr(self, "_strong_subscribers"):
-                    total += sum(len(handlers) for handlers in self._strong_subscribers.values())
-                return total
+            total = sum(len(handlers) for handlers in self._subscribers.values())
+            if hasattr(self, "_strong_subscribers"):
+                total += sum(len(handlers) for handlers in self._strong_subscribers.values())
+            return total
 
     def get_event_types(self) -> list[type[BaseEvent]]:
         """등록된 이벤트 타입 목록 반환"""

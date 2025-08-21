@@ -13,7 +13,6 @@ import time
 from collections import deque
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -107,11 +106,13 @@ class TMDBClient:
 
         # API 키 설정
         if api_key:
+            self.api_key = api_key
             tmdb.API_KEY = api_key
         else:
             # 환경 변수에서 API 키 가져오기
             api_key = os.getenv("TMDB_API_KEY")
             if api_key:
+                self.api_key = api_key
                 tmdb.API_KEY = api_key
             else:
                 raise ValueError(
@@ -217,7 +218,7 @@ class TMDBClient:
             else:
                 # 연도가 지정되지 않은 경우 최근 10년 범위로 검색
                 current_year = datetime.now().year
-                search_params["with_first_air_date_gte"] = f"{current_year-10}-01-01"
+                search_params["with_first_air_date_gte"] = f"{current_year - 10}-01-01"
                 search_params["with_first_air_date_lte"] = f"{current_year}-12-31"
 
             response = search.tv(**search_params)
@@ -309,7 +310,6 @@ class TMDBClient:
             logging.error(f"TMDB 상세 정보 조회 오류: {e}")
             return None
 
-    @lru_cache(maxsize=100)
     def search_anime_optimized(self, query: str, language: str = "ko-KR") -> list[TMDBAnimeInfo]:
         """최적화된 애니메이션 검색 (캐시됨)"""
         try:
@@ -423,7 +423,7 @@ class TMDBClient:
                 return None
 
             # 기본 필드 설정
-            anime_info = TMDBAnimeInfo(
+            return TMDBAnimeInfo(
                 id=tmdb_data.get("id"),
                 name=tmdb_data.get("name", ""),
                 original_name=tmdb_data.get("original_name", ""),
@@ -461,8 +461,6 @@ class TMDBClient:
                 watch_providers=tmdb_data.get("watch_providers", {}),
             )
 
-            return anime_info
-
         except Exception as e:
             logging.error(f"TMDB 데이터 변환 오류: {e}")
             return None
@@ -483,7 +481,7 @@ class TMDBClient:
             if cache_file.exists():
                 # 캐시 만료 확인
                 if time.time() - cache_file.stat().st_mtime < self.cache_expiry:
-                    with open(cache_file, encoding="utf-8") as f:
+                    with cache_file.open(encoding="utf-8") as f:
                         data = json.load(f)
 
                         # 메모리 캐시에 추가
@@ -519,7 +517,7 @@ class TMDBClient:
 
             # 디스크 캐시에 저장
             cache_file = self.cache_dir / f"{key}.json"
-            with open(cache_file, "w", encoding="utf-8") as f:
+            with cache_file.open("w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logging.warning(f"캐시 저장 오류: {e}")
@@ -535,8 +533,8 @@ class TMDBClient:
             for cache_file in self.cache_dir.glob("*.json"):
                 cache_file.unlink()
 
-            # LRU 캐시 초기화
-            self.search_anime_optimized.cache_clear()
+            # LRU 캐시 초기화 (lru_cache가 제거되었으므로 주석 처리)
+            # self.search_anime_optimized.cache_clear()
 
             logging.info("캐시가 초기화되었습니다.")
         except Exception as e:
@@ -560,7 +558,7 @@ class TMDBClient:
                 "expiry_seconds": self.cache_expiry,
                 "memory_cache_size": memory_cache_size,
                 "memory_cache_max_size": self.memory_cache_size,
-                "lru_cache_info": self.search_anime_optimized.cache_info(),
+                "lru_cache_info": {},  # lru_cache가 제거되었으므로 빈 딕셔너리 반환
             }
         except Exception as e:
             return {"error": str(e)}
@@ -615,7 +613,7 @@ class TMDBClient:
                 content = await response.read()
 
             # 캐시에 저장
-            with open(cache_path, "wb") as f:
+            with cache_path.open("wb") as f:
                 f.write(content)
 
             logging.info(f"포스터 다운로드 완료: {cache_filename}")
@@ -649,7 +647,7 @@ class TMDBClient:
             response.raise_for_status()
 
             # 캐시에 저장
-            with open(cache_path, "wb") as f:
+            with cache_path.open("wb") as f:
                 f.write(response.content)
 
             logging.info(f"포스터 다운로드 완료: {cache_filename}")
@@ -665,8 +663,7 @@ class TMDBClient:
             return None
 
         # 이미지 다운로드 시도
-        local_path = self.download_poster(poster_path, size)
-        return local_path
+        return self.download_poster(poster_path, size)
 
     # 기존 메서드들 (하위 호환성을 위해 유지)
     def _get_cache(self, key: str) -> Any | None:
@@ -676,3 +673,14 @@ class TMDBClient:
     def _set_cache(self, key: str, data: Any) -> None:
         """데이터를 캐시에 저장 (기존 메서드)"""
         self._set_cache_optimized(key, data)
+
+    def update_api_key(self, new_api_key: str) -> None:
+        """API 키 업데이트"""
+        if new_api_key and new_api_key != self.api_key:
+            self.api_key = new_api_key
+            tmdb.API_KEY = new_api_key
+            logging.info("TMDB API 키가 업데이트되었습니다")
+
+    def get_api_key(self) -> str:
+        """현재 API 키 반환"""
+        return self.api_key

@@ -7,13 +7,13 @@
 
 import logging
 from collections import deque
-from typing import Optional, Protocol
+from typing import Protocol
 
 from PyQt5.QtCore import QObject, QThreadPool, QTimer
 
-from ..background_events import TaskQueueStatusEvent
-from ..background_task import BaseTask, TaskStatus
-from ..events import TypedEventBus
+from app.background_events import TaskQueueStatusEvent
+from app.background_task import BaseTask, TaskStatus
+from app.events import TypedEventBus
 
 
 class IBackgroundTaskService(Protocol):
@@ -31,7 +31,7 @@ class IBackgroundTaskService(Protocol):
         """모든 작업 취소"""
         ...
 
-    def get_task_status(self, task_id: str) -> Optional[TaskStatus]:
+    def get_task_status(self, task_id: str) -> TaskStatus | None:
         """작업 상태 조회"""
         ...
 
@@ -55,7 +55,7 @@ class BackgroundTaskService(QObject):
         self,
         event_bus: TypedEventBus,
         max_concurrent_tasks: int = 4,
-        parent: Optional[QObject] = None,
+        parent: QObject | None = None,
     ):
         super().__init__(parent)
 
@@ -168,10 +168,12 @@ class BackgroundTaskService(QObject):
         cancelled_count = 0
 
         # 실행 중인 작업들 취소
-        for task_id, task in self.tasks.items():
-            if self.task_statuses.get(task_id) in [TaskStatus.PENDING, TaskStatus.RUNNING]:
-                if self.cancel_task(task_id, reason):
-                    cancelled_count += 1
+        for task_id, _task in self.tasks.items():
+            if self.task_statuses.get(task_id) in [
+                TaskStatus.PENDING,
+                TaskStatus.RUNNING,
+            ] and self.cancel_task(task_id, reason):
+                cancelled_count += 1
 
         # 대기 큐 비우기
         self.pending_queue.clear()
@@ -179,7 +181,7 @@ class BackgroundTaskService(QObject):
         self.logger.info(f"모든 작업 취소 완료: {cancelled_count}개 작업")
         return cancelled_count
 
-    def get_task_status(self, task_id: str) -> Optional[TaskStatus]:
+    def get_task_status(self, task_id: str) -> TaskStatus | None:
         """작업 상태 조회"""
         return self.task_statuses.get(task_id)
 

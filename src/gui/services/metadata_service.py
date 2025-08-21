@@ -128,7 +128,7 @@ class MetadataService(QObject, IService):
         """검색 제안 목록 반환"""
         try:
             suggestions = []
-            for cached_key in self._search_cache.keys():
+            for cached_key in self._search_cache:
                 if partial_title.lower() in cached_key.lower():
                     suggestions.append(cached_key)
                     if len(suggestions) >= limit:
