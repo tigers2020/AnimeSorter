@@ -180,6 +180,9 @@ class ResultsView(QTabWidget):
                 if col in column_widths:
                     header.resizeSection(col, column_widths[col])
 
+        # 포스터 컬럼에 맞게 행 높이 조정 (240px + 여백)
+        self.group_table.verticalHeader().setDefaultSectionSize(260)
+
     def adjust_detail_table_columns(self, model):
         """상세 테이블 컬럼 크기 조정"""
         header = self.detail_table.horizontalHeader()
@@ -193,6 +196,9 @@ class ResultsView(QTabWidget):
                 header.setSectionResizeMode(col, QHeaderView.Fixed)
                 if col in column_widths:
                     header.resizeSection(col, column_widths[col])
+
+        # 포스터 컬럼에 맞게 행 높이 조정 (300px + 여백)
+        self.detail_table.verticalHeader().setDefaultSectionSize(320)
 
     def on_group_selection_changed(self, selected, deselected):
         """그룹 선택 변경 시 호출"""

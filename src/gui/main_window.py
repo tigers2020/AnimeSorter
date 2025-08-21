@@ -404,26 +404,7 @@ class MainWindow(QMainWindow):
                 except Exception as e:
                     print(f"⚠️ 왼쪽 패널 연결 실패: {e}")
 
-            if hasattr(self, "right_panel") and self.right_panel:
-                try:
-                    # 파일 정리 관련 시그널을 FileOrganizationHandler로 위임
-                    if hasattr(self, "file_organization_handler"):
-                        self.right_panel.commit_requested.connect(
-                            self.file_organization_handler.commit_organization
-                        )
-                        self.right_panel.simulate_requested.connect(
-                            self.file_organization_handler.simulate_organization
-                        )
-                    else:
-                        # 폴백: 직접 연결 (FileOrganizationHandler가 없는 경우)
-                        self.right_panel.commit_requested.connect(
-                            lambda: print("FileOrganizationHandler가 초기화되지 않았습니다")
-                        )
-                        self.right_panel.simulate_requested.connect(
-                            lambda: print("FileOrganizationHandler가 초기화되지 않았습니다")
-                        )
-                except Exception as e:
-                    print(f"⚠️ 오른쪽 패널 연결 실패: {e}")
+            # right_panel의 시그널 연결은 제거됨 (정리 실행, 시뮬레이션 버튼 삭제)
 
             # TMDB 검색 시그널 연결 (매니저가 존재하는 경우에만)
             if hasattr(self, "anime_data_manager") and self.anime_data_manager:

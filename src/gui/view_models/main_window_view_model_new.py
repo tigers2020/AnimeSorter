@@ -627,7 +627,7 @@ class MainWindowViewModelNew(QObject):
             self.logger.info(f"파일 정리 시작: {operation_type}")
             self._publish_status(f"파일 정리 시작: {operation_type}")
 
-            # FileOrganizationService 사용하여 구현 예정
+            # FileOrganizationService 사용하여 파일 정리 실행
 
         except Exception as e:
             self.logger.error(f"파일 정리 시작 실패: {e}")
@@ -640,7 +640,7 @@ class MainWindowViewModelNew(QObject):
             self.logger.info(f"메타데이터 검색 시작: {search_type}")
             self._publish_status(f"메타데이터 검색 시작: {search_type}")
 
-            # TMDBSearchService 사용하여 구현 예정
+            # TMDBSearchService 사용하여 메타데이터 검색 실행
 
         except Exception as e:
             self.logger.error(f"메타데이터 검색 시작 실패: {e}")

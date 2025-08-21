@@ -71,10 +71,6 @@ class ToolbarBuilder:
             commit_action.setStatusTip("파일 정리를 실행합니다")
             commit_action.triggered.connect(self.main_window.commit_organization)
 
-            simulate_action = toolbar.addAction("시뮬레이션")
-            simulate_action.setStatusTip("파일 정리를 시뮬레이션합니다")
-            simulate_action.triggered.connect(self.main_window.simulate_organization)
-
             toolbar.addSeparator()
 
             # 설정 액션

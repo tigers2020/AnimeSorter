@@ -8,7 +8,7 @@ from pathlib import Path
 
 from managers.anime_data_manager import ParsedItem
 from PyQt5.QtCore import QAbstractTableModel, QModelIndex, Qt, QVariant
-from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtGui import QFont, QFontMetrics, QIcon, QPixmap
 
 
 class GroupedListModel(QAbstractTableModel):
@@ -27,6 +27,7 @@ class GroupedListModel(QAbstractTableModel):
         self.tmdb_client = tmdb_client
         self.destination_directory = destination_directory or "대상 폴더"
         self._group_list = []  # 그룹 리스트 (순서 유지)
+        self._max_title_width = 0  # 최대 제목 너비 (동적 계산용)
         self._update_group_list()
 
     def set_grouped_items(self, grouped_items: dict[str, list]):
@@ -39,6 +40,8 @@ class GroupedListModel(QAbstractTableModel):
     def _update_group_list(self):
         """그룹 리스트 업데이트"""
         self._group_list = []
+        self._max_title_width = 0  # 최대 제목 너비 초기화
+
         for group_key, items in self.grouped_items.items():
             if not items:
                 continue
@@ -99,9 +102,14 @@ class GroupedListModel(QAbstractTableModel):
             # 최종 이동 경로 계산
             final_path = self._calculate_final_path(representative, items)
 
+            # 제목 결정 (TMDB 매치가 있으면 TMDB 제목, 없으면 원본 제목)
+            title = representative.title or representative.detectedTitle or "Unknown"
+            if representative.tmdbMatch and representative.tmdbMatch.name:
+                title = representative.tmdbMatch.name
+
             group_info = {
                 "key": group_key,
-                "title": representative.title or representative.detectedTitle or "Unknown",
+                "title": title,
                 "season": representative.season or 1,
                 "episode_info": episode_info,
                 "file_count": len(items),
@@ -117,6 +125,9 @@ class GroupedListModel(QAbstractTableModel):
 
         # 제목, 시즌, 에피소드 순으로 정렬
         self._group_list.sort(key=lambda x: (x["title"].lower(), x["season"], x["episode_info"]))
+
+        # 최대 제목 너비 계산 (동적 너비 조정용)
+        self._calculate_max_title_width()
 
     def _calculate_final_path(self, representative, items):
         """최종 이동 경로 계산"""
@@ -166,6 +177,27 @@ class GroupedListModel(QAbstractTableModel):
         except Exception as e:
             print(f"⚠️ 최종 경로 계산 실패: {e}")
             return "경로 계산 오류"
+
+    def _calculate_max_title_width(self):
+        """최대 제목 너비 계산"""
+        try:
+            # 기본 폰트 메트릭스 사용
+            font_metrics = QFontMetrics(
+                self.parent().font() if self.parent() else QFontMetrics(QFont())
+            )
+
+            max_width = 0
+            for group_info in self._group_list:
+                title = group_info.get("title", "")
+                if title:
+                    width = font_metrics.horizontalAdvance(title)
+                    max_width = max(max_width, width)
+
+            # 좌우 패딩 추가 (각각 20px)
+            self._max_title_width = max_width + 40 if max_width > 0 else 300
+        except Exception as e:
+            print(f"제목 너비 계산 실패: {e}")
+            self._max_title_width = 300  # 기본값
 
     def rowCount(self, parent=QModelIndex()) -> int:
         return len(self._group_list)
@@ -225,9 +257,9 @@ class GroupedListModel(QAbstractTableModel):
                         if poster_path and Path(poster_path).exists():
                             pixmap = QPixmap(poster_path)
                             if not pixmap.isNull():
-                                # 80x120 크기로 스케일링 (포스터 비율 유지)
+                                # 240px 높이로 스케일링 (포스터 비율 유지, 여백 확보)
                                 return pixmap.scaled(
-                                    80, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                                    160, 240, Qt.KeepAspectRatio, Qt.SmoothTransformation
                                 )
                     except Exception as e:
                         print(f"포스터 로드 실패: {e}")
@@ -251,8 +283,8 @@ class GroupedListModel(QAbstractTableModel):
     def get_column_widths(self) -> dict[int, int]:
         """컬럼별 권장 너비 반환"""
         return {
-            0: 80,  # 포스터
-            1: 300,  # 제목
+            0: 220,  # 포스터 (여백 포함하여 완전히 보이도록)
+            1: self._max_title_width,  # 제목 (동적 너비)
             2: 250,  # 최종 이동 경로
             3: 80,  # 시즌
             4: 100,  # 에피소드 수
@@ -328,9 +360,9 @@ class DetailFileModel(QAbstractTableModel):
                         if poster_path and Path(poster_path).exists():
                             pixmap = QPixmap(poster_path)
                             if not pixmap.isNull():
-                                # 60x90 크기로 스케일링 (포스터 비율 유지)
+                                # 300px 높이로 스케일링 (포스터 비율 유지, 여백 확보)
                                 return pixmap.scaled(
-                                    60, 90, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                                    200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation
                                 )
                     except Exception as e:
                         print(f"포스터 로드 실패: {e}")
@@ -348,7 +380,7 @@ class DetailFileModel(QAbstractTableModel):
     def get_column_widths(self) -> dict[int, int]:
         """컬럼별 권장 너비 반환"""
         return {
-            0: 60,  # 포스터
+            0: 200,  # 포스터 (여백 포함하여 완전히 보이도록)
             1: 300,  # 파일명
             2: 80,  # 시즌
             3: 80,  # 에피소드

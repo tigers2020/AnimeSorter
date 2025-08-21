@@ -9,6 +9,9 @@ watchdog>=2.1.0
 requests>=2.25.0
 tmdbsimple>=2.2.0
 
+# Video metadata extraction
+ffmpeg-python>=0.2.0
+
 # Data processing
 python-dateutil>=2.8.0
 Pillow>=8.0.0

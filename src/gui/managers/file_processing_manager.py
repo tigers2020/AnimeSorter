@@ -14,8 +14,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
+
 from core.file_manager import FileManager
 from core.file_parser import FileParser
+from core.video_metadata_extractor import VideoMetadataExtractor
 
 from .anime_data_manager import ParsedItem
 
@@ -57,6 +59,7 @@ class FileProcessingManager:
         self.safe_mode = safe_mode
         self.file_parser = FileParser()
         self.file_manager = FileManager(destination_root=destination_root, safe_mode=safe_mode)
+        self.video_metadata_extractor = VideoMetadataExtractor()
 
         # 처리 계획 저장
         self.processing_plans: list[FileProcessingPlan] = []
@@ -112,6 +115,18 @@ class FileProcessingManager:
                     file_size = Path(file_path).stat().st_size
                     size_mb = file_size // (1024 * 1024)
 
+                    # 해상도가 Unknown인 경우 파일에서 직접 추출 시도
+                    resolution = parsed_metadata.resolution or "Unknown"
+                    if resolution == "Unknown":
+                        extracted_resolution = self.video_metadata_extractor.extract_resolution(
+                            file_path
+                        )
+                        if extracted_resolution:
+                            resolution = self.video_metadata_extractor.normalize_resolution(
+                                extracted_resolution
+                            )
+                            print(f"🔍 파일에서 해상도 추출: {resolution}")
+
                     # ParsedItem 생성
                     parsed_item = ParsedItem(
                         sourcePath=file_path,
@@ -119,7 +134,7 @@ class FileProcessingManager:
                         title=parsed_metadata.title,
                         season=parsed_metadata.season or 1,
                         episode=parsed_metadata.episode or 1,
-                        resolution=parsed_metadata.resolution or "Unknown",
+                        resolution=resolution,
                         container=parsed_metadata.container or "Unknown",
                         codec=parsed_metadata.codec or "Unknown",
                         year=parsed_metadata.year,

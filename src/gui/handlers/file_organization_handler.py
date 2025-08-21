@@ -165,9 +165,7 @@ class FileOrganizationHandler(QObject):
 
     def commit_organization(self):
         """정리 실행"""
-        QMessageBox.information(
-            self.main_window, "정리 실행", "파일 정리 계획을 실행합니다. (구현 예정)"
-        )
+        self.start_file_organization()
 
     def simulate_organization(self):
         """정리 시뮬레이션"""
