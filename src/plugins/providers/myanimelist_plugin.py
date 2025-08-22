@@ -8,7 +8,7 @@ from typing import Any
 
 import requests
 
-from ..base import MetadataProvider, PluginInfo
+from plugins.base import MetadataProvider, PluginInfo
 
 
 class MyAnimeListPlugin(MetadataProvider):

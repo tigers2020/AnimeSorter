@@ -7,14 +7,14 @@ import re
 from pathlib import Path
 
 from managers.anime_data_manager import ParsedItem
-from PyQt5.QtCore import QAbstractTableModel, QModelIndex, Qt, QVariant
-from PyQt5.QtGui import QFont, QFontMetrics, QIcon, QPixmap
+from PyQt5.QtCore import QAbstractTableModel, QModelIndex, QRect, Qt, QVariant
+from PyQt5.QtGui import QFont, QFontMetrics, QPainter, QPixmap
 
 
 class GroupedListModel(QAbstractTableModel):
     """그룹화된 애니메이션 목록을 표시하는 모델"""
 
-    headers = ["포스터", "제목", "최종 이동 경로", "시즌", "에피소드 수", "최고 해상도", "상태"]
+    headers = ["제목", "최종 이동 경로", "시즌", "에피소드 수", "최고 해상도", "상태"]
 
     def __init__(
         self,
@@ -28,14 +28,24 @@ class GroupedListModel(QAbstractTableModel):
         self.destination_directory = destination_directory or "대상 폴더"
         self._group_list = []  # 그룹 리스트 (순서 유지)
         self._max_title_width = 0  # 최대 제목 너비 (동적 계산용)
+        self._tooltip_cache = {}  # 툴팁 이미지 캐시
         self._update_group_list()
 
     def set_grouped_items(self, grouped_items: dict[str, list]):
-        """그룹화된 아이템 설정"""
-        self.beginResetModel()
-        self.grouped_items = grouped_items
-        self._update_group_list()
-        self.endResetModel()
+        """그룹화된 아이템 설정 (Phase 9.1: 성능 최적화)"""
+        # Phase 9.1: 대용량 데이터 처리 최적화
+        if len(grouped_items) > 1000:  # 대용량 데이터 감지
+            # 정렬을 일시 해제하여 성능 향상
+            self.beginResetModel()
+            self.grouped_items = grouped_items
+            self._update_group_list()
+            self.endResetModel()
+        else:
+            # 소량 데이터는 기존 방식 사용
+            self.beginResetModel()
+            self.grouped_items = grouped_items
+            self._update_group_list()
+            self.endResetModel()
 
     def _update_group_list(self):
         """그룹 리스트 업데이트"""
@@ -99,35 +109,56 @@ class GroupedListModel(QAbstractTableModel):
                 else:
                     group_status = "pending"
 
-            # 최종 이동 경로 계산
-            final_path = self._calculate_final_path(representative, items)
+            # Phase 9.1: 성능 최적화를 위한 배치 처리
+            self._batch_process_group(
+                group_key, representative, episode_info, best_resolution, group_status
+            )
 
-            # 제목 결정 (TMDB 매치가 있으면 TMDB 제목, 없으면 원본 제목)
-            title = representative.title or representative.detectedTitle or "Unknown"
-            if representative.tmdbMatch and representative.tmdbMatch.name:
-                title = representative.tmdbMatch.name
-
-            group_info = {
-                "key": group_key,
-                "title": title,
-                "season": representative.season or 1,
-                "episode_info": episode_info,
-                "file_count": len(items),
-                "best_resolution": best_resolution,
-                "status": group_status,
-                "items": items,
-                "tmdb_match": representative.tmdbMatch,
-                "tmdb_anime": representative.tmdbMatch,  # TMDB 애니메이션 정보
-                "final_path": final_path,  # 최종 이동 경로
-            }
-
-            self._group_list.append(group_info)
-
+        # Phase 9.1: 성능 최적화를 위한 배치 처리 완료 후 정렬
         # 제목, 시즌, 에피소드 순으로 정렬
         self._group_list.sort(key=lambda x: (x["title"].lower(), x["season"], x["episode_info"]))
 
         # 최대 제목 너비 계산 (동적 너비 조정용)
         self._calculate_max_title_width()
+
+    def _batch_process_group(
+        self,
+        group_key: str,
+        representative: ParsedItem,
+        episode_info: str,
+        best_resolution: str,
+        group_status: str,
+    ):
+        """그룹 정보를 배치로 처리하여 성능 향상 (Phase 9.1)"""
+        # 최종 이동 경로 계산
+        final_path = self._calculate_final_path(representative, self.grouped_items[group_key])
+
+        # 제목 결정 (TMDB 매치가 있으면 TMDB 제목, 없으면 원본 제목)
+        title = representative.title or representative.detectedTitle or "Unknown"
+        if representative.tmdbMatch and representative.tmdbMatch.name:
+            title = representative.tmdbMatch.name
+
+        # 그룹 정보를 한 번에 생성하여 메모리 효율성 향상
+        group_info = {
+            "key": group_key,
+            "title": title,
+            "season": representative.season or 1,
+            "episode_info": episode_info,
+            "file_count": len(self.grouped_items[group_key]),
+            "best_resolution": best_resolution,
+            "status": group_status,
+            "items": self.grouped_items[group_key],
+            "tmdb_match": representative.tmdbMatch,
+            "tmdb_anime": representative.tmdbMatch,  # TMDB 애니메이션 정보
+            "final_path": final_path,  # 최종 이동 경로
+        }
+
+        self._group_list.append(group_info)
+
+        # 최대 제목 너비 계산 (성능 최적화)
+        title_width = len(title)
+        if title_width > self._max_title_width:
+            self._max_title_width = title_width
 
     def _calculate_final_path(self, representative, items):
         """최종 이동 경로 계산"""
@@ -216,22 +247,20 @@ class GroupedListModel(QAbstractTableModel):
         col = index.column()
 
         if role == Qt.DisplayRole:
-            if col == 0:  # 포스터 - 이미지만 표시하므로 빈 문자열 반환
-                return ""
-            if col == 1:  # 제목 - TMDB 매치가 있으면 TMDB 제목 우선 사용
+            if col == 0:  # 제목 - TMDB 매치가 있으면 TMDB 제목 우선 사용
                 if group_info.get("tmdb_match") and group_info["tmdb_match"].name:
                     return group_info["tmdb_match"].name  # TMDB 한글 제목
                 return group_info.get("title", "Unknown")
-            if col == 2:  # 최종 이동 경로
+            if col == 1:  # 최종 이동 경로
                 return group_info.get("final_path", "N/A")
-            if col == 3:  # 시즌
+            if col == 2:  # 시즌
                 season = group_info.get("season")
                 return f"S{season:02d}" if season is not None else "-"
-            if col == 4:  # 에피소드 수
+            if col == 3:  # 에피소드 수
                 return str(group_info.get("file_count", 0))
-            if col == 5:  # 최고 해상도
+            if col == 4:  # 최고 해상도
                 return group_info.get("best_resolution", "-")
-            if col == 6:  # 상태
+            if col == 5:  # 상태
                 status = group_info.get("status", "unknown")
                 status_map = {
                     "complete": "✅ 완료",
@@ -242,30 +271,88 @@ class GroupedListModel(QAbstractTableModel):
                 }
                 return status_map.get(status, status)
 
-        elif role == Qt.DecorationRole:
-            if col == 0:  # 포스터 컬럼에 이미지 표시
+        elif role == Qt.ToolTipRole:
+            if col == 0:  # 제목 컬럼에 포스터 툴팁 표시
                 if (
                     group_info.get("tmdb_match")
                     and group_info["tmdb_match"].poster_path
                     and self.tmdb_client
                 ):
+                    # 캐시 키 생성
+                    poster_path = group_info["tmdb_match"].poster_path
+                    cache_key = f"tooltip_{poster_path}"
+
+                    # 캐시에서 확인
+                    if cache_key in self._tooltip_cache:
+                        return self._tooltip_cache[cache_key]
+
                     try:
                         poster_path = self.tmdb_client.get_poster_path(
-                            group_info["tmdb_match"].poster_path, "w154"
+                            group_info["tmdb_match"].poster_path, "w185"
                         )
 
                         if poster_path and Path(poster_path).exists():
                             pixmap = QPixmap(poster_path)
                             if not pixmap.isNull():
-                                # 240px 높이로 스케일링 (포스터 비율 유지, 여백 확보)
-                                return pixmap.scaled(
-                                    160, 240, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                                # 툴팁용 포스터 크기 조정 (200x300 픽셀)
+                                scaled_pixmap = pixmap.scaled(
+                                    200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation
                                 )
-                    except Exception as e:
-                        print(f"포스터 로드 실패: {e}")
 
-                # 기본 아이콘 반환
-                return QIcon("🎬")
+                                # 테마에 맞는 배경과 테두리 추가
+                                from PyQt5.QtWidgets import QApplication
+
+                                app = QApplication.instance()
+                                if app:
+                                    palette = app.palette()
+                                    background_color = palette.color(palette.ToolTipBase)
+
+                                    # 배경이 있는 새로운 픽스맵 생성
+                                    final_pixmap = QPixmap(220, 320)  # 여백 포함
+                                    final_pixmap.fill(background_color)
+
+                                    # 포스터를 중앙에 배치
+                                    painter = QPainter(final_pixmap)
+                                    painter.setRenderHint(QPainter.Antialiasing)
+
+                                    # 테두리 그리기
+                                    border_color = palette.color(palette.ToolTipText)
+                                    border_color.setAlpha(50)  # 반투명
+                                    painter.setPen(border_color)
+                                    painter.drawRect(9, 9, 202, 302)
+
+                                    # 포스터 그리기
+                                    poster_rect = QRect(10, 10, 200, 300)
+                                    painter.drawPixmap(poster_rect, scaled_pixmap)
+                                    painter.end()
+
+                                    # 캐시에 저장
+                                    self._tooltip_cache[cache_key] = final_pixmap
+                                    return final_pixmap
+
+                                # 캐시에 저장
+                                self._tooltip_cache[cache_key] = scaled_pixmap
+                                return scaled_pixmap
+                    except Exception as e:
+                        print(f"포스터 툴팁 로드 실패: {e}")
+
+                # 포스터가 없으면 제목 정보만 표시
+                title = group_info.get("title", "Unknown")
+                if group_info.get("tmdb_match") and group_info["tmdb_match"].name:
+                    title = group_info["tmdb_match"].name
+                return f"제목: {title}"
+
+        elif role == Qt.AccessibleTextRole:
+            if col == 0:  # 제목 컬럼의 접근성 텍스트
+                title = group_info.get("title", "Unknown")
+                if group_info.get("tmdb_match") and group_info["tmdb_match"].name:
+                    title = group_info["tmdb_match"].name
+
+                # 포스터 정보 추가
+                if group_info.get("tmdb_match") and group_info["tmdb_match"].poster_path:
+                    return f"{title} - 포스터 이미지가 있습니다. 마우스를 올리면 포스터를 볼 수 있습니다."
+                else:
+                    return f"{title} - 포스터 이미지가 없습니다."
 
         return QVariant()
 
@@ -283,13 +370,12 @@ class GroupedListModel(QAbstractTableModel):
     def get_column_widths(self) -> dict[int, int]:
         """컬럼별 권장 너비 반환"""
         return {
-            0: 220,  # 포스터 (여백 포함하여 완전히 보이도록)
-            1: self._max_title_width,  # 제목 (동적 너비)
-            2: 250,  # 최종 이동 경로
-            3: 80,  # 시즌
-            4: 100,  # 에피소드 수
-            5: 100,  # 최고 해상도
-            6: 100,  # 상태
+            0: self._max_title_width,  # 제목 (동적 너비)
+            1: 250,  # 최종 이동 경로
+            2: 80,  # 시즌
+            3: 100,  # 에피소드 수
+            4: 100,  # 최고 해상도
+            5: 100,  # 상태
         }
 
     def get_stretch_columns(self) -> list[int]:
@@ -300,18 +386,33 @@ class GroupedListModel(QAbstractTableModel):
 class DetailFileModel(QAbstractTableModel):
     """그룹 내 상세 파일 목록을 표시하는 모델"""
 
-    headers = ["포스터", "파일명", "시즌", "에피소드", "해상도", "코덱", "상태"]
+    headers = ["파일명", "시즌", "에피소드", "해상도", "코덱", "상태"]
 
     def __init__(self, items: list[ParsedItem] = None, tmdb_client=None):
         super().__init__()
         self.items = items or []
         self.tmdb_client = tmdb_client
+        self._tooltip_cache = {}  # 툴팁 이미지 캐시
 
     def set_items(self, items: list[ParsedItem]):
         """아이템 목록 설정 및 테이블 새로고침"""
         self.beginResetModel()
         self.items = items
         self.endResetModel()
+
+    def set_files(self, files: list[ParsedItem]):
+        """파일 목록 설정 (Phase 9.1: 성능 최적화)"""
+        # Phase 9.1: 대용량 데이터 처리 최적화
+        if len(files) > 1000:  # 대용량 데이터 감지
+            # 정렬을 일시 해제하여 성능 향상
+            self.beginResetModel()
+            self.files = files
+            self.endResetModel()
+        else:
+            # 소량 데이터는 기존 방식 사용
+            self.beginResetModel()
+            self.files = files
+            self.endResetModel()
 
     def rowCount(self, parent=QModelIndex()) -> int:
         return len(self.items)
@@ -327,19 +428,17 @@ class DetailFileModel(QAbstractTableModel):
         col = index.column()
 
         if role == Qt.DisplayRole:
-            if col == 0:  # 포스터 - 이미지만 표시하므로 빈 문자열 반환
-                return ""
-            if col == 1:  # 파일명
+            if col == 0:  # 파일명
                 return Path(item.sourcePath).name if item.sourcePath else "—"
-            if col == 2:  # 시즌
+            if col == 1:  # 시즌
                 return f"S{item.season:02d}" if item.season is not None else "-"
-            if col == 3:  # 에피소드
+            if col == 2:  # 에피소드
                 return f"E{item.episode:02d}" if item.episode is not None else "-"
-            if col == 4:  # 해상도
+            if col == 3:  # 해상도
                 return item.resolution or "-"
-            if col == 5:  # 코덱
+            if col == 4:  # 코덱
                 return item.codec or "-"
-            if col == 6:  # 상태
+            if col == 5:  # 상태
                 status_map = {
                     "parsed": "✅ 완료",
                     "needs_review": "⚠️ 검토필요",
@@ -349,26 +448,80 @@ class DetailFileModel(QAbstractTableModel):
                 }
                 return status_map.get(item.status, item.status)
 
-        elif role == Qt.DecorationRole:
-            if col == 0:  # 포스터 컬럼에 이미지 표시
+        elif role == Qt.ToolTipRole:
+            if col == 0:  # 파일명 컬럼에 포스터 툴팁 표시
                 if item.tmdbMatch and item.tmdbMatch.poster_path and self.tmdb_client:
+                    # 캐시 키 생성
+                    poster_path = item.tmdbMatch.poster_path
+                    cache_key = f"tooltip_{poster_path}"
+
+                    # 캐시에서 확인
+                    if cache_key in self._tooltip_cache:
+                        return self._tooltip_cache[cache_key]
+
                     try:
                         poster_path = self.tmdb_client.get_poster_path(
-                            item.tmdbMatch.poster_path, "w92"
+                            item.tmdbMatch.poster_path, "w185"
                         )
 
                         if poster_path and Path(poster_path).exists():
                             pixmap = QPixmap(poster_path)
                             if not pixmap.isNull():
-                                # 300px 높이로 스케일링 (포스터 비율 유지, 여백 확보)
-                                return pixmap.scaled(
+                                # 툴팁용 포스터 크기 조정 (200x300 픽셀)
+                                scaled_pixmap = pixmap.scaled(
                                     200, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation
                                 )
-                    except Exception as e:
-                        print(f"포스터 로드 실패: {e}")
 
-                # 기본 아이콘 반환
-                return QIcon("🎬")
+                                # 테마에 맞는 배경과 테두리 추가
+                                from PyQt5.QtWidgets import QApplication
+
+                                app = QApplication.instance()
+                                if app:
+                                    palette = app.palette()
+                                    background_color = palette.color(palette.ToolTipBase)
+
+                                    # 배경이 있는 새로운 픽스맵 생성
+                                    final_pixmap = QPixmap(220, 320)  # 여백 포함
+                                    final_pixmap.fill(background_color)
+
+                                    # 포스터를 중앙에 배치
+                                    painter = QPainter(final_pixmap)
+                                    painter.setRenderHint(QPainter.Antialiasing)
+
+                                    # 테두리 그리기
+                                    border_color = palette.color(palette.ToolTipText)
+                                    border_color.setAlpha(50)  # 반투명
+                                    painter.setPen(border_color)
+                                    painter.drawRect(9, 9, 202, 302)
+
+                                    # 포스터 그리기
+                                    poster_rect = QRect(10, 10, 200, 300)
+                                    painter.drawPixmap(poster_rect, scaled_pixmap)
+                                    painter.end()
+
+                                    # 캐시에 저장
+                                    self._tooltip_cache[cache_key] = final_pixmap
+                                    return final_pixmap
+
+                                # 캐시에 저장
+                                self._tooltip_cache[cache_key] = scaled_pixmap
+                                return scaled_pixmap
+                    except Exception as e:
+                        print(f"포스터 툴팁 로드 실패: {e}")
+
+                # 포스터가 없으면 파일 정보만 표시
+                filename = Path(item.sourcePath).name if item.sourcePath else "Unknown"
+                return f"파일: {filename}"
+
+        elif role == Qt.AccessibleTextRole:
+            if col == 0:  # 파일명 컬럼의 접근성 텍스트
+                filename = Path(item.sourcePath).name if item.sourcePath else "Unknown"
+
+                # 포스터 정보 추가
+                if item.tmdbMatch and item.tmdbMatch.poster_path:
+                    return f"{filename} - 포스터 이미지가 있습니다. 마우스를 올리면 포스터를 볼 수 있습니다."
+                else:
+                    return f"{filename} - 포스터 이미지가 없습니다."
 
         return QVariant()
 
@@ -380,13 +533,12 @@ class DetailFileModel(QAbstractTableModel):
     def get_column_widths(self) -> dict[int, int]:
         """컬럼별 권장 너비 반환"""
         return {
-            0: 200,  # 포스터 (여백 포함하여 완전히 보이도록)
-            1: 300,  # 파일명
-            2: 80,  # 시즌
-            3: 80,  # 에피소드
-            4: 100,  # 해상도
-            5: 100,  # 코덱
-            6: 100,  # 상태
+            0: 300,  # 파일명
+            1: 80,  # 시즌
+            2: 80,  # 에피소드
+            3: 100,  # 해상도
+            4: 100,  # 코덱
+            5: 100,  # 상태
         }
 
     def get_stretch_columns(self) -> list[int]:

@@ -53,6 +53,7 @@ class SettingsDialog(QDialog):
         self.create_general_tab()
         self.create_parsing_tab()
         self.create_tmdb_tab()
+        self.create_appearance_tab()
         self.create_advanced_tab()
         self.create_backup_tab()
 
@@ -167,6 +168,59 @@ class SettingsDialog(QDialog):
 
         self.tab_widget.addTab(tab, "TMDB")
 
+    def create_appearance_tab(self):
+        """외관 설정 탭"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        # 테마 설정 그룹
+        theme_group = QGroupBox("테마 설정")
+        theme_layout = QFormLayout(theme_group)
+
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["자동", "라이트", "다크"])
+        self.theme_combo.setToolTip("애플리케이션의 색상 테마를 선택합니다")
+
+        theme_layout.addRow("테마:", self.theme_combo)
+
+        layout.addWidget(theme_group)
+
+        # 접근성 설정 그룹
+        accessibility_group = QGroupBox("접근성 설정")
+        accessibility_layout = QFormLayout(accessibility_group)
+
+        self.high_contrast_check = QCheckBox("고대비 모드")
+        self.high_contrast_check.setToolTip("고대비 모드를 활성화하여 텍스트 가독성을 향상시킵니다")
+
+        self.keyboard_navigation_check = QCheckBox("키보드 네비게이션 강화")
+        self.keyboard_navigation_check.setToolTip(
+            "키보드만으로 모든 기능을 사용할 수 있도록 합니다"
+        )
+
+        self.screen_reader_check = QCheckBox("스크린 리더 지원")
+        self.screen_reader_check.setToolTip("스크린 리더와의 호환성을 향상시킵니다")
+
+        accessibility_layout.addRow("", self.high_contrast_check)
+        accessibility_layout.addRow("", self.keyboard_navigation_check)
+        accessibility_layout.addRow("", self.screen_reader_check)
+
+        layout.addWidget(accessibility_group)
+
+        # 언어 설정 그룹
+        language_group = QGroupBox("언어 설정")
+        language_layout = QFormLayout(language_group)
+
+        self.language_combo = QComboBox()
+        self.language_combo.addItems(["한국어", "English"])
+        self.language_combo.setToolTip("애플리케이션의 언어를 선택합니다")
+
+        language_layout.addRow("언어:", self.language_combo)
+
+        layout.addWidget(language_group)
+        layout.addStretch(1)
+
+        self.tab_widget.addTab(tab, "외관")
+
     def create_advanced_tab(self):
         """고급 설정 탭"""
         tab = QWidget()
@@ -253,6 +307,13 @@ class SettingsDialog(QDialog):
         self.backup_location_edit.textChanged.connect(self.on_setting_changed)
         self.max_backup_count_spin.valueChanged.connect(self.on_setting_changed)
 
+        # 외관 설정 연결
+        self.theme_combo.currentTextChanged.connect(self.on_setting_changed)
+        self.high_contrast_check.toggled.connect(self.on_setting_changed)
+        self.keyboard_navigation_check.toggled.connect(self.on_setting_changed)
+        self.screen_reader_check.toggled.connect(self.on_setting_changed)
+        self.language_combo.currentTextChanged.connect(self.on_setting_changed)
+
     def load_current_settings(self):
         """현재 설정을 UI에 로드"""
         try:
@@ -282,6 +343,23 @@ class SettingsDialog(QDialog):
             self.backup_before_organize_check.setChecked(self.settings.backup_before_organize)
             self.backup_location_edit.setText(self.settings.backup_location or "")
             self.max_backup_count_spin.setValue(self.settings.max_backup_count)
+
+            # 외관 설정
+            theme_map = {"auto": "자동", "light": "라이트", "dark": "다크"}
+            current_theme = getattr(self.settings, "theme", "auto")
+            self.theme_combo.setCurrentText(theme_map.get(current_theme, "자동"))
+
+            self.high_contrast_check.setChecked(getattr(self.settings, "high_contrast_mode", False))
+            self.keyboard_navigation_check.setChecked(
+                getattr(self.settings, "keyboard_navigation", True)
+            )
+            self.screen_reader_check.setChecked(
+                getattr(self.settings, "screen_reader_support", True)
+            )
+
+            language_map = {"ko": "한국어", "en": "English"}
+            current_language = getattr(self.settings, "language", "ko")
+            self.language_combo.setCurrentText(language_map.get(current_language, "한국어"))
 
         except Exception as e:
             print(f"⚠️ 설정 로드 실패: {e}")
@@ -315,6 +393,17 @@ class SettingsDialog(QDialog):
             self.settings.backup_before_organize = self.backup_before_organize_check.isChecked()
             self.settings.backup_location = self.backup_location_edit.text().strip()
             self.settings.max_backup_count = self.max_backup_count_spin.value()
+
+            # 외관 설정
+            theme_map = {"자동": "auto", "라이트": "light", "다크": "dark"}
+            self.settings.theme = theme_map.get(self.theme_combo.currentText(), "auto")
+
+            self.settings.high_contrast_mode = self.high_contrast_check.isChecked()
+            self.settings.keyboard_navigation = self.keyboard_navigation_check.isChecked()
+            self.settings.screen_reader_support = self.screen_reader_check.isChecked()
+
+            language_map = {"한국어": "ko", "English": "en"}
+            self.settings.language = language_map.get(self.language_combo.currentText(), "ko")
 
             # 설정 파일에 저장
             self.settings_manager.save_settings()

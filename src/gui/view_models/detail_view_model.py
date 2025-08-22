@@ -11,8 +11,8 @@ from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
 from core.file_parser import ParsedMetadata as ParsedItem
 from core.tmdb_client import TMDBAnimeInfo
-from src.gui.interfaces.i_event_bus import IEventBus
-from src.gui.interfaces.i_view_model import IViewModel
+from gui.interfaces.i_event_bus import IEventBus
+from gui.interfaces.i_view_model import IViewModel
 
 
 @dataclass

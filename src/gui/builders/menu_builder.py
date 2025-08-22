@@ -104,7 +104,7 @@ class MenuBuilder:
         settings_action = edit_menu.addAction("설정(&S)")
         settings_action.setShortcut("Ctrl+,")
         settings_action.setStatusTip("애플리케이션 설정을 변경합니다")
-        settings_action.triggered.connect(self.main_window.open_settings)
+        settings_action.triggered.connect(self.main_window.show_settings_dialog)
 
         edit_menu.addSeparator()
 
@@ -117,6 +117,14 @@ class MenuBuilder:
     def create_tools_menu(self, menubar):
         """도구 메뉴 생성"""
         tools_menu = menubar.addMenu("도구(&T)")
+
+        # 로그 Dock 토글 액션 (Phase 5)
+        toggle_log_action = tools_menu.addAction("로그 표시/숨김(&L)")
+        toggle_log_action.setShortcut("Ctrl+L")
+        toggle_log_action.setStatusTip("로그 Dock을 표시하거나 숨깁니다")
+        toggle_log_action.triggered.connect(self.main_window.toggle_log_dock)
+
+        tools_menu.addSeparator()
 
         # 스캔 시작/중지 액션
         start_scan_action = tools_menu.addAction("스캔 시작(&S)")
@@ -150,6 +158,14 @@ class MenuBuilder:
             if hasattr(self.main_window, "file_organization_handler")
             else None
         )
+
+        tools_menu.addSeparator()
+
+        # 설정 다이얼로그 액션
+        settings_action = tools_menu.addAction("설정(&P)")
+        settings_action.setShortcut("Ctrl+,")
+        settings_action.setStatusTip("AnimeSorter 설정을 편집합니다")
+        settings_action.triggered.connect(self.main_window.show_settings_dialog)
 
         tools_menu.addSeparator()
 

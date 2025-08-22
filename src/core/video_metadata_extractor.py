@@ -7,7 +7,7 @@
 import json
 import logging
 import subprocess
-from typing import Any, Optional
+from typing import Any
 
 
 class VideoMetadataExtractor:
@@ -82,7 +82,7 @@ class VideoMetadataExtractor:
                 resolution = f"{width}x{height}"
                 self.logger.debug(f"해상도 추출 성공: {resolution}")
                 return resolution
-            
+
             self.logger.warning("해상도 정보를 찾을 수 없습니다.")
             return None
 

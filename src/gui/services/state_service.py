@@ -10,9 +10,9 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from src.core.tmdb_client import TMDBAnimeInfo
-from src.gui.interfaces.i_service import IService
-from src.gui.managers.anime_data_manager import ParsedItem
+from core.tmdb_client import TMDBAnimeInfo
+from gui.interfaces.i_service import IService
+from gui.managers.anime_data_manager import ParsedItem
 
 
 class AppState(Enum):

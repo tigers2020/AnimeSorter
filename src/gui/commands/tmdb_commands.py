@@ -4,7 +4,7 @@ TMDB 관련 명령들
 TMDB 검색, 애니메이션 선택, 그룹 건너뛰기 등의 명령을 포함합니다.
 """
 
-from src.core.tmdb_client import TMDBAnimeInfo
+from core.tmdb_client import TMDBAnimeInfo
 
 from .base_command import BaseCommand, CommandResult
 

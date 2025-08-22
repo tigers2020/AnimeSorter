@@ -76,7 +76,7 @@ class ToolbarBuilder:
             # 설정 액션
             settings_action = toolbar.addAction("설정")
             settings_action.setStatusTip("애플리케이션 설정을 변경합니다")
-            settings_action.triggered.connect(self.main_window.open_settings)
+            settings_action.triggered.connect(self.main_window.show_settings_dialog)
 
             # 툴바를 main_window에 저장
             self.main_window.main_toolbar = toolbar

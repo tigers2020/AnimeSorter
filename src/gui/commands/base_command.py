@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from src.gui.interfaces.i_command import ICommand
-from src.gui.interfaces.i_event_bus import IEventBus
+from gui.interfaces.i_command import ICommand
+from gui.interfaces.i_event_bus import IEventBus
 
 
 @dataclass

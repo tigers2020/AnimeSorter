@@ -73,14 +73,13 @@ class FileScanService(IFileScanService):
 
         # FileScanTask 생성
         scan_task = FileScanTask(
-            scan_id=scan_id,
+            event_bus=self.event_bus,
             directory_path=directory_path,
             recursive=recursive,
             extensions=extensions
             or {".mkv", ".mp4", ".avi", ".wmv", ".mov", ".flv", ".webm", ".m4v"},
-            min_file_size=min_file_size,
-            max_file_size=max_file_size,
-            event_bus=self.event_bus,
+            min_size_mb=min_file_size / (1024 * 1024),  # MB로 변환
+            max_size_gb=max_file_size / (1024 * 1024 * 1024),  # GB로 변환
         )
 
         # 백그라운드 작업 제출
@@ -105,15 +104,18 @@ class FileScanService(IFileScanService):
             f"백그라운드 파일 스캔 시작: {len(file_paths)}개 파일 (스캔 ID: {scan_id})"
         )
 
+        # 임시 구현: 파일 목록의 공통 디렉토리를 찾아서 스캔
+        common_dir = file_paths[0].parent if file_paths else Path()
+
         # FileScanTask 생성
         scan_task = FileScanTask(
-            scan_id=scan_id,
-            file_paths=file_paths,
+            event_bus=self.event_bus,
+            directory_path=str(common_dir),
+            recursive=True,
             extensions=extensions
             or {".mkv", ".mp4", ".avi", ".wmv", ".mov", ".flv", ".webm", ".m4v"},
-            min_file_size=min_file_size,
-            max_file_size=max_file_size,
-            event_bus=self.event_bus,
+            min_size_mb=min_file_size / (1024 * 1024),  # MB로 변환
+            max_size_gb=max_file_size / (1024 * 1024 * 1024),  # GB로 변환
         )
 
         # 백그라운드 작업 제출

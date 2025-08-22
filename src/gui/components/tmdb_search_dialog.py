@@ -204,6 +204,7 @@ class TMDBSearchDialog(QDialog):
 
     def on_search_completed(self, results: list[TMDBAnimeInfo]):
         """검색 완료"""
+        print(f"🔍 검색 완료: {len(results)}개 결과")
         self.btnSearch.setEnabled(True)
         self.search_results = results
 
@@ -223,8 +224,10 @@ class TMDBSearchDialog(QDialog):
             self.lblSearchStatus.setText(f"검색결과 {len(results)}개 - 선택해주세요")
 
         # 결과 목록에 추가
-        for anime in results:
+        for i, anime in enumerate(results):
             try:
+                print(f"📋 결과 {i+1}: ID={anime.id}, 제목={anime.name}")
+
                 item = QListWidgetItem()  # Create QListWidgetItem first
                 self.resultsList.addItem(item)  # Add it to the list widget
                 widget = self.create_result_item_widget(anime)  # Create the custom widget
@@ -232,13 +235,25 @@ class TMDBSearchDialog(QDialog):
                 # Ensure the row height matches the custom widget
                 with contextlib.suppress(Exception):
                     item.setSizeHint(widget.sizeHint())
+
+                print(f"✅ 결과 {i+1} 추가 완료")
             except Exception as e:
                 print(f"❌ 결과 아이템 생성 실패: {e}")
+                import traceback
+
+                traceback.print_exc()
                 # 간단한 텍스트 아이템으로 대체
-                simple_item = QListWidgetItem(
-                    f"ID: {anime.id} - {getattr(anime, 'name', 'Unknown')}"
-                )
-                self.resultsList.addItem(simple_item)
+                try:
+                    simple_item = QListWidgetItem(
+                        f"ID: {anime.id} - {getattr(anime, 'name', 'Unknown')}"
+                    )
+                    self.resultsList.addItem(simple_item)
+                    print(f"✅ 간단한 아이템 {i+1} 추가 완료")
+                except Exception as e2:
+                    print(f"❌ 간단한 아이템도 실패: {e2}")
+                    # 최후의 수단: 기본 텍스트
+                    basic_item = QListWidgetItem(f"결과 {i+1}")
+                    self.resultsList.addItem(basic_item)
 
     def on_search_failed(self, error: str):
         """검색 실패"""
@@ -247,30 +262,40 @@ class TMDBSearchDialog(QDialog):
 
     def create_result_item_widget(self, anime: TMDBAnimeInfo) -> QWidget:
         """검색 결과 아이템 위젯 생성"""
+        print(f"🎨 위젯 생성 시작: ID={anime.id}, 제목={anime.name}")
+
         # 아이템 위젯 생성
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(10, 5, 10, 5)
 
-        # 포스터 (작은 크기)
+        # 포스터 (100x150 크기로 통일)
         poster_label = QLabel()
-        poster_label.setFixedSize(60, 90)
+        poster_label.setFixedSize(100, 150)  # 일관된 크기로 조정
         poster_label.setStyleSheet("border: 1px solid #ddd; background-color: #f8f9fa;")
 
         if anime.poster_path:
             try:
-                # 포스터 이미지 로드 (작은 크기)
-                poster_url = f"https://image.tmdb.org/t/p/w92{anime.poster_path}"
+                print(f"🖼️ 포스터 로드 시도: {anime.poster_path}")
+                # 포스터 이미지 로드 (더 큰 크기로 수정)
+                poster_url = (
+                    f"https://image.tmdb.org/t/p/w154{anime.poster_path}"  # w92에서 w154로 변경
+                )
                 response = requests.get(poster_url)
                 if response.status_code == 200:
                     pixmap = QPixmap()
                     pixmap.loadFromData(response.content)
                     poster_label.setPixmap(
-                        pixmap.scaled(60, 90, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        pixmap.scaled(100, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     )
-            except Exception:
+                    print(f"✅ 포스터 로드 성공: {poster_url}")
+                else:
+                    print(f"❌ 포스터 HTTP 오류: {response.status_code}")
+            except Exception as e:
+                print(f"❌ 포스터 로드 실패: {e}")
                 poster_label.setText("🎬")
         else:
+            print("⚠️ 포스터 경로 없음")
             poster_label.setText("🎬")
 
         layout.addWidget(poster_label)
@@ -279,38 +304,64 @@ class TMDBSearchDialog(QDialog):
         info_layout = QVBoxLayout()
 
         # 제목 (name 속성 사용)
-        title_label = QLabel(anime.name)
-        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        info_layout.addWidget(title_label)
+        try:
+            title_text = getattr(anime, "name", "제목 없음")
+            print(f"📺 제목 설정: {title_text}")
+            title_label = QLabel(title_text)
+            title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            info_layout.addWidget(title_label)
+        except Exception as e:
+            print(f"❌ 제목 설정 실패: {e}")
+            title_label = QLabel("제목 없음")
+            title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            info_layout.addWidget(title_label)
 
         # 원제목 (original_name 속성 사용)
-        if anime.original_name and anime.original_name != anime.name:
-            original_label = QLabel(f"원제목: {anime.original_name}")
-            original_label.setStyleSheet("color: #666; font-size: 12px;")
-            info_layout.addWidget(original_label)
+        try:
+            original_name = getattr(anime, "original_name", None)
+            if original_name and original_name != getattr(anime, "name", ""):
+                print(f"🎬 원제목 설정: {original_name}")
+                original_label = QLabel(f"원제목: {original_name}")
+                original_label.setStyleSheet("color: #666; font-size: 12px;")
+                info_layout.addWidget(original_label)
+        except Exception as e:
+            print(f"❌ 원제목 설정 실패: {e}")
 
         # 개요
-        if anime.overview:
-            overview_label = QLabel(
-                anime.overview[:100] + "..." if len(anime.overview) > 100 else anime.overview
-            )
-            overview_label.setStyleSheet("color: #555; font-size: 11px;")
-            overview_label.setWordWrap(True)
-            info_layout.addWidget(overview_label)
+        try:
+            overview = getattr(anime, "overview", None)
+            if overview:
+                print(f"📝 개요 설정: {overview[:50]}...")
+                overview_text = overview[:100] + "..." if len(overview) > 100 else overview
+                overview_label = QLabel(overview_text)
+                overview_label.setStyleSheet("color: #555; font-size: 11px;")
+                overview_label.setWordWrap(True)
+                info_layout.addWidget(overview_label)
+        except Exception as e:
+            print(f"❌ 개요 설정 실패: {e}")
 
         # 메타데이터 (first_air_date 속성 사용)
         meta_info = []
-        if anime.first_air_date:
-            meta_info.append(f"첫 방영일: {anime.first_air_date}")
-        if anime.vote_average:
-            meta_info.append(f"평점: {anime.vote_average:.1f}")
-        if anime.id:
-            meta_info.append(f"TMDB ID: {anime.id}")
+        try:
+            first_air_date = getattr(anime, "first_air_date", None)
+            if first_air_date:
+                meta_info.append(f"첫 방영일: {first_air_date}")
 
-        if meta_info:
-            meta_label = QLabel(" | ".join(meta_info))
-            meta_label.setStyleSheet("color: #888; font-size: 10px;")
-            info_layout.addWidget(meta_label)
+            vote_average = getattr(anime, "vote_average", None)
+            if vote_average:
+                meta_info.append(f"평점: {vote_average:.1f}")
+
+            anime_id = getattr(anime, "id", None)
+            if anime_id:
+                meta_info.append(f"TMDB ID: {anime_id}")
+
+            if meta_info:
+                print(f"📊 메타데이터 설정: {meta_info}")
+                meta_label = QLabel(" | ".join(meta_info))
+                meta_label.setStyleSheet("color: #888; font-size: 10px;")
+                info_layout.addWidget(meta_label)
+        except Exception as e:
+            print(f"❌ 메타데이터 설정 실패: {e}")
 
         layout.addLayout(info_layout)
         layout.addStretch(1)
@@ -318,6 +369,7 @@ class TMDBSearchDialog(QDialog):
         widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         widget.setFixedHeight(100)  # Fixed height for consistent item size
 
+        print(f"✅ 위젯 생성 완료: ID={anime.id}")
         return widget
 
     def on_result_selected(self, item: QListWidgetItem):

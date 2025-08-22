@@ -8,8 +8,20 @@ import logging
 import threading
 from typing import TypeVar
 
+from .commands import ICommandInvoker
 from .container import get_container
 from .events import TypedEventBus, set_event_bus
+from .journal import IJournalManager, IRollbackEngine, JournalConfiguration, JournalManager
+from .preflight import IPreflightCoordinator, PreflightCoordinator
+from .safety import (
+    IBackupManager,
+    IConfirmationManager,
+    IInterruptionManager,
+    InterruptionManager,
+    ISafetyManager,
+    SafetyConfiguration,
+    SafetyManager,
+)
 from .services import (
     BackgroundTaskService,
     FileOrganizationService,
@@ -24,6 +36,7 @@ from .services import (
     TMDBSearchService,
     UIUpdateService,
 )
+from .undo_redo import IUndoRedoManager
 
 
 def setup_application_services() -> None:
@@ -70,6 +83,83 @@ def setup_application_services() -> None:
         if not container.is_registered(ITMDBSearchService):
             container.register_singleton(ITMDBSearchService, TMDBSearchService)
             logger.info("ITMDBSearchService가 TMDBSearchService로 등록되었습니다")
+
+        # SafetyManager 등록 (Singleton)
+        if not container.is_registered(ISafetyManager):
+
+            def create_safety_manager():
+                config = container.resolve(SafetyConfiguration)
+                return SafetyManager(config)
+
+            container.register_singleton(ISafetyManager, factory=create_safety_manager)
+            logger.info("ISafetyManager가 SafetyManager로 등록되었습니다")
+
+        # PreflightCoordinator 등록 (Singleton)
+        if not container.is_registered(IPreflightCoordinator):
+            container.register_singleton(IPreflightCoordinator, PreflightCoordinator)
+            logger.info("IPreflightCoordinator가 PreflightCoordinator로 등록되었습니다")
+
+        # JournalManager 등록 (Singleton)
+        if not container.is_registered(IJournalManager):
+
+            def create_journal_manager():
+                config = container.resolve(JournalConfiguration)
+                return JournalManager(config)
+
+            container.register_singleton(IJournalManager, factory=create_journal_manager)
+            logger.info("IJournalManager가 JournalManager로 등록되었습니다")
+
+        # SafetyConfiguration 등록 (Singleton)
+        if not container.is_registered(SafetyConfiguration):
+            container.register_singleton(SafetyConfiguration, factory=lambda: SafetyConfiguration())
+            logger.info("SafetyConfiguration이 등록되었습니다")
+
+        # IBackupManager 등록 (Singleton)
+        if not container.is_registered(IBackupManager):
+            container.register_singleton(
+                IBackupManager, factory=lambda: None
+            )  # TODO: 실제 구현체로 교체
+            logger.info("IBackupManager가 등록되었습니다")
+
+        # JournalConfiguration 등록 (Singleton)
+        if not container.is_registered(JournalConfiguration):
+            container.register_singleton(
+                JournalConfiguration, factory=lambda: JournalConfiguration()
+            )
+            logger.info("JournalConfiguration이 등록되었습니다")
+
+        # IRollbackEngine 등록 (Singleton)
+        if not container.is_registered(IRollbackEngine):
+            container.register_singleton(
+                IRollbackEngine, factory=lambda: None
+            )  # TODO: 실제 구현체로 교체
+            logger.info("IRollbackEngine이 등록되었습니다")
+
+        # IInterruptionManager 등록 (Singleton)
+        if not container.is_registered(IInterruptionManager):
+            container.register_singleton(IInterruptionManager, InterruptionManager)
+            logger.info("IInterruptionManager가 InterruptionManager로 등록되었습니다")
+
+        # IConfirmationManager 등록 (Singleton)
+        if not container.is_registered(IConfirmationManager):
+            container.register_singleton(
+                IConfirmationManager, factory=lambda: None
+            )  # TODO: 실제 구현체로 교체
+            logger.info("IConfirmationManager가 등록되었습니다")
+
+        # ICommandInvoker 등록 (Singleton)
+        if not container.is_registered(ICommandInvoker):
+            container.register_singleton(
+                ICommandInvoker, factory=lambda: None
+            )  # TODO: 실제 구현체로 교체
+            logger.info("ICommandInvoker가 등록되었습니다")
+
+        # IUndoRedoManager 등록 (Singleton)
+        if not container.is_registered(IUndoRedoManager):
+            container.register_singleton(
+                IUndoRedoManager, factory=lambda: None
+            )  # TODO: 실제 구현체로 교체
+            logger.info("IUndoRedoManager가 등록되었습니다")
 
         # 추가 서비스들은 여기에 등록
         # TODO: 향후 추가 서비스들

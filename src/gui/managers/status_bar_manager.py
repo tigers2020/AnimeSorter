@@ -31,8 +31,12 @@ class StatusBarManager:
 
     def update_status_bar(self, message: str, progress: int | None = None):
         """상태바 업데이트 - EventBus 기반으로 전환됨"""
-        # Progress bar는 직접 업데이트
-        if progress is not None and hasattr(self.main_window, "status_progress"):
+        # Progress bar는 직접 업데이트 (None 체크 추가)
+        if (
+            progress is not None
+            and hasattr(self.main_window, "status_progress")
+            and self.main_window.status_progress
+        ):
             self.main_window.status_progress.setValue(progress)
 
         if not self.event_bus:
@@ -78,8 +82,13 @@ class StatusBarManager:
 
     def _update_status_bar_direct(self, message: str, progress: int | None = None):
         """직접 상태바 업데이트 (Fallback 용도)"""
-        self.main_window.status_label.setText(message)
-        if progress is not None:
+        if hasattr(self.main_window, "status_label") and self.main_window.status_label:
+            self.main_window.status_label.setText(message)
+        if (
+            progress is not None
+            and hasattr(self.main_window, "status_progress")
+            and self.main_window.status_progress
+        ):
             self.main_window.status_progress.setValue(progress)
 
         # 파일 수 업데이트 (한 번만 호출)

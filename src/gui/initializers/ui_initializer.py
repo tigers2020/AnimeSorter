@@ -12,7 +12,6 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QLabel,
     QMainWindow,
-    QProgressBar,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -60,10 +59,28 @@ class UIInitializer:
             # 스플리터 설정
             self.setup_splitters()
 
+            # LeftPanel 초기화 (MainWindow 참조 설정 및 디렉토리 설정 복원)
+            self.initialize_left_panel()
+
             self.logger.info("UI 초기화 완료")
 
         except Exception as e:
             self.logger.error(f"UI 초기화 실패: {e}")
+            raise
+
+    def initialize_left_panel(self):
+        """LeftPanel 초기화 - MainWindow 참조 설정 및 디렉토리 설정 복원"""
+        try:
+            # LeftPanel에 MainWindow 참조 설정
+            self.main_window.left_panel.set_main_window(self.main_window)
+
+            # 저장된 디렉토리 설정 복원
+            self.main_window.left_panel.restore_directory_settings()
+
+            self.logger.debug("LeftPanel 초기화 완료")
+
+        except Exception as e:
+            self.logger.error(f"LeftPanel 초기화 실패: {e}")
             raise
 
     def setup_basic_window(self):
@@ -115,7 +132,7 @@ class UIInitializer:
     def create_toolbar(self):
         """툴바 생성"""
         try:
-            # MainToolbar 생성
+            # MainToolbar 생성 (새로운 Phase 1 디자인)
             from ..components import MainToolbar
 
             self.main_window.main_toolbar = MainToolbar()
@@ -123,11 +140,41 @@ class UIInitializer:
             # 기본 툴바도 생성 (백업용)
             self.toolbar_builder.create_toolbar()
 
+            # 툴바 시그널 연결
+            self.connect_toolbar_signals()
+
             self.logger.debug("툴바 생성 완료")
 
         except Exception as e:
             self.logger.error(f"툴바 생성 실패: {e}")
             raise
+
+    def connect_toolbar_signals(self):
+        """툴바 시그널 연결"""
+        try:
+            if hasattr(self.main_window, "main_toolbar") and self.main_window.main_toolbar:
+                toolbar = self.main_window.main_toolbar
+
+                # 스캔 요청 연결
+                toolbar.scan_requested.connect(self.main_window.on_scan_requested)
+
+                # 미리보기 요청 연결
+                toolbar.preview_requested.connect(self.main_window.on_preview_requested)
+
+                # 정리 실행 요청 연결
+                toolbar.organize_requested.connect(self.main_window.on_organize_requested)
+
+                # 검색 텍스트 변경 연결
+                toolbar.search_text_changed.connect(self.main_window.on_search_text_changed)
+
+                # 설정 요청 연결
+                toolbar.settings_requested.connect(self.main_window.on_settings_requested)
+
+                self.logger.debug("툴바 시그널 연결 완료")
+
+        except Exception as e:
+            self.logger.error(f"툴바 시그널 연결 실패: {e}")
+            # 연결 실패 시에도 계속 진행
 
     def create_status_bar(self):
         """상태바 설정"""
@@ -138,13 +185,6 @@ class UIInitializer:
             # 기본 상태 메시지
             self.main_window.status_label = QLabel("준비됨")
             status_bar.addWidget(self.main_window.status_label)
-
-            # 진행률 표시
-            status_bar.addPermanentWidget(QLabel("진행률:"))
-            self.main_window.status_progress = QProgressBar()
-            self.main_window.status_progress.setMaximumWidth(200)
-            self.main_window.status_progress.setMaximumHeight(20)
-            status_bar.addPermanentWidget(self.main_window.status_progress)
 
             # 파일 수 표시
             self.main_window.status_file_count = QLabel("파일: 0")
@@ -184,18 +224,17 @@ class UIInitializer:
         try:
             parent_layout = self.main_window.parent_layout
 
-            # 메인 스플리터 생성 (좌우 분할)
+            # 메인 스플리터 생성 (오른쪽 패널만 포함, 왼쪽은 Dock으로 처리)
             splitter = QSplitter(Qt.Horizontal)
             splitter.setChildrenCollapsible(False)
             splitter.setHandleWidth(8)
 
-            # 패널들을 생성하고 추가
+            # 패널들을 생성하고 추가 (왼쪽 패널은 Dock으로 별도 처리)
             self.create_panels(splitter)
 
-            # 스플리터 비율 설정 (반응형)
-            splitter.setSizes([400, 1200])
-            splitter.setStretchFactor(0, 0)  # 왼쪽 패널은 고정 크기
-            splitter.setStretchFactor(1, 1)  # 오른쪽 패널은 확장 가능
+            # 스플리터 비율 설정 (오른쪽 패널만 포함)
+            splitter.setSizes([1200])  # 오른쪽 패널만
+            splitter.setStretchFactor(0, 1)  # 오른쪽 패널은 확장 가능
 
             # 레이아웃에 스플리터 추가
             parent_layout.addWidget(splitter)
@@ -213,21 +252,43 @@ class UIInitializer:
         """패널들 생성"""
         try:
             # UI Components import 추가
-            from ..components import LeftPanel, ResultsView, RightPanel
+            from ..components import LeftPanelDock, ResultsView
+            from ..components.central_triple_layout import CentralTripleLayout
 
-            # 왼쪽 패널: 빠른 작업, 통계, 필터
-            self.main_window.left_panel = LeftPanel()
-            self.main_window.left_panel.setMinimumWidth(350)
-            self.main_window.left_panel.setMaximumWidth(500)
-            splitter.addWidget(self.main_window.left_panel)
+            # 왼쪽 패널: 빠른 작업, 통계, 필터 (Dock으로 변경)
+            self.main_window.left_panel_dock = LeftPanelDock()
 
-            # 오른쪽 패널: 결과 및 로그
-            self.main_window.right_panel = RightPanel()
-            splitter.addWidget(self.main_window.right_panel)
+            # Dock을 MainWindow에 추가 (QSplitter 대신)
+            self.main_window.addDockWidget(Qt.LeftDockWidgetArea, self.main_window.left_panel_dock)
 
-            # 결과 뷰 생성 (그룹 리스트 중심)
+            # 기존 left_panel 참조도 유지 (호환성)
+            self.main_window.left_panel = self.main_window.left_panel_dock.left_panel
+
+            # LeftPanel에 MainWindow 참조 설정
+            self.main_window.left_panel.set_main_window(self.main_window)
+
+            # 저장된 디렉토리 설정 복원
+            self.main_window.left_panel.restore_directory_settings()
+
+            # 기존 ResultsView 생성 (모델 및 데이터 관리용)
             self.main_window.results_view = ResultsView()
-            self.main_window.right_panel.layout().addWidget(self.main_window.results_view)
+
+            # 3열 레이아웃 생성 (기존 오른쪽 패널 대체)
+            self.main_window.central_triple_layout = CentralTripleLayout()
+
+            # ResultsView가 완전히 초기화된 후에 모델 연결을 시도
+            # QTimer.singleShot을 사용하여 다음 이벤트 루프에서 실행
+            from PyQt5.QtCore import QTimer
+
+            QTimer.singleShot(0, self.setup_triple_layout_models)
+
+            # 3열 레이아웃을 스플리터에 추가
+            splitter.addWidget(self.main_window.central_triple_layout)
+
+            # 로그 Dock은 MainWindow.__init__에서 이미 설정됨 (Phase 5)
+            # 여기서는 참조만 확인
+            if not hasattr(self.main_window, "log_dock"):
+                print("⚠️ 로그 Dock이 설정되지 않았습니다. MainWindow.__init__을 확인하세요.")
 
             # 모델들 초기화
             self.setup_models()
@@ -237,6 +298,182 @@ class UIInitializer:
         except Exception as e:
             self.logger.error(f"패널 생성 실패: {e}")
             raise
+
+    def setup_triple_layout_models(self):
+        """3열 레이아웃에 기존 모델들 연결"""
+        try:
+            # ResultsView에서 모델들을 가져와서 3열 레이아웃에 연결
+            results_view = self.main_window.results_view
+
+            # 그룹 테이블 모델 연결 (기본적으로 '전체' 탭의 그룹 테이블 사용)
+            if hasattr(results_view, "all_group_table") and results_view.all_group_table.model():
+                self.main_window.central_triple_layout.set_group_table_model(
+                    results_view.all_group_table.model()
+                )
+                self.logger.debug("그룹 테이블 모델 연결 완료")
+            else:
+                self.logger.warning("그룹 테이블 모델을 찾을 수 없습니다")
+
+            # 파일 테이블 모델 연결 (기본적으로 '전체' 탭의 상세 테이블 사용)
+            if hasattr(results_view, "all_detail_table") and results_view.all_detail_table.model():
+                self.main_window.central_triple_layout.set_file_table_model(
+                    results_view.all_detail_table.model()
+                )
+                self.logger.debug("파일 테이블 모델 연결 완료")
+            else:
+                self.logger.warning("파일 테이블 모델을 찾을 수 없습니다")
+
+            # 그룹 선택 시그널 연결
+            if hasattr(results_view, "group_selected"):
+                results_view.group_selected.connect(self.on_group_selected)
+
+            # 3열 레이아웃의 그룹 테이블 선택 시그널 연결
+            self.main_window.central_triple_layout.connect_group_selection(
+                self.on_group_selection_changed
+            )
+
+            # 상세 패널 업데이트를 위한 시그널 연결
+            self.main_window.central_triple_layout.group_selection_changed.connect(
+                self.on_group_selected
+            )
+
+            # 툴바 토글 시그널 연결
+            if hasattr(self.main_window, "main_toolbar"):
+                toolbar = self.main_window.main_toolbar
+                toolbar.detail_panel_toggled.connect(self.on_detail_panel_toggled)
+                toolbar.file_panel_toggled.connect(self.on_file_panel_toggled)
+
+            self.logger.debug("3열 레이아웃 모델 연결 완료")
+
+        except Exception as e:
+            self.logger.error(f"3열 레이아웃 모델 연결 실패: {e}")
+
+    def on_detail_panel_toggled(self, visible: bool):
+        """상세 패널 토글 처리"""
+        try:
+            if hasattr(self.main_window, "central_triple_layout"):
+                self.main_window.central_triple_layout.set_detail_visible(visible, user_toggle=True)
+        except Exception as e:
+            self.logger.error(f"상세 패널 토글 처리 실패: {e}")
+
+    def on_file_panel_toggled(self, visible: bool):
+        """파일 패널 토글 처리"""
+        try:
+            if hasattr(self.main_window, "central_triple_layout"):
+                self.main_window.central_triple_layout.set_file_visible(visible, user_toggle=True)
+        except Exception as e:
+            self.logger.error(f"파일 패널 토글 처리 실패: {e}")
+
+    def on_group_selected(self, group_data):
+        """그룹 선택 시 상세 패널 업데이트"""
+        try:
+            if hasattr(self.main_window, "central_triple_layout"):
+                self.main_window.central_triple_layout.update_detail_from_group(group_data)
+        except Exception as e:
+            self.logger.error(f"그룹 선택 처리 실패: {e}")
+
+    def on_group_selection_changed(self, current_index):
+        """그룹 선택 변경 시 상세 패널 업데이트"""
+        try:
+            if hasattr(self.main_window, "central_triple_layout") and current_index.isValid():
+                # 그룹 데이터 추출 (기존 로직 활용)
+                group_data = self.extract_group_data_from_index(current_index)
+                self.main_window.central_triple_layout.update_detail_from_group(group_data)
+
+                # 선택된 그룹의 파일들을 파일 테이블에 표시
+                self.update_file_table_for_group(current_index)
+        except Exception as e:
+            self.logger.error(f"그룹 선택 변경 처리 실패: {e}")
+
+    def extract_group_data_from_index(self, index):
+        """인덱스에서 그룹 데이터 추출"""
+        try:
+            # MainWindow의 grouped_model에서 직접 그룹 정보 가져오기
+            if hasattr(self.main_window, "grouped_model") and self.main_window.grouped_model:
+                grouped_model = self.main_window.grouped_model
+                if hasattr(grouped_model, "get_group_at_row"):
+                    group_info = grouped_model.get_group_at_row(index.row())
+                    if group_info:
+                        print(f"✅ 그룹 데이터 추출 성공: {group_info.get('title', 'Unknown')}")
+
+                        # TMDB 매치 정보 포함하여 반환
+                        group_data = {
+                            "title": group_info.get("title", "제목 없음"),
+                            "original_title": group_info.get("original_title", "원제 없음"),
+                            "season": group_info.get("season", "시즌 정보 없음"),
+                            "episode_count": group_info.get("episode_count", 0),
+                            "status": group_info.get("status", "상태 정보 없음"),
+                            "file_count": group_info.get("file_count", 0),
+                            "total_size": group_info.get("total_size", "0 B"),
+                            "tmdb_match": group_info.get("tmdb_match"),  # TMDB 매치 정보 포함
+                            "tags": group_info.get("tags", []),
+                        }
+
+                        return group_data
+
+            # 기존 ResultsView의 로직을 활용하여 그룹 데이터 추출 (fallback)
+            if hasattr(self.main_window, "results_view"):
+                results_view = self.main_window.results_view
+                if hasattr(results_view, "extract_group_data_from_index"):
+                    return results_view.extract_group_data_from_index(index)
+
+            # 최후의 수단: 모델에서 직접 데이터 추출
+            model = index.model()
+            if model:
+                return {
+                    "title": model.data(model.index(index.row(), 0), Qt.DisplayRole),
+                    "original_title": model.data(model.index(index.row(), 1), Qt.DisplayRole),
+                    "season": model.data(model.index(index.row(), 2), Qt.DisplayRole),
+                    "episode_count": model.data(model.index(index.row(), 3), Qt.DisplayRole),
+                    "status": model.data(model.index(index.row(), 4), Qt.DisplayRole),
+                    "file_count": model.data(model.index(index.row(), 5), Qt.DisplayRole),
+                    "total_size": model.data(model.index(index.row(), 6), Qt.DisplayRole),
+                    "tmdb_match": None,  # TMDB 매치 정보 없음
+                    "tags": [],
+                }
+
+            return {}
+
+        except Exception as e:
+            self.logger.error(f"그룹 데이터 추출 실패: {e}")
+            return {}
+
+    def update_file_table_for_group(self, group_index):
+        """선택된 그룹의 파일들을 파일 테이블에 표시"""
+        try:
+            if not hasattr(self.main_window, "central_triple_layout"):
+                return
+
+            # ResultsView에서 해당 그룹의 파일 모델을 가져와서 파일 테이블에 설정
+            results_view = self.main_window.results_view
+            if hasattr(results_view, "get_file_model_for_group"):
+                print(f"🔍 그룹 {group_index.row()}의 파일 모델 요청")
+                file_model = results_view.get_file_model_for_group(group_index)
+                if file_model:
+                    self.main_window.central_triple_layout.set_file_table_model(file_model)
+                    self.logger.debug(f"그룹 {group_index.row()}의 파일 모델을 파일 테이블에 설정")
+                    print(f"✅ 그룹 {group_index.row()}의 파일 모델을 파일 테이블에 설정")
+                else:
+                    self.logger.warning(f"그룹 {group_index.row()}의 파일 모델을 찾을 수 없습니다")
+                    print(f"❌ 그룹 {group_index.row()}의 파일 모델을 찾을 수 없습니다")
+            else:
+                # ResultsView에 해당 메서드가 없으면 기본 파일 모델 사용
+                if (
+                    hasattr(results_view, "all_detail_table")
+                    and results_view.all_detail_table.model()
+                ):
+                    self.main_window.central_triple_layout.set_file_table_model(
+                        results_view.all_detail_table.model()
+                    )
+                    self.logger.debug("기본 파일 모델을 파일 테이블에 설정")
+                    print("✅ 기본 파일 모델을 파일 테이블에 설정")
+
+        except Exception as e:
+            self.logger.error(f"파일 테이블 업데이트 실패: {e}")
+            print(f"❌ 파일 테이블 업데이트 실패: {e}")
+            import traceback
+
+            traceback.print_exc()
 
     def setup_models(self):
         """모델들 초기화"""

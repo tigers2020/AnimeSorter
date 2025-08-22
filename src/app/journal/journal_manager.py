@@ -119,6 +119,9 @@ class JournalManager:
         self._current_jsonl_file: Path | None = None
         self._current_jsonl_entries_count: int = 0
 
+        # 이벤트 핸들러
+        self._event_handlers: dict[str, list[Callable]] = {}
+
         # 초기화
         self._initialize_directories()
         self._initialize_jsonl_file()

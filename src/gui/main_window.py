@@ -33,6 +33,22 @@ from core.file_parser import FileParser
 from core.settings_manager import SettingsManager
 from core.tmdb_client import TMDBClient
 
+# Phase 10.1: 접근성 관리 시스템
+from .components.accessibility_manager import AccessibilityManager
+
+# Phase 10.2: 국제화 관리 시스템
+from .components.i18n_manager import I18nManager
+
+# UI Components
+from .components.settings_dialog import SettingsDialog
+
+# Phase 9.2: 테마 관리 시스템
+from .components.theme_manager import ThemeManager
+from .components.ui_migration_manager import UIMigrationManager
+
+# Phase 8: UI 상태 관리 및 마이그레이션
+from .components.ui_state_manager import UIStateManager
+
 # UI Components
 # Event Handler Manager
 from .handlers.event_handler_manager import EventHandlerManager
@@ -55,8 +71,47 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # 더미 스캔 방지를 위한 플래그 초기화
-        self.tmdb_search_completed = False
+        # 기본 설정
+        self.setWindowTitle("AnimeSorter")
+        self.setGeometry(100, 100, 1600, 900)
+
+        # 로그 Dock 추가 (Phase 5)
+        self.setup_log_dock()
+
+        # UI 초기화는 UIInitializer에서 처리됩니다
+        # self.init_ui()  # UIInitializer로 이동됨
+
+        self.setup_connections()
+        # 단축키 설정은 UIInitializer에서 처리됩니다
+        # self.setup_shortcuts()  # UIInitializer로 이동됨
+
+        # 상태 초기화
+        self.scanning = False
+        self.progress = 0
+        self.source_files = []
+        self.source_directory = ""
+
+        # UI 컴포넌트 속성 초기화
+        self.status_progress = None  # 상태바 진행률 표시기
+
+        # 설정 관리자 초기화
+        self.settings_manager = SettingsManager()
+
+        # TMDB 클라이언트 초기화는 init_core_components에서 처리됩니다
+        # self.setup_tmdb_client()  # init_core_components로 이동됨
+        self.tmdb_client = None
+
+        # 파일 파서 초기화
+        self.file_parser = FileParser()
+
+        # 애니메 데이터 관리자 초기화
+        self.anime_data_manager = AnimeDataManager()
+
+        # 이벤트 버스 초기화
+        self.event_bus = get_event_bus()
+
+        # 그룹별 TMDB 검색 다이얼로그 저장
+        self.tmdb_search_dialogs = {}  # 그룹별 검색 다이얼로그 저장
 
         # 새로운 아키텍처 관련 초기화
         self.event_bus = None
@@ -96,8 +151,31 @@ class MainWindow(QMainWindow):
         # 새로운 아키텍처 컴포넌트 초기화 (데이터 관리자 초기화 이후에 호출)
         self.init_new_architecture()
 
-        # 이전 세션 상태 복원
-        self.restore_session_state()
+        # Phase 8: UI 상태 관리자 및 마이그레이션 관리자 초기화
+        self.init_ui_state_management()
+
+        # Phase 9.2: 테마 관리자 초기화
+        self.theme_manager = ThemeManager(self)
+        self.theme_manager.theme_changed.connect(self.on_theme_changed)
+
+        # 설정에서 저장된 테마 적용
+        saved_theme = self.settings_manager.get_setting("theme", "auto")
+        self.theme_manager.apply_theme(saved_theme)
+        print(f"✅ 테마 관리자 초기화 완료 (테마: {saved_theme})")
+
+        # Phase 10.1: 접근성 관리자 초기화
+        self.accessibility_manager = AccessibilityManager(self)
+        self.accessibility_manager.initialize(self)
+        print("✅ 접근성 관리자 초기화 완료")
+
+        # Phase 10.2: 국제화 관리자 초기화
+        self.i18n_manager = I18nManager(self)
+        self.i18n_manager.initialize_with_system_language()
+        self.i18n_manager.language_changed.connect(self.on_language_changed)
+        print("✅ 국제화 관리자 초기화 완료")
+
+        # 이전 세션 상태 복원 (Phase 8로 대체됨)
+        # self.restore_session_state()
 
     def init_core_components(self):
         """핵심 컴포넌트 초기화"""
@@ -205,6 +283,14 @@ class MainWindow(QMainWindow):
             from .handlers.tmdb_search_handler import TMDBSearchHandler
 
             self.tmdb_search_handler = TMDBSearchHandler(self)
+
+            # TMDB 검색 시그널-슬롯 연결
+            if hasattr(self, "anime_data_manager"):
+                self.anime_data_manager.tmdb_search_requested.connect(
+                    self.tmdb_search_handler.on_tmdb_search_requested
+                )
+                print("✅ TMDB 검색 시그널-슬롯 연결 완료")
+
             print("✅ TMDB Search Handler 초기화 완료")
 
             # FileOrganizationHandler 초기화
@@ -232,6 +318,56 @@ class MainWindow(QMainWindow):
             self.media_data_service = None
             self.tmdb_search_service = None
             self.ui_update_service = None
+
+    def init_ui_state_management(self):
+        """Phase 8: UI 상태 관리 및 마이그레이션 초기화"""
+        try:
+            # UI 상태 관리자 초기화
+            self.ui_state_manager = UIStateManager(self)
+            print("✅ UI State Manager 초기화 완료")
+
+            # UI 마이그레이션 관리자 초기화
+            self.ui_migration_manager = UIMigrationManager(self)
+            print("✅ UI Migration Manager 초기화 완료")
+
+            # UI 상태 복원
+            self.ui_state_manager.restore_ui_state()
+            print("✅ UI 상태 복원 완료")
+
+            # 마이그레이션 상태 확인 및 처리
+            self._handle_ui_migration()
+
+        except Exception as e:
+            print(f"❌ UI 상태 관리 초기화 실패: {e}")
+
+    def _handle_ui_migration(self):
+        """UI 마이그레이션 상태 확인 및 처리"""
+        try:
+            migration_info = self.ui_migration_manager.get_migration_info()
+            current_version = migration_info["current_version"]
+
+            print(f"📋 현재 UI 버전: {current_version}")
+
+            if current_version == "1.0":
+                # v1에서 v2로 마이그레이션 가능한지 확인
+                if self.ui_migration_manager.is_migration_available():
+                    print("🔄 UI v2 마이그레이션이 가능합니다.")
+                    # 자동 마이그레이션은 사용자 확인 후 진행
+                    # self.ui_migration_manager.start_migration_to_v2()
+                else:
+                    print("⚠️ UI v2 마이그레이션이 불가능합니다.")
+            elif current_version == "2.0":
+                print("✅ UI v2가 이미 활성화되어 있습니다.")
+
+                # v2 레이아웃 유효성 검증
+                is_valid, errors = self.ui_migration_manager.validate_v2_layout()
+                if not is_valid:
+                    print(f"⚠️ UI v2 레이아웃 검증 실패: {errors}")
+                else:
+                    print("✅ UI v2 레이아웃 검증 완료")
+
+        except Exception as e:
+            print(f"❌ UI 마이그레이션 처리 실패: {e}")
 
     def init_safety_system(self):
         """Safety System 초기화"""
@@ -293,6 +429,14 @@ class MainWindow(QMainWindow):
     def init_view_model(self):
         """ViewModel 초기화"""
         try:
+            # Python path에 src 디렉토리 추가
+            import sys
+            from pathlib import Path
+
+            src_dir = Path(__file__).parent.parent
+            if str(src_dir) not in sys.path:
+                sys.path.insert(0, str(src_dir))
+
             from gui.view_models.main_window_view_model_new import MainWindowViewModelNew
 
             print("📋 [MainWindow] ViewModel 초기화 시작...")
@@ -311,6 +455,9 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             print(f"❌ [MainWindow] ViewModel 초기화 실패: {e}")
+            import traceback
+
+            traceback.print_exc()
             # 폴백: ViewModel 없이 동작
             self.view_model = None
 
@@ -398,37 +545,112 @@ class MainWindow(QMainWindow):
                     self.left_panel.destination_folder_selected.connect(
                         self.on_destination_folder_selected
                     )
-                    self.left_panel.scan_started.connect(self.start_scan)
-                    self.left_panel.scan_paused.connect(self.stop_scan)
-                    self.left_panel.completed_cleared.connect(self.clear_completed)
+                    self.left_panel.scan_started.connect(self.on_scan_started)
+                    self.left_panel.scan_paused.connect(self.on_scan_paused)
+                    self.left_panel.settings_opened.connect(self.on_settings_opened)
+                    self.left_panel.completed_cleared.connect(self.on_completed_cleared)
                 except Exception as e:
-                    print(f"⚠️ 왼쪽 패널 연결 실패: {e}")
+                    print(f"⚠️ 패널 연결 실패: {e}")
 
-            # right_panel의 시그널 연결은 제거됨 (정리 실행, 시뮬레이션 버튼 삭제)
-
-            # TMDB 검색 시그널 연결 (매니저가 존재하는 경우에만)
-            if hasattr(self, "anime_data_manager") and self.anime_data_manager:
+            # 결과 뷰 연결
+            if hasattr(self, "results_view") and self.results_view:
                 try:
-                    # TMDB 검색 시그널을 TMDBSearchHandler로 위임
-                    if hasattr(self, "tmdb_search_handler"):
-                        self.anime_data_manager.tmdb_search_requested.connect(
-                            self.tmdb_search_handler.on_tmdb_search_requested
-                        )
-                        self.anime_data_manager.tmdb_anime_selected.connect(
-                            self.tmdb_search_handler.on_tmdb_anime_selected
-                        )
+                    self.results_view.group_selected.connect(self.on_group_selected)
                 except Exception as e:
-                    print(f"⚠️ TMDB 매니저 연결 실패: {e}")
-            else:
-                print("⚠️ anime_data_manager가 초기화되지 않았습니다")
+                    print(f"⚠️ 결과 뷰 연결 실패: {e}")
 
-            # 타이머 설정 제거 - 불필요한 반복 호출 방지
-            # self.timer = QTimer(self)
-            # self.timer.setInterval(700)
-            # self.timer.timeout.connect(self.on_scan_tick)
+            print("✅ 시그널/슬롯 연결 설정 완료")
 
         except Exception as e:
-            print(f"❌ setup_connections 실패: {e}")
+            print(f"❌ 시그널/슬롯 연결 설정 실패: {e}")
+
+    # 툴바 시그널 핸들러 메서드들
+    def on_scan_requested(self):
+        """툴바에서 스캔 요청 처리"""
+        try:
+            print("🔍 툴바에서 스캔 요청됨")
+            # 기존 스캔 로직 호출
+            if hasattr(self, "left_panel") and self.left_panel:
+                self.left_panel.start_scan()
+            else:
+                print("⚠️ left_panel이 초기화되지 않음")
+        except Exception as e:
+            print(f"❌ 스캔 요청 처리 실패: {e}")
+
+    def on_preview_requested(self):
+        """툴바에서 미리보기 요청 처리"""
+        try:
+            print("👁️ 툴바에서 미리보기 요청됨")
+            # 기존 미리보기 로직 호출
+            if hasattr(self, "file_organization_handler"):
+                self.file_organization_handler.show_preview()
+            else:
+                print("⚠️ file_organization_handler가 초기화되지 않음")
+        except Exception as e:
+            print(f"❌ 미리보기 요청 처리 실패: {e}")
+
+    def on_organize_requested(self):
+        """툴바에서 정리 실행 요청 처리"""
+        try:
+            print("🚀 툴바에서 정리 실행 요청됨")
+            # 기존 정리 실행 로직 호출
+            if hasattr(self, "file_organization_handler"):
+                self.file_organization_handler.start_file_organization()
+            else:
+                print("⚠️ file_organization_handler가 초기화되지 않음")
+        except Exception as e:
+            print(f"❌ 정리 실행 요청 처리 실패: {e}")
+
+    def on_search_text_changed(self, text: str):
+        """툴바에서 검색 텍스트 변경 처리"""
+        try:
+            print(f"🔍 검색 텍스트 변경: {text}")
+            # 검색 로직 구현 (나중에 구현)
+            # 현재는 로그만 출력
+        except Exception as e:
+            print(f"❌ 검색 텍스트 변경 처리 실패: {e}")
+
+    def on_settings_requested(self):
+        """툴바에서 설정 요청 처리"""
+        try:
+            print("⚙️ 툴바에서 설정 요청됨")
+            # 설정 다이얼로그 직접 호출
+            self.show_settings_dialog()
+        except Exception as e:
+            print(f"❌ 설정 요청 처리 실패: {e}")
+
+    # 패널 시그널 핸들러 메서드들
+    def on_scan_started(self):
+        """스캔 시작 처리"""
+        try:
+            print("🔍 스캔 시작됨")
+            self.start_scan()
+        except Exception as e:
+            print(f"❌ 스캔 시작 처리 실패: {e}")
+
+    def on_scan_paused(self):
+        """스캔 일시정지 처리"""
+        try:
+            print("⏸️ 스캔 일시정지됨")
+            self.stop_scan()
+        except Exception as e:
+            print(f"❌ 스캔 일시정지 처리 실패: {e}")
+
+    def on_settings_opened(self):
+        """설정 열기 처리"""
+        try:
+            print("⚙️ 설정 열기 요청됨")
+            self.show_settings_dialog()
+        except Exception as e:
+            print(f"❌ 설정 열기 처리 실패: {e}")
+
+    def on_completed_cleared(self):
+        """완료된 항목 정리 처리"""
+        try:
+            print("🧹 완료된 항목 정리 요청됨")
+            self.clear_completed()
+        except Exception as e:
+            print(f"❌ 완료된 항목 정리 처리 실패: {e}")
 
     def on_source_folder_selected(self, folder_path: str):
         """소스 폴더 선택 처리"""
@@ -499,10 +721,10 @@ class MainWindow(QMainWindow):
 
             if (
                 column_widths
-                and hasattr(self, "right_panel")
-                and hasattr(self.right_panel, "results_view")
+                and hasattr(self, "central_triple_layout")
+                and hasattr(self.central_triple_layout, "results_view")
             ):
-                results_view = self.right_panel.results_view
+                results_view = self.central_triple_layout.results_view
 
                 # 그룹 테이블 컬럼 너비 복원
                 if hasattr(results_view, "group_table") and results_view.group_table:
@@ -538,8 +760,10 @@ class MainWindow(QMainWindow):
         try:
             column_widths = {}
 
-            if hasattr(self, "right_panel") and hasattr(self.right_panel, "results_view"):
-                results_view = self.right_panel.results_view
+            if hasattr(self, "central_triple_layout") and hasattr(
+                self.central_triple_layout, "results_view"
+            ):
+                results_view = self.central_triple_layout.results_view
 
                 # 그룹 테이블에서 컬럼 너비 가져오기
                 if hasattr(results_view, "group_table") and results_view.group_table:
@@ -595,15 +819,13 @@ class MainWindow(QMainWindow):
                         print(
                             f"⚠️ 비디오 파일 크기가 너무 작음 (제외): {Path(file_path).name} ({file_size} bytes)"
                         )
-                        self.right_panel.add_activity_log(
-                            f"⚠️ 제외됨: {Path(file_path).name} (크기: {file_size} bytes)"
-                        )
+                        # TODO: 활동 로그 기능을 새로운 레이아웃에 구현 필요
+                        print(f"⚠️ 제외됨: {Path(file_path).name} (크기: {file_size} bytes)")
                         continue
                 except OSError:
                     print(f"⚠️ 파일 크기 확인 실패 (제외): {Path(file_path).name}")
-                    self.right_panel.add_activity_log(
-                        f"⚠️ 제외됨: {Path(file_path).name} (파일 접근 불가)"
-                    )
+                    # TODO: 활동 로그 기능을 새로운 레이아웃에 구현 필요
+                    print(f"⚠️ 제외됨: {Path(file_path).name} (파일 접근 불가)")
                     continue
 
                 # 파일 파싱
@@ -630,7 +852,8 @@ class MainWindow(QMainWindow):
 
                     # 활동 로그 업데이트
                     log_message = f"✅ {Path(file_path).name} - {parsed_metadata.title} S{parsed_item.season:02d}E{parsed_item.episode:02d}"
-                    self.right_panel.add_activity_log(log_message)
+                    # TODO: 활동 로그 기능을 새로운 레이아웃에 구현 필요
+                    print(log_message)
 
                 else:
                     # 파싱 실패
@@ -688,7 +911,9 @@ class MainWindow(QMainWindow):
         self.scanning = True
         self.progress = 0
 
-        self.status_progress.setValue(0)
+        # status_progress가 None이 아닐 때만 설정
+        if hasattr(self, "status_progress") and self.status_progress:
+            self.status_progress.setValue(0)
         self.left_panel.btnStart.setEnabled(False)
         self.left_panel.btnPause.setEnabled(True)
         self.update_status_bar("파일 스캔 중...", 0)
@@ -752,15 +977,13 @@ class MainWindow(QMainWindow):
                             print(
                                 f"⚠️ 비디오 파일 크기가 너무 작음 (제외): {file_path.name} ({file_size} bytes)"
                             )
-                            self.right_panel.add_activity_log(
-                                f"⚠️ 제외됨: {file_path.name} (크기: {file_size} bytes)"
-                            )
+                            # TODO: 활동 로그 기능을 새로운 레이아웃에 구현 필요
+                            print(f"⚠️ 제외됨: {file_path.name} (크기: {file_size} bytes)")
                             continue
                     except OSError:
                         print(f"⚠️ 파일 크기 확인 실패 (제외): {file_path.name}")
-                        self.right_panel.add_activity_log(
-                            f"⚠️ 제외됨: {file_path.name} (파일 접근 불가)"
-                        )
+                        # TODO: 활동 로그 기능을 새로운 레이아웃에 구현 필요
+                        print(f"⚠️ 제외됨: {file_path.name} (파일 접근 불가)")
                         continue
 
                     video_files.append(str(file_path))
@@ -840,11 +1063,6 @@ class MainWindow(QMainWindow):
         self.update_status_bar("필터가 초기화되었습니다")
 
     # 파일 정리 관련 메서드들은 FileOrganizationHandler에서 처리됩니다
-
-    def open_settings(self):
-        """설정 다이얼로그 열기"""
-        # 기존 SettingsDialog 사용 (별도 파일로 분리 필요)
-        QMessageBox.information(self, "설정", "설정 다이얼로그 구현 필요")
 
     def choose_files(self):
         """파일 선택 (메뉴바용)"""
@@ -1219,7 +1437,21 @@ class MainWindow(QMainWindow):
         # 현재 윈도우 크기
         window_width = self.width()
 
-        # 왼쪽 패널 크기 조정
+        # 3열 레이아웃 반응형 처리
+        if hasattr(self, "central_triple_layout"):
+            self.central_triple_layout.handle_responsive_layout(window_width)
+
+        # 좌측 도크 반응형 처리 (<1280px에서 자동 접힘)
+        if window_width < 1280:
+            if hasattr(self, "left_panel_dock") and self.left_panel_dock.isVisible():
+                self.left_panel_dock.hide()
+        else:
+            if hasattr(self, "left_panel_dock") and not self.left_panel_dock.isVisible():
+                # 사용자가 수동으로 숨기지 않았다면 다시 표시
+                if not hasattr(self, "_user_dock_toggle") or not self._user_dock_toggle:
+                    self.left_panel_dock.show()
+
+        # 왼쪽 패널 크기 조정 (기존 로직)
         if hasattr(self, "left_panel"):
             # 윈도우가 작을 때는 왼쪽 패널을 더 작게
             if window_width < 1400:
@@ -1283,11 +1515,16 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """프로그램 종료 시 이벤트 처리"""
         try:
-            # 현재 세션 상태 저장
-            self.save_session_state()
-            print("✅ 프로그램 종료 시 설정 저장 완료")
+            # Phase 8: UI 상태 저장
+            if hasattr(self, "ui_state_manager"):
+                self.ui_state_manager.save_ui_state()
+                print("✅ 프로그램 종료 시 UI 상태 저장 완료")
+            else:
+                # 폴백: 기존 세션 상태 저장
+                self.save_session_state()
+                print("✅ 프로그램 종료 시 기존 세션 상태 저장 완료")
         except Exception as e:
-            print(f"⚠️ 프로그램 종료 시 설정 저장 실패: {e}")
+            print(f"⚠️ 프로그램 종료 시 상태 저장 실패: {e}")
 
         # 기본 종료 처리
         super().closeEvent(event)
@@ -1304,5 +1541,278 @@ class MainWindow(QMainWindow):
 
     # Command System 관련 메서드들은 CommandSystemManager에서 처리됩니다
 
+    def setup_log_dock(self):
+        """로그 Dock 설정 (Phase 5)"""
+        try:
+            from .components import LogDock
 
-# MainWindow 클래스는 main.py에서 사용됩니다
+            # LogDock 생성
+            self.log_dock = LogDock(self)
+
+            # 하단 영역에 추가
+            self.addDockWidget(Qt.BottomDockWidgetArea, self.log_dock)
+
+            # 기본 상태: 숨김 (접힘)
+            self.log_dock.setVisible(False)
+
+            # Dock 상태 로드
+            self.log_dock.load_dock_state()
+
+            print("✅ 로그 Dock 설정 완료")
+
+        except Exception as e:
+            print(f"❌ 로그 Dock 설정 실패: {e}")
+            self.log_dock = None
+
+    def add_activity_log(self, message: str):
+        """활동 로그 추가 (LogDock으로 리다이렉트)"""
+        if hasattr(self, "log_dock") and self.log_dock:
+            self.log_dock.add_activity_log(message)
+        else:
+            # 폴백: 콘솔에 출력
+            print(f"[활동] {message}")
+
+    def add_error_log(self, message: str):
+        """오류 로그 추가 (LogDock으로 리다이렉트)"""
+        if hasattr(self, "log_dock") and self.log_dock:
+            self.log_dock.add_error_log(message)
+        else:
+            # 폴백: 콘솔에 출력
+            print(f"[오류] {message}")
+
+    def clear_logs(self):
+        """로그 초기화 (LogDock으로 리다이렉트)"""
+        if hasattr(self, "log_dock") and self.log_dock:
+            self.log_dock.clear_logs()
+        else:
+            # 폴백: 콘솔에 출력
+            print("[로그] 로그 클리어 요청됨")
+
+    def toggle_log_dock(self):
+        """로그 Dock 가시성 토글"""
+        if hasattr(self, "log_dock") and self.log_dock:
+            self.log_dock.toggle_visibility()
+
+    def show_log_dock(self):
+        """로그 Dock 표시"""
+        if hasattr(self, "log_dock") and self.log_dock:
+            self.log_dock.show_log_dock()
+
+    def hide_log_dock(self):
+        """로그 Dock 숨김"""
+        if hasattr(self, "log_dock") and self.log_dock:
+            self.log_dock.hide_log_dock()
+
+    # Phase 9.2: 테마 관리 이벤트 핸들러
+    def on_theme_changed(self, theme: str):
+        """테마 변경 이벤트 처리"""
+        print(f"🎨 테마가 {theme}로 변경되었습니다")
+
+        # 테마 변경에 따른 추가 UI 조정
+        if hasattr(self, "results_view") and self.results_view:
+            # 결과 뷰의 테이블들에 테마 적용
+            self._apply_theme_to_tables()
+
+        # 상태바에 테마 정보 표시
+        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
+            self.status_bar_manager.update_status_bar(f"테마가 {theme}로 변경되었습니다")
+
+    def _apply_theme_to_tables(self):
+        """테이블들에 현재 테마 적용"""
+        try:
+            # 모든 탭의 테이블에 테마 적용
+            tables = [
+                getattr(self.results_view, "all_group_table", None),
+                getattr(self.results_view, "unmatched_group_table", None),
+                getattr(self.results_view, "conflict_group_table", None),
+                getattr(self.results_view, "duplicate_group_table", None),
+                getattr(self.results_view, "completed_group_table", None),
+            ]
+
+            for table in tables:
+                if table and hasattr(table, "viewport"):
+                    # 테이블 뷰포트에 테마 적용
+                    table.viewport().update()
+
+        except Exception as e:
+            print(f"⚠️ 테마 적용 중 오류 발생: {e}")
+
+    def get_current_theme(self) -> str:
+        """현재 테마 반환"""
+        if hasattr(self, "theme_manager"):
+            return self.theme_manager.get_current_theme()
+        return "auto"
+
+    def toggle_theme(self):
+        """테마 토글 (라이트 ↔ 다크)"""
+        if hasattr(self, "theme_manager"):
+            self.theme_manager.toggle_theme()
+
+    def reset_theme_to_auto(self):
+        """자동 테마 모드로 복원"""
+        if hasattr(self, "theme_manager"):
+            self.theme_manager.reset_to_auto()
+
+    # Phase 10.1: 접근성 관리 이벤트 핸들러
+    def toggle_accessibility_mode(self):
+        """접근성 모드 토글"""
+        if hasattr(self, "accessibility_manager"):
+            features = ["screen_reader_support", "keyboard_navigation", "focus_indicators"]
+            current_info = self.accessibility_manager.get_accessibility_info()
+
+            if current_info["screen_reader_support"]:
+                self.accessibility_manager.disable_accessibility_features(features)
+                print("🔧 접근성 모드 비활성화")
+            else:
+                self.accessibility_manager.enable_accessibility_features(features)
+                print("🔧 접근성 모드 활성화")
+
+    def toggle_high_contrast_mode(self):
+        """고대비 모드 토글"""
+        if hasattr(self, "accessibility_manager"):
+            self.accessibility_manager.toggle_high_contrast_mode()
+
+    def get_accessibility_info(self) -> dict:
+        """접근성 정보 반환"""
+        if hasattr(self, "accessibility_manager"):
+            return self.accessibility_manager.get_accessibility_info()
+        return {}
+
+    # Phase 10.2: 국제화 관리 이벤트 핸들러
+    def on_language_changed(self, language_code: str):
+        """언어 변경 이벤트 처리"""
+        print(f"🌍 언어가 {language_code}로 변경되었습니다")
+
+        # UI 텍스트 업데이트
+        self._update_ui_texts()
+
+        # 상태바에 언어 변경 정보 표시
+        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
+            language_name = self.i18n_manager.get_language_name(language_code)
+            self.status_bar_manager.update_status_bar(f"언어가 {language_name}로 변경되었습니다")
+
+    def _update_ui_texts(self):
+        """UI 텍스트 업데이트 (번역 적용)"""
+        try:
+            if not hasattr(self, "i18n_manager"):
+                return
+
+            tr = self.i18n_manager.tr
+
+            # 메인 윈도우 제목 업데이트
+            self.setWindowTitle(tr("main_window_title", "AnimeSorter"))
+
+            # 툴바 액션 텍스트 업데이트
+            if hasattr(self, "main_toolbar"):
+                toolbar = self.main_toolbar
+
+                if hasattr(toolbar, "scan_action"):
+                    toolbar.scan_action.setText(tr("scan_files", "파일 스캔"))
+                    toolbar.scan_action.setToolTip(
+                        tr("scan_files_desc", "선택된 폴더의 애니메이션 파일들을 스캔합니다")
+                    )
+
+                if hasattr(toolbar, "preview_action"):
+                    toolbar.preview_action.setText(tr("preview_organization", "미리보기"))
+                    toolbar.preview_action.setToolTip(
+                        tr("preview_organization_desc", "정리 작업의 미리보기를 표시합니다")
+                    )
+
+                if hasattr(toolbar, "organize_action"):
+                    toolbar.organize_action.setText(tr("organize_files", "파일 정리"))
+                    toolbar.organize_action.setToolTip(
+                        tr("organize_files_desc", "스캔된 파일들을 정리된 구조로 이동합니다")
+                    )
+
+                if hasattr(toolbar, "settings_action"):
+                    toolbar.settings_action.setText(tr("settings", "설정"))
+                    toolbar.settings_action.setToolTip(
+                        tr("settings_desc", "애플리케이션 설정을 엽니다")
+                    )
+
+            # 결과 뷰 탭 텍스트 업데이트
+            if hasattr(self, "results_view") and hasattr(self.results_view, "tab_widget"):
+                tab_widget = self.results_view.tab_widget
+
+                tab_texts = [
+                    tr("tab_all", "전체"),
+                    tr("tab_unmatched", "미매칭"),
+                    tr("tab_conflict", "충돌"),
+                    tr("tab_duplicate", "중복"),
+                    tr("tab_completed", "완료"),
+                ]
+
+                for i, text in enumerate(tab_texts):
+                    if i < tab_widget.count():
+                        tab_widget.setTabText(i, text)
+
+            print("✅ UI 텍스트 업데이트 완료")
+
+        except Exception as e:
+            print(f"⚠️ UI 텍스트 업데이트 실패: {e}")
+
+    def change_language(self, language_code: str):
+        """언어 변경"""
+        if hasattr(self, "i18n_manager"):
+            return self.i18n_manager.set_language(language_code)
+        return False
+
+    def get_current_language(self) -> str:
+        """현재 언어 반환"""
+        if hasattr(self, "i18n_manager"):
+            return self.i18n_manager.get_current_language()
+        return "ko"
+
+    def get_supported_languages(self) -> dict:
+        """지원 언어 목록 반환"""
+        if hasattr(self, "i18n_manager"):
+            return self.i18n_manager.get_supported_languages()
+        return {"ko": "한국어", "en": "English"}
+
+    def tr(self, key: str, fallback: str = None) -> str:
+        """번역 함수"""
+        if hasattr(self, "i18n_manager"):
+            return self.i18n_manager.tr(key, fallback)
+        return fallback if fallback else key
+
+    def show_settings_dialog(self):
+        """설정 다이얼로그 표시"""
+        try:
+            dialog = SettingsDialog(self.settings_manager, self)
+            if dialog.exec_() == SettingsDialog.Accepted:
+                # 설정이 변경되었을 때 처리
+                self.settings_manager.save_settings()
+
+                # 테마 설정 적용
+                if hasattr(self, "theme_manager"):
+                    new_theme = self.settings_manager.settings.get("theme", "auto")
+                    self.theme_manager.apply_theme(new_theme)
+                    print(f"✅ 테마가 '{new_theme}'로 변경되었습니다.")
+
+                # 접근성 설정 적용
+                if hasattr(self, "accessibility_manager"):
+                    high_contrast = self.settings_manager.settings.get("high_contrast_mode", False)
+                    if high_contrast != self.accessibility_manager.high_contrast_mode:
+                        if high_contrast:
+                            self.accessibility_manager.toggle_high_contrast_mode()
+                        print(f"✅ 고대비 모드: {'활성화' if high_contrast else '비활성화'}")
+
+                    keyboard_nav = self.settings_manager.settings.get("keyboard_navigation", True)
+                    self.accessibility_manager.set_keyboard_navigation(keyboard_nav)
+
+                    screen_reader = self.settings_manager.settings.get(
+                        "screen_reader_support", True
+                    )
+                    self.accessibility_manager.set_screen_reader_support(screen_reader)
+
+                # 언어 설정 적용
+                if hasattr(self, "i18n_manager"):
+                    new_language = self.settings_manager.settings.get("language", "ko")
+                    if new_language != self.i18n_manager.get_current_language():
+                        self.i18n_manager.set_language(new_language)
+                        print(f"✅ 언어가 '{new_language}'로 변경되었습니다.")
+
+                print("✅ 설정이 저장되고 적용되었습니다.")
+        except Exception as e:
+            print(f"❌ 설정 다이얼로그 표시 실패: {e}")
+            QMessageBox.critical(self, "오류", f"설정 다이얼로그를 열 수 없습니다:\n{e}")

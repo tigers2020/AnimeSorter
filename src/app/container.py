@@ -10,7 +10,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, Union, get_args, get_origin
 
 # Type variables for generic DI container
 T = TypeVar("T")
@@ -328,6 +328,13 @@ class DIContainer(IDIContainer):
 
             # 타입 힌트가 있으면 의존성으로 해결
             if param.annotation != inspect.Parameter.empty:
+                # 기본 타입들은 의존성 해결하지 않고 기본값 사용
+                if self._is_basic_type(param.annotation):
+                    if param.default != inspect.Parameter.empty:
+                        kwargs[param_name] = param.default
+                    # 기본값이 없으면 skip (필수 매개변수가 아닌 경우)
+                    continue
+
                 try:
                     kwargs[param_name] = self.resolve(param.annotation)
                 except Exception:
@@ -335,9 +342,40 @@ class DIContainer(IDIContainer):
                     if param.default != inspect.Parameter.empty:
                         kwargs[param_name] = param.default
                     else:
-                        raise
+                        # Optional 타입인 경우 None 사용
+                        if self._is_optional_type(param.annotation):
+                            kwargs[param_name] = None
+                        else:
+                            raise
 
         return implementation(**kwargs)
+
+    def _is_basic_type(self, annotation: Any) -> bool:
+        """기본 타입인지 확인"""
+        basic_types = (int, str, float, bool, bytes)
+        if annotation in basic_types:
+            return True
+
+        # PyQt5 타입들도 기본 타입으로 처리
+        type_str = str(annotation)
+        if "PyQt5" in type_str or "typing.Optional" in type_str:
+            return True
+
+        return False
+
+    def _is_optional_type(self, annotation: Any) -> bool:
+        """Optional 타입인지 확인"""
+        # typing.Optional 직접 확인
+        type_str = str(annotation)
+        if "typing.Optional" in type_str or "Optional" in type_str:
+            return True
+
+        origin = get_origin(annotation)
+        if origin is Union:
+            args = get_args(annotation)
+            # Union[T, None] 형태인지 확인 (Optional[T]와 동일)
+            return len(args) == 2 and type(None) in args
+        return False
 
     def is_registered(self, interface: type[T], name: str | None = None) -> bool:
         """의존성 등록 여부 확인"""

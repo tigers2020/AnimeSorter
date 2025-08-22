@@ -7,6 +7,7 @@
 import importlib
 import importlib.util
 import logging
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -145,6 +146,16 @@ class PluginManager:
                 self.logger.error(f"플러그인 파일이 존재하지 않음: {plugin_path}")
                 return None
 
+            # src 디렉토리를 Python 경로에 추가하여 상대 임포트 지원
+            src_dir = plugin_path_obj.parent.parent.parent  # src/plugins/providers -> src
+            if str(src_dir) not in sys.path:
+                sys.path.insert(0, str(src_dir))
+
+            # 플러그인 디렉토리를 Python 경로에 추가하여 상대 임포트 지원
+            plugin_dir = plugin_path_obj.parent
+            if str(plugin_dir) not in sys.path:
+                sys.path.insert(0, str(plugin_dir))
+
             # 모듈 로드
             spec = importlib.util.spec_from_file_location(plugin_path_obj.stem, plugin_path)
             if not spec or not spec.loader:
@@ -152,6 +163,10 @@ class PluginManager:
                 return None
 
             module = importlib.util.module_from_spec(spec)
+
+            # 플러그인 모듈의 __package__ 속성을 설정하여 상대 임포트 지원
+            module.__package__ = "src.plugins.providers"
+
             spec.loader.exec_module(module)
 
             # 플러그인 클래스 찾기

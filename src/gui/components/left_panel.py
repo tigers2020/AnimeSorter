@@ -3,7 +3,6 @@
 빠른 작업, 통계, 필터 그룹을 포함하는 왼쪽 패널을 관리합니다.
 """
 
-from pathlib import Path
 
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import (
@@ -33,6 +32,7 @@ class LeftPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.main_window = None  # MainWindow 참조 저장용
         self.init_ui()
         self.setup_connections()
 
@@ -221,83 +221,6 @@ class LeftPanel(QWidget):
 
         return group
 
-    def setup_connections(self):
-        """시그널/슬롯 연결 설정"""
-        self.btnChooseSourceFolder.clicked.connect(self.on_source_folder_clicked)
-        self.btnChooseSourceFiles.clicked.connect(self.on_source_files_clicked)
-        self.btnChooseDestFolder.clicked.connect(self.on_destination_folder_clicked)
-        self.btnStart.clicked.connect(self.scan_started.emit)
-        self.btnPause.clicked.connect(self.scan_paused.emit)
-        self.btnClearCompleted.clicked.connect(self.completed_cleared.emit)
-
-    def on_source_folder_clicked(self):
-        """소스 폴더 선택 버튼 클릭"""
-        from PyQt5.QtWidgets import QFileDialog
-
-        folder = QFileDialog.getExistingDirectory(self, "소스 폴더 선택")
-        if folder:
-            self.source_dir_label.setText(f"소스 폴더: {folder}")
-            self.source_dir_label.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #d5f4e6;
-                    border: 1px solid #27ae60;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #27ae60;
-                    font-weight: bold;
-                }
-            """
-            )
-            self.source_folder_selected.emit(folder)
-
-    def on_source_files_clicked(self):
-        """소스 파일 선택 버튼 클릭"""
-        from PyQt5.QtWidgets import QFileDialog
-
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            "애니메이션 파일 선택",
-            "",
-            "Video Files (*.mkv *.mp4 *.avi *.mov *.wmv *.flv);;All Files (*)",
-        )
-        if files:
-            self.source_dir_label.setText(f"선택된 파일: {len(files)}개")
-            self.source_dir_label.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #d5f4e6;
-                    border: 1px solid #27ae60;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #27ae60;
-                    font-weight: bold;
-                }
-            """
-            )
-            self.source_files_selected.emit(files)
-
-    def on_destination_folder_clicked(self):
-        """대상 폴더 선택 버튼 클릭"""
-        from PyQt5.QtWidgets import QFileDialog
-
-        folder = QFileDialog.getExistingDirectory(self, "대상 폴더 선택")
-        if folder:
-            self.dest_dir_label.setText(f"대상 폴더: {folder}")
-            self.dest_dir_label.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #d5f4e6;
-                    border: 1px solid #27ae60;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #27ae60;
-                    font-weight: bold;
-                }
-            """
-            )
-            self.destination_folder_selected.emit(folder)
-
     def update_scan_button_state(self, has_source: bool):
         """스캔 시작 버튼 활성화 상태 업데이트"""
         self.btnStart.setEnabled(has_source)
@@ -311,46 +234,6 @@ class LeftPanel(QWidget):
         # 그룹 수 표시 (기존 통계 라벨이 있다면 업데이트)
         if hasattr(self, "lblGroups"):
             self.lblGroups.setText(str(groups))
-
-    def update_source_directory_display(self, directory: str):
-        """소스 디렉토리 표시 업데이트"""
-        if directory and Path(directory).exists():
-            self.source_dir_label.setText(f"소스 폴더: {directory}")
-            self.source_dir_label.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #d5f4e6;
-                    border: 1px solid #27ae60;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #27ae60;
-                    font-weight: bold;
-                }
-            """
-            )
-        else:
-            self.source_dir_label.setText("소스 폴더: 선택되지 않음")
-            self.source_dir_label.setStyleSheet("")
-
-    def update_destination_directory_display(self, directory: str):
-        """대상 디렉토리 표시 업데이트"""
-        if directory and Path(directory).exists():
-            self.dest_dir_label.setText(f"대상 폴더: {directory}")
-            self.dest_dir_label.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #d5f4e6;
-                    border: 1px solid #27ae60;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #27ae60;
-                    font-weight: bold;
-                }
-            """
-            )
-        else:
-            self.dest_dir_label.setText("대상 폴더: 선택되지 않음")
-            self.dest_dir_label.setStyleSheet("")
 
     def update_source_files_display(self, file_count: int):
         """소스 파일 수 표시 업데이트"""
@@ -392,3 +275,228 @@ class LeftPanel(QWidget):
                 color: #7f8c8d;
             }}
         """
+
+    def setup_connections(self):
+        """시그널/슬롯 연결 설정"""
+        self.btnChooseSourceFolder.clicked.connect(self.choose_source_folder)
+        self.btnChooseSourceFiles.clicked.connect(self.choose_source_files)
+        self.btnChooseDestFolder.clicked.connect(self.choose_dest_folder)
+        self.btnStart.clicked.connect(self.start_scan)
+        self.btnPause.clicked.connect(self.pause_scan)
+        self.btnClearCompleted.clicked.connect(self.completed_cleared.emit)
+
+    def set_main_window(self, main_window):
+        """MainWindow 참조 설정"""
+        self.main_window = main_window
+
+    def choose_source_folder(self):
+        """소스 폴더 선택"""
+        from PyQt5.QtWidgets import QFileDialog
+
+        # 이전에 선택한 폴더가 있으면 그곳에서 시작
+        start_dir = ""
+        if self.main_window and hasattr(self.main_window, "settings_manager"):
+            start_dir = self.main_window.settings_manager.get_setting("last_source_directory", "")
+
+        folder = QFileDialog.getExistingDirectory(
+            self, "애니메이션 파일이 있는 소스 폴더 선택", start_dir
+        )
+
+        if folder:
+            self.update_source_directory_display(folder)
+            self.source_folder_selected.emit(folder)
+
+            # MainWindow의 source_directory 변수 업데이트
+            if self.main_window:
+                self.main_window.source_directory = folder
+                print(f"🔧 MainWindow.source_directory 업데이트: {folder}")
+
+            # 설정 관리자에 저장
+            if self.main_window and hasattr(self.main_window, "settings_manager"):
+                self.main_window.settings_manager.set_setting("last_source_directory", folder)
+                self.main_window.settings_manager.save_settings()
+                print(f"💾 소스 디렉토리 저장됨: {folder}")
+
+    def choose_source_files(self):
+        """소스 파일들 선택"""
+        from PyQt5.QtWidgets import QFileDialog
+
+        # 이전에 선택한 폴더가 있으면 그곳에서 시작
+        start_dir = ""
+        if self.main_window and hasattr(self.main_window, "settings_manager"):
+            start_dir = self.main_window.settings_manager.get_setting("last_source_directory", "")
+
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "애니메이션 파일들 선택",
+            start_dir,
+            "비디오 파일 (*.mp4 *.mkv *.avi *.mov *.wmv *.flv *.webm);;모든 파일 (*)",
+        )
+
+        if files:
+            self.update_source_files_display(len(files))
+            self.source_files_selected.emit(files)
+
+            # MainWindow의 source_files 변수 업데이트
+            if self.main_window:
+                self.main_window.source_files = files
+                print(f"🔧 MainWindow.source_files 업데이트: {len(files)}개 파일")
+
+            # 첫 번째 파일의 디렉토리를 소스 디렉토리로 저장
+            if self.main_window and hasattr(self.main_window, "settings_manager"):
+                from pathlib import Path
+
+                first_file_dir = str(Path(files[0]).parent)
+                self.main_window.settings_manager.set_setting(
+                    "last_source_directory", first_file_dir
+                )
+                self.main_window.settings_manager.save_settings()
+
+    def choose_dest_folder(self):
+        """대상 폴더 선택"""
+        from PyQt5.QtWidgets import QFileDialog
+
+        # 이전에 선택한 폴더가 있으면 그곳에서 시작
+        start_dir = ""
+        if self.main_window and hasattr(self.main_window, "settings_manager"):
+            start_dir = self.main_window.settings_manager.get_setting(
+                "last_destination_directory", ""
+            )
+
+        folder = QFileDialog.getExistingDirectory(
+            self, "정리된 파일을 저장할 대상 폴더 선택", start_dir
+        )
+
+        if folder:
+            self.update_dest_directory_display(folder)
+            self.destination_folder_selected.emit(folder)
+
+            # MainWindow의 destination_directory 변수 업데이트
+            if self.main_window:
+                self.main_window.destination_directory = folder
+                print(f"🔧 MainWindow.destination_directory 업데이트: {folder}")
+
+            # 설정 관리자에 저장
+            if self.main_window and hasattr(self.main_window, "settings_manager"):
+                self.main_window.settings_manager.set_setting("last_destination_directory", folder)
+                self.main_window.settings_manager.set_setting(
+                    "destination_root", folder
+                )  # 메인 설정에도 저장
+                self.main_window.settings_manager.save_settings()
+                print(f"💾 대상 디렉토리 저장됨: {folder}")
+
+    def start_scan(self):
+        """스캔 시작"""
+        print("🔴 LeftPanel.start_scan() 호출됨")
+        self.scan_started.emit()
+        print("🔴 scan_started 시그널 발생됨")
+
+    def pause_scan(self):
+        """스캔 일시정지"""
+        print("🟡 LeftPanel.pause_scan() 호출됨")
+        self.scan_paused.emit()
+        print("🟡 scan_paused 시그널 발생됨")
+
+    def restore_directory_settings(self):
+        """설정에서 디렉토리 정보 복원"""
+        if self.main_window and hasattr(self.main_window, "settings_manager"):
+            # 소스 디렉토리 복원
+            source_dir = self.main_window.settings_manager.get_setting("last_source_directory", "")
+            if source_dir:
+                self.update_source_directory_display(source_dir)
+                # MainWindow의 source_directory 변수도 업데이트
+                self.main_window.source_directory = source_dir
+                print(f"🔧 MainWindow.source_directory 복원됨: {source_dir}")
+
+            # 대상 디렉토리 복원
+            dest_dir = self.main_window.settings_manager.get_setting(
+                "last_destination_directory", ""
+            )
+            if dest_dir:
+                self.update_dest_directory_display(dest_dir)
+                # MainWindow의 destination_directory 변수도 업데이트
+                self.main_window.destination_directory = dest_dir
+                print(f"🔧 MainWindow.destination_directory 복원됨: {dest_dir}")
+
+    def update_source_directory_display(self, folder_path: str):
+        """소스 디렉토리 표시 업데이트"""
+        if folder_path:
+            # 경로가 너무 길면 줄여서 표시
+            from pathlib import Path
+
+            path = Path(folder_path)
+            display_path = str(path)
+            if len(display_path) > 40:
+                display_path = f"...{display_path[-37:]}"
+
+            self.source_dir_label.setText(f"소스 폴더: {display_path}")
+            self.source_dir_label.setStyleSheet(
+                """
+                QLabel {
+                    background-color: #d5f4e6;
+                    border: 1px solid #27ae60;
+                    border-radius: 4px;
+                    padding: 8px;
+                    color: #27ae60;
+                    font-weight: bold;
+                }
+            """
+            )
+
+            # 스캔 버튼 활성화
+            self.btnStart.setEnabled(True)
+        else:
+            self.source_dir_label.setText("소스 폴더: 선택되지 않음")
+            self.source_dir_label.setStyleSheet("")
+            self.btnStart.setEnabled(False)
+
+    def update_dest_directory_display(self, folder_path: str):
+        """대상 디렉토리 표시 업데이트"""
+        if folder_path:
+            # 경로가 너무 길면 줄여서 표시
+            from pathlib import Path
+
+            path = Path(folder_path)
+            display_path = str(path)
+            if len(display_path) > 40:
+                display_path = f"...{display_path[-37:]}"
+
+            self.dest_dir_label.setText(f"대상 폴더: {display_path}")
+            self.dest_dir_label.setStyleSheet(
+                """
+                QLabel {
+                    background-color: #ffeaa7;
+                    border: 1px solid #fdcb6e;
+                    border-radius: 4px;
+                    padding: 8px;
+                    color: #e17055;
+                    font-weight: bold;
+                }
+            """
+            )
+        else:
+            self.dest_dir_label.setText("대상 폴더: 선택되지 않음")
+            self.dest_dir_label.setStyleSheet("")
+
+    def update_progress(self, progress_percent: int):
+        """진행률 업데이트 (0-100)"""
+        # LeftPanel에는 별도의 진행률 표시 UI가 없으므로
+        # 현재는 아무것도 하지 않음 (필요시 나중에 구현)
+        # 예: 진행률 바 추가, 스캔 버튼 상태 변경 등
+
+    def open_settings(self):
+        """설정 창 열기"""
+        self.settings_opened.emit()
+
+    def stop_scan(self):
+        """스캔 중지"""
+        # 현재는 pause와 동일하게 처리
+        self.scan_paused.emit()
+
+    def clear_completed(self):
+        """완료된 항목 정리"""
+        self.completed_cleared.emit()
+
+    def update_destination_directory_display(self, folder_path: str):
+        """대상 디렉토리 표시 업데이트 (alias for update_dest_directory_display)"""
+        self.update_dest_directory_display(folder_path)

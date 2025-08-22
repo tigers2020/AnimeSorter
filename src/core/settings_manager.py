@@ -63,6 +63,17 @@ class AppSettings:
     # 세션 관리
     remember_last_session: bool = True
 
+    # 외관 설정
+    theme: str = "auto"  # auto, light, dark
+    high_contrast_mode: bool = False
+    keyboard_navigation: bool = True
+    screen_reader_support: bool = True
+    language: str = "ko"  # ko, en
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """설정값을 안전하게 가져오는 메서드"""
+        return getattr(self, key, default)
+
 
 class SettingsManager(QObject):
     """설정 관리자"""
@@ -116,10 +127,14 @@ class SettingsManager(QObject):
             # None 값 제거
             settings_dict = {k: v for k, v in settings_dict.items() if v is not None}
 
-            with self.config_file.open("w", encoding="utf-8") as f:
-                json.dump(settings_dict, f, ensure_ascii=False, indent=2)
+            # UTF-8 인코딩으로 저장하고 ASCII 문자 변환 방지
+            with self.config_file.open("w", encoding="utf-8", newline="\n") as f:
+                json.dump(settings_dict, f, ensure_ascii=False, indent=2, separators=(",", ": "))
 
             print(f"✅ 설정 저장 완료: {self.config_file}")
+            print(f"📋 저장된 테마: {self.settings.theme}")
+            print(f"📋 저장된 소스 디렉토리: {self.settings.last_source_directory}")
+            print(f"📋 저장된 대상 디렉토리: {self.settings.last_destination_directory}")
             return True
 
         except Exception as e:

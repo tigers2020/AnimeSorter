@@ -173,6 +173,60 @@ class FileOrganizationHandler(QObject):
             self.main_window, "시뮬레이션", "파일 이동을 시뮬레이션합니다. (구현 예정)"
         )
 
+    def show_preview(self):
+        """정리 미리보기 표시"""
+        try:
+            # 기본 검증
+            if not hasattr(self.main_window, "anime_data_manager"):
+                QMessageBox.warning(
+                    self.main_window, "경고", "스캔된 데이터가 없습니다. 먼저 파일을 스캔해주세요."
+                )
+                return
+
+            grouped_items = self.main_window.anime_data_manager.get_grouped_items()
+            if not grouped_items:
+                QMessageBox.warning(
+                    self.main_window,
+                    "경고",
+                    "미리보기할 그룹이 없습니다. 먼저 파일을 스캔해주세요.",
+                )
+                return
+
+            # 대상 폴더 확인
+            if (
+                not self.main_window.destination_directory
+                or not Path(self.main_window.destination_directory).exists()
+            ):
+                QMessageBox.warning(
+                    self.main_window, "경고", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
+                )
+                return
+
+            # 미리보기 다이얼로그 표시
+            dialog = OrganizePreflightDialog(
+                grouped_items, self.main_window.destination_directory, self.main_window
+            )
+            dialog.setWindowTitle("정리 미리보기")
+
+            # 미리보기 모드로 설정 (실제 정리 실행하지 않음)
+            dialog.set_preview_mode(True)
+
+            result = dialog.exec_()
+
+            if result == QDialog.Accepted:
+                print("✅ 미리보기 확인 완료")
+                self.main_window.update_status_bar("미리보기 확인 완료")
+            else:
+                print("❌ 미리보기가 취소되었습니다")
+                self.main_window.update_status_bar("미리보기가 취소되었습니다")
+
+        except Exception as e:
+            print(f"❌ 미리보기 표시 실패: {e}")
+            QMessageBox.critical(
+                self.main_window, "오류", f"미리보기 표시 중 오류가 발생했습니다:\n{str(e)}"
+            )
+            self.main_window.update_status_bar(f"미리보기 표시 실패: {str(e)}")
+
     # 이벤트 핸들러 메서드들
     def handle_organization_started(self, event):
         """파일 정리 시작 이벤트 핸들러"""

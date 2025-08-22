@@ -11,6 +11,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# Add src directory to Python path for imports
+src_dir = Path(__file__).parent
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
+
 from PyQt5.QtCore import Qt
 
 # PyQt5 imports

@@ -1,14 +1,13 @@
 """
 오른쪽 패널 컴포넌트
-결과 뷰, 하단 액션, 로그 탭, 수동 매칭을 포함하는 오른쪽 패널을 관리합니다.
+결과 뷰와 하단 액션을 포함하는 오른쪽 패널을 관리합니다.
+로그 기능은 LogDock으로 이동되었습니다.
 """
 
 from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QSizePolicy,
-    QTabWidget,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -32,9 +31,8 @@ class RightPanel(QWidget):
         bottom_actions = self.create_bottom_actions()
         layout.addWidget(bottom_actions)
 
-        # 로그 탭
-        log_tabs = self.create_log_tabs()
-        layout.addWidget(log_tabs)
+        # 로그 탭은 LogDock으로 이동되었으므로 제거
+        # 이제 ResultsView가 이 공간을 사용합니다
 
         # 크기 정책 설정
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -52,32 +50,6 @@ class RightPanel(QWidget):
 
         return bottom
 
-    def create_log_tabs(self):
-        """로그 탭 생성"""
-        tab_widget = QTabWidget()
-
-        # 활동 로그
-        self.txtLog = QTextEdit()
-        self.txtLog.setReadOnly(True)
-        self.txtLog.setMinimumHeight(100)  # 최소 높이만 설정
-        self.txtLog.setText(
-            "애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다."
-        )
-
-        # 오류 로그
-        self.txtErr = QTextEdit()
-        self.txtErr.setReadOnly(True)
-        self.txtErr.setMinimumHeight(100)  # 최소 높이만 설정
-        self.txtErr.setText("오류 로그가 여기에 표시됩니다.")
-
-        tab_widget.addTab(self.txtLog, "📝 활동 로그")
-        tab_widget.addTab(self.txtErr, "⚠️ 오류 로그")
-
-        # 탭 위젯의 크기 정책 설정
-        tab_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        return tab_widget
-
     def setup_connections(self):
         """시그널/슬롯 연결 설정"""
         # 현재는 연결할 시그널이 없음
@@ -86,31 +58,31 @@ class RightPanel(QWidget):
         """표시 정보 업데이트"""
         self.lblShowing.setText(text)
 
+    # 로그 관련 메서드들은 LogDock으로 이동되었습니다
+    # 기존 코드와의 호환성을 위해 빈 메서드로 유지
     def add_activity_log(self, message: str):
-        """활동 로그에 메시지 추가"""
-        from PyQt5.QtCore import QDateTime
-
-        timestamp = QDateTime.currentDateTime().toString("hh:mm:ss")
-        log_entry = f"[{timestamp}] {message}"
-        self.txtLog.append(log_entry)
-
-        # 스크롤을 맨 아래로
-        scrollbar = self.txtLog.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        """활동 로그에 메시지 추가 (LogDock으로 리다이렉트)"""
+        # MainWindow에서 LogDock으로 리다이렉트하도록 처리
+        if hasattr(self.parent(), "log_dock") and self.parent().log_dock:
+            self.parent().log_dock.add_activity_log(message)
+        else:
+            # 폴백: 콘솔에 출력
+            print(f"[활동] {message}")
 
     def add_error_log(self, message: str):
-        """오류 로그에 메시지 추가"""
-        from PyQt5.QtCore import QDateTime
-
-        timestamp = QDateTime.currentDateTime().toString("hh:mm:ss")
-        log_entry = f"[{timestamp}] {message}"
-        self.txtErr.append(log_entry)
-
-        # 스크롤을 맨 아래로
-        scrollbar = self.txtErr.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        """오류 로그에 메시지 추가 (LogDock으로 리다이렉트)"""
+        # MainWindow에서 LogDock으로 리다이렉트하도록 처리
+        if hasattr(self.parent(), "log_dock") and self.parent().log_dock:
+            self.parent().log_dock.add_error_log(message)
+        else:
+            # 폴백: 콘솔에 출력
+            print(f"[오류] {message}")
 
     def clear_logs(self):
-        """로그 초기화"""
-        self.txtLog.clear()
-        self.txtErr.clear()
+        """로그 초기화 (LogDock으로 리다이렉트)"""
+        # MainWindow에서 LogDock으로 리다이렉트하도록 처리
+        if hasattr(self.parent(), "log_dock") and self.parent().log_dock:
+            self.parent().log_dock.clear_logs()
+        else:
+            # 폴백: 콘솔에 출력
+            print("[로그] 로그 클리어 요청됨")
