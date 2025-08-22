@@ -33,6 +33,7 @@ from app.organization_events import (
     OrganizationValidationStartedEvent,
 )
 from app.services.background_task_service import IBackgroundTaskService
+from core.video_metadata_extractor import VideoMetadataExtractor
 
 
 class IFileOrganizationService(ABC):
@@ -88,6 +89,7 @@ class FileOrganizationTask(BaseTask):
         self.dry_run = dry_run
         self.logger = logging.getLogger(f"{self.__class__.__name__}_{organization_id}")
         self._cancelled = False
+        self.video_metadata_extractor = VideoMetadataExtractor()
 
     def execute(self) -> TaskResult:
         """파일 정리 실행"""
@@ -122,48 +124,89 @@ class FileOrganizationTask(BaseTask):
                 try:
                     self.logger.info(f"그룹 처리 중: {group_name}")
 
-                    # 그룹 디렉토리 생성
-                    group_dir = self.destination_directory / self._sanitize_filename(group_name)
-
-                    if not self.dry_run:
-                        group_dir.mkdir(parents=True, exist_ok=True)
-                        result.created_directories.append(group_dir)
-
-                    # 그룹 내 파일들 처리
+                    # 그룹 내 파일들 화질별 분류
                     files = group_data.get("files", [])
-                    for _file_index, file_data in enumerate(files):
-                        if self._cancelled:
-                            break
+                    if files:
+                        # 파일 경로 리스트 추출
+                        file_paths = [
+                            file_data.get("source_path", "")
+                            for file_data in files
+                            if file_data.get("source_path")
+                        ]
 
-                        try:
-                            # 파일 정리 수행
-                            success = self._organize_single_file(file_data, group_dir, result)
+                        # 화질별로 파일 분류
+                        (
+                            high_quality_files,
+                            low_quality_files,
+                        ) = self.video_metadata_extractor.classify_files_by_quality(file_paths)
 
-                            processed_files += 1
-                            if success:
-                                result.success_count += 1
-                            else:
-                                result.error_count += 1
+                        self.logger.info(
+                            f"그룹 '{group_name}' 화질별 분류: 고화질 {len(high_quality_files)}개, 저화질 {len(low_quality_files)}개"
+                        )
 
-                            # 진행률 이벤트 발행
-                            progress_percent = int((processed_files / total_files) * 100)
-                            self.event_bus.publish(
-                                OrganizationProgressEvent(
-                                    organization_id=self.organization_id,
-                                    current_file=processed_files,
-                                    total_files=total_files,
-                                    current_group=group_name,
-                                    operation_type="copy" if not self.dry_run else "validate",
-                                    current_file_path=Path(file_data.get("source_path", "")),
-                                    progress_percent=progress_percent,
-                                )
+                        # 고화질 파일들을 원본 그룹 디렉토리에 배치
+                        if high_quality_files:
+                            high_quality_dir = self.destination_directory / self._sanitize_filename(
+                                group_name
                             )
+                            if not self.dry_run:
+                                high_quality_dir.mkdir(parents=True, exist_ok=True)
+                                result.created_directories.append(high_quality_dir)
 
-                        except Exception as e:
-                            self.logger.error(f"파일 처리 실패: {file_data}: {e}")
-                            result.error_count += 1
-                            result.errors.append(str(e))
-                            processed_files += 1
+                            # 고화질 파일들 처리
+                            for file_data in files:
+                                if file_data.get("source_path") in high_quality_files:
+                                    success = self._organize_single_file(
+                                        file_data, high_quality_dir, result
+                                    )
+                                    if success:
+                                        result.success_count += 1
+                                    else:
+                                        result.error_count += 1
+                                    processed_files += 1
+
+                        # 저화질 파일들을 '_low res/' 서브디렉토리에 배치
+                        if low_quality_files:
+                            low_quality_dir = (
+                                self.destination_directory
+                                / self._sanitize_filename(group_name)
+                                / "_low res"
+                            )
+                            if not self.dry_run:
+                                low_quality_dir.mkdir(parents=True, exist_ok=True)
+                                result.created_directories.append(low_quality_dir)
+
+                            # 저화질 파일들 처리
+                            for file_data in files:
+                                if file_data.get("source_path") in low_quality_files:
+                                    success = self._organize_single_file(
+                                        file_data, low_quality_dir, result
+                                    )
+                                    if success:
+                                        result.success_count += 1
+                                    else:
+                                        result.error_count += 1
+                                    processed_files += 1
+                    else:
+                        # 파일이 없는 경우 기본 그룹 디렉토리만 생성
+                        group_dir = self.destination_directory / self._sanitize_filename(group_name)
+                        if not self.dry_run:
+                            group_dir.mkdir(parents=True, exist_ok=True)
+                            result.created_directories.append(group_dir)
+
+                    # 진행률 이벤트 발행
+                    progress_percent = int((processed_files / total_files) * 100)
+                    self.event_bus.publish(
+                        OrganizationProgressEvent(
+                            organization_id=self.organization_id,
+                            current_file=processed_files,
+                            total_files=total_files,
+                            current_group=group_name,
+                            operation_type="copy" if not self.dry_run else "validate",
+                            current_file_path=Path(),  # 그룹 단위 진행률이므로 파일 경로는 비움
+                            progress_percent=progress_percent,
+                        )
+                    )
 
                 except Exception as e:
                     self.logger.error(f"그룹 처리 실패: {group_name}: {e}")
@@ -251,13 +294,6 @@ class FileOrganizationTask(BaseTask):
             result.errors.append(f"파일 정리 실패: {str(e)}")
             return False
 
-    def _sanitize_filename(self, filename: str) -> str:
-        """파일명 정리 (금지 문자 제거)"""
-        forbidden_chars = '<>:"/\\|?*'
-        for char in forbidden_chars:
-            filename = filename.replace(char, "_")
-        return filename.strip()
-
     def _generate_target_filename(self, file_data: dict[str, Any]) -> str:
         """대상 파일명 생성"""
         # 파일 데이터에서 제목, 에피소드 등 정보 추출하여 파일명 생성
@@ -285,6 +321,13 @@ class FileOrganizationTask(BaseTask):
             if not new_path.exists():
                 return new_path
             counter += 1
+
+    def _sanitize_filename(self, filename: str) -> str:
+        """파일명 정리 (금지 문자 제거)"""
+        forbidden_chars = '<>:"/\\|?*'
+        for char in forbidden_chars:
+            filename = filename.replace(char, "_")
+        return filename.strip()
 
 
 class FileOrganizationService(IFileOrganizationService):

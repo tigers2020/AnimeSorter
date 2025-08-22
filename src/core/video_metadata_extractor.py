@@ -7,7 +7,10 @@
 import json
 import logging
 import subprocess
+from pathlib import Path
 from typing import Any
+
+from src.app.domain import MediaQuality
 
 
 class VideoMetadataExtractor:
@@ -17,6 +20,17 @@ class VideoMetadataExtractor:
         """초기화"""
         self.logger = logging.getLogger(__name__)
         self._ffprobe_available = self._check_ffprobe_availability()
+
+        # MediaQuality 우선순위 정의 (높은 값이 더 높은 우선순위)
+        self._quality_priority = {
+            MediaQuality.UHD_8K: 8,
+            MediaQuality.UHD_4K: 7,
+            MediaQuality.QHD_1440P: 6,
+            MediaQuality.FHD_1080P: 5,
+            MediaQuality.HD_720P: 4,
+            MediaQuality.SD_480P: 3,
+            MediaQuality.UNKNOWN: 1,
+        }
 
     def _check_ffprobe_availability(self) -> bool:
         """ffprobe 사용 가능 여부 확인"""
@@ -206,3 +220,156 @@ class VideoMetadataExtractor:
             return resolution.upper()
 
         return resolution
+
+    def get_media_quality_from_resolution(self, resolution: str) -> MediaQuality:
+        """
+        해상도 문자열로부터 MediaQuality enum 값 반환
+
+        Args:
+            resolution: 해상도 문자열
+
+        Returns:
+            MediaQuality enum 값
+        """
+        if not resolution:
+            return MediaQuality.UNKNOWN
+
+        normalized = self.normalize_resolution(resolution).upper()
+
+        if "4K" in normalized or "2160" in normalized:
+            return MediaQuality.UHD_4K
+        if "2K" in normalized or "1440" in normalized:
+            return MediaQuality.QHD_1440P
+        if "1080" in normalized:
+            return MediaQuality.FHD_1080P
+        if "720" in normalized:
+            return MediaQuality.HD_720P
+        if "480" in normalized:
+            return MediaQuality.SD_480P
+
+        return MediaQuality.UNKNOWN
+
+    def compare_quality(self, quality1: MediaQuality, quality2: MediaQuality) -> int:
+        """
+        두 MediaQuality 값을 비교하여 우선순위 반환
+
+        Args:
+            quality1: 첫 번째 품질
+            quality2: 두 번째 품질
+
+        Returns:
+            -1: quality1이 더 낮음, 0: 동일, 1: quality1이 더 높음
+        """
+        priority1 = self._quality_priority.get(quality1, 0)
+        priority2 = self._quality_priority.get(quality2, 0)
+
+        if priority1 < priority2:
+            return -1
+        if priority1 > priority2:
+            return 1
+
+        return 0
+
+    def get_highest_quality(self, qualities: list[MediaQuality]) -> MediaQuality:
+        """
+        여러 MediaQuality 값 중 가장 높은 품질 반환
+
+        Args:
+            qualities: MediaQuality 리스트
+
+        Returns:
+            가장 높은 품질의 MediaQuality
+        """
+        if not qualities:
+            return MediaQuality.UNKNOWN
+
+        return max(qualities, key=lambda q: self._quality_priority.get(q, 0))
+
+    def classify_files_by_quality(self, file_paths: list[str]) -> tuple[list[str], list[str]]:
+        """
+        파일들을 화질에 따라 분류하여 고화질과 저화질 그룹으로 나눔
+
+        Args:
+            file_paths: 파일 경로 리스트
+
+        Returns:
+            (고화질 파일 리스트, 저화질 파일 리스트) 튜플
+        """
+        if not file_paths:
+            return [], []
+
+        # 각 파일의 화질 정보 추출
+        file_qualities = []
+        for file_path in file_paths:
+            try:
+                resolution = self.extract_resolution(file_path)
+                quality = self.get_media_quality_from_resolution(resolution)
+                file_qualities.append((file_path, quality))
+                self.logger.debug(f"파일 {Path(file_path).name}: {quality.value}")
+            except Exception as e:
+                self.logger.warning(f"파일 {file_path}의 화질 추출 실패: {e}")
+                file_qualities.append((file_path, MediaQuality.UNKNOWN))
+
+        if not file_qualities:
+            return [], []
+
+        # 가장 높은 화질 찾기
+        highest_quality = self.get_highest_quality([q for _, q in file_qualities])
+        self.logger.info(f"그룹 내 최고 화질: {highest_quality.value}")
+
+        # 고화질과 저화질로 분류
+        high_quality_files = []
+        low_quality_files = []
+
+        for file_path, quality in file_qualities:
+            if quality == highest_quality:
+                high_quality_files.append(file_path)
+            else:
+                low_quality_files.append(file_path)
+
+        self.logger.info(
+            f"화질별 분류 완료: 고화질 {len(high_quality_files)}개, 저화질 {len(low_quality_files)}개"
+        )
+
+        return high_quality_files, low_quality_files
+
+    def get_quality_summary(self, file_paths: list[str]) -> dict[str, Any]:
+        """
+        파일 그룹의 화질 요약 정보 반환
+
+        Args:
+            file_paths: 파일 경로 리스트
+
+        Returns:
+            화질 요약 정보 딕셔너리
+        """
+        if not file_paths:
+            return {
+                "total_files": 0,
+                "quality_distribution": {},
+                "highest_quality": MediaQuality.UNKNOWN.value,
+            }
+
+        quality_counts = {}
+        file_qualities = []
+
+        for file_path in file_paths:
+            try:
+                resolution = self.extract_resolution(file_path)
+                quality = self.get_media_quality_from_resolution(resolution)
+                quality_counts[quality.value] = quality_counts.get(quality.value, 0) + 1
+                file_qualities.append(quality)
+            except Exception as e:
+                self.logger.warning(f"파일 {file_path}의 화질 추출 실패: {e}")
+                quality_counts[MediaQuality.UNKNOWN.value] = (
+                    quality_counts.get(MediaQuality.UNKNOWN.value, 0) + 1
+                )
+
+        highest_quality = self.get_highest_quality(file_qualities)
+
+        return {
+            "total_files": len(file_paths),
+            "quality_distribution": quality_counts,
+            "highest_quality": highest_quality.value,
+            "highest_quality_enum": highest_quality,
+        }
