@@ -28,6 +28,7 @@ class OrganizePreflightDialog(QDialog):
         super().__init__(parent)
         self.grouped_items = grouped_items
         self.destination_directory = destination_directory
+        self.is_preview_mode = False
         self.init_ui()
         self.generate_summary()
 
@@ -36,6 +37,19 @@ class OrganizePreflightDialog(QDialog):
         self.setWindowTitle("📁 정리 실행 확인")
         self.setModal(True)
         self.setMinimumSize(600, 500)
+
+        # 테마에 맞는 기본 스타일 설정
+        self.setStyleSheet(
+            """
+            QDialog {
+                background-color: palette(window);
+                color: palette(window-text);
+            }
+            QLabel {
+                color: palette(window-text);
+            }
+        """
+        )
 
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
@@ -56,8 +70,9 @@ class OrganizePreflightDialog(QDialog):
         self.summary_text.setStyleSheet(
             """
             QTextEdit {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
+                background-color: palette(base);
+                color: palette(text);
+                border: 1px solid palette(mid);
                 border-radius: 4px;
                 padding: 10px;
                 font-family: 'Consolas', 'Monaco', monospace;
@@ -74,9 +89,9 @@ class OrganizePreflightDialog(QDialog):
         warning_label.setStyleSheet(
             """
             QLabel {
-                color: #dc3545;
-                background-color: #f8d7da;
-                border: 1px solid #f5c6cb;
+                color: palette(button-text);
+                background-color: palette(light);
+                border: 1px solid palette(mid);
                 border-radius: 4px;
                 padding: 10px;
                 font-weight: bold;
@@ -94,16 +109,16 @@ class OrganizePreflightDialog(QDialog):
         self.cancel_button.setStyleSheet(
             """
             QPushButton {
-                background-color: #6c757d;
-                color: white;
-                border: none;
+                background-color: palette(button);
+                color: palette(button-text);
+                border: 1px solid palette(mid);
                 padding: 10px 20px;
                 border-radius: 4px;
                 font-weight: bold;
                 min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #5a6268;
+                background-color: palette(light);
             }
         """
         )
@@ -114,16 +129,16 @@ class OrganizePreflightDialog(QDialog):
         self.proceed_button.setStyleSheet(
             """
             QPushButton {
-                background-color: #28a745;
-                color: white;
-                border: none;
+                background-color: palette(button);
+                color: palette(button-text);
+                border: 1px solid palette(mid);
                 padding: 10px 20px;
                 border-radius: 4px;
                 font-weight: bold;
                 min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #218838;
+                background-color: palette(light);
             }
         """
         )
@@ -296,3 +311,76 @@ class OrganizePreflightDialog(QDialog):
         """진행 버튼 클릭 처리"""
         self.proceed_requested.emit()
         self.accept()
+
+    def set_preview_mode(self, is_preview: bool):
+        """미리보기 모드 설정"""
+        self.is_preview_mode = is_preview
+
+        if is_preview:
+            # 미리보기 모드일 때 UI 변경
+            self.setWindowTitle("👁️ 정리 미리보기")
+
+            # 제목 변경
+            title_label = self.findChild(QLabel, "")
+            if title_label and title_label.text() == "파일 정리 실행을 시작합니다":
+                title_label.setText("파일 정리 미리보기")
+
+            # 진행 버튼 텍스트 변경
+            if hasattr(self, "proceed_button"):
+                self.proceed_button.setText("✅ 확인")
+                self.proceed_button.setToolTip("미리보기 확인")
+
+            # 경고 메시지 변경
+            warning_label = self.findChild(QLabel, "")
+            if (
+                warning_label
+                and "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다" in warning_label.text()
+            ):
+                warning_label.setText("👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다.")
+                warning_label.setStyleSheet(
+                    """
+                    QLabel {
+                        color: palette(button-text);
+                        background-color: palette(light);
+                        border: 1px solid palette(mid);
+                        border-radius: 4px;
+                        padding: 10px;
+                        font-weight: bold;
+                    }
+                """
+                )
+        else:
+            # 일반 모드로 복원
+            self.setWindowTitle("📁 정리 실행 확인")
+
+            # 제목 복원
+            title_label = self.findChild(QLabel, "")
+            if title_label and title_label.text() == "파일 정리 미리보기":
+                title_label.setText("파일 정리 실행을 시작합니다")
+
+            # 진행 버튼 텍스트 복원
+            if hasattr(self, "proceed_button"):
+                self.proceed_button.setText("✅ 진행")
+                self.proceed_button.setToolTip("파일 정리 실행")
+
+            # 경고 메시지 복원
+            warning_label = self.findChild(QLabel, "")
+            if (
+                warning_label
+                and "👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다" in warning_label.text()
+            ):
+                warning_label.setText(
+                    "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다."
+                )
+                warning_label.setStyleSheet(
+                    """
+                    QLabel {
+                        color: palette(button-text);
+                        background-color: palette(light);
+                        border: 1px solid palette(mid);
+                        border-radius: 4px;
+                        padding: 10px;
+                        font-weight: bold;
+                    }
+                """
+                )
