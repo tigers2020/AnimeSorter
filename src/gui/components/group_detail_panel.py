@@ -216,8 +216,7 @@ class GroupDetailPanel(QWidget):
                     f"애니메이션 포스터 이미지: {poster_path}"
                 )
                 return
-            else:
-                print(f"❌ 로컬 포스터 로드 실패: {poster_path}")
+            print(f"❌ 로컬 포스터 로드 실패: {poster_path}")
 
         # 2. URL이 있으면 네트워크에서 다운로드
         if poster_url and poster_url.strip():
@@ -246,8 +245,7 @@ class GroupDetailPanel(QWidget):
                             f"애니메이션 포스터 이미지: {poster_url}"
                         )
                         return
-                    else:
-                        print("❌ 포스터 데이터 파싱 실패")
+                    print("❌ 포스터 데이터 파싱 실패")
                 else:
                     print(f"❌ HTTP 오류: {response.status_code}")
             except Exception as e:
@@ -360,7 +358,7 @@ class GroupDetailPanel(QWidget):
             )
 
             # 접근성 설정
-            chip.setAccessibleName(f"태그 {i+1}")
+            chip.setAccessibleName(f"태그 {i + 1}")
             chip.setAccessibleDescription(f"애니메이션 태그: {tag}")
 
             self.tags_layout.addWidget(chip)
@@ -412,10 +410,14 @@ class GroupDetailPanel(QWidget):
 
         # TMDB 매치 정보에서 포스터 URL 생성
         tmdb_match = group_data.get("tmdb_match")
-        if tmdb_match and hasattr(tmdb_match, "poster_path") and tmdb_match.poster_path:
-            if not poster_url:
-                poster_url = f"https://image.tmdb.org/t/p/w500{tmdb_match.poster_path}"
-                print(f"🎯 TMDB 포스터 URL 생성: {poster_url}")
+        if (
+            tmdb_match
+            and hasattr(tmdb_match, "poster_path")
+            and tmdb_match.poster_path
+            and not poster_url
+        ):
+            poster_url = f"https://image.tmdb.org/t/p/w500{tmdb_match.poster_path}"
+            print(f"🎯 TMDB 포스터 URL 생성: {poster_url}")
 
         # 태그들
         tags = group_data.get("tags", [])

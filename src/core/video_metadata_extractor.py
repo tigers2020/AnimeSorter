@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from src.app.domain import MediaQuality
+from app.domain import MediaQuality
 
 
 class VideoMetadataExtractor:
@@ -53,7 +53,12 @@ class VideoMetadataExtractor:
         Returns:
             해상도 문자열 (예: "1920x1080", "1280x720") 또는 None
         """
+        # ffprobe가 없으면 파일명에서 화질 추측
         if not self._ffprobe_available:
+            guessed_resolution = self._guess_resolution_from_filename(file_path)
+            if guessed_resolution:
+                self.logger.info(f"파일명에서 화질 추측: {guessed_resolution}")
+                return guessed_resolution
             self.logger.warning("ffprobe가 사용 불가능하여 해상도 추출을 건너뜁니다.")
             return None
 
@@ -108,6 +113,62 @@ class VideoMetadataExtractor:
             return None
         except Exception as e:
             self.logger.error(f"해상도 추출 중 오류 발생: {e}")
+            return None
+
+    def _guess_resolution_from_filename(self, file_path: str) -> str | None:
+        """
+        파일명에서 화질 정보 추측
+
+        Args:
+            file_path: 파일 경로
+
+        Returns:
+            추측된 해상도 문자열 또는 None
+        """
+        try:
+            filename = Path(file_path).name.lower()
+
+            # 일반적인 화질 패턴들 (괄호 포함)
+            if any(
+                pattern in filename
+                for pattern in ["4k", "2160p", "uhd", "(4k)", "(2160p)", "(uhd)"]
+            ):
+                return "3840x2160"
+            if any(
+                pattern in filename
+                for pattern in ["2k", "1440p", "qhd", "(2k)", "(1440p)", "(qhd)"]
+            ):
+                return "2560x1440"
+            if any(
+                pattern in filename
+                for pattern in ["1080p", "fhd", "1920x1080", "(1080p)", "(fhd)", "(1920x1080)"]
+            ):
+                return "1920x1080"
+            if any(
+                pattern in filename
+                for pattern in ["720p", "hd", "1280x720", "(720p)", "(hd)", "(1280x720)"]
+            ):
+                return "1280x720"
+            if any(
+                pattern in filename
+                for pattern in ["480p", "sd", "854x480", "(480p)", "(sd)", "(854x480)"]
+            ):
+                return "854x480"
+            if any(pattern in filename for pattern in ["360p", "640x360", "(360p)", "(640x360)"]):
+                return "640x360"
+
+            # 파일 크기로 대략적인 화질 추측 (매우 부정확)
+            file_size = Path(file_path).stat().st_size
+            if file_size > 500 * 1024 * 1024:  # 500MB 이상
+                return "1920x1080"  # 1080p로 추측
+            if file_size > 200 * 1024 * 1024:  # 200MB 이상
+                return "1280x720"  # 720p로 추측
+            if file_size > 100 * 1024 * 1024:  # 100MB 이상
+                return "854x480"  # 480p로 추측
+            return "640x360"  # 360p로 추측
+
+        except Exception as e:
+            self.logger.warning(f"파일명에서 화질 추측 실패: {e}")
             return None
 
     def extract_video_metadata(self, file_path: str) -> dict[str, Any] | None:
@@ -296,7 +357,10 @@ class VideoMetadataExtractor:
             (고화질 파일 리스트, 저화질 파일 리스트) 튜플
         """
         if not file_paths:
+            self.logger.warning("파일 경로 리스트가 비어있습니다.")
             return [], []
+
+        self.logger.info(f"화질별 분류 시작: {len(file_paths)}개 파일")
 
         # 각 파일의 화질 정보 추출
         file_qualities = []
@@ -305,12 +369,15 @@ class VideoMetadataExtractor:
                 resolution = self.extract_resolution(file_path)
                 quality = self.get_media_quality_from_resolution(resolution)
                 file_qualities.append((file_path, quality))
-                self.logger.debug(f"파일 {Path(file_path).name}: {quality.value}")
+                self.logger.info(
+                    f"파일 {Path(file_path).name}: 해상도={resolution}, 품질={quality.value}"
+                )
             except Exception as e:
                 self.logger.warning(f"파일 {file_path}의 화질 추출 실패: {e}")
                 file_qualities.append((file_path, MediaQuality.UNKNOWN))
 
         if not file_qualities:
+            self.logger.warning("화질 정보를 추출할 수 있는 파일이 없습니다.")
             return [], []
 
         # 가장 높은 화질 찾기
@@ -324,8 +391,10 @@ class VideoMetadataExtractor:
         for file_path, quality in file_qualities:
             if quality == highest_quality:
                 high_quality_files.append(file_path)
+                self.logger.debug(f"고화질 그룹: {Path(file_path).name}")
             else:
                 low_quality_files.append(file_path)
+                self.logger.debug(f"저화질 그룹: {Path(file_path).name}")
 
         self.logger.info(
             f"화질별 분류 완료: 고화질 {len(high_quality_files)}개, 저화질 {len(low_quality_files)}개"

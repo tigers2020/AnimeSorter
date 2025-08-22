@@ -226,12 +226,11 @@ class UIStateManager(QObject):
         """현재 브레이크포인트 반환"""
         if window_width >= 1600:
             return "3column"
-        elif 1400 <= window_width < 1600:
+        if 1400 <= window_width < 1600:
             return "2column_file_hidden"
-        elif 1280 <= window_width < 1400:
+        if 1280 <= window_width < 1400:
             return "1column_detail_hidden"
-        else:
-            return "mobile"
+        return "mobile"
 
     def _save_window_state(self):
         """윈도우 상태 저장"""
@@ -604,10 +603,9 @@ class UIStateManager(QObject):
 
             if hasattr(self.main_window, "results_view"):
                 results_view = self.main_window.results_view
-                if isinstance(results_view, QTabWidget):
-                    if 0 <= active_tab < results_view.count():
-                        results_view.setCurrentIndex(active_tab)
-                        self.logger.debug(f"활성 탭 복원 완료: {active_tab}")
+                if isinstance(results_view, QTabWidget) and 0 <= active_tab < results_view.count():
+                    results_view.setCurrentIndex(active_tab)
+                    self.logger.debug(f"활성 탭 복원 완료: {active_tab}")
 
         except Exception as e:
             self.logger.error(f"활성 탭 복원 실패: {e}")

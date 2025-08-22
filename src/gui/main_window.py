@@ -155,13 +155,41 @@ class MainWindow(QMainWindow):
         self.init_ui_state_management()
 
         # Phase 9.2: 테마 관리자 초기화
+        print("🎨 테마 관리자 초기화 시작...")
         self.theme_manager = ThemeManager(self)
         self.theme_manager.theme_changed.connect(self.on_theme_changed)
+        print("✅ 테마 관리자 인스턴스 생성 완료")
 
         # 설정에서 저장된 테마 적용
         saved_theme = self.settings_manager.get_setting("theme", "auto")
-        self.theme_manager.apply_theme(saved_theme)
-        print(f"✅ 테마 관리자 초기화 완료 (테마: {saved_theme})")
+        print(f"📋 설정에서 읽은 테마: {saved_theme}")
+
+        # 테마 적용 시도
+        theme_applied = self.theme_manager.apply_theme(saved_theme)
+        if theme_applied:
+            print(f"✅ 테마 '{saved_theme}' 적용 성공")
+        else:
+            print(f"❌ 테마 '{saved_theme}' 적용 실패")
+
+        # 현재 테마 상태 상세 출력
+        current_theme = self.theme_manager.get_current_theme()
+        system_theme = self.theme_manager.get_system_theme()
+        effective_theme = (
+            "dark"
+            if (current_theme == "auto" and system_theme == "dark") or current_theme == "dark"
+            else "light"
+        )
+
+        print("🎨 테마 관리자 초기화 완료")
+        print(f"   - 설정된 테마: {saved_theme}")
+        print(f"   - 현재 테마: {current_theme}")
+        print(f"   - 시스템 테마: {system_theme}")
+        print(f"   - 실제 적용된 테마: {effective_theme}")
+        print(f"   - 테마 적용 상태: {'성공' if theme_applied else '실패'}")
+
+        # 상태바에 테마 정보 표시
+        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
+            self.status_bar_manager.update_status_bar(f"테마가 {saved_theme}로 변경되었습니다")
 
         # Phase 10.1: 접근성 관리자 초기화
         self.accessibility_manager = AccessibilityManager(self)
@@ -1446,10 +1474,13 @@ class MainWindow(QMainWindow):
             if hasattr(self, "left_panel_dock") and self.left_panel_dock.isVisible():
                 self.left_panel_dock.hide()
         else:
-            if hasattr(self, "left_panel_dock") and not self.left_panel_dock.isVisible():
+            if (
+                hasattr(self, "left_panel_dock")
+                and not self.left_panel_dock.isVisible()
+                and (not hasattr(self, "_user_dock_toggle") or not self._user_dock_toggle)
+            ):
                 # 사용자가 수동으로 숨기지 않았다면 다시 표시
-                if not hasattr(self, "_user_dock_toggle") or not self._user_dock_toggle:
-                    self.left_panel_dock.show()
+                self.left_panel_dock.show()
 
         # 왼쪽 패널 크기 조정 (기존 로직)
         if hasattr(self, "left_panel"):

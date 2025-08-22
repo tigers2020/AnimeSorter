@@ -3,7 +3,7 @@
 한국어/영어 다국어 지원을 위한 번역 시스템
 """
 
-from typing import Optional
+from pathlib import Path
 
 from PyQt5.QtCore import QLocale, QObject, QTranslator, pyqtSignal
 from PyQt5.QtWidgets import QApplication
@@ -257,11 +257,10 @@ class I18nManager(QObject):
             print(f"🌍 언어가 {old_language}에서 {language_code}로 변경되었습니다")
             self.language_changed.emit(language_code)
             return True
-        else:
-            # 실패 시 원래 언어로 롤백
-            self.current_language = old_language
-            print(f"⚠️ 언어 변경 실패, {old_language}로 롤백")
-            return False
+        # 실패 시 원래 언어로 롤백
+        self.current_language = old_language
+        print(f"⚠️ 언어 변경 실패, {old_language}로 롤백")
+        return False
 
     def _apply_language_change(self) -> bool:
         """언어 변경 적용"""
@@ -294,7 +293,7 @@ class I18nManager(QObject):
             print(f"⚠️ 언어 변경 적용 실패: {e}")
             return False
 
-    def tr(self, key: str, fallback: Optional[str] = None) -> str:
+    def tr(self, key: str, fallback: str | None = None) -> str:
         """번역 함수 - 키에 해당하는 번역된 텍스트 반환"""
         try:
             # 현재 언어의 번역 데이터에서 검색
@@ -328,8 +327,7 @@ class I18nManager(QObject):
 
             if language == QLocale.Korean:
                 return "ko"
-            else:
-                return "en"  # 기본값
+            return "en"  # 기본값
 
         except Exception as e:
             print(f"⚠️ 시스템 언어 감지 실패: {e}")
@@ -374,7 +372,7 @@ class I18nManager(QObject):
         all_keys = set()
         for translations in self.translations.values():
             all_keys.update(translations.keys())
-        return sorted(list(all_keys))
+        return sorted(all_keys)
 
     def export_translations(self, file_path: str) -> bool:
         """번역 데이터를 파일로 내보내기"""
@@ -388,7 +386,7 @@ class I18nManager(QObject):
                 "translations": self.translations,
             }
 
-            with open(file_path, "w", encoding="utf-8") as f:
+            with Path(file_path).open("w", encoding="utf-8") as f:
                 json.dump(export_data, f, ensure_ascii=False, indent=2)
 
             print(f"✅ 번역 데이터 내보내기 완료: {file_path}")
@@ -403,7 +401,7 @@ class I18nManager(QObject):
         try:
             import json
 
-            with open(file_path, encoding="utf-8") as f:
+            with Path(file_path).open(encoding="utf-8") as f:
                 import_data = json.load(f)
 
             # 데이터 검증

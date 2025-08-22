@@ -20,6 +20,8 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
 )
 
+from core.video_metadata_extractor import VideoMetadataExtractor
+
 
 @dataclass
 class OrganizeResult:
@@ -54,6 +56,7 @@ class FileOrganizeWorker(QThread):
         self.destination_directory = destination_directory
         self.cancelled = False
         self.mutex = QMutex()
+        self.video_metadata_extractor = VideoMetadataExtractor()
 
         # 자막 파일 확장자 정의
         self.subtitle_extensions = {
@@ -144,105 +147,75 @@ class FileOrganizeWorker(QThread):
                     processed_files += len(group_items)
                     continue
 
-                # 그룹 내 각 파일 처리
-                for item in group_items:
-                    # 취소 확인
-                    self.mutex.lock()
-                    if self.cancelled:
-                        self.mutex.unlock()
-                        break
-                    self.mutex.unlock()
-
-                    # 소스 파일 경로 확인
-                    if not hasattr(item, "sourcePath") or not item.sourcePath:
-                        result.skip_count += 1
-                        result.skipped_files.append(f"Unknown file in {group_id}")
-                        processed_files += 1
-                        continue
-
-                    source_path = item.sourcePath
-                    if not Path(source_path).exists():
-                        error_msg = f"소스 파일이 존재하지 않음: {source_path}"
-                        result.errors.append(error_msg)
-                        result.error_count += 1
-                        self.file_processed.emit(Path(source_path).name, error_msg, False)
-                        processed_files += 1
-                        continue
-
-                    # 소스 디렉토리 추적
-                    source_dir = str(Path(source_path).parent)
-                    source_directories.add(source_dir)
-
-                    filename = Path(source_path).name
-                    target_path = str(Path(target_base_dir) / filename)
-
+                # 화질별로 파일 분류
+                file_paths = [
+                    item.sourcePath
+                    for item in group_items
+                    if hasattr(item, "sourcePath") and item.sourcePath
+                ]
+                if file_paths:
                     try:
-                        # 파일 이동
-                        self._safe_move_file(source_path, target_path)
-                        result.success_count += 1
-                        self.file_processed.emit(filename, f"이동 완료: {target_path}", True)
-
-                        # 자막 파일 찾기 및 이동
-                        subtitle_files = self._find_subtitle_files(source_path)
-
-                        for subtitle_path in subtitle_files:
-                            try:
-                                subtitle_filename = Path(subtitle_path).name
-                                subtitle_target_path = self._resolve_target_path(
-                                    target_base_dir, subtitle_filename
-                                )
-
-                                # 자막 파일 경로 길이 검증
-                                if len(subtitle_target_path) > 260:
-                                    error_msg = (
-                                        f"자막 파일 경로가 너무 깁니다: {subtitle_target_path}"
-                                    )
-                                    result.errors.append(error_msg)
-                                    continue
-
-                                # 자막 파일 이동
-                                self._safe_move_file(subtitle_path, subtitle_target_path)
-                                result.subtitle_count += 1
-                                self.file_processed.emit(
-                                    subtitle_filename,
-                                    f"자막 이동 완료: {subtitle_target_path}",
-                                    True,
-                                )
-
-                            except Exception as e:
-                                error_msg = f"자막 파일 이동 실패: {subtitle_path} - {str(e)}"
-                                result.errors.append(error_msg)
-                                self.file_processed.emit(Path(subtitle_path).name, error_msg, False)
-
-                        if not subtitle_files:
-                            pass  # Removed debug print
-
-                    except PermissionError:
-                        error_msg = f"권한 오류: 파일 이동 실패 - {source_path}"
-                        result.errors.append(error_msg)
-                        result.error_count += 1
-                        self.file_processed.emit(filename, error_msg, False)
-                    except OSError as e:
-                        error_msg = f"파일 이동 실패: {source_path} -> {target_path} - {str(e)}"
-                        result.errors.append(error_msg)
-                        result.error_count += 1
-                        self.file_processed.emit(filename, error_msg, False)
+                        (
+                            high_quality_files,
+                            low_quality_files,
+                        ) = self.video_metadata_extractor.classify_files_by_quality(file_paths)
+                        print(
+                            f"그룹 '{group_id}' 화질별 분류: 고화질 {len(high_quality_files)}개, 저화질 {len(low_quality_files)}개"
+                        )
                     except Exception as e:
-                        error_msg = f"예상치 못한 오류: {source_path} - {str(e)}"
-                        result.errors.append(error_msg)
-                        result.error_count += 1
-                        self.file_processed.emit(filename, error_msg, False)
+                        print(f"화질별 분류 실패: {e}")
+                        high_quality_files, low_quality_files = [], []
 
-                    processed_files += 1
-                    progress = int((processed_files / total_files) * 100)
-                    self.progress_updated.emit(progress, f"처리 중: {filename}")
+                # 고화질 파일들을 원본 그룹 디렉토리에 배치
+                if high_quality_files:
+                    high_quality_dir = target_base_dir
+                    for item in group_items:
+                        if hasattr(item, "sourcePath") and item.sourcePath in high_quality_files:
+                            success = self._process_single_file(
+                                item, high_quality_dir, result, source_directories
+                            )
+                            if success:
+                                processed_files += 1
 
-                # 취소 확인
-                self.mutex.lock()
-                if self.cancelled:
-                    self.mutex.unlock()
-                    break
+                # 저화질 파일들을 '_low res/original_path' 구조로 배치
+                if low_quality_files:
+                    # F:\kiwi\tmdb_exports\_low res\단다단\Season01 형태로 생성
+                    low_quality_dir = str(
+                        Path(self.destination_directory) / "_low res" / safe_title / season_folder
+                    )
+                    try:
+                        Path(low_quality_dir).mkdir(parents=True, exist_ok=True)
+                    except Exception as e:
+                        print(f"저화질 디렉토리 생성 실패: {e}")
+                        low_quality_dir = target_base_dir  # 실패시 원본 디렉토리 사용
+
+                    for item in group_items:
+                        if hasattr(item, "sourcePath") and item.sourcePath in low_quality_files:
+                            success = self._process_single_file(
+                                item, low_quality_dir, result, source_directories
+                            )
+                            if success:
+                                processed_files += 1
+
+                # 화질별 분리가 실패한 경우 기존 방식으로 처리
+                if not high_quality_files and not low_quality_files:
+                    for item in group_items:
+                        success = self._process_single_file(
+                            item, target_base_dir, result, source_directories
+                        )
+                        if success:
+                            processed_files += 1
+
+                # 진행률 업데이트
+                progress = int((processed_files / total_files) * 100)
+                self.progress_updated.emit(progress, f"처리 중: {group_id}")
+
+            # 취소 확인
+            self.mutex.lock()
+            if self.cancelled:
                 self.mutex.unlock()
+                return
+            self.mutex.unlock()
 
             # 파일 이동 완료 후 빈 디렉토리 정리
             if not self.cancelled and source_directories:
@@ -380,6 +353,99 @@ class FileOrganizeWorker(QThread):
             else:
                 raise
 
+    def _process_single_file(self, item, target_dir, result, source_directories):
+        """단일 파일 처리 (화질별 분리용)"""
+        try:
+            # 취소 확인
+            self.mutex.lock()
+            if self.cancelled:
+                self.mutex.unlock()
+                return False
+            self.mutex.unlock()
+
+            # 소스 파일 경로 확인
+            if not hasattr(item, "sourcePath") or not item.sourcePath:
+                result.skip_count += 1
+                result.skipped_files.append(f"Unknown file in {item}")
+                return False
+
+            source_path = item.sourcePath
+            if not Path(source_path).exists():
+                error_msg = f"소스 파일이 존재하지 않음: {source_path}"
+                result.errors.append(error_msg)
+                result.error_count += 1
+                self.file_processed.emit(Path(source_path).name, error_msg, False)
+                return False
+
+            # 소스 디렉토리 추적
+            source_dir = str(Path(source_path).parent)
+            source_directories.add(source_dir)
+
+            filename = Path(source_path).name
+            target_path = str(Path(target_dir) / filename)
+
+            try:
+                # 파일 이동
+                self._safe_move_file(source_path, target_path)
+                result.success_count += 1
+                self.file_processed.emit(filename, f"이동 완료: {target_path}", True)
+
+                # 자막 파일 찾기 및 이동
+                subtitle_files = self._find_subtitle_files(source_path)
+
+                for subtitle_path in subtitle_files:
+                    try:
+                        subtitle_filename = Path(subtitle_path).name
+                        subtitle_target_path = self._resolve_target_path(
+                            target_dir, subtitle_filename
+                        )
+
+                        # 자막 파일 경로 길이 검증
+                        if len(subtitle_target_path) > 260:
+                            error_msg = f"자막 파일 경로가 너무 깁니다: {subtitle_target_path}"
+                            result.errors.append(error_msg)
+                            continue
+
+                        # 자막 파일 이동
+                        self._safe_move_file(subtitle_path, subtitle_target_path)
+                        result.subtitle_count += 1
+                        self.file_processed.emit(
+                            subtitle_filename,
+                            f"자막 이동 완료: {subtitle_target_path}",
+                            True,
+                        )
+
+                    except Exception as e:
+                        error_msg = f"자막 파일 이동 실패: {subtitle_path} - {str(e)}"
+                        result.errors.append(error_msg)
+                        self.file_processed.emit(Path(subtitle_path).name, error_msg, False)
+
+                return True
+
+            except PermissionError:
+                error_msg = f"권한 오류: 파일 이동 실패 - {source_path}"
+                result.errors.append(error_msg)
+                result.error_count += 1
+                self.file_processed.emit(filename, error_msg, False)
+            except OSError as e:
+                error_msg = f"파일 이동 실패: {source_path} -> {target_path} - {str(e)}"
+                result.errors.append(error_msg)
+                result.error_count += 1
+                self.file_processed.emit(filename, error_msg, False)
+            except Exception as e:
+                error_msg = f"예상치 못한 오류: {source_path} - {str(e)}"
+                result.errors.append(error_msg)
+                result.error_count += 1
+                self.file_processed.emit(filename, error_msg, False)
+
+            return False
+
+        except Exception as e:
+            error_msg = f"파일 처리 중 오류: {str(e)}"
+            result.errors.append(error_msg)
+            result.error_count += 1
+            return False
+
     def _cleanup_empty_directories(self, source_directories: set[str]) -> int:
         """파일 이동 후 빈 디렉토리들을 정리합니다"""
         cleaned_count = 0
@@ -390,8 +456,11 @@ class FileOrganizeWorker(QThread):
                 if not Path(source_dir).exists():
                     continue
 
-                # 재귀적으로 빈 디렉토리 삭제
+                # 재귀적으로 빈 디렉토리 삭제 (하위부터)
                 cleaned_count += self._remove_empty_dirs_recursive(source_dir)
+
+                # 상위 디렉토리까지 올라가면서 빈 디렉토리 삭제
+                cleaned_count += self._cleanup_parent_directories(source_dir)
 
             except Exception as e:
                 print(f"⚠️ 디렉토리 정리 중 오류 ({source_dir}): {e}")
@@ -424,6 +493,29 @@ class FileOrganizeWorker(QThread):
 
         except Exception as e:
             print(f"⚠️ 디렉토리 정리 중 오류 ({directory}): {e}")
+
+        return cleaned_count
+
+    def _cleanup_parent_directories(self, start_directory: str) -> int:
+        """상위 디렉토리까지 올라가면서 빈 디렉토리를 삭제합니다"""
+        cleaned_count = 0
+        current_dir = Path(start_directory).parent
+
+        while current_dir and current_dir != current_dir.parent:  # 루트 디렉토리까지
+            try:
+                # 디렉토리가 존재하고 비어있는지 확인
+                if current_dir.exists() and not list(current_dir.iterdir()):
+                    current_dir.rmdir()
+                    cleaned_count += 1
+                    print(f"🗑️ 빈 상위 디렉토리 삭제: {current_dir}")
+                    # 상위 디렉토리로 이동
+                    current_dir = current_dir.parent
+                else:
+                    # 비어있지 않거나 존재하지 않으면 중단
+                    break
+            except OSError as e:
+                print(f"⚠️ 상위 디렉토리 삭제 실패 ({current_dir}): {e}")
+                break
 
         return cleaned_count
 
@@ -489,16 +581,23 @@ class OrganizeProgressDialog(QDialog):
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setMaximumHeight(150)
+        # Theme에 맞는 색상으로 stylesheet 설정
+        palette = self.palette()
+        bg_color = palette.color(palette.Base).name()
+        border_color = palette.color(palette.Mid).name()
+        text_color = palette.color(palette.Text).name()
+
         self.log_text.setStyleSheet(
-            """
-            QTextEdit {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
+            f"""
+            QTextEdit {{
+                background-color: {bg_color};
+                border: 1px solid {border_color};
                 border-radius: 4px;
                 padding: 5px;
                 font-family: 'Consolas', 'Monaco', monospace;
                 font-size: 9px;
-            }
+                color: {text_color};
+            }}
         """
         )
         layout.addWidget(self.log_text)

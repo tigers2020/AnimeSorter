@@ -3,7 +3,6 @@
 빠른 작업, 통계, 필터 그룹을 포함하는 왼쪽 패널을 관리합니다.
 """
 
-
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import (
     QFormLayout,

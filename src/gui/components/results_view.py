@@ -761,13 +761,13 @@ class ResultsView(QTabWidget):
         current_index = self.currentIndex()
         if current_index == 0:  # 전체 탭
             return getattr(self, "all_splitter", None)
-        elif current_index == 1:  # 미매칭 탭
+        if current_index == 1:  # 미매칭 탭
             return getattr(self, "unmatched_splitter", None)
-        elif current_index == 2:  # 충돌 탭
+        if current_index == 2:  # 충돌 탭
             return getattr(self, "conflict_splitter", None)
-        elif current_index == 3:  # 중복 탭
+        if current_index == 3:  # 중복 탭
             return getattr(self, "duplicate_splitter", None)
-        elif current_index == 4:  # 완료 탭
+        if current_index == 4:  # 완료 탭
             return getattr(self, "completed_splitter", None)
         return None
 
@@ -833,44 +833,39 @@ class ResultsView(QTabWidget):
                 return file_model
 
             # 다른 타입의 모델인 경우 - MainWindow의 grouped_model 사용
-            else:
-                print(f"❌ get_group_at_row 메서드가 없는 모델: {type(group_model).__name__}")
-                print("🔍 MainWindow의 grouped_model 사용 시도")
+            print(f"❌ get_group_at_row 메서드가 없는 모델: {type(group_model).__name__}")
+            print("🔍 MainWindow의 grouped_model 사용 시도")
 
-                # MainWindow에서 grouped_model 가져오기
-                from PyQt5.QtWidgets import QApplication
+            # MainWindow에서 grouped_model 가져오기
+            from PyQt5.QtWidgets import QApplication
 
-                app = QApplication.instance()
-                if app:
-                    main_windows = [
-                        widget
-                        for widget in app.topLevelWidgets()
-                        if hasattr(widget, "grouped_model")
-                    ]
-                    if main_windows:
-                        main_window = main_windows[0]
-                        if hasattr(main_window, "grouped_model") and main_window.grouped_model:
-                            grouped_model = main_window.grouped_model
-                            print(
-                                f"✅ MainWindow의 grouped_model 찾음: {type(grouped_model).__name__}"
-                            )
+            app = QApplication.instance()
+            if app:
+                main_windows = [
+                    widget for widget in app.topLevelWidgets() if hasattr(widget, "grouped_model")
+                ]
+                if main_windows:
+                    main_window = main_windows[0]
+                    if hasattr(main_window, "grouped_model") and main_window.grouped_model:
+                        grouped_model = main_window.grouped_model
+                        print(f"✅ MainWindow의 grouped_model 찾음: {type(grouped_model).__name__}")
 
-                            if hasattr(grouped_model, "get_group_at_row"):
-                                group_info = grouped_model.get_group_at_row(group_index.row())
-                                if group_info:
-                                    group_items = group_info.get("items", [])
-                                    if group_items:
-                                        from ..table_models import DetailFileModel
+                        if hasattr(grouped_model, "get_group_at_row"):
+                            group_info = grouped_model.get_group_at_row(group_index.row())
+                            if group_info:
+                                group_items = group_info.get("items", [])
+                                if group_items:
+                                    from ..table_models import DetailFileModel
 
-                                        file_model = DetailFileModel()
-                                        file_model.set_items(group_items)
-                                        print(
-                                            f"✅ MainWindow grouped_model로 파일 모델 생성: {len(group_items)}개 파일"
-                                        )
-                                        return file_model
+                                    file_model = DetailFileModel()
+                                    file_model.set_items(group_items)
+                                    print(
+                                        f"✅ MainWindow grouped_model로 파일 모델 생성: {len(group_items)}개 파일"
+                                    )
+                                    return file_model
 
-                print("❌ MainWindow의 grouped_model에서도 그룹 정보를 찾을 수 없음")
-                return None
+            print("❌ MainWindow의 grouped_model에서도 그룹 정보를 찾을 수 없음")
+            return None
 
         except Exception as e:
             print(f"❌ get_file_model_for_group 실패: {e}")

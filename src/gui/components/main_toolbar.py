@@ -317,8 +317,7 @@ class MainToolbar(QWidget):
                 color: #ecf0f1;
                 }}
             """
-        else:
-            return f"""
+        return f"""
                 QPushButton {{
                     background-color: {color};
                 color: white;

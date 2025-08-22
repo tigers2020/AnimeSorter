@@ -3,7 +3,6 @@
 스크린 리더, 키보드 네비게이션, 고대비 모드를 지원하는 접근성 시스템
 """
 
-
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QColor, QPalette
 from PyQt5.QtWidgets import (

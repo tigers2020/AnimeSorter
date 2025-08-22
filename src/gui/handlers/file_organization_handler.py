@@ -141,8 +141,43 @@ class FileOrganizationHandler(QObject):
                     message += f"... 및 {len(result.skipped_files) - 3}개 더\n"
                 message += "\n"
 
-            # 결과 다이얼로그 표시
-            QMessageBox.information(self.main_window, "파일 정리 완료", message)
+            # 결과 다이얼로그 표시 (theme 호환)
+            msg_box = QMessageBox(self.main_window)
+            msg_box.setWindowTitle("파일 정리 완료")
+            msg_box.setText(message)
+            msg_box.setIcon(QMessageBox.Information)
+
+            # Theme에 맞는 색상으로 stylesheet 설정
+            palette = self.main_window.palette()
+            bg_color = palette.color(palette.Window).name()
+            text_color = palette.color(palette.WindowText).name()
+            button_bg = palette.color(palette.Button).name()
+            button_text = palette.color(palette.ButtonText).name()
+
+            msg_box.setStyleSheet(
+                f"""
+                QMessageBox {{
+                    background-color: {bg_color};
+                    color: {text_color};
+                }}
+                QMessageBox QPushButton {{
+                    background-color: {button_bg};
+                    color: {button_text};
+                    border: 1px solid {palette.color(palette.Mid).name()};
+                    border-radius: 4px;
+                    padding: 6px 12px;
+                    min-width: 60px;
+                }}
+                QMessageBox QPushButton:hover {{
+                    background-color: {palette.color(palette.Light).name()};
+                }}
+                QMessageBox QPushButton:pressed {{
+                    background-color: {palette.color(palette.Dark).name()};
+                }}
+            """
+            )
+
+            msg_box.exec_()
 
             # 상태바 업데이트
             if result.success_count > 0:

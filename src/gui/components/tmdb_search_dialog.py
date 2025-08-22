@@ -226,7 +226,7 @@ class TMDBSearchDialog(QDialog):
         # 결과 목록에 추가
         for i, anime in enumerate(results):
             try:
-                print(f"📋 결과 {i+1}: ID={anime.id}, 제목={anime.name}")
+                print(f"📋 결과 {i + 1}: ID={anime.id}, 제목={anime.name}")
 
                 item = QListWidgetItem()  # Create QListWidgetItem first
                 self.resultsList.addItem(item)  # Add it to the list widget
@@ -236,7 +236,7 @@ class TMDBSearchDialog(QDialog):
                 with contextlib.suppress(Exception):
                     item.setSizeHint(widget.sizeHint())
 
-                print(f"✅ 결과 {i+1} 추가 완료")
+                print(f"✅ 결과 {i + 1} 추가 완료")
             except Exception as e:
                 print(f"❌ 결과 아이템 생성 실패: {e}")
                 import traceback
@@ -248,11 +248,11 @@ class TMDBSearchDialog(QDialog):
                         f"ID: {anime.id} - {getattr(anime, 'name', 'Unknown')}"
                     )
                     self.resultsList.addItem(simple_item)
-                    print(f"✅ 간단한 아이템 {i+1} 추가 완료")
+                    print(f"✅ 간단한 아이템 {i + 1} 추가 완료")
                 except Exception as e2:
                     print(f"❌ 간단한 아이템도 실패: {e2}")
                     # 최후의 수단: 기본 텍스트
-                    basic_item = QListWidgetItem(f"결과 {i+1}")
+                    basic_item = QListWidgetItem(f"결과 {i + 1}")
                     self.resultsList.addItem(basic_item)
 
     def on_search_failed(self, error: str):

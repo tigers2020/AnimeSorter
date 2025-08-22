@@ -44,10 +44,7 @@ class StatusFilterProxyModel(QSortFilterProxyModel):
             return False
 
         # 2. 검색 필터 확인
-        if not self._accepts_search_filter(source_row, source_parent):
-            return False
-
-        return True
+        return self._accepts_search_filter(source_row, source_parent)
 
     def _accepts_status_filter(self, source_row, source_parent):
         """상태 필터 확인"""

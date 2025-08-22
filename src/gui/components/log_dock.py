@@ -3,6 +3,8 @@
 기존 로그 위젯을 Bottom Dock으로 이동하여 사용자 경험을 향상시킵니다.
 """
 
+from pathlib import Path
+
 from PyQt5.QtCore import QSettings, Qt
 from PyQt5.QtWidgets import (
     QDockWidget,
@@ -217,7 +219,6 @@ class LogDock(QDockWidget):
 
     def export_logs(self):
         """로그 내보내기"""
-        import os
 
         from PyQt5.QtCore import QDateTime
         from PyQt5.QtWidgets import QFileDialog
@@ -233,7 +234,7 @@ class LogDock(QDockWidget):
 
         if file_path:
             try:
-                with open(file_path, "w", encoding="utf-8") as f:
+                with Path(file_path).open("w", encoding="utf-8") as f:
                     f.write("=== AnimeSorter 로그 내보내기 ===\n")
                     f.write(
                         f"내보낸 시간: {QDateTime.currentDateTime().toString('yyyy-MM-dd hh:mm:ss')}\n\n"
@@ -247,7 +248,7 @@ class LogDock(QDockWidget):
                     f.write(self.txt_err.toPlainText())
 
                 # 성공 메시지
-                self.add_activity_log(f"✅ 로그 내보내기 완료: {os.path.basename(file_path)}")
+                self.add_activity_log(f"✅ 로그 내보내기 완료: {Path(file_path).name}")
 
             except Exception as e:
                 self.add_error_log(f"❌ 로그 내보내기 실패: {str(e)}")

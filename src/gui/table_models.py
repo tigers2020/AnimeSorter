@@ -351,8 +351,7 @@ class GroupedListModel(QAbstractTableModel):
                 # 포스터 정보 추가
                 if group_info.get("tmdb_match") and group_info["tmdb_match"].poster_path:
                     return f"{title} - 포스터 이미지가 있습니다. 마우스를 올리면 포스터를 볼 수 있습니다."
-                else:
-                    return f"{title} - 포스터 이미지가 없습니다."
+                return f"{title} - 포스터 이미지가 없습니다."
 
         return QVariant()
 
@@ -520,8 +519,7 @@ class DetailFileModel(QAbstractTableModel):
                 # 포스터 정보 추가
                 if item.tmdbMatch and item.tmdbMatch.poster_path:
                     return f"{filename} - 포스터 이미지가 있습니다. 마우스를 올리면 포스터를 볼 수 있습니다."
-                else:
-                    return f"{filename} - 포스터 이미지가 없습니다."
+                return f"{filename} - 포스터 이미지가 없습니다."
 
         return QVariant()
 

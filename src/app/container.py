@@ -358,10 +358,7 @@ class DIContainer(IDIContainer):
 
         # PyQt5 타입들도 기본 타입으로 처리
         type_str = str(annotation)
-        if "PyQt5" in type_str or "typing.Optional" in type_str:
-            return True
-
-        return False
+        return "PyQt5" in type_str or "typing.Optional" in type_str
 
     def _is_optional_type(self, annotation: Any) -> bool:
         """Optional 타입인지 확인"""

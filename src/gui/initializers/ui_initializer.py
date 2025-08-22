@@ -397,9 +397,10 @@ class UIInitializer:
                         print(f"✅ 그룹 데이터 추출 성공: {group_info.get('title', 'Unknown')}")
 
                         # TMDB 매치 정보 포함하여 반환
-                        group_data = {
+
+                        return {
                             "title": group_info.get("title", "제목 없음"),
-                            "original_title": group_info.get("original_title", "원제 없음"),
+                            "original_title": group_info.get("original_title", "원제목 없음"),
                             "season": group_info.get("season", "시즌 정보 없음"),
                             "episode_count": group_info.get("episode_count", 0),
                             "status": group_info.get("status", "상태 정보 없음"),
@@ -408,8 +409,6 @@ class UIInitializer:
                             "tmdb_match": group_info.get("tmdb_match"),  # TMDB 매치 정보 포함
                             "tags": group_info.get("tags", []),
                         }
-
-                        return group_data
 
             # 기존 ResultsView의 로직을 활용하여 그룹 데이터 추출 (fallback)
             if hasattr(self.main_window, "results_view"):

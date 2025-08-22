@@ -3,7 +3,6 @@
 테이블 셀의 시각적 표현을 개선하여 상태별 색상, 아이콘, 진행률 바 등을 구현
 """
 
-
 from PyQt5.QtCore import QRect, QRectF, QSize, Qt
 from PyQt5.QtGui import (
     QBrush,
@@ -117,20 +116,19 @@ class BaseCellDelegate(QStyledItemDelegate):
                 "muted": QColor(200, 200, 200),  # 더 밝게 조정하여 가독성 향상
                 "alternate": QColor(53, 53, 53),
             }
-        else:
-            # 라이트 테마 색상 팔레트 (WCAG AA 기준 준수)
-            return {
-                "background": QColor(255, 255, 255),
-                "text": QColor(33, 33, 33),
-                "border": QColor(224, 224, 224),
-                "highlight": QColor(42, 130, 218),
-                "success": QColor(76, 175, 80),
-                "warning": QColor(255, 193, 7),
-                "error": QColor(244, 67, 54),
-                "info": QColor(33, 150, 243),
-                "muted": QColor(158, 158, 158),
-                "alternate": QColor(245, 245, 245),
-            }
+        # 라이트 테마 색상 팔레트 (WCAG AA 기준 준수)
+        return {
+            "background": QColor(255, 255, 255),
+            "text": QColor(33, 33, 33),
+            "border": QColor(224, 224, 224),
+            "highlight": QColor(42, 130, 218),
+            "success": QColor(76, 175, 80),
+            "warning": QColor(255, 193, 7),
+            "error": QColor(244, 67, 54),
+            "info": QColor(33, 150, 243),
+            "muted": QColor(158, 158, 158),
+            "alternate": QColor(245, 245, 245),
+        }
 
     def _get_default_colors(self) -> dict[str, QColor]:
         """기본 색상 팔레트"""
@@ -296,23 +294,22 @@ class StatusCellDelegate(BaseCellDelegate):
                 option.index.model().setData(
                     option.index, accessible_description, Qt.AccessibleDescriptionRole
                 )
-        except:
+        except Exception:
             pass
 
     def _get_color_description(self, color: QColor) -> str:
         """색상을 설명하는 텍스트 반환"""
         if color == self._theme_colors["success"]:
             return "성공을 나타내는 녹색"
-        elif color == self._theme_colors["warning"]:
+        if color == self._theme_colors["warning"]:
             return "주의를 나타내는 노란색"
-        elif color == self._theme_colors["error"]:
+        if color == self._theme_colors["error"]:
             return "오류를 나타내는 빨간색"
-        elif color == self._theme_colors["info"]:
+        if color == self._theme_colors["info"]:
             return "정보를 나타내는 파란색"
-        elif color == self._theme_colors["highlight"]:
+        if color == self._theme_colors["highlight"]:
             return "강조를 나타내는 파란색"
-        else:
-            return "기본 색상"
+        return "기본 색상"
 
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
         """상태 칩 크기 계산"""
@@ -428,7 +425,7 @@ class IconCellDelegate(BaseCellDelegate):
             icon_data = self._default_icon
 
         # 포스터 이미지인 경우 셀 크기에 맞게 조정
-        if isinstance(icon_data, (QPixmap, QIcon)) and index.column() == 0:  # 포스터 컬럼
+        if isinstance(icon_data, QPixmap | QIcon) and index.column() == 0:  # 포스터 컬럼
             # 셀 크기에 여백을 제외한 크기로 설정
             cell_width = option.rect.width() - 20  # 좌우 여백 10px씩
             cell_height = option.rect.height() - 20  # 상하 여백 10px씩
