@@ -7,10 +7,21 @@
 import json
 import logging
 import subprocess
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from app.domain import MediaQuality
+
+class MediaQuality(Enum):
+    """미디어 품질"""
+
+    UNKNOWN = "unknown"
+    SD_480P = "480p"
+    HD_720P = "720p"
+    FHD_1080P = "1080p"
+    QHD_1440P = "1440p"
+    UHD_4K = "4k"
+    UHD_8K = "8k"
 
 
 class VideoMetadataExtractor:

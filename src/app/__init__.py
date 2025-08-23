@@ -17,6 +17,20 @@ from core import (
     TMDBClient,
 )
 
+# 애플리케이션 이벤트
+from .application_events import (
+    FileOperationAppliedEvent,
+    FileOperationPlannedEvent,
+    FilesScannedEvent,
+    MediaFileCreatedEvent,
+    MediaFileDeletedEvent,
+    MediaFileMovedEvent,
+    MediaFileRenamedEvent,
+    MediaGroupCreatedEvent,
+    MetadataSyncedEvent,
+    OperationFailedEvent,
+    SettingsChangedEvent,
+)
 from .background_events import (
     TaskCancelledEvent,
     TaskCompletedEvent,
@@ -257,13 +271,14 @@ from .tmdb_search_events import (
     TMDBSearchStatus,
     TMDBSearchType,
 )
+
+# UI 이벤트
 from .ui_events import (
     ErrorMessageEvent,
     FileCountUpdateEvent,
     MemoryUsageUpdateEvent,
     MenuStateUpdateEvent,
     ProgressUpdateEvent,
-    SettingsChangedEvent,
     SettingsExportEvent,
     SettingsImportEvent,
     SettingsResetEvent,
@@ -568,3 +583,9 @@ __all__ = [
     "cleanup_application",
     "get_service",
 ]
+
+# 별칭 설정
+FileDeletedEvent = MediaFileDeletedEvent
+FileMovedEvent = MediaFileMovedEvent
+FileRenamedEvent = MediaFileRenamedEvent
+ISettingsManager = SettingsManager

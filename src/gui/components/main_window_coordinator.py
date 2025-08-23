@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import QMainWindow
 
 from .event_handler_manager_ui import EventHandlerManagerUI
 from .main_window_initializer import MainWindowInitializer
-from .menu_toolbar_manager import MenuToolbarManager
+
+# from .menu_toolbar_manager import MenuToolbarManager  # 중복 메뉴 생성 방지
 from .ui_component_manager import UIComponentManager
 
 
@@ -24,7 +25,7 @@ class MainWindowCoordinator:
         self.initializer: Optional[MainWindowInitializer] = None
         self.ui_component_manager: Optional[UIComponentManager] = None
         self.event_handler_manager: Optional[EventHandlerManagerUI] = None
-        self.menu_toolbar_manager: Optional[MenuToolbarManager] = None
+        # self.menu_toolbar_manager: Optional[MenuToolbarManager] = None  # 중복 메뉴 생성 방지
 
         # 초기화 상태
         self.initialization_complete = False
@@ -123,8 +124,8 @@ class MainWindowCoordinator:
         try:
             print("🔧 MainWindowCoordinator: 메뉴 및 툴바 관리자 생성 중...")
 
-            self.menu_toolbar_manager = MenuToolbarManager(self.main_window)
-            self.menu_toolbar_manager.setup_all_menus_and_toolbars()
+            # self.menu_toolbar_manager = MenuToolbarManager(self.main_window)  # 중복 메뉴 생성 방지
+            # self.menu_toolbar_manager.setup_all_menus_and_toolbars()
 
             self.initialization_steps.append("✅ 메뉴 및 툴바 관리자 완료")
             print("✅ MainWindowCoordinator: 메뉴 및 툴바 관리자 생성 완료")
@@ -426,9 +427,7 @@ class MainWindowCoordinator:
 
             # 초기화 단계 확인
             if len(self.initialization_steps) < 4:
-                issues.append(
-                    f"⚠️ 초기화 단계가 부족함 (현재: {len(self.initialization_steps)}개, 필요: 4개)"
-                )
+                issues.append(f"⚠️ 초기화 단계가 부족함 (현재: {len(self.initialization_steps)}개, 필요: 4개)")
 
             # 전체 초기화 상태 확인
             if not self.initialization_complete:

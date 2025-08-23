@@ -1,102 +1,27 @@
 """
-TMDB API 클라이언트 - AnimeSorter (최적화됨)
+TMDB API 클라이언트 - AnimeSorter (리팩토링됨)
 
 The Movie Database API를 사용하여 애니메이션 메타데이터를 검색하고 조회합니다.
-tmdbsimple 라이브러리를 기반으로 구현되었으며, 성능 최적화가 적용되었습니다.
+tmdbsimple 라이브러리를 기반으로 구현되었으며, 모듈화된 구조로 리팩토링되었습니다.
 """
 
-import json
 import logging
 import os
-import threading
-import time
-from collections import deque
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-import aiohttp
-import requests
 import tmdbsimple as tmdb
 
-
-@dataclass
-class TMDBAnimeInfo:
-    """TMDB 애니메이션 정보"""
-
-    id: int
-    name: str
-    original_name: str
-    overview: str
-    first_air_date: str
-    last_air_date: str
-    number_of_seasons: int
-    number_of_episodes: int
-    status: str
-    type: str
-    popularity: float
-    vote_average: float
-    vote_count: int
-    genres: list[dict[str, Any]]
-    poster_path: str
-    backdrop_path: str
-    episode_run_time: list[int]
-    networks: list[dict[str, Any]]
-    production_companies: list[dict[str, Any]]
-    languages: list[str]
-    origin_country: list[str]
-    in_production: bool
-    last_episode_to_air: dict[str, Any] | None
-    next_episode_to_air: dict[str, Any] | None
-    seasons: list[dict[str, Any]]
-    external_ids: dict[str, Any]
-    images: dict[str, Any]
-    credits: dict[str, Any]
-    videos: dict[str, Any]
-    keywords: dict[str, Any]
-    recommendations: dict[str, Any]
-    similar: dict[str, Any]
-    translations: dict[str, Any]
-    content_ratings: dict[str, Any]
-    watch_providers: dict[str, Any]
-
-
-class RateLimiter:
-    """API 속도 제한 관리"""
-
-    def __init__(self, max_requests: int = 40, time_window: int = 10):
-        """
-        Args:
-            max_requests: 시간 창 내 최대 요청 수
-            time_window: 시간 창 (초)
-        """
-        self.max_requests = max_requests
-        self.time_window = time_window
-        self.requests = deque()
-        self.lock = threading.Lock()
-
-    def wait_if_needed(self):
-        """필요한 경우 대기"""
-        with self.lock:
-            now = time.time()
-
-            # 만료된 요청 제거
-            while self.requests and now - self.requests[0] > self.time_window:
-                self.requests.popleft()
-
-            # 속도 제한 확인
-            if len(self.requests) >= self.max_requests:
-                sleep_time = self.requests[0] + self.time_window - now
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-
-            # 새 요청 추가
-            self.requests.append(now)
+from .tmdb_cache import TMDBCacheManager
+from .tmdb_image import TMDBImageManager
+from .tmdb_models import TMDBAnimeInfo
+from .tmdb_rate_limiter import TMDBRateLimiter
 
 
 class TMDBClient:
-    """TMDB API 클라이언트 (최적화됨)"""
+    """TMDB API 클라이언트 (리팩토링됨)"""
 
     def __init__(self, api_key: str | None = None, language: str = "ko-KR"):
         """TMDB 클라이언트 초기화"""
@@ -115,74 +40,21 @@ class TMDBClient:
                 self.api_key = api_key
                 tmdb.API_KEY = api_key
             else:
-                raise ValueError(
-                    "TMDB API 키가 필요합니다. 환경 변수 TMDB_API_KEY를 설정하거나 생성자에 전달하세요."
-                )
+                raise ValueError("TMDB API 키가 필요합니다. 환경 변수 TMDB_API_KEY를 설정하거나 생성자에 전달하세요.")
 
         # 요청 타임아웃 설정 (권장: 5초)
         tmdb.REQUESTS_TIMEOUT = 5
 
         # 커스텀 세션 설정 (연결 풀링 최적화)
-        self.session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(
-            pool_connections=10,  # 연결 풀 크기
-            pool_maxsize=20,  # 최대 연결 수
-            max_retries=3,  # 재시도 횟수
-            pool_block=False,  # 비블로킹
-        )
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
+        self.session = tmdb.REQUESTS_SESSION
 
-        self.session.headers.update(
-            {
-                "User-Agent": "AnimeSorter/2.0.0",
-                "Accept": "application/json",
-                "Connection": "keep-alive",
-            }
-        )
-        tmdb.REQUESTS_SESSION = self.session
+        # 모듈화된 서비스들 초기화
+        self.cache_manager = TMDBCacheManager(self.cache_dir)
+        self.image_manager = TMDBImageManager(self.cache_dir / "posters")
+        self.rate_limiter = TMDBRateLimiter(requests_per_second=4, burst_limit=8)
 
-        # 캐시 설정 (개선됨)
-        self.cache_enabled = True
-        self.cache_expiry = 3600  # 1시간
-        self.memory_cache = {}  # 메모리 캐시 (빠른 접근용)
-        self.memory_cache_size = 1000
-        self.cache_lock = threading.Lock()
-
-        # 포스터 이미지 캐시 디렉토리
-        self.poster_cache_dir = self.cache_dir / "posters"
-        self.poster_cache_dir.mkdir(exist_ok=True)
-
-        # 속도 제한 관리
-        self.rate_limiter = RateLimiter(max_requests=40, time_window=10)
-
-        # 비동기 세션 (이미지 다운로드용)
-        self.async_session = None
-        self.async_lock = threading.Lock()
-
-    async def _get_async_session(self) -> aiohttp.ClientSession:
-        """비동기 세션 가져오기 (싱글톤 패턴)"""
-        if self.async_session is None or self.async_session.closed:
-            async with self.async_lock:
-                if self.async_session is None or self.async_session.closed:
-                    connector = aiohttp.TCPConnector(
-                        limit=20,  # 동시 연결 제한
-                        limit_per_host=10,  # 호스트당 연결 제한
-                        ttl_dns_cache=300,  # DNS 캐시 TTL
-                        use_dns_cache=True,
-                    )
-                    timeout = aiohttp.ClientTimeout(total=10, connect=5)
-                    self.async_session = aiohttp.ClientSession(
-                        connector=connector,
-                        timeout=timeout,
-                        headers={"User-Agent": "AnimeSorter/2.0.0", "Accept": "image/*"},
-                    )
-        return self.async_session
-
-    async def close_async_session(self):
-        """비동기 세션 종료"""
-        if self.async_session and not self.async_session.closed:
-            await self.async_session.close()
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info("TMDB 클라이언트 초기화 완료 (모듈화된 구조)")
 
     def search_anime(
         self,
@@ -191,14 +63,14 @@ class TMDBClient:
         include_adult: bool = False,
         first_air_date_year: int | None = None,
     ) -> list[TMDBAnimeInfo]:
-        """애니메이션 제목으로 검색 (최적화됨)"""
+        """애니메이션 제목으로 검색 (리팩토링됨)"""
         try:
             # 속도 제한 확인
             self.rate_limiter.wait_if_needed()
 
-            # 캐시 확인 (메모리 캐시 우선)
+            # 캐시 확인
             cache_key = f"search_{query}_{year}_{include_adult}_{first_air_date_year}"
-            cached_result = self._get_cache_optimized(cache_key)
+            cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
                 return [TMDBAnimeInfo(**item) for item in cached_result]
 
@@ -241,24 +113,23 @@ class TMDBClient:
                     anime_info_list.append(anime_info)
 
             # 결과 캐싱
-            if self.cache_enabled:
-                self._set_cache_optimized(cache_key, [asdict(info) for info in anime_info_list])
+            self.cache_manager.set_cache(cache_key, [asdict(info) for info in anime_info_list])
 
             return anime_info_list
 
         except Exception as e:
-            logging.error(f"TMDB 검색 오류: {e}")
+            self.logger.error(f"TMDB 검색 오류: {e}")
             return []
 
     def get_anime_details(self, tv_id: int, language: str | None = None) -> TMDBAnimeInfo | None:
-        """애니메이션 상세 정보 조회 (최적화됨)"""
+        """애니메이션 상세 정보 조회 (리팩토링됨)"""
         try:
             # 속도 제한 확인
             self.rate_limiter.wait_if_needed()
 
             # 캐시 확인
             cache_key = f"details_{tv_id}_{language or self.language}"
-            cached_result = self._get_cache_optimized(cache_key)
+            cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
                 return TMDBAnimeInfo(**cached_result)
 
@@ -295,19 +166,19 @@ class TMDBClient:
                     }
                 )
             except Exception as e:
-                logging.warning(f"추가 정보 조회 실패: {e}")
+                self.logger.warning(f"추가 정보 조회 실패: {e}")
 
             # TMDBAnimeInfo 객체로 변환
             anime_info = self._convert_to_anime_info(response)
 
             # 결과 캐싱
-            if self.cache_enabled and anime_info:
-                self._set_cache_optimized(cache_key, asdict(anime_info))
+            if anime_info:
+                self.cache_manager.set_cache(cache_key, asdict(anime_info))
 
             return anime_info
 
         except Exception as e:
-            logging.error(f"TMDB 상세 정보 조회 오류: {e}")
+            self.logger.error(f"TMDB 상세 정보 조회 오류: {e}")
             return None
 
     def search_anime_optimized(self, query: str, language: str = "ko-KR") -> list[TMDBAnimeInfo]:
@@ -318,7 +189,7 @@ class TMDBClient:
 
             # 캐시 확인
             cache_key = f"optimized_search_{query}_{language}"
-            cached_result = self._get_cache_optimized(cache_key)
+            cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
                 return [TMDBAnimeInfo(**item) for item in cached_result]
 
@@ -348,13 +219,12 @@ class TMDBClient:
                     anime_info_list.append(anime_info)
 
             # 결과 캐싱
-            if self.cache_enabled:
-                self._set_cache_optimized(cache_key, [asdict(info) for info in anime_info_list])
+            self.cache_manager.set_cache(cache_key, [asdict(info) for info in anime_info_list])
 
             return anime_info_list
 
         except Exception as e:
-            logging.error(f"TMDB 최적화 검색 오류: {e}")
+            self.logger.error(f"TMDB 최적화 검색 오류: {e}")
             return []
 
     def get_anime_season(
@@ -367,7 +237,7 @@ class TMDBClient:
 
             # 캐시 확인
             cache_key = f"season_{tv_id}_{season_number}_{language or self.language}"
-            cached_result = self._get_cache_optimized(cache_key)
+            cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
                 return cached_result
 
@@ -376,13 +246,12 @@ class TMDBClient:
             response = season.info(language=language or self.language)
 
             # 결과 캐싱
-            if self.cache_enabled:
-                self._set_cache_optimized(cache_key, response)
+            self.cache_manager.set_cache(cache_key, response)
 
             return response
 
         except Exception as e:
-            logging.error(f"TMDB 시즌 정보 조회 오류: {e}")
+            self.logger.error(f"TMDB 시즌 정보 조회 오류: {e}")
             return None
 
     def get_anime_episode(
@@ -397,7 +266,7 @@ class TMDBClient:
             cache_key = (
                 f"episode_{tv_id}_{season_number}_{episode_number}_{language or self.language}"
             )
-            cached_result = self._get_cache_optimized(cache_key)
+            cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
                 return cached_result
 
@@ -406,13 +275,12 @@ class TMDBClient:
             response = episode.info(language=language or self.language)
 
             # 결과 캐싱
-            if self.cache_enabled:
-                self._set_cache_optimized(cache_key, response)
+            self.cache_manager.set_cache(cache_key, response)
 
             return response
 
         except Exception as e:
-            logging.error(f"TMDB 에피소드 정보 조회 오류: {e}")
+            self.logger.error(f"TMDB 에피소드 정보 조회 오류: {e}")
             return None
 
     def _convert_to_anime_info(self, tmdb_data: dict[str, Any]) -> TMDBAnimeInfo | None:
@@ -462,103 +330,27 @@ class TMDBClient:
             )
 
         except Exception as e:
-            logging.error(f"TMDB 데이터 변환 오류: {e}")
+            self.logger.error(f"TMDB 데이터 변환 오류: {e}")
             return None
-
-    def _get_cache_optimized(self, key: str) -> Any | None:
-        """최적화된 캐시에서 데이터 가져오기"""
-        if not self.cache_enabled:
-            return None
-
-        # 메모리 캐시 확인 (빠른 접근)
-        with self.cache_lock:
-            if key in self.memory_cache:
-                return self.memory_cache[key]
-
-        # 디스크 캐시 확인
-        try:
-            cache_file = self.cache_dir / f"{key}.json"
-            if cache_file.exists():
-                # 캐시 만료 확인
-                if time.time() - cache_file.stat().st_mtime < self.cache_expiry:
-                    with cache_file.open(encoding="utf-8") as f:
-                        data = json.load(f)
-
-                        # 메모리 캐시에 추가
-                        with self.cache_lock:
-                            if len(self.memory_cache) >= self.memory_cache_size:
-                                # LRU 방식으로 가장 오래된 항목 제거
-                                oldest_key = next(iter(self.memory_cache))
-                                del self.memory_cache[oldest_key]
-                            self.memory_cache[key] = data
-
-                        return data
-                else:
-                    # 만료된 캐시 삭제
-                    cache_file.unlink()
-        except Exception as e:
-            logging.warning(f"캐시 읽기 오류: {e}")
-
-        return None
-
-    def _set_cache_optimized(self, key: str, data: Any) -> None:
-        """데이터를 최적화된 캐시에 저장"""
-        if not self.cache_enabled:
-            return
-
-        try:
-            # 메모리 캐시에 저장
-            with self.cache_lock:
-                if len(self.memory_cache) >= self.memory_cache_size:
-                    # LRU 방식으로 가장 오래된 항목 제거
-                    oldest_key = next(iter(self.memory_cache))
-                    del self.memory_cache[oldest_key]
-                self.memory_cache[key] = data
-
-            # 디스크 캐시에 저장
-            cache_file = self.cache_dir / f"{key}.json"
-            with cache_file.open("w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logging.warning(f"캐시 저장 오류: {e}")
 
     def clear_cache(self) -> None:
-        """캐시 초기화 (최적화됨)"""
+        """캐시 초기화"""
         try:
-            # 메모리 캐시 초기화
-            with self.cache_lock:
-                self.memory_cache.clear()
-
-            # 디스크 캐시 초기화
-            for cache_file in self.cache_dir.glob("*.json"):
-                cache_file.unlink()
-
-            # LRU 캐시 초기화 (lru_cache가 제거되었으므로 주석 처리)
-            # self.search_anime_optimized.cache_clear()
-
-            logging.info("캐시가 초기화되었습니다.")
+            self.cache_manager.clear_cache()
+            self.logger.info("캐시가 초기화되었습니다.")
         except Exception as e:
-            logging.error(f"캐시 초기화 오류: {e}")
+            self.logger.error(f"캐시 초기화 오류: {e}")
 
     def get_cache_info(self) -> dict[str, Any]:
-        """캐시 정보 반환 (개선됨)"""
+        """캐시 정보 반환"""
         try:
-            cache_files = list(self.cache_dir.glob("*.json"))
-            total_size = sum(f.stat().st_size for f in cache_files)
-
-            with self.cache_lock:
-                memory_cache_size = len(self.memory_cache)
+            cache_info = self.cache_manager.get_cache_info()
+            image_cache_info = self.image_manager.get_image_cache_info()
 
             return {
-                "cache_enabled": self.cache_enabled,
-                "cache_dir": str(self.cache_dir),
-                "file_count": len(cache_files),
-                "total_size_bytes": total_size,
-                "total_size_mb": total_size / (1024 * 1024),
-                "expiry_seconds": self.cache_expiry,
-                "memory_cache_size": memory_cache_size,
-                "memory_cache_max_size": self.memory_cache_size,
-                "lru_cache_info": {},  # lru_cache가 제거되었으므로 빈 딕셔너리 반환
+                "api_cache": cache_info,
+                "image_cache": image_cache_info,
+                "rate_limiter": self.rate_limiter.get_health_status(),
             }
         except Exception as e:
             return {"error": str(e)}
@@ -569,118 +361,83 @@ class TMDBClient:
 
     def set_cache_enabled(self, enabled: bool) -> None:
         """캐시 활성화/비활성화"""
-        self.cache_enabled = enabled
+        self.cache_manager.set_cache_enabled(enabled)
 
     def set_cache_expiry(self, expiry_seconds: int) -> None:
         """캐시 만료 시간 설정"""
-        self.cache_expiry = expiry_seconds
+        self.cache_manager.set_cache_expiry(expiry_seconds)
 
     def set_memory_cache_size(self, size: int) -> None:
         """메모리 캐시 크기 설정"""
-        with self.cache_lock:
-            if size < len(self.memory_cache):
-                # 크기를 줄이는 경우, 가장 오래된 항목들 제거
-                while len(self.memory_cache) > size:
-                    oldest_key = next(iter(self.memory_cache))
-                    del self.memory_cache[oldest_key]
-            self.memory_cache_size = size
+        self.cache_manager.set_memory_cache_size(size)
 
     async def download_poster_async(self, poster_path: str, size: str = "w185") -> str | None:
-        """TMDB 포스터 이미지 비동기 다운로드 (최적화됨)"""
-        if not poster_path:
-            return None
-
-        try:
-            # TMDB 이미지 URL 구성
-            base_url = "https://image.tmdb.org/t/p"
-            image_url = f"{base_url}/{size}{poster_path}"
-
-            # 캐시 파일명 생성
-            filename = poster_path.split("/")[-1]
-            cache_filename = f"{size}_{filename}"
-            cache_path = self.poster_cache_dir / cache_filename
-
-            # 이미 캐시된 경우 반환
-            if cache_path.exists():
-                return str(cache_path)
-
-            # 비동기 세션 가져오기
-            session = await self._get_async_session()
-
-            # 이미지 다운로드
-            async with session.get(image_url) as response:
-                response.raise_for_status()
-                content = await response.read()
-
-            # 캐시에 저장
-            with cache_path.open("wb") as f:
-                f.write(content)
-
-            logging.info(f"포스터 다운로드 완료: {cache_filename}")
-            return str(cache_path)
-
-        except Exception as e:
-            logging.error(f"포스터 다운로드 실패: {e}")
-            return None
+        """TMDB 포스터 이미지 비동기 다운로드"""
+        return await self.image_manager.download_poster_async(poster_path, size)
 
     def download_poster(self, poster_path: str, size: str = "w185") -> str | None:
         """TMDB 포스터 이미지 다운로드 (동기 버전)"""
-        if not poster_path:
-            return None
+        return self.image_manager.download_poster(poster_path, size)
 
-        try:
-            # TMDB 이미지 URL 구성
-            base_url = "https://image.tmdb.org/t/p"
-            image_url = f"{base_url}/{size}{poster_path}"
+    def download_backdrop(self, backdrop_path: str, size: str = "w1280") -> str | None:
+        """TMDB 배경 이미지 다운로드"""
+        return self.image_manager.download_backdrop(backdrop_path, size)
 
-            # 캐시 파일명 생성
-            filename = poster_path.split("/")[-1]
-            cache_filename = f"{size}_{filename}"
-            cache_path = self.poster_cache_dir / cache_filename
-
-            # 이미 캐시된 경우 반환
-            if cache_path.exists():
-                return str(cache_path)
-
-            # 이미지 다운로드
-            response = self.session.get(image_url, timeout=10)
-            response.raise_for_status()
-
-            # 캐시에 저장
-            with cache_path.open("wb") as f:
-                f.write(response.content)
-
-            logging.info(f"포스터 다운로드 완료: {cache_filename}")
-            return str(cache_path)
-
-        except Exception as e:
-            logging.error(f"포스터 다운로드 실패: {e}")
-            return None
+    def download_profile(self, profile_path: str, size: str = "w185") -> str | None:
+        """TMDB 프로필 이미지 다운로드"""
+        return self.image_manager.download_profile(profile_path, size)
 
     def get_poster_path(self, poster_path: str, size: str = "w185") -> str | None:
         """포스터 이미지 경로 반환 (다운로드 포함)"""
-        if not poster_path:
-            return None
+        return self.image_manager.get_poster_path(poster_path, size)
 
-        # 이미지 다운로드 시도
-        return self.download_poster(poster_path, size)
+    def get_backdrop_path(self, backdrop_path: str, size: str = "w1280") -> str | None:
+        """배경 이미지 경로 반환 (다운로드 포함)"""
+        return self.image_manager.get_backdrop_path(backdrop_path, size)
 
-    # 기존 메서드들 (하위 호환성을 위해 유지)
-    def _get_cache(self, key: str) -> Any | None:
-        """캐시에서 데이터 가져오기 (기존 메서드)"""
-        return self._get_cache_optimized(key)
+    def get_profile_path(self, profile_path: str, size: str = "w185") -> str | None:
+        """프로필 이미지 경로 반환 (다운로드 포함)"""
+        return self.image_manager.get_profile_path(profile_path, size)
 
-    def _set_cache(self, key: str, data: Any) -> None:
-        """데이터를 캐시에 저장 (기존 메서드)"""
-        self._set_cache_optimized(key, data)
+    def get_image_url(self, image_path: str, size: str = "w185") -> str:
+        """TMDB 이미지 URL 생성"""
+        return self.image_manager.get_image_url(image_path, size)
+
+    def clear_image_cache(self) -> int:
+        """이미지 캐시 정리"""
+        return self.image_manager.clear_image_cache()
+
+    def get_image_cache_info(self) -> dict:
+        """이미지 캐시 정보 반환"""
+        return self.image_manager.get_image_cache_info()
+
+    def set_poster_cache_dir(self, new_dir: Path) -> bool:
+        """포스터 캐시 디렉토리 변경"""
+        return self.image_manager.set_poster_cache_dir(new_dir)
 
     def update_api_key(self, new_api_key: str) -> None:
         """API 키 업데이트"""
         if new_api_key and new_api_key != self.api_key:
             self.api_key = new_api_key
             tmdb.API_KEY = new_api_key
-            logging.info("TMDB API 키가 업데이트되었습니다")
+            self.logger.info("TMDB API 키가 업데이트되었습니다")
 
     def get_api_key(self) -> str:
         """현재 API 키 반환"""
         return self.api_key
+
+    def get_rate_limiter_status(self) -> dict:
+        """속도 제한 관리자 상태 반환"""
+        return self.rate_limiter.get_health_status()
+
+    def set_rate_limit(self, requests_per_second: int, burst_limit: Optional[int] = None) -> None:
+        """속도 제한 설정 변경"""
+        self.rate_limiter.set_rate_limit(requests_per_second, burst_limit)
+
+    def reset_rate_limiter(self) -> None:
+        """속도 제한 관리자 초기화"""
+        self.rate_limiter.reset()
+
+    async def close_resources(self) -> None:
+        """리소스 정리"""
+        await self.image_manager.close_async_session()

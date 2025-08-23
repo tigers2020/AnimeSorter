@@ -243,8 +243,8 @@ class MediaFileCreatedEvent(BaseEvent):
 class MediaFileUpdatedEvent(BaseEvent):
     """미디어 파일 업데이트 이벤트"""
 
-    file_id: UUID
-    file_path: Path
+    file_id: UUID = field(default_factory=uuid4)
+    file_path: Path = field(default_factory=lambda: Path())
     changed_fields: list[str] = field(default_factory=list)
     old_values: dict[str, Any] = field(default_factory=dict)
     new_values: dict[str, Any] = field(default_factory=dict)
@@ -254,18 +254,39 @@ class MediaFileUpdatedEvent(BaseEvent):
 class MediaFileDeletedEvent(BaseEvent):
     """미디어 파일 삭제 이벤트"""
 
-    file_id: UUID
-    file_path: Path
+    file_id: UUID = field(default_factory=uuid4)
+    file_path: Path = field(default_factory=lambda: Path())
     was_grouped: bool = False
     group_id: UUID | None = None
+
+
+@dataclass
+class MediaFileMovedEvent(BaseEvent):
+    """미디어 파일 이동 이벤트"""
+
+    file_id: UUID = field(default_factory=uuid4)
+    old_path: Path = field(default_factory=lambda: Path())
+    new_path: Path = field(default_factory=lambda: Path())
+    operation_id: UUID | None = None
+
+
+@dataclass
+class MediaFileRenamedEvent(BaseEvent):
+    """미디어 파일 이름 변경 이벤트"""
+
+    file_id: UUID = field(default_factory=uuid4)
+    old_path: Path = field(default_factory=lambda: Path())
+    new_path: Path = field(default_factory=lambda: Path())
+    old_name: str = ""
+    new_name: str = ""
 
 
 @dataclass
 class MediaFileFlagChangedEvent(BaseEvent):
     """미디어 파일 플래그 변경 이벤트"""
 
-    file_id: UUID
-    file_path: Path
+    file_id: UUID = field(default_factory=uuid4)
+    file_path: Path = field(default_factory=lambda: Path())
     flag: str = ""
     added: bool = True  # True: 추가, False: 제거
     reason: str | None = None
@@ -288,7 +309,7 @@ class MediaGroupCreatedEvent(BaseEvent):
 class MediaGroupUpdatedEvent(BaseEvent):
     """미디어 그룹 업데이트 이벤트"""
 
-    group_id: UUID
+    group_id: UUID = field(default_factory=uuid4)
     title: str = ""
     changed_fields: list[str] = field(default_factory=list)
     old_values: dict[str, Any] = field(default_factory=dict)
@@ -299,9 +320,9 @@ class MediaGroupUpdatedEvent(BaseEvent):
 class EpisodeAddedToGroupEvent(BaseEvent):
     """그룹에 에피소드 추가 이벤트"""
 
-    group_id: UUID
-    file_id: UUID
-    episode_number: int
+    group_id: UUID = field(default_factory=uuid4)
+    file_id: UUID = field(default_factory=uuid4)
+    episode_number: int = 0
     group_title: str = ""
     is_group_complete: bool = False
 
@@ -310,9 +331,9 @@ class EpisodeAddedToGroupEvent(BaseEvent):
 class EpisodeRemovedFromGroupEvent(BaseEvent):
     """그룹에서 에피소드 제거 이벤트"""
 
-    group_id: UUID
-    file_id: UUID
-    episode_number: int
+    group_id: UUID = field(default_factory=uuid4)
+    file_id: UUID = field(default_factory=uuid4)
+    episode_number: int = 0
     group_title: str = ""
 
 
@@ -320,7 +341,7 @@ class EpisodeRemovedFromGroupEvent(BaseEvent):
 class MediaGroupCompletedEvent(BaseEvent):
     """미디어 그룹 완성 이벤트"""
 
-    group_id: UUID
+    group_id: UUID = field(default_factory=uuid4)
     title: str = ""
     season: int | None = None
     total_episodes: int = 0
@@ -334,7 +355,7 @@ class MediaGroupCompletedEvent(BaseEvent):
 class ExternalMetadataSearchStartedEvent(BaseEvent):
     """외부 메타데이터 검색 시작 이벤트"""
 
-    search_id: UUID
+    search_id: UUID = field(default_factory=uuid4)
     query: str = ""
     provider: str = ""  # "tmdb", "tvdb", etc.
     search_type: str = ""  # "movie", "tv", "anime"
@@ -344,7 +365,7 @@ class ExternalMetadataSearchStartedEvent(BaseEvent):
 class ExternalMetadataFoundEvent(BaseEvent):
     """외부 메타데이터 발견 이벤트"""
 
-    search_id: UUID
+    search_id: UUID = field(default_factory=uuid4)
     provider: str = ""
     external_id: str = ""
     title: str = ""
@@ -357,7 +378,7 @@ class ExternalMetadataFoundEvent(BaseEvent):
 class ExternalMetadataLinkedEvent(BaseEvent):
     """외부 메타데이터 연결 이벤트"""
 
-    group_id: UUID
+    group_id: UUID = field(default_factory=uuid4)
     provider: str = ""
     external_id: str = ""
     title: str = ""
@@ -446,7 +467,7 @@ class MemoryUsageEvent(BaseEvent):
 class DiskSpaceEvent(BaseEvent):
     """디스크 공간 이벤트"""
 
-    path: Path = Path()
+    path: Path = field(default_factory=lambda: Path())
     total_bytes: int = 0
     used_bytes: int = 0
     available_bytes: int = 0

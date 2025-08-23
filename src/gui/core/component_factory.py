@@ -30,7 +30,7 @@ from ..services.metadata_service import MetadataService
 from ..services.state_service import StateService
 from ..view_models.detail_view_model import DetailViewModel
 from ..view_models.file_list_view_model import FileListViewModel
-from ..view_models.main_window_view_model_new import MainWindowViewModelNew as MainWindowViewModel
+from ..view_models.main_window import MainWindowViewModel
 
 
 class ComponentFactory:

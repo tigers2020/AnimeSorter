@@ -8,10 +8,11 @@ Core 모듈 - 핵심 기능 구현
 - 설정 관리
 """
 
-from .file_manager import FileManager, FileOperationResult
+from .file_manager import FileManager
 from .file_parser import FileParser, ParsedMetadata
 from .settings_manager import AppSettings, SettingsManager
 from .tmdb_client import TMDBAnimeInfo, TMDBClient
+from .types import FileOperationResult
 
 __all__ = [
     "FileParser",

@@ -11,7 +11,7 @@ from collections import defaultdict
 from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Generic, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -35,6 +35,18 @@ class BaseEvent:
             frame = inspect.currentframe()
             if frame and frame.f_back:
                 self.source = frame.f_back.f_code.co_name
+
+
+@dataclass
+class DirectoryCreatedEvent:
+    """디렉토리 생성 이벤트"""
+
+    directory_path: str
+    source: str | None = None
+    correlation_id: str | None = None
+    timestamp: datetime = field(default_factory=datetime.now)
+    created_by: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # 약한 참조를 지원하는 딕셔너리

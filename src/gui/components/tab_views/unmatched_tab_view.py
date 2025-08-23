@@ -159,7 +159,6 @@ class UnmatchedTabView(QWidget):
         """그룹 더블클릭 처리"""
         # 그룹 더블클릭 시그널 발생
         # 실제 구현은 모델에서 데이터를 가져와서 처리
-        pass
 
     def get_group_table(self):
         """그룹 테이블 반환"""

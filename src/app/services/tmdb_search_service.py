@@ -1,8 +1,8 @@
 """
-TMDB 검색 서비스
+TMDB 검색 서비스 (리팩토링됨)
 
 TMDB API를 통한 메타데이터 검색, 매칭, 캐싱을 담당하는 서비스입니다.
-MainWindow의 TMDB 검색 다이얼로그 관련 로직을 분리합니다.
+모듈화된 구조로 리팩토링되어 유지보수성이 향상되었습니다.
 """
 
 import logging
@@ -35,6 +35,9 @@ from ..tmdb_search_events import (
     TMDBSearchStatus,
     TMDBSearchType,
 )
+from .tmdb_search_matcher import SearchResultMatcher
+from .tmdb_search_statistics import SearchStatisticsCollector
+from .tmdb_search_strategies import SearchStrategyFactory
 
 
 class ITMDBSearchService(ABC):
@@ -86,12 +89,17 @@ class ITMDBSearchService(ABC):
 
 
 class TMDBSearchService(ITMDBSearchService):
-    """TMDB 검색 서비스 구현"""
+    """TMDB 검색 서비스 구현 (리팩토링됨)"""
 
     def __init__(self, event_bus: TypedEventBus, tmdb_client: Any | None = None):
         self.event_bus = event_bus
         self.tmdb_client = tmdb_client  # 실제 TMDB 클라이언트 (예: TMDBClient)
         self.logger = logging.getLogger(self.__class__.__name__)
+
+        # 모듈화된 서비스들 초기화
+        self.search_strategies = SearchStrategyFactory()
+        self.result_matcher = SearchResultMatcher()
+        self.statistics_collector = SearchStatisticsCollector()
 
         # 내부 상태
         self._active_searches: dict[UUID, TMDBSearchQuery] = {}
@@ -303,14 +311,8 @@ class TMDBSearchService(ITMDBSearchService):
         self.logger.info(f"TMDB 캐시 초기화됨: {cache_size}개 항목 제거")
 
     def get_statistics(self) -> TMDBSearchStatistics:
-        """검색 통계 조회"""
-        # 캐시 히트율 계산
-        if self._statistics.total_searches > 0:
-            self._statistics.cache_hit_rate = (
-                self._statistics.cached_results / self._statistics.total_searches
-            )
-
-        return self._statistics
+        """검색 통계 조회 (리팩토링됨)"""
+        return self.statistics_collector.get_current_statistics()
 
     def dispose(self) -> None:
         """서비스 정리"""
@@ -352,6 +354,31 @@ class TMDBSearchService(ITMDBSearchService):
             key_parts.append(str(year))
         return "|".join(key_parts)
 
+    def _convert_tmdb_results_to_search_results(self, tmdb_results: list) -> list[TMDBSearchResult]:
+        """TMDB 결과를 TMDBSearchResult로 변환"""
+        search_results = []
+
+        for tmdb_result in tmdb_results:
+            search_result = TMDBSearchResult(
+                tmdb_id=tmdb_result.id,
+                title=tmdb_result.name,
+                original_title=tmdb_result.original_name,
+                overview=tmdb_result.overview,
+                first_air_date=tmdb_result.first_air_date,
+                poster_path=tmdb_result.poster_path,
+                backdrop_path=tmdb_result.backdrop_path,
+                popularity=tmdb_result.popularity,
+                vote_average=tmdb_result.vote_average,
+                vote_count=tmdb_result.vote_count,
+                genres=tmdb_result.genres,
+                media_type=TMDBMediaType.TV,
+                search_score=0.0,  # 기본값
+                match_confidence=TMDBMatchConfidence.NONE,
+            )
+            search_results.append(search_result)
+
+        return search_results
+
     def _perform_tmdb_search(
         self,
         search_id: UUID,
@@ -359,9 +386,14 @@ class TMDBSearchService(ITMDBSearchService):
         group_id: str | None = None,
         auto_match: bool = False,
     ) -> None:
-        """실제 TMDB API 검색 수행"""
+        """실제 TMDB API 검색 수행 (리팩토링됨)"""
         try:
             start_time = time.time()
+
+            # 통계 수집기에 검색 시작 기록
+            self.statistics_collector.record_search_start(
+                str(search_id), query.search_type, query.query_string
+            )
 
             # 진행률 이벤트 발행
             self.event_bus.publish(
@@ -375,20 +407,30 @@ class TMDBSearchService(ITMDBSearchService):
                 )
             )
 
-            # TODO: 실제 TMDB API 호출
-            # 현재는 더미 결과 생성
-            results = self._create_dummy_search_results(query.query_string)
+            # 검색 전략을 사용하여 실제 검색 수행
+            if self.tmdb_client:
+                # 기본 검색 전략 사용
+                strategy = self.search_strategies.create_strategy("fuzzy")
+                search_kwargs = {}
+                if query.year:
+                    search_kwargs["year"] = query.year
+
+                tmdb_results = strategy.search(
+                    self.tmdb_client, query.query_string, **search_kwargs
+                )
+
+                # TMDB 결과를 TMDBSearchResult로 변환
+                results = self._convert_tmdb_results_to_search_results(tmdb_results)
+            else:
+                # TMDB 클라이언트가 없는 경우 더미 결과 생성
+                results = self._create_dummy_search_results(query.query_string)
 
             search_duration_ms = (time.time() - start_time) * 1000
 
-            # 통계 업데이트
-            self._statistics.total_searches += 1
-            self._statistics.api_calls_count += 1
-            self._statistics.successful_searches += 1
-            self._statistics.average_search_time_ms = (
-                self._statistics.average_search_time_ms * (self._statistics.total_searches - 1)
-                + search_duration_ms
-            ) / self._statistics.total_searches
+            # 통계 수집기에 검색 완료 기록
+            self.statistics_collector.record_search_completion(
+                str(search_id), TMDBSearchStatus.COMPLETED, len(results)
+            )
 
             # 결과 처리
             self._handle_search_results(search_id, query, results, from_cache=False)
@@ -399,6 +441,12 @@ class TMDBSearchService(ITMDBSearchService):
 
         except Exception as e:
             self.logger.error(f"TMDB API 검색 실패: {e}")
+
+            # 통계 수집기에 검색 실패 기록
+            self.statistics_collector.record_search_completion(
+                str(search_id), TMDBSearchStatus.FAILED, error=str(e)
+            )
+
             self._handle_search_error(search_id, query, str(e))
 
     def _handle_search_results(
@@ -480,55 +528,98 @@ class TMDBSearchService(ITMDBSearchService):
     def _attempt_auto_match(
         self, search_id: UUID, group_id: str, group_title: str, results: list[TMDBSearchResult]
     ) -> None:
-        """자동 매칭 시도"""
+        """자동 매칭 시도 (리팩토링됨)"""
         if not results:
             return
 
-        # 간단한 자동 매칭 로직 (첫 번째 결과를 높은 신뢰도로 매칭)
-        best_result = results[0]
-        confidence = self._calculate_match_confidence(group_title, best_result)
+        try:
+            # 새로운 매칭 로직을 사용하여 자동 매칭 시도
+            # TMDBSearchResult를 TMDBAnimeInfo로 변환 (간단한 변환)
+            tmdb_results = []
+            for result in results:
+                # 간단한 변환 (실제로는 더 정교한 변환이 필요)
+                tmdb_result = type(
+                    "TMDBAnimeInfo",
+                    (),
+                    {
+                        "id": getattr(result, "tmdb_id", 0),
+                        "name": result.title,
+                        "original_name": result.original_title,
+                        "genres": [],
+                        "first_air_date": "",
+                        "number_of_seasons": 0,
+                        "popularity": 0.0,
+                    },
+                )()
+                tmdb_results.append(tmdb_result)
 
-        if confidence.value in ["exact", "high"]:
-            # 자동 매칭 성공
-            match = TMDBMatch(
-                search_result=best_result,
-                confidence=confidence,
-                confidence_score=0.8 if confidence == TMDBMatchConfidence.HIGH else 1.0,
-                match_criteria=["title_similarity", "auto_match"],
+            # 매칭 수행
+            match = self.result_matcher.match_results_to_group(
+                group_title, tmdb_results, auto_match=True
             )
 
-            self._group_matches[group_id] = match
+            if match and match.confidence != TMDBMatchConfidence.NONE:
+                # 자동 매칭 성공
+                match.group_id = group_id  # 그룹 ID 설정
+                self._group_matches[group_id] = match
 
-            # 매칭 발견 이벤트 발행
-            self.event_bus.publish(
-                TMDBMatchFoundEvent(
-                    search_id=search_id, group_id=group_id, match=match, auto_matched=True
+                # 통계 수집기에 매칭 결과 기록
+                self.statistics_collector.record_match_result(str(search_id), match)
+
+                # 매칭 발견 이벤트 발행
+                self.event_bus.publish(
+                    TMDBMatchFoundEvent(
+                        search_id=search_id, group_id=group_id, match=match, auto_matched=True
+                    )
                 )
-            )
 
-            self.logger.info(f"자동 매칭 성공: {group_id} -> {best_result.title}")
-        else:
-            # 자동 매칭 실패, 수동 선택 요청
-            candidate_matches = [
-                TMDBMatch(
-                    search_result=result,
-                    confidence=self._calculate_match_confidence(group_title, result),
-                    confidence_score=0.5,
+                self.logger.info(
+                    f"자동 매칭 성공: {group_id} -> {match.title} (신뢰도: {match.confidence.value})"
                 )
-                for result in results[:5]  # 상위 5개만
-            ]
+            else:
+                # 자동 매칭 실패, 수동 선택 요청
+                # 매칭 제안 생성
+                suggestions = self.result_matcher.get_match_suggestions(
+                    group_title, tmdb_results, max_suggestions=5
+                )
 
+                candidate_matches = []
+                for tmdb_result, score in suggestions:
+                    candidate_match = TMDBMatch(
+                        group_id=group_id,
+                        tmdb_id=tmdb_result.id,
+                        title=tmdb_result.name,
+                        original_title=tmdb_result.original_name,
+                        confidence=self.result_matcher._score_to_confidence(score),
+                        score=score,
+                        metadata=tmdb_result,
+                    )
+                    candidate_matches.append(candidate_match)
+
+                self.event_bus.publish(
+                    TMDBManualSelectionRequestedEvent(
+                        search_id=search_id,
+                        group_id=group_id,
+                        query=TMDBSearchQuery(query_string=group_title),
+                        candidate_matches=candidate_matches,
+                        requires_user_input=True,
+                    )
+                )
+
+                self.logger.info(f"수동 선택 요청: {group_id} (후보: {len(candidate_matches)}개)")
+
+        except Exception as e:
+            self.logger.error(f"자동 매칭 실패: {e}")
+            # 매칭 실패 시 수동 선택 요청
             self.event_bus.publish(
                 TMDBManualSelectionRequestedEvent(
                     search_id=search_id,
                     group_id=group_id,
                     query=TMDBSearchQuery(query_string=group_title),
-                    candidate_matches=candidate_matches,
+                    candidate_matches=[],
                     requires_user_input=True,
                 )
             )
-
-            self.logger.info(f"수동 선택 요청: {group_id} (후보: {len(candidate_matches)}개)")
 
     def _calculate_match_confidence(
         self, original_title: str, search_result: TMDBSearchResult
