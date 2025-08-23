@@ -139,6 +139,24 @@ class TMDBSearchHandler:
         except Exception as e:
             self.logger.error(f"❌ 그룹 모델 업데이트 실패: {e}")
 
+    def reset_for_new_scan(self):
+        """새로운 스캔을 위한 TMDB 검색 상태 초기화"""
+        try:
+            # 진행 중인 검색 중단
+            self.pending_tmdb_groups = []
+
+            # 모든 다이얼로그 닫기
+            self.close_all_dialogs()
+
+            # AnimeDataManager의 TMDB 매치 정보 초기화
+            if hasattr(self.main_window, "anime_data_manager"):
+                self.main_window.anime_data_manager.clear_tmdb_matches()
+
+            self.logger.info("🔄 새로운 스캔을 위해 TMDB 검색 상태가 초기화되었습니다")
+
+        except Exception as e:
+            self.logger.error(f"❌ TMDB 검색 상태 초기화 실패: {e}")
+
     def start_tmdb_search_for_groups(self):
         """그룹화 후 TMDB 검색 시작 (순차적 처리)"""
         try:

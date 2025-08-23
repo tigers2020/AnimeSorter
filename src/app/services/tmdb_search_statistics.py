@@ -365,7 +365,9 @@ class SearchStatisticsCollector:
                     ]
 
             total_cleaned = search_cleaned + match_cleaned
-            self.logger.info(f"오래된 데이터 정리 완료: 검색 {search_cleaned}개, 매칭 {match_cleaned}개")
+            self.logger.info(
+                f"오래된 데이터 정리 완료: 검색 {search_cleaned}개, 매칭 {match_cleaned}개"
+            )
 
             return total_cleaned
 

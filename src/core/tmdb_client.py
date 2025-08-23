@@ -40,7 +40,9 @@ class TMDBClient:
                 self.api_key = api_key
                 tmdb.API_KEY = api_key
             else:
-                raise ValueError("TMDB API 키가 필요합니다. 환경 변수 TMDB_API_KEY를 설정하거나 생성자에 전달하세요.")
+                raise ValueError(
+                    "TMDB API 키가 필요합니다. 환경 변수 TMDB_API_KEY를 설정하거나 생성자에 전달하세요."
+                )
 
         # 요청 타임아웃 설정 (권장: 5초)
         tmdb.REQUESTS_TIMEOUT = 5

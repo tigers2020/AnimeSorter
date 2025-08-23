@@ -237,11 +237,11 @@ class MainWindowCoordinator:
     def _update_ui_states(self):
         """UI 상태 업데이트"""
         try:
-            # 툴바 버튼 상태 업데이트
-            if self.menu_toolbar_manager:
-                self.menu_toolbar_manager.set_scan_enabled(False)  # 초기에는 비활성화
-                self.menu_toolbar_manager.set_preview_enabled(False)
-                self.menu_toolbar_manager.set_organize_enabled(False)
+            # 툴바 버튼 상태 업데이트 (menu_toolbar_manager가 주석 처리되어 있으므로 건너뜀)
+            # if self.menu_toolbar_manager:
+            #     self.menu_toolbar_manager.set_scan_enabled(False)  # 초기에는 비활성화
+            #     self.menu_toolbar_manager.set_preview_enabled(False)
+            #     self.menu_toolbar_manager.set_organize_enabled(False)
 
             print("✅ MainWindowCoordinator: UI 상태 업데이트 완료")
 
@@ -251,8 +251,9 @@ class MainWindowCoordinator:
     def _update_menu_states(self):
         """메뉴 상태 업데이트"""
         try:
-            if self.menu_toolbar_manager:
-                self.menu_toolbar_manager.update_menu_states()
+            # menu_toolbar_manager가 주석 처리되어 있으므로 건너뜀
+            # if self.menu_toolbar_manager:
+            #     self.menu_toolbar_manager.update_menu_states()
 
             print("✅ MainWindowCoordinator: 메뉴 상태 업데이트 완료")
 
@@ -427,7 +428,9 @@ class MainWindowCoordinator:
 
             # 초기화 단계 확인
             if len(self.initialization_steps) < 4:
-                issues.append(f"⚠️ 초기화 단계가 부족함 (현재: {len(self.initialization_steps)}개, 필요: 4개)")
+                issues.append(
+                    f"⚠️ 초기화 단계가 부족함 (현재: {len(self.initialization_steps)}개, 필요: 4개)"
+                )
 
             # 전체 초기화 상태 확인
             if not self.initialization_complete:

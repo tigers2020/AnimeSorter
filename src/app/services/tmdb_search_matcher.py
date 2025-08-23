@@ -144,7 +144,12 @@ class SearchResultMatcher:
             return 0.0
 
         # 애니메이션 관련 장르 ID
-        anime_genre_ids = [16, 10759, 10762, 10765]  # 애니메이션, 액션&어드벤처, 키즈, Sci-Fi&Fantasy
+        anime_genre_ids = [
+            16,
+            10759,
+            10762,
+            10765,
+        ]  # 애니메이션, 액션&어드벤처, 키즈, Sci-Fi&Fantasy
 
         for genre in genres:
             if genre.get("id") in anime_genre_ids:

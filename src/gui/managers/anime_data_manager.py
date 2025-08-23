@@ -277,6 +277,19 @@ class AnimeDataManager(QObject):
         """그룹의 TMDB 매치 결과 반환"""
         return self.group_tmdb_matches.get(group_id)
 
+    def clear_tmdb_matches(self):
+        """모든 TMDB 매치 정보 초기화"""
+        self.group_tmdb_matches.clear()
+
+        # 모든 아이템의 TMDB 정보 초기화
+        for item in self.items:
+            item.tmdbMatch = None
+            item.tmdbId = None
+            if item.status == "tmdb_matched":
+                item.status = "pending"
+
+        print("🔄 모든 TMDB 매치 정보가 초기화되었습니다")
+
     def get_group_destination_path(self, group_id: str, base_destination: str) -> str:
         """그룹의 최종 이동 경로 생성"""
         tmdb_anime = self.get_tmdb_match_for_group(group_id)
