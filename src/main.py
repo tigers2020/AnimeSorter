@@ -14,7 +14,7 @@ from pathlib import Path
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication
 
-from app import cleanup_application, initialize_application
+from app.setup import cleanup_application, initialize_application
 from gui.main_window import MainWindow
 
 # Add src directory to Python path for imports

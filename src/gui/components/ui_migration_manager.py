@@ -391,7 +391,15 @@ class UIMigrationManager(QObject):
 
                         # 도크 특성 복원
                         if "features" in dock_state:
-                            dock.setFeatures(dock_state["features"])
+                            try:
+                                features = dock_state["features"]
+                                # 정수를 QDockWidget.DockWidgetFeatures로 변환
+                                if isinstance(features, int):
+                                    dock.setFeatures(QDockWidget.DockWidgetFeatures(features))
+                                else:
+                                    dock.setFeatures(features)
+                            except Exception as e:
+                                self.logger.warning(f"도크 features 복원 실패: {e}")
 
                         # 도크 영역 복원
                         if "dock_widget_area" in dock_state:

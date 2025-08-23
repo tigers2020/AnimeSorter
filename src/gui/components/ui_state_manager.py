@@ -195,7 +195,25 @@ class UIStateManager(QObject):
                     self.state_keys["triple_layout_splitter_sizes"], None
                 )
                 if splitter_sizes:
-                    layout.set_splitter_sizes(splitter_sizes)
+                    try:
+                        # 문자열 리스트를 정수 리스트로 변환
+                        if isinstance(splitter_sizes, list):
+                            # 각 요소를 정수로 변환
+                            int_sizes = []
+                            for size in splitter_sizes:
+                                if isinstance(size, str):
+                                    int_sizes.append(int(size))
+                                elif isinstance(size, (int, float)):
+                                    int_sizes.append(int(size))
+                                else:
+                                    raise ValueError(f"Invalid size type: {type(size)}")
+                            layout.set_splitter_sizes(int_sizes)
+                        else:
+                            self.logger.warning(
+                                f"Splitter sizes is not a list: {type(splitter_sizes)}"
+                            )
+                    except (ValueError, TypeError) as e:
+                        self.logger.warning(f"스플리터 크기 변환 실패: {e}, 기본값 사용")
 
                 # 브레이크포인트 상태 복원
                 breakpoint_state = self.settings.value(
@@ -316,7 +334,15 @@ class UIStateManager(QObject):
 
                         # 도크 특성 복원
                         if "features" in dock_state:
-                            dock.setFeatures(dock_state["features"])
+                            try:
+                                features = dock_state["features"]
+                                # 정수를 QDockWidget.DockWidgetFeatures로 변환
+                                if isinstance(features, int):
+                                    dock.setFeatures(QDockWidget.DockWidgetFeatures(features))
+                                else:
+                                    dock.setFeatures(features)
+                            except Exception as e:
+                                self.logger.warning(f"도크 {dock_name} features 복원 실패: {e}")
 
                     except Exception as e:
                         self.logger.warning(f"도크 {dock_name} 복원 실패: {e}")

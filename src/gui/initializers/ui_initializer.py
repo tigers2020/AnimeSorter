@@ -186,6 +186,15 @@ class UIInitializer:
             self.main_window.status_label = QLabel("준비됨")
             status_bar.addWidget(self.main_window.status_label)
 
+            # 진행률 표시기 추가
+            from PyQt5.QtWidgets import QProgressBar
+
+            status_bar.addPermanentWidget(QLabel("진행률:"))
+            self.main_window.status_progress = QProgressBar()
+            self.main_window.status_progress.setMaximumWidth(200)
+            self.main_window.status_progress.setMaximumHeight(20)
+            status_bar.addPermanentWidget(self.main_window.status_progress)
+
             # 파일 수 표시
             self.main_window.status_file_count = QLabel("파일: 0")
             status_bar.addPermanentWidget(self.main_window.status_file_count)
@@ -285,10 +294,8 @@ class UIInitializer:
             # 3열 레이아웃을 스플리터에 추가
             splitter.addWidget(self.main_window.central_triple_layout)
 
-            # 로그 Dock은 MainWindow.__init__에서 이미 설정됨 (Phase 5)
-            # 여기서는 참조만 확인
-            if not hasattr(self.main_window, "log_dock"):
-                print("⚠️ 로그 Dock이 설정되지 않았습니다. MainWindow.__init__을 확인하세요.")
+            # 로그 Dock은 UIComponentManager에서 설정됨
+            # 여기서는 체크하지 않음 (순서상 아직 설정되지 않을 수 있음)
 
             # 모델들 초기화
             self.setup_models()

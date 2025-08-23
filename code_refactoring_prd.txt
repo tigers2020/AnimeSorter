@@ -1,0 +1,289 @@
+# AnimeSorter 코드베이스 리팩토링 PRD
+## 파일 크기 최적화 및 구조 개선
+
+### 1. 프로젝트 개요
+
+**프로젝트명:** AnimeSorter 코드베이스 리팩토링
+**목표:** 500줄 이상인 파일들을 기능별로 분할하여 유지보수성 향상
+**우선순위:** 높음
+**예상 소요시간:** 2-3주
+
+### 2. 현재 상황 분석
+
+#### 2.1 파일 크기 현황
+- **총 Python 파일:** 150개
+- **총 라인 수:** 52,396줄
+- **평균 라인 수:** 349.3줄
+- **500줄 이상 파일:** 38개 (25.3%)
+- **1000줄 이상 파일:** 1개 (0.7%)
+
+#### 2.2 주요 문제 파일들
+
+**🚨 1000줄 이상 (즉시 분할 필요)**
+- `src/gui/main_window.py` (1,849줄) - 메인 윈도우 클래스
+
+**📁 800-999줄 (높은 우선순위)**
+- `src/gui/components/results_view.py` (875줄) - 결과 뷰 컴포넌트
+- `src/gui/view_models/main_window_view_model_new.py` (861줄) - 메인 윈도우 뷰모델
+- `src/gui/view_models/organize_view_model.py` (819줄) - 정리 뷰모델
+
+**📁 600-799줄 (중간 우선순위)**
+- `src/gui/view_models/settings_view_model.py` (786줄) - 설정 뷰모델
+- `src/app/services/media_data_service.py` (749줄) - 미디어 데이터 서비스
+- `src/core/file_manager.py` (720줄) - 파일 관리자
+- `src/gui/components/organize_progress_dialog.py` (707줄) - 정리 진행 다이얼로그
+
+### 3. 리팩토링 목표
+
+#### 3.1 주요 목표
+- **파일 크기 최적화:** 모든 파일을 500줄 이하로 축소
+- **단일 책임 원칙:** 각 파일이 하나의 명확한 책임만 가지도록 개선
+- **코드 가독성 향상:** 복잡한 로직을 작은 단위로 분할
+- **유지보수성 개선:** 기능별 모듈화로 수정 및 확장 용이성 증대
+
+#### 3.2 구체적 지표
+- **목표 파일 크기:** 200-500줄
+- **함수 길이:** 30줄 이하 (최대 60줄)
+- **클래스 크기:** 400줄 이하, 메서드 15개 이하
+- **모듈 공개 심볼:** 10-15개 이하
+
+### 4. 리팩토링 계획
+
+#### 4.1 Phase 1: 메인 윈도우 분할 (최우선)
+
+**파일:** `src/gui/main_window.py` (1,849줄 → 300-400줄)
+
+**분할 대상:**
+```
+src/gui/main_window/
+├── __init__.py                    # 메인 윈도우 클래스 (300-400줄)
+├── initializers/
+│   ├── __init__.py
+│   ├── core_initializer.py       # 핵심 컴포넌트 초기화
+│   ├── ui_initializer.py         # UI 컴포넌트 초기화
+│   ├── service_initializer.py    # 서비스 초기화
+│   └── manager_initializer.py    # 매니저 초기화
+├── managers/
+│   ├── __init__.py
+│   ├── component_manager.py       # 컴포넌트 관리
+│   ├── lifecycle_manager.py       # 생명주기 관리
+│   └── state_manager.py          # 상태 관리
+└── handlers/
+    ├── __init__.py
+    ├── event_handler.py           # 이벤트 처리
+    ├── signal_handler.py          # 시그널 처리
+    └── shortcut_handler.py        # 단축키 처리
+```
+
+**분리 로직:**
+- 초기화 로직을 별도 클래스로 분리
+- 컴포넌트 관리 로직을 매니저 클래스로 분리
+- 이벤트/시그널 처리를 핸들러 클래스로 분리
+- 메인 윈도우는 조율자 역할만 수행
+
+#### 4.2 Phase 2: 결과 뷰 컴포넌트 분할
+
+**파일:** `src/gui/components/results_view.py` (875줄 → 300-400줄)
+
+**분할 대상:**
+```
+src/gui/components/results_view/
+├── __init__.py                    # 메인 결과 뷰 클래스 (300-400줄)
+├── tabs/
+│   ├── __init__.py
+│   ├── all_tab.py                # 전체 탭
+│   ├── unmatched_tab.py          # 미매칭 탭
+│   ├── conflict_tab.py           # 충돌 탭
+│   ├── duplicate_tab.py          # 중복 탭
+│   └── completed_tab.py          # 완료 탭
+├── models/
+│   ├── __init__.py
+│   ├── tab_model.py              # 탭 모델
+│   └── filter_model.py           # 필터 모델
+└── delegates/
+    ├── __init__.py
+    ├── cell_delegate_manager.py   # 셀 델리게이트 관리
+    └── custom_delegates.py        # 커스텀 델리게이트
+```
+
+**분리 로직:**
+- 각 탭을 독립적인 클래스로 분리
+- 탭별 모델과 델리게이트를 별도 파일로 분리
+- 메인 결과 뷰는 탭 관리와 이벤트 조율만 담당
+
+#### 4.3 Phase 3: 뷰모델 분할
+
+**파일들:**
+- `src/gui/view_models/main_window_view_model_new.py` (861줄)
+- `src/gui/view_models/organize_view_model.py` (819줄)
+- `src/gui/view_models/settings_view_model.py` (786줄)
+
+**분할 대상:**
+```
+src/gui/view_models/
+├── main_window/
+│   ├── __init__.py                # 메인 윈도우 뷰모델 (300-400줄)
+│   ├── state/
+│   │   ├── __init__.py
+│   │   ├── application_state.py   # 애플리케이션 상태
+│   │   ├── ui_state.py            # UI 상태
+│   │   └── data_state.py          # 데이터 상태
+│   ├── capabilities/
+│   │   ├── __init__.py
+│   │   ├── scan_capabilities.py   # 스캔 기능
+│   │   ├── organize_capabilities.py # 정리 기능
+│   │   └── tmdb_capabilities.py   # TMDB 기능
+│   └── commands/
+│       ├── __init__.py
+│       ├── scan_commands.py       # 스캔 명령
+│       ├── organize_commands.py   # 정리 명령
+│       └── tmdb_commands.py       # TMDB 명령
+├── organize/
+│   ├── __init__.py                # 정리 뷰모델 (300-400줄)
+│   ├── state/
+│   │   ├── __init__.py
+│   │   ├── organize_state.py      # 정리 상태
+│   │   └── progress_state.py      # 진행 상태
+│   └── operations/
+│       ├── __init__.py
+│       ├── file_operations.py     # 파일 작업
+│       └── group_operations.py    # 그룹 작업
+└── settings/
+    ├── __init__.py                # 설정 뷰모델 (300-400줄)
+    ├── categories/
+    │   ├── __init__.py
+    │   ├── general_settings.py    # 일반 설정
+    │   ├── tmdb_settings.py       # TMDB 설정
+    │   └── ui_settings.py         # UI 설정
+    └── validators/
+        ├── __init__.py
+        ├── path_validator.py      # 경로 검증
+        └── api_validator.py       # API 검증
+```
+
+#### 4.4 Phase 4: 서비스 및 코어 분할
+
+**파일들:**
+- `src/app/services/media_data_service.py` (749줄)
+- `src/core/file_manager.py` (720줄)
+- `src/core/tmdb_client.py` (686줄)
+
+**분할 대상:**
+```
+src/app/services/
+├── media_data/
+│   ├── __init__.py                # 미디어 데이터 서비스 (300-400줄)
+│   ├── extractors/
+│   │   ├── __init__.py
+│   │   ├── metadata_extractor.py  # 메타데이터 추출
+│   │   ├── quality_extractor.py   # 품질 정보 추출
+│   │   └── episode_extractor.py   # 에피소드 정보 추출
+│   ├── processors/
+│   │   ├── __init__.py
+│   │   ├── file_processor.py      # 파일 처리
+│   │   └── group_processor.py     # 그룹 처리
+│   └── validators/
+│       ├── __init__.py
+│       ├── file_validator.py      # 파일 검증
+│       └── metadata_validator.py  # 메타데이터 검증
+
+src/core/
+├── file_management/
+│   ├── __init__.py                # 파일 관리자 (300-400줄)
+│   ├── operations/
+│   │   ├── __init__.py
+│   │   ├── copy_operations.py     # 복사 작업
+│   │   ├── move_operations.py     # 이동 작업
+│   │   └── delete_operations.py   # 삭제 작업
+│   ├── naming/
+│   │   ├── __init__.py
+│   │   ├── naming_schemes.py      # 명명 규칙
+│   │   └── path_builder.py        # 경로 구성
+│   └── safety/
+│       ├── __init__.py
+│       ├── conflict_resolver.py    # 충돌 해결
+│       └── backup_manager.py      # 백업 관리
+└── tmdb/
+    ├── __init__.py                # TMDB 클라이언트 (300-400줄)
+    ├── api/
+    │   ├── __init__.py
+    │   ├── search_api.py          # 검색 API
+    │   ├── movie_api.py           # 영화 API
+    │   └── tv_api.py              # TV API
+    ├── cache/
+    │   ├── __init__.py
+    │   ├── poster_cache.py        # 포스터 캐시
+    │   └── metadata_cache.py      # 메타데이터 캐시
+    └── parsers/
+        ├── __init__.py
+        ├── response_parser.py     # 응답 파싱
+        └── data_mapper.py         # 데이터 매핑
+```
+
+### 5. 구현 전략
+
+#### 5.1 단계별 접근
+1. **Phase 1 (1주):** 메인 윈도우 분할 (가장 큰 파일 우선)
+2. **Phase 2 (3-4일):** 결과 뷰 컴포넌트 분할
+3. **Phase 3 (1주):** 뷰모델 분할
+4. **Phase 4 (1주):** 서비스 및 코어 분할
+
+#### 5.2 리팩토링 원칙
+- **기능별 분리:** 관련 기능을 하나의 모듈로 그룹화
+- **의존성 최소화:** 순환 의존성 방지
+- **인터페이스 유지:** 기존 API 호환성 보장
+- **테스트 우선:** 리팩토링 전후 테스트 코드 작성
+
+#### 5.3 품질 관리
+- **코드 리뷰:** 각 단계별 코드 리뷰 수행
+- **테스트 커버리지:** 기존 테스트 커버리지 유지
+- **성능 테스트:** 리팩토링 전후 성능 비교
+- **문서화:** 각 모듈의 책임과 사용법 문서화
+
+### 6. 예상 효과
+
+#### 6.1 정량적 효과
+- **파일 크기:** 평균 349줄 → 300줄 이하
+- **500줄 이상 파일:** 38개 → 0개
+- **코드 가독성:** 함수당 평균 라인 수 감소
+- **유지보수성:** 모듈별 책임 명확화
+
+#### 6.2 정성적 효과
+- **개발 효율성:** 특정 기능 수정 시 관련 파일만 확인
+- **팀 협업:** 병렬 개발 가능성 증대
+- **코드 품질:** 단일 책임 원칙 준수
+- **확장성:** 새로운 기능 추가 시 적절한 모듈 선택 용이
+
+### 7. 리스크 및 대응 방안
+
+#### 7.1 주요 리스크
+- **기능 손실:** 리팩토링 과정에서 기존 기능 누락 가능성
+- **성능 저하:** 모듈 분할로 인한 오버헤드 증가
+- **테스트 복잡성:** 모듈 분할로 인한 테스트 구조 변경
+
+#### 7.2 대응 방안
+- **점진적 리팩토링:** 한 번에 모든 것을 변경하지 않고 단계별 진행
+- **테스트 자동화:** CI/CD 파이프라인을 통한 자동 테스트
+- **성능 모니터링:** 리팩토링 전후 성능 지표 측정
+- **백업 및 롤백:** 각 단계별 백업 및 롤백 계획 수립
+
+### 8. 성공 기준
+
+#### 8.1 기술적 기준
+- [ ] 모든 Python 파일이 500줄 이하
+- [ ] 함수 길이가 60줄 이하
+- [ ] 클래스 크기가 400줄 이하
+- [ ] 순환 의존성 없음
+- [ ] 테스트 커버리지 80% 이상 유지
+
+#### 8.2 품질 기준
+- [ ] 코드 가독성 향상 (리뷰어 피드백)
+- [ ] 개발 속도 향상 (기능 추가/수정 시간 단축)
+- [ ] 버그 발생률 감소
+- [ ] 문서화 완성도 향상
+
+### 9. 결론
+
+AnimeSorter 코드베이스의 현재 상태를 분석한 결과, 38개의 파일이 500줄 이상으로 과도하게 큰 상태입니다. 특히 메인 윈도우 파일(1,849줄)은 즉시 분할이 필요한 상황입니다.
+
+제안된 리팩토링 계획을 통해 코드의 가독성, 유지보수성, 확장성을 크게 향상시킬 수 있을 것으로 예상됩니다. 단계별 접근과 철저한 테스트를 통해 안전하게 리팩토링을 진행하겠습니다.

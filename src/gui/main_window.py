@@ -14,52 +14,26 @@ from PyQt5.QtWidgets import (
 )
 
 # New Architecture Components
-from app import (
-    IFileOrganizationService,
-    IFileScanService,
-    IMediaDataService,
-    ITMDBSearchService,
-    IUIUpdateService,
-    # Journal System Events
-    get_event_bus,
-    get_service,
-)
-
 # UI Command Bridge
-from core.file_manager import FileManager
-
 # Local imports
-from core.file_parser import FileParser
 from core.settings_manager import SettingsManager
 from core.tmdb_client import TMDBClient
 
 # Phase 10.1: 접근성 관리 시스템
-from .components.accessibility_manager import AccessibilityManager
-
 # Phase 10.2: 국제화 관리 시스템
-from .components.i18n_manager import I18nManager
+# Phase 1: 메인 윈도우 분할 - 기능별 클래스 분리
+from .components.main_window_coordinator import MainWindowCoordinator
 
 # UI Components
 from .components.settings_dialog import SettingsDialog
 
-# Phase 9.2: 테마 관리 시스템
-from .components.theme_manager import ThemeManager
-from .components.ui_migration_manager import UIMigrationManager
-
 # Phase 8: UI 상태 관리 및 마이그레이션
-from .components.ui_state_manager import UIStateManager
-
 # UI Components
 # Event Handler Manager
-from .handlers.event_handler_manager import EventHandlerManager
-
 # UI Initializer
-from .initializers.ui_initializer import UIInitializer
-
 # Data Models
 from .managers.anime_data_manager import AnimeDataManager, ParsedItem
 from .managers.file_processing_manager import FileProcessingManager
-from .managers.status_bar_manager import StatusBarManager
 from .managers.tmdb_manager import TMDBManager
 
 # Table Models
@@ -75,21 +49,16 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("AnimeSorter")
         self.setGeometry(100, 100, 1600, 900)
 
-        # 로그 Dock 추가 (Phase 5)
-        self.setup_log_dock()
+        # Phase 1: 메인 윈도우 분할 - 기능별 클래스 분리
+        # 메인 윈도우 조율자 초기화
+        self.coordinator = MainWindowCoordinator(self)
 
-        # UI 초기화는 UIInitializer에서 처리됩니다
-        # self.init_ui()  # UIInitializer로 이동됨
-
-        self.setup_connections()
-        # 단축키 설정은 UIInitializer에서 처리됩니다
-        # self.setup_shortcuts()  # UIInitializer로 이동됨
-
-        # 상태 초기화
+        # 기본 상태 초기화
         self.scanning = False
         self.progress = 0
         self.source_files = []
         self.source_directory = ""
+        self.destination_directory = ""
 
         # UI 컴포넌트 속성 초기화
         self.status_progress = None  # 상태바 진행률 표시기
@@ -97,29 +66,22 @@ class MainWindow(QMainWindow):
         # 설정 관리자 초기화
         self.settings_manager = SettingsManager()
 
-        # TMDB 클라이언트 초기화는 init_core_components에서 처리됩니다
-        # self.setup_tmdb_client()  # init_core_components로 이동됨
-        self.tmdb_client = None
+        # 모든 컴포넌트 초기화 (조율자를 통해)
+        self.coordinator.initialize_all_components()
 
-        # 파일 파서 초기화
-        self.file_parser = FileParser()
+        # 기본 연결 설정
+        self.setup_connections()
+        # self.tmdb_client = None  # MainWindowInitializer에서 설정됨
 
-        # 애니메 데이터 관리자 초기화
-        self.anime_data_manager = AnimeDataManager()
-
-        # 이벤트 버스 초기화
-        self.event_bus = get_event_bus()
-
-        # 그룹별 TMDB 검색 다이얼로그 저장
-        self.tmdb_search_dialogs = {}  # 그룹별 검색 다이얼로그 저장
-
-        # 새로운 아키텍처 관련 초기화
-        self.event_bus = None
-        self.file_scan_service = None
-        self.file_organization_service = None
-        self.media_data_service = None
-        self.tmdb_search_service = None
-        self.ui_update_service = None
+        # 기본 속성들 (조율자에서 관리됨)
+        # self.file_parser = None  # MainWindowInitializer에서 설정됨
+        # self.anime_data_manager = None  # MainWindowInitializer에서 설정됨
+        # self.event_bus = None  # MainWindowInitializer에서 설정됨
+        # self.file_scan_service = None  # MainWindowInitializer에서 설정됨
+        # self.file_organization_service = None  # MainWindowInitializer에서 설정됨
+        # self.media_data_service = None  # MainWindowInitializer에서 설정됨
+        # self.tmdb_search_service = None  # MainWindowInitializer에서 설정됨
+        # self.ui_update_service = None  # MainWindowInitializer에서 설정됨
         self.current_scan_id = None
         self.current_organization_id = None
         self.current_tmdb_search_id = None
@@ -136,321 +98,73 @@ class MainWindow(QMainWindow):
         # Status Bar Manager 초기화
         self.status_bar_manager = None
 
-        # 핵심 컴포넌트 초기화
-        self.init_core_components()
-
-        # 데이터 관리자 초기화
-        self.init_data_managers()
-
         # TMDB 검색 다이얼로그 초기화
-        self.tmdb_search_dialogs = {}  # 그룹별 검색 다이얼로그 저장
+        self.tmdb_search_dialogs = {}
 
-        # 초기 데이터 설정
-        self.initialize_data()
+        # 그룹별 TMDB 검색 다이얼로그 저장
+        self.tmdb_search_dialogs = {}
 
-        # 새로운 아키텍처 컴포넌트 초기화 (데이터 관리자 초기화 이후에 호출)
-        self.init_new_architecture()
+        # TMDB 클라이언트 초기화
+        # self.tmdb_client = None  # MainWindowInitializer에서 설정됨
 
-        # Phase 8: UI 상태 관리자 및 마이그레이션 관리자 초기화
-        self.init_ui_state_management()
+        # 파일 관리자 초기화
+        self.file_manager = None
 
-        # Phase 9.2: 테마 관리자 초기화
-        print("🎨 테마 관리자 초기화 시작...")
-        self.theme_manager = ThemeManager(self)
-        self.theme_manager.theme_changed.connect(self.on_theme_changed)
-        print("✅ 테마 관리자 인스턴스 생성 완료")
+        # 포스터 캐시 초기화
+        self.poster_cache = {}
 
-        # 설정에서 저장된 테마 적용
-        saved_theme = self.settings_manager.get_setting("theme", "auto")
-        print(f"📋 설정에서 읽은 테마: {saved_theme}")
-
-        # 테마 적용 시도
-        theme_applied = self.theme_manager.apply_theme(saved_theme)
-        if theme_applied:
-            print(f"✅ 테마 '{saved_theme}' 적용 성공")
-        else:
-            print(f"❌ 테마 '{saved_theme}' 적용 실패")
-
-        # 현재 테마 상태 상세 출력
-        current_theme = self.theme_manager.get_current_theme()
-        system_theme = self.theme_manager.get_system_theme()
-        effective_theme = (
-            "dark"
-            if (current_theme == "auto" and system_theme == "dark") or current_theme == "dark"
-            else "light"
-        )
-
-        print("🎨 테마 관리자 초기화 완료")
-        print(f"   - 설정된 테마: {saved_theme}")
-        print(f"   - 현재 테마: {current_theme}")
-        print(f"   - 시스템 테마: {system_theme}")
-        print(f"   - 실제 적용된 테마: {effective_theme}")
-        print(f"   - 테마 적용 상태: {'성공' if theme_applied else '실패'}")
-
-        # 상태바에 테마 정보 표시
-        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
-            self.status_bar_manager.update_status_bar(f"테마가 {saved_theme}로 변경되었습니다")
-
-        # Phase 10.1: 접근성 관리자 초기화
-        self.accessibility_manager = AccessibilityManager(self)
-        self.accessibility_manager.initialize(self)
-        print("✅ 접근성 관리자 초기화 완료")
-
-        # Phase 10.2: 국제화 관리자 초기화
-        self.i18n_manager = I18nManager(self)
-        self.i18n_manager.initialize_with_system_language()
-        self.i18n_manager.language_changed.connect(self.on_language_changed)
-        print("✅ 국제화 관리자 초기화 완료")
-
-        # 이전 세션 상태 복원 (Phase 8로 대체됨)
-        # self.restore_session_state()
+        # 접근성 및 국제화 관리자 (조율자에서 관리됨)
+        self.accessibility_manager = None
+        self.i18n_manager = None
 
     def init_core_components(self):
-        """핵심 컴포넌트 초기화"""
-        try:
-            # 설정 관리자 초기화
-            self.settings_manager = SettingsManager()
-
-            # FileParser 초기화
-            self.file_parser = FileParser()
-
-            # TMDBClient 초기화 (설정에서 API 키 가져오기)
-            api_key = self.settings_manager.get_setting("tmdb_api_key") or os.getenv("TMDB_API_KEY")
-            if api_key:
-                self.tmdb_client = TMDBClient(api_key=api_key)
-                print(f"✅ TMDBClient 초기화 성공 (API 키: {api_key[:8]}...)")
-
-                # 포스터 캐시 초기화
-                self.poster_cache = {}  # 포스터 이미지 캐시
-            else:
-                print("⚠️ TMDB_API_KEY가 설정되지 않았습니다.")
-                print("   설정에서 TMDB API 키를 입력하거나 환경 변수를 설정하세요.")
-                self.tmdb_client = None
-
-            # FileManager 초기화
-            dest_root = self.settings_manager.get_setting("destination_root", "")
-            safe_mode = self.settings_manager.get_setting("safe_mode", True)
-            self.file_manager = FileManager(destination_root=dest_root, safe_mode=safe_mode)
-
-            # FileManager 설정 적용
-            naming_scheme = self.settings_manager.get_setting("naming_scheme", "standard")
-            self.file_manager.set_naming_scheme(naming_scheme)
-
-            # ViewModel 초기화
-            self.init_view_model()
-
-            # Event Handler Manager 초기화 (event_bus가 설정된 후에 초기화됨)
-            # self.event_handler_manager = EventHandlerManager(self)
-            # self.event_handler_manager.setup_event_subscriptions()
-
-            # 설정을 UI 컴포넌트에 적용
-            self.apply_settings_to_ui()
-
-            print("✅ 핵심 컴포넌트 초기화 완료")
-
-        except Exception as e:
-            print(f"❌ 핵심 컴포넌트 초기화 실패: {e}")
-            self.file_parser = None
-            self.tmdb_client = None
-            self.file_manager = None
+        """핵심 컴포넌트 초기화 (조율자에 위임)"""
+        if hasattr(self, "coordinator") and self.coordinator:
+            return self.coordinator.initializer.initialize_core_components()
+        print("⚠️ 조율자가 초기화되지 않았습니다.")
+        return False
 
     def init_new_architecture(self):
-        """새로운 아키텍처 컴포넌트 초기화"""
-        try:
-            # EventBus 가져오기 (전역 인스턴스)
-            self.event_bus = get_event_bus()
-            print(f"✅ EventBus 연결됨: {id(self.event_bus)}")
-
-            # 모든 서비스들 가져오기 (DI Container에서)
-            self.file_scan_service = get_service(IFileScanService)
-            print(f"✅ FileScanService 연결됨: {id(self.file_scan_service)}")
-
-            self.file_organization_service = get_service(IFileOrganizationService)
-            print(f"✅ FileOrganizationService 연결됨: {id(self.file_organization_service)}")
-
-            self.media_data_service = get_service(IMediaDataService)
-            print(f"✅ MediaDataService 연결됨: {id(self.media_data_service)}")
-
-            self.tmdb_search_service = get_service(ITMDBSearchService)
-            print(f"✅ TMDBSearchService 연결됨: {id(self.tmdb_search_service)}")
-
-            self.ui_update_service = get_service(IUIUpdateService)
-            print(f"✅ UIUpdateService 연결됨: {id(self.ui_update_service)}")
-
-            # Safety System 초기화
-            self.init_safety_system()
-            print("✅ Safety System 초기화 완료")
-
-            # Command System 초기화
-            self.init_command_system()
-            print("✅ Command System 초기화 완료")
-
-            # Preflight System 초기화는 FileOrganizationHandler에서 처리됩니다
-
-            # Journal System 초기화
-            self.init_journal_system()
-            print("✅ Journal System 초기화 완료")
-
-            # Undo/Redo System 초기화
-            self.init_undo_redo_system()
-            print("✅ Undo/Redo System 초기화 완료")
-
-            # UIUpdateService 초기화 (MainWindow 전달)
-            self.ui_update_service.initialize(self)
-            print("✅ UIUpdateService 초기화 완료")
-
-            # EventHandlerManager 초기화 및 이벤트 구독 설정
-            self.event_handler_manager = EventHandlerManager(self, self.event_bus)
-            self.event_handler_manager.setup_event_subscriptions()
-
-            # UI 초기화
-            self.ui_initializer = UIInitializer(self)
-            self.ui_initializer.init_ui()
-
-            # TMDBSearchHandler 초기화
-            from .handlers.tmdb_search_handler import TMDBSearchHandler
-
-            self.tmdb_search_handler = TMDBSearchHandler(self)
-
-            # TMDB 검색 시그널-슬롯 연결
-            if hasattr(self, "anime_data_manager"):
-                self.anime_data_manager.tmdb_search_requested.connect(
-                    self.tmdb_search_handler.on_tmdb_search_requested
-                )
-                print("✅ TMDB 검색 시그널-슬롯 연결 완료")
-
-            print("✅ TMDB Search Handler 초기화 완료")
-
-            # FileOrganizationHandler 초기화
-            from .handlers.file_organization_handler import FileOrganizationHandler
-
-            self.file_organization_handler = FileOrganizationHandler(self)
-            self.file_organization_handler.init_preflight_system()
-            print("✅ File Organization Handler 초기화 완료")
-
-            # Status Bar Manager 초기화
-            self.status_bar_manager = StatusBarManager(self)
-            print("✅ Status Bar Manager 초기화 완료")
-
-            # UI 초기화 완료 후 연결 설정
-            self.setup_connections()
-
-            print("✅ 새로운 아키텍처 컴포넌트 초기화 완료")
-
-        except Exception as e:
-            print(f"❌ 새로운 아키텍처 초기화 실패: {e}")
-            # 기본값으로 설정 (기존 동작 유지)
-            self.event_bus = None
-            self.file_scan_service = None
-            self.file_organization_service = None
-            self.media_data_service = None
-            self.tmdb_search_service = None
-            self.ui_update_service = None
+        """새로운 아키텍처 컴포넌트 초기화 (조율자에 위임)"""
+        if hasattr(self, "coordinator") and self.coordinator:
+            return self.coordinator.initializer.initialize_new_architecture()
+        print("⚠️ 조율자가 초기화되지 않았습니다.")
+        return False
 
     def init_ui_state_management(self):
-        """Phase 8: UI 상태 관리 및 마이그레이션 초기화"""
-        try:
-            # UI 상태 관리자 초기화
-            self.ui_state_manager = UIStateManager(self)
-            print("✅ UI State Manager 초기화 완료")
-
-            # UI 마이그레이션 관리자 초기화
-            self.ui_migration_manager = UIMigrationManager(self)
-            print("✅ UI Migration Manager 초기화 완료")
-
-            # UI 상태 복원
-            self.ui_state_manager.restore_ui_state()
-            print("✅ UI 상태 복원 완료")
-
-            # 마이그레이션 상태 확인 및 처리
-            self._handle_ui_migration()
-
-        except Exception as e:
-            print(f"❌ UI 상태 관리 초기화 실패: {e}")
-
-    def _handle_ui_migration(self):
-        """UI 마이그레이션 상태 확인 및 처리"""
-        try:
-            migration_info = self.ui_migration_manager.get_migration_info()
-            current_version = migration_info["current_version"]
-
-            print(f"📋 현재 UI 버전: {current_version}")
-
-            if current_version == "1.0":
-                # v1에서 v2로 마이그레이션 가능한지 확인
-                if self.ui_migration_manager.is_migration_available():
-                    print("🔄 UI v2 마이그레이션이 가능합니다.")
-                    # 자동 마이그레이션은 사용자 확인 후 진행
-                    # self.ui_migration_manager.start_migration_to_v2()
-                else:
-                    print("⚠️ UI v2 마이그레이션이 불가능합니다.")
-            elif current_version == "2.0":
-                print("✅ UI v2가 이미 활성화되어 있습니다.")
-
-                # v2 레이아웃 유효성 검증
-                is_valid, errors = self.ui_migration_manager.validate_v2_layout()
-                if not is_valid:
-                    print(f"⚠️ UI v2 레이아웃 검증 실패: {errors}")
-                else:
-                    print("✅ UI v2 레이아웃 검증 완료")
-
-        except Exception as e:
-            print(f"❌ UI 마이그레이션 처리 실패: {e}")
+        """Phase 8: UI 상태 관리 및 마이그레이션 초기화 (조율자에 위임)"""
+        if hasattr(self, "coordinator") and self.coordinator:
+            return self.coordinator.initializer.initialize_ui_state_management()
+        print("⚠️ 조율자가 초기화되지 않았습니다.")
+        return False
 
     def init_safety_system(self):
-        """Safety System 초기화"""
-        try:
-            from .managers.safety_system_manager import SafetySystemManager
-
-            # Safety System Manager 초기화
-            self.safety_system_manager = SafetySystemManager(self)
-            print("✅ Safety System Manager 초기화 완료")
-
-        except Exception as e:
-            print(f"⚠️ Safety System 초기화 실패: {e}")
-            self.safety_system_manager = None
+        """Safety System 초기화 (조율자에 위임)"""
+        if hasattr(self, "coordinator") and self.coordinator:
+            return self.coordinator.initializer.initialize_safety_system()
+        print("⚠️ 조율자가 초기화되지 않았습니다.")
+        return False
 
     def init_command_system(self):
-        """Command System 초기화"""
-        try:
-            from .managers.command_system_manager import CommandSystemManager
-
-            # Command System Manager 초기화
-            self.command_system_manager = CommandSystemManager(self)
-            print("✅ Command System Manager 초기화 완료")
-
-        except Exception as e:
-            print(f"⚠️ Command System 초기화 실패: {e}")
-            self.command_system_manager = None
-
-    # Preflight System 초기화는 FileOrganizationHandler에서 처리됩니다
+        """Command System 초기화 (조율자에 위임)"""
+        if hasattr(self, "coordinator") and self.coordinator:
+            return self.coordinator.initializer.initialize_command_system()
+        print("⚠️ 조율자가 초기화되지 않았습니다.")
+        return False
 
     def init_journal_system(self):
-        """Journal System 초기화"""
-        try:
-            from app import IJournalManager, IRollbackEngine
-
-            # Journal Manager 가져오기
-            self.journal_manager = get_service(IJournalManager)
-            print(f"✅ JournalManager 연결됨: {id(self.journal_manager)}")
-
-            # Rollback Engine 가져오기
-            self.rollback_engine = get_service(IRollbackEngine)
-            print(f"✅ RollbackEngine 연결됨: {id(self.rollback_engine)}")
-
-        except Exception as e:
-            print(f"⚠️ Journal System 초기화 실패: {e}")
-            self.journal_manager = None
-            self.rollback_engine = None
+        """Journal System 초기화 (조율자에 위임)"""
+        if hasattr(self, "coordinator") and self.coordinator:
+            return self.coordinator.initializer.initialize_journal_system()
+        print("⚠️ 조율자가 초기화되지 않았습니다.")
+        return False
 
     def init_undo_redo_system(self):
-        """Undo/Redo System 초기화"""
-        try:
-            # CommandSystemManager에서 이미 처리됨
-            print("✅ Undo/Redo System 초기화 완료 (CommandSystemManager에서 처리)")
-
-        except Exception as e:
-            print(f"⚠️ Undo/Redo System 초기화 실패: {e}")
+        """Undo/Redo System 초기화 (조율자에 위임)"""
+        if hasattr(self, "coordinator") and self.coordinator:
+            return self.coordinator.initializer.initialize_undo_redo_system()
+        print("⚠️ 조율자가 초기화되지 않았습니다.")
+        return False
 
     # UI Command 시스템 초기화는 CommandSystemManager에서 처리됩니다
 
@@ -573,7 +287,7 @@ class MainWindow(QMainWindow):
                     self.left_panel.destination_folder_selected.connect(
                         self.on_destination_folder_selected
                     )
-                    self.left_panel.scan_started.connect(self.on_scan_started)
+                    # self.left_panel.scan_started.connect(self.on_scan_started)  # MainWindowCoordinator에서 처리됨
                     self.left_panel.scan_paused.connect(self.on_scan_paused)
                     self.left_panel.settings_opened.connect(self.on_settings_opened)
                     self.left_panel.completed_cleared.connect(self.on_completed_cleared)
@@ -969,11 +683,11 @@ class MainWindow(QMainWindow):
                 # 폴백: 직접 서비스 호출
                 print(f"🚀 [MainWindow] 백그라운드 서비스로 디렉토리 스캔: {directory_path}")
                 self.current_scan_id = self.file_scan_service.scan_directory(
-                    directory_path=directory_path,
+                    directory_path=Path(directory_path),
                     recursive=True,
                     extensions={".mkv", ".mp4", ".avi", ".wmv", ".mov", ".flv", ".webm", ".m4v"},
-                    min_size_mb=1.0,
-                    max_size_gb=50.0,
+                    min_file_size=1024 * 1024,  # 1MB
+                    max_file_size=50 * 1024 * 1024 * 1024,  # 50GB
                 )
                 print(f"🆔 [MainWindow] 백그라운드 작업 ID: {self.current_scan_id}")
 
@@ -1634,56 +1348,6 @@ class MainWindow(QMainWindow):
         if hasattr(self, "log_dock") and self.log_dock:
             self.log_dock.hide_log_dock()
 
-    # Phase 9.2: 테마 관리 이벤트 핸들러
-    def on_theme_changed(self, theme: str):
-        """테마 변경 이벤트 처리"""
-        print(f"🎨 테마가 {theme}로 변경되었습니다")
-
-        # 테마 변경에 따른 추가 UI 조정
-        if hasattr(self, "results_view") and self.results_view:
-            # 결과 뷰의 테이블들에 테마 적용
-            self._apply_theme_to_tables()
-
-        # 상태바에 테마 정보 표시
-        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
-            self.status_bar_manager.update_status_bar(f"테마가 {theme}로 변경되었습니다")
-
-    def _apply_theme_to_tables(self):
-        """테이블들에 현재 테마 적용"""
-        try:
-            # 모든 탭의 테이블에 테마 적용
-            tables = [
-                getattr(self.results_view, "all_group_table", None),
-                getattr(self.results_view, "unmatched_group_table", None),
-                getattr(self.results_view, "conflict_group_table", None),
-                getattr(self.results_view, "duplicate_group_table", None),
-                getattr(self.results_view, "completed_group_table", None),
-            ]
-
-            for table in tables:
-                if table and hasattr(table, "viewport"):
-                    # 테이블 뷰포트에 테마 적용
-                    table.viewport().update()
-
-        except Exception as e:
-            print(f"⚠️ 테마 적용 중 오류 발생: {e}")
-
-    def get_current_theme(self) -> str:
-        """현재 테마 반환"""
-        if hasattr(self, "theme_manager"):
-            return self.theme_manager.get_current_theme()
-        return "auto"
-
-    def toggle_theme(self):
-        """테마 토글 (라이트 ↔ 다크)"""
-        if hasattr(self, "theme_manager"):
-            self.theme_manager.toggle_theme()
-
-    def reset_theme_to_auto(self):
-        """자동 테마 모드로 복원"""
-        if hasattr(self, "theme_manager"):
-            self.theme_manager.reset_to_auto()
-
     # Phase 10.1: 접근성 관리 이벤트 핸들러
     def toggle_accessibility_mode(self):
         """접근성 모드 토글"""
@@ -1813,12 +1477,6 @@ class MainWindow(QMainWindow):
             if dialog.exec_() == SettingsDialog.Accepted:
                 # 설정이 변경되었을 때 처리
                 self.settings_manager.save_settings()
-
-                # 테마 설정 적용
-                if hasattr(self, "theme_manager"):
-                    new_theme = self.settings_manager.settings.get("theme", "auto")
-                    self.theme_manager.apply_theme(new_theme)
-                    print(f"✅ 테마가 '{new_theme}'로 변경되었습니다.")
 
                 # 접근성 설정 적용
                 if hasattr(self, "accessibility_manager"):

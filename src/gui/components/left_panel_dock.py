@@ -14,6 +14,7 @@ class LeftPanelDock(QDockWidget):
 
     def __init__(self, parent=None):
         super().__init__("🚀 빠른 작업 & 📊 통계", parent)
+        self.setObjectName("left_panel_dock")  # objectName 설정
         self.init_ui()
         self.setup_dock_properties()
 
