@@ -6,6 +6,7 @@ pydantic-settings를 사용하여 타입 안전성과 검증을 제공합니다.
 """
 
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -24,115 +25,59 @@ class AppConfig(BaseSettings):
     )
 
     # === 파일 정리 설정 ===
-    destination_root: str = Field(
-        default="", description="파일 정리의 기본 대상 디렉토리", env="ANIMESORTER_DESTINATION_ROOT"
-    )
+    destination_root: str = Field("", description="파일 정리의 기본 대상 디렉토리")
 
-    organize_mode: str = Field(
-        default="복사",
-        description="파일 정리 모드: 복사, 이동, 하드링크",
-        env="ANIMESORTER_ORGANIZE_MODE",
-    )
+    organize_mode: str = Field("복사", description="파일 정리 모드: 복사, 이동, 하드링크")
 
     naming_scheme: str = Field(
-        default="standard",
-        description="파일명 생성 스키마: standard, minimal, detailed",
-        env="ANIMESORTER_NAMING_SCHEME",
+        "standard", description="파일명 생성 스키마: standard, minimal, detailed"
     )
 
-    safe_mode: bool = Field(
-        default=True,
-        description="안전 모드 활성화 (파일 덮어쓰기 방지)",
-        env="ANIMESORTER_SAFE_MODE",
-    )
+    safe_mode: bool = Field(True, description="안전 모드 활성화 (파일 덮어쓰기 방지)")
 
-    backup_before_organize: bool = Field(
-        default=False,
-        description="파일 정리 전 백업 생성",
-        env="ANIMESORTER_BACKUP_BEFORE_ORGANIZE",
-    )
+    backup_before_organize: bool = Field(False, description="파일 정리 전 백업 생성")
 
     # === 파싱 설정 ===
-    prefer_anitopy: bool = Field(
-        default=False, description="anitopy를 우선 사용", env="ANIMESORTER_PREFER_ANITOPY"
-    )
+    prefer_anitopy: bool = Field(False, description="anitopy를 우선 사용")
 
-    fallback_parser: str = Field(
-        default="FileParser",
-        description="대체 파서: GuessIt, Custom, FileParser",
-        env="ANIMESORTER_FALLBACK_PARSER",
-    )
+    fallback_parser: str = Field("FileParser", description="대체 파서: GuessIt, Custom, FileParser")
 
-    realtime_monitoring: bool = Field(
-        default=False, description="실시간 모니터링 활성화", env="ANIMESORTER_REALTIME_MONITORING"
-    )
+    realtime_monitoring: bool = Field(False, description="실시간 모니터링 활성화")
 
-    auto_refresh_interval: int = Field(
-        default=30, description="자동 새로고침 간격 (초)", env="ANIMESORTER_AUTO_REFRESH_INTERVAL"
-    )
+    auto_refresh_interval: int = Field(30, description="자동 새로고침 간격 (초)")
 
     # === TMDB 설정 ===
-    tmdb_api_key: str = Field(default="", description="TMDB API 키", env="TMDB_API_KEY")
+    tmdb_api_key: str = Field("", description="TMDB API 키")
 
-    tmdb_language: str = Field(
-        default="ko-KR",
-        description="TMDB 언어 설정: ko-KR, en-US, ja-JP",
-        env="ANIMESORTER_TMDB_LANGUAGE",
-    )
+    tmdb_language: str = Field("ko-KR", description="TMDB 언어 설정: ko-KR, en-US, ja-JP")
 
     # === 고급 설정 ===
-    show_advanced_options: bool = Field(
-        default=False, description="고급 옵션 표시", env="ANIMESORTER_SHOW_ADVANCED_OPTIONS"
-    )
+    show_advanced_options: bool = Field(False, description="고급 옵션 표시")
 
-    log_level: str = Field(
-        default="INFO",
-        description="로그 레벨: DEBUG, INFO, WARNING, ERROR",
-        env="ANIMESORTER_LOG_LEVEL",
-    )
+    log_level: str = Field("INFO", description="로그 레벨: DEBUG, INFO, WARNING, ERROR")
 
-    log_to_file: bool = Field(
-        default=False, description="파일로 로그 저장", env="ANIMESORTER_LOG_TO_FILE"
-    )
+    log_to_file: bool = Field(False, description="파일로 로그 저장")
 
     # === 백업 설정 ===
-    backup_location: str = Field(
-        default="", description="백업 파일 저장 위치", env="ANIMESORTER_BACKUP_LOCATION"
-    )
+    backup_location: str = Field("", description="백업 파일 저장 위치")
 
-    max_backup_count: int = Field(
-        default=10, description="최대 백업 파일 개수", env="ANIMESORTER_MAX_BACKUP_COUNT"
-    )
+    max_backup_count: int = Field(10, description="최대 백업 파일 개수")
 
     # === GUI 상태 (세션별) ===
-    window_geometry: str | None = Field(
-        default=None, description="윈도우 기하학 정보", env="ANIMESORTER_WINDOW_GEOMETRY"
-    )
+    window_geometry: str | None = Field(None, description="윈도우 기하학 정보")
 
-    table_column_widths: dict[str, int] | None = Field(
-        default=None, description="테이블 컬럼 너비", env="ANIMESORTER_TABLE_COLUMN_WIDTHS"
-    )
+    table_column_widths: dict[str, int] | None = Field(None, description="테이블 컬럼 너비")
 
-    last_source_directory: str = Field(
-        default="", description="마지막 소스 디렉토리", env="ANIMESORTER_LAST_SOURCE_DIRECTORY"
-    )
+    last_source_directory: str = Field("", description="마지막 소스 디렉토리")
 
-    last_destination_directory: str = Field(
-        default="", description="마지막 대상 디렉토리", env="ANIMESORTER_LAST_DESTINATION_DIRECTORY"
-    )
+    last_destination_directory: str = Field("", description="마지막 대상 디렉토리")
 
-    last_source_files: list[str] | None = Field(
-        default=None, description="마지막 소스 파일 목록", env="ANIMESORTER_LAST_SOURCE_FILES"
-    )
+    last_source_files: list[str] | None = Field(None, description="마지막 소스 파일 목록")
 
-    splitter_positions: list[int] | None = Field(
-        default=None, description="스플리터 위치", env="ANIMESORTER_SPLITTER_POSITIONS"
-    )
+    splitter_positions: list[int] | None = Field(None, description="스플리터 위치")
 
     # === 세션 관리 ===
-    remember_last_session: bool = Field(
-        default=True, description="마지막 세션 기억", env="ANIMESORTER_REMEMBER_LAST_SESSION"
-    )
+    remember_last_session: bool = Field(True, description="마지막 세션 기억")
 
     # === 검증 메서드 ===
     @field_validator("organize_mode")
@@ -219,10 +164,10 @@ class ConfigManager:
         self._config: AppConfig | None = None
 
         # 설정 변경 콜백
-        self._change_callbacks: list[callable] = []
+        self._change_callbacks: list[Callable] = []
 
     @property
-    def config(self) -> AppConfig:
+    def config(self) -> AppConfig | None:
         """설정 인스턴스 반환 (지연 로딩)"""
         if self._config is None:
             self._load_config()
@@ -383,6 +328,9 @@ class ConfigManager:
             import yaml
 
             # 설정을 딕셔너리로 변환
+            if self.config is None:
+                print("❌ 설정이 로드되지 않았습니다")
+                return False
             config_dict = self.config.model_dump()
 
             # None 값과 빈 문자열 제거
@@ -406,6 +354,9 @@ class ConfigManager:
     def save_to_json(self) -> bool:
         """현재 설정을 JSON 파일로 저장"""
         try:
+            if self.config is None:
+                print("❌ 설정이 로드되지 않았습니다")
+                return False
             config_dict = self.config.model_dump()
 
             # None 값과 빈 문자열 제거
@@ -436,6 +387,8 @@ class ConfigManager:
     def validate(self) -> dict[str, str]:
         """설정 유효성 검사"""
         try:
+            if self.config is None:
+                return {"validation_error": "설정이 로드되지 않았습니다"}
             # pydantic 검증 실행
             self.config.model_validate(self.config.model_dump())
             return {}
@@ -452,7 +405,7 @@ class ConfigManager:
             "config_dir": str(self.config_dir),
         }
 
-    def add_change_callback(self, callback: callable) -> None:
+    def add_change_callback(self, callback: Callable) -> None:
         """설정 변경 콜백 추가"""
         self._change_callbacks.append(callback)
 

@@ -5,7 +5,6 @@ MainWindow의 과도한 __init__ 메서드 로직을 분리하여 가독성과 �
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from PyQt5.QtWidgets import QMainWindow
 
@@ -31,20 +30,20 @@ class MainWindowInitializer:
 
     def __init__(self, main_window: QMainWindow):
         self.main_window = main_window
-        self.settings_manager: Optional[SettingsManager] = None
-        self.file_parser: Optional[FileParser] = None
-        self.tmdb_client: Optional[TMDBClient] = None
-        self.file_manager: Optional[FileManager] = None
-        self.anime_data_manager: Optional[AnimeDataManager] = None
-        self.file_processing_manager: Optional[FileProcessingManager] = None
-        self.tmdb_manager: Optional[TMDBManager] = None
-        self.accessibility_manager: Optional[AccessibilityManager] = None
-        self.i18n_manager: Optional[I18nManager] = None
-        self.ui_state_manager: Optional[UIStateManager] = None
-        self.ui_migration_manager: Optional[UIMigrationManager] = None
-        self.event_handler_manager: Optional[EventHandlerManager] = None
-        self.status_bar_manager: Optional[StatusBarManager] = None
-        self.ui_initializer: Optional[UIInitializer] = None
+        self.settings_manager: SettingsManager | None = None
+        self.file_parser: FileParser | None = None
+        self.tmdb_client: TMDBClient | None = None
+        self.file_manager: FileManager | None = None
+        self.anime_data_manager: AnimeDataManager | None = None
+        self.file_processing_manager: FileProcessingManager | None = None
+        self.tmdb_manager: TMDBManager | None = None
+        self.accessibility_manager: AccessibilityManager | None = None
+        self.i18n_manager: I18nManager | None = None
+        self.ui_state_manager: UIStateManager | None = None
+        self.ui_migration_manager: UIMigrationManager | None = None
+        self.event_handler_manager: EventHandlerManager | None = None
+        self.status_bar_manager: StatusBarManager | None = None
+        self.ui_initializer: UIInitializer | None = None
 
         # 새로운 아키텍처 관련 속성들
         self.event_bus = None
@@ -191,15 +190,9 @@ class MainWindowInitializer:
         """새로운 아키텍처 컴포넌트 초기화"""
         try:
             # EventBus 가져오기 (전역 인스턴스)
-            from app import (
-                IFileOrganizationService,
-                IFileScanService,
-                IMediaDataService,
-                ITMDBSearchService,
-                IUIUpdateService,
-                get_event_bus,
-                get_service,
-            )
+            from app import (IFileOrganizationService, IFileScanService,
+                             IMediaDataService, ITMDBSearchService,
+                             IUIUpdateService, get_event_bus, get_service)
 
             self.event_bus = get_event_bus()
             self.main_window.event_bus = self.event_bus
@@ -274,7 +267,8 @@ class MainWindowInitializer:
             print("✅ TMDB Search Handler 초기화 완료")
 
             # FileOrganizationHandler 초기화
-            from ..handlers.file_organization_handler import FileOrganizationHandler
+            from ..handlers.file_organization_handler import \
+                FileOrganizationHandler
 
             self.main_window.file_organization_handler = FileOrganizationHandler(self.main_window)
             self.main_window.file_organization_handler.init_preflight_system()

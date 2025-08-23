@@ -258,7 +258,7 @@ class RollbackEngine:
             return False
 
         # 필요한 롤백 데이터가 있는지 확인
-        return entry.operation_details
+        return entry.operation_details is not None
 
     def _rollback_single_entry(
         self, entry: JournalEntry, strategy: RollbackStrategy, result: RollbackResult

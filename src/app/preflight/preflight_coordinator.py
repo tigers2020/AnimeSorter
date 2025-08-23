@@ -7,18 +7,14 @@
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID, uuid4
 
-from .base_checker import IPreflightChecker, PreflightIssue, PreflightResult, PreflightSeverity
-from .file_checkers import (
-    CircularReferenceChecker,
-    DiskSpaceChecker,
-    FileConflictChecker,
-    FileLockChecker,
-    PathValidityChecker,
-    PermissionChecker,
-)
+from .base_checker import (IPreflightChecker, PreflightIssue, PreflightResult,
+                           PreflightSeverity)
+from .file_checkers import (CircularReferenceChecker, DiskSpaceChecker,
+                            FileConflictChecker, FileLockChecker,
+                            PathValidityChecker, PermissionChecker)
 
 
 @dataclass
@@ -376,7 +372,7 @@ class PreflightCoordinator:
 
         return result
 
-    def get_checker_info(self) -> dict[str, dict[str, any]]:
+    def get_checker_info(self) -> dict[str, dict[str, Any]]:
         """등록된 검사기 정보 조회"""
         info = {}
         for name, checker in self._checkers.items():

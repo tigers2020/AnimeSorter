@@ -4,10 +4,9 @@ TMDB 이미지 다운로드 모듈
 TMDB 포스터, 배경 이미지 등의 다운로드를 관리합니다.
 """
 
+import asyncio
 import logging
-import threading
 from pathlib import Path
-from typing import Optional
 
 import aiohttp
 import requests
@@ -25,8 +24,8 @@ class TMDBImageManager:
         self.poster_cache_dir.mkdir(exist_ok=True)
 
         # 비동기 세션 관리
-        self.async_session = None
-        self.async_lock = threading.Lock()
+        self.async_session: aiohttp.ClientSession | None = None
+        self.async_lock = asyncio.Lock()
 
         # 동기 세션 설정
         self.session = requests.Session()
@@ -67,6 +66,7 @@ class TMDBImageManager:
                         timeout=timeout,
                         headers={"User-Agent": "AnimeSorter/2.0.0", "Accept": "image/*"},
                     )
+        assert self.async_session is not None
         return self.async_session
 
     async def close_async_session(self):
@@ -74,7 +74,7 @@ class TMDBImageManager:
         if self.async_session and not self.async_session.closed:
             await self.async_session.close()
 
-    async def download_poster_async(self, poster_path: str, size: str = "w185") -> Optional[str]:
+    async def download_poster_async(self, poster_path: str, size: str = "w185") -> str | None:
         """TMDB 포스터 이미지 비동기 다운로드"""
         if not poster_path:
             return None
@@ -112,7 +112,7 @@ class TMDBImageManager:
             self.logger.error(f"포스터 다운로드 실패: {e}")
             return None
 
-    def download_poster(self, poster_path: str, size: str = "w185") -> Optional[str]:
+    def download_poster(self, poster_path: str, size: str = "w185") -> str | None:
         """TMDB 포스터 이미지 다운로드 (동기 버전)"""
         if not poster_path:
             return None
@@ -146,7 +146,7 @@ class TMDBImageManager:
             self.logger.error(f"포스터 다운로드 실패: {e}")
             return None
 
-    def download_backdrop(self, backdrop_path: str, size: str = "w1280") -> Optional[str]:
+    def download_backdrop(self, backdrop_path: str, size: str = "w1280") -> str | None:
         """TMDB 배경 이미지 다운로드"""
         if not backdrop_path:
             return None
@@ -180,7 +180,7 @@ class TMDBImageManager:
             self.logger.error(f"배경 이미지 다운로드 실패: {e}")
             return None
 
-    def download_profile(self, profile_path: str, size: str = "w185") -> Optional[str]:
+    def download_profile(self, profile_path: str, size: str = "w185") -> str | None:
         """TMDB 프로필 이미지 다운로드"""
         if not profile_path:
             return None
@@ -214,7 +214,7 @@ class TMDBImageManager:
             self.logger.error(f"프로필 이미지 다운로드 실패: {e}")
             return None
 
-    def get_poster_path(self, poster_path: str, size: str = "w185") -> Optional[str]:
+    def get_poster_path(self, poster_path: str, size: str = "w185") -> str | None:
         """포스터 이미지 경로 반환 (다운로드 포함)"""
         if not poster_path:
             return None
@@ -222,7 +222,7 @@ class TMDBImageManager:
         # 이미지 다운로드 시도
         return self.download_poster(poster_path, size)
 
-    def get_backdrop_path(self, backdrop_path: str, size: str = "w1280") -> Optional[str]:
+    def get_backdrop_path(self, backdrop_path: str, size: str = "w1280") -> str | None:
         """배경 이미지 경로 반환 (다운로드 포함)"""
         if not backdrop_path:
             return None
@@ -230,7 +230,7 @@ class TMDBImageManager:
         # 이미지 다운로드 시도
         return self.download_backdrop(backdrop_path, size)
 
-    def get_profile_path(self, profile_path: str, size: str = "w185") -> Optional[str]:
+    def get_profile_path(self, profile_path: str, size: str = "w185") -> str | None:
         """프로필 이미지 경로 반환 (다운로드 포함)"""
         if not profile_path:
             return None
@@ -271,15 +271,11 @@ class TMDBImageManager:
             total_size = sum(f.stat().st_size for f in image_files if f.is_file())
 
             # 이미지 타입별 분류
-            image_types = {}
+            image_types: dict[str, int] = {}
             for image_file in image_files:
                 if image_file.is_file():
                     filename = image_file.name
-                    if (
-                        filename.startswith("w185_")
-                        or filename.startswith("w342_")
-                        or filename.startswith("w500_")
-                    ):
+                    if filename.startswith(("w185_", "w342_", "w500_")):
                         image_types["poster"] = image_types.get("poster", 0) + 1
                     elif filename.startswith("backdrop_"):
                         image_types["backdrop"] = image_types.get("backdrop", 0) + 1

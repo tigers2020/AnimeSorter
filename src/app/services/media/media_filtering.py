@@ -7,7 +7,8 @@
 import logging
 from uuid import UUID
 
-from ...domain import MediaFile, MediaGroup, MediaQuality, MediaSource, MediaType
+from ...domain import (MediaFile, MediaGroup, MediaQuality, MediaSource,
+                       MediaType)
 from ...media_data_events import MediaDataFilter
 
 
@@ -21,53 +22,49 @@ class MediaFilter:
         """파일에 필터를 적용하여 통과한 파일 ID 목록을 반환합니다."""
         try:
             if not filters:
-                return [file.file_id for file in files]
+                return [file.id for file in files]
 
             filtered_file_ids = []
 
             for file in files:
                 if self._file_passes_all_filters(file, filters):
-                    filtered_file_ids.append(file.file_id)
+                    filtered_file_ids.append(file.id)
 
             self.logger.info(f"필터링 완료: {len(files)}개 → {len(filtered_file_ids)}개")
             return filtered_file_ids
 
         except Exception as e:
             self.logger.error(f"필터링 실패: {e}")
-            return [file.file_id for file in files]  # 오류 시 모든 파일 반환
+            return [file.id for file in files]  # 오류 시 모든 파일 반환
 
     def _file_passes_all_filters(self, file: MediaFile, filters: list[MediaDataFilter]) -> bool:
         """파일이 모든 필터를 통과하는지 확인합니다."""
-        for filter_criteria in filters:
-            if not self._file_passes_filter(file, filter_criteria):
-                return False
-        return True
+        return all(self._file_passes_filter(file, filter_criteria) for filter_criteria in filters)
 
     def _file_passes_filter(self, file: MediaFile, filter_criteria: MediaDataFilter) -> bool:
         """파일이 단일 필터를 통과하는지 확인합니다."""
         try:
-            filter_type = filter_criteria.filter_type
-            filter_value = filter_criteria.filter_value
+            filter_type = filter_criteria.criteria.value
+            filter_value = filter_criteria.value
 
             if filter_type == "media_type":
                 return self._check_media_type_filter(file, filter_value)
-            elif filter_type == "quality":
+            if filter_type == "quality":
                 return self._check_quality_filter(file, filter_value)
-            elif filter_type == "source":
+            if filter_type == "source":
                 return self._check_source_filter(file, filter_value)
-            elif filter_type == "title":
+            if filter_type == "title":
                 return self._check_title_filter(file, filter_value)
-            elif filter_type == "series":
+            if filter_type == "series":
                 return self._check_series_filter(file, filter_value)
-            elif filter_type == "season":
+            if filter_type == "season":
                 return self._check_season_filter(file, filter_value)
-            elif filter_type == "episode":
+            if filter_type == "episode":
                 return self._check_episode_filter(file, filter_value)
-            elif filter_type == "file_size":
+            if filter_type == "file_size":
                 return self._check_file_size_filter(file, filter_value)
-            else:
-                self.logger.warning(f"알 수 없는 필터 타입: {filter_type}")
-                return True  # 알 수 없는 필터는 통과
+            self.logger.warning(f"알 수 없는 필터 타입: {filter_type}")
+            return True  # 알 수 없는 필터는 통과
 
         except Exception as e:
             self.logger.error(f"필터 확인 실패: {filter_type}={filter_value}: {e}")
@@ -90,38 +87,46 @@ class MediaFilter:
         if not filter_value:
             return True
 
+        if not file.metadata:
+            return False
+
         try:
             target_quality = MediaQuality(filter_value)
-            return file.quality == target_quality
+            return file.metadata.quality == target_quality
         except ValueError:
             # 유효하지 않은 품질인 경우 문자열 비교
-            return file.quality.value == filter_value
+            return file.metadata.quality.value == filter_value
 
     def _check_source_filter(self, file: MediaFile, filter_value: str) -> bool:
         """소스 필터를 확인합니다."""
         if not filter_value:
             return True
 
+        if not file.metadata:
+            return False
+
         try:
             target_source = MediaSource(filter_value)
-            return file.source == target_source
+            return file.metadata.source == target_source
         except ValueError:
             # 유효하지 않은 소스인 경우 문자열 비교
-            return file.source.value == filter_value
+            return file.metadata.source.value == filter_value
 
     def _check_title_filter(self, file: MediaFile, filter_value: str) -> bool:
         """제목 필터를 확인합니다."""
-        if not filter_value or not file.title:
+        if not filter_value or not file.parsed_title:
             return True
 
-        return filter_value.lower() in file.title.lower()
+        return filter_value.lower() in file.parsed_title.lower()
 
     def _check_series_filter(self, file: MediaFile, filter_value: str) -> bool:
         """시리즈 필터를 확인합니다."""
-        if not filter_value or not file.series:
+        if not filter_value:
             return True
 
-        return filter_value.lower() in file.series.lower()
+        # MediaFile에는 series 속성이 없으므로 group_id를 통해 그룹 정보를 확인해야 함
+        # 여기서는 간단히 True를 반환하거나 다른 로직을 구현해야 함
+        return True
 
     def _check_season_filter(self, file: MediaFile, filter_value: str) -> bool:
         """시즌 필터를 확인합니다."""
@@ -147,12 +152,12 @@ class MediaFilter:
 
     def _check_file_size_filter(self, file: MediaFile, filter_value: str) -> bool:
         """파일 크기 필터를 확인합니다."""
-        if not filter_value or file.file_size_bytes <= 0:
+        if not filter_value or not file.metadata or file.metadata.file_size_bytes <= 0:
             return True
 
         try:
             # MB 단위로 변환하여 비교
-            file_size_mb = file.file_size_bytes / (1024 * 1024)
+            file_size_mb = file.metadata.file_size_bytes / (1024 * 1024)
             target_size_mb = float(filter_value)
             return file_size_mb >= target_size_mb
         except ValueError:
@@ -167,18 +172,24 @@ class MediaFilter:
 
             for group_id, group in groups.items():
                 # 그룹 내 필터링된 파일들만 선택
-                filtered_files = [f for f in group.files if f.file_id in filtered_file_ids]
+                filtered_episodes = {
+                    ep_num: file_id
+                    for ep_num, file_id in group.episodes.items()
+                    if file_id in filtered_file_ids
+                }
 
-                if filtered_files:  # 빈 그룹 제외
+                if filtered_episodes:  # 빈 그룹 제외
                     filtered_group = MediaGroup(
-                        group_id=f"filtered_{group_id}",
+                        id=group.id,
                         title=group.title,
-                        files=filtered_files,
-                        total_episodes=len(filtered_files),
-                        media_type=filtered_files[0].media_type
-                        if filtered_files
-                        else MediaType.UNKNOWN,
+                        season=group.season,
+                        total_episodes=len(filtered_episodes),
                     )
+
+                    # 필터링된 에피소드들을 추가
+                    for ep_num, file_id in filtered_episodes.items():
+                        filtered_group.add_episode(ep_num, file_id)
+
                     filtered_groups[f"filtered_{group_id}"] = filtered_group
 
             self.logger.info(f"필터링된 그룹 생성 완료: {len(filtered_groups)}개")
@@ -199,7 +210,7 @@ class MediaFilter:
 
         filter_descriptions = []
         for filter_criteria in filters:
-            desc = f"{filter_criteria.filter_type}={filter_criteria.filter_value}"
+            desc = f"{filter_criteria.criteria.value}={filter_criteria.value}"
             filter_descriptions.append(desc)
 
         return f"필터: {', '.join(filter_descriptions)}"

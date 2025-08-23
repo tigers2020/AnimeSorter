@@ -3,21 +3,23 @@ UI 컴포넌트 관리 로직을 담당하는 클래스
 MainWindow의 UI 컴포넌트 생성, 설정, 연결 로직을 분리하여 가독성과 유지보수성을 향상시킵니다.
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from PyQt5.QtWidgets import QHeaderView, QMainWindow
 
 from ..handlers.event_handler_manager import EventHandlerManager
 from ..initializers.ui_initializer import UIInitializer
-from ..managers.anime_data_manager import AnimeDataManager
-from ..managers.file_processing_manager import FileProcessingManager
 from ..managers.status_bar_manager import StatusBarManager
-from ..managers.tmdb_manager import TMDBManager
-from .accessibility_manager import AccessibilityManager
-from .i18n_manager import I18nManager
 from .log_dock import LogDock
-from .ui_migration_manager import UIMigrationManager
-from .ui_state_manager import UIStateManager
+
+if TYPE_CHECKING:
+    from ..managers.anime_data_manager import AnimeDataManager
+    from ..managers.file_processing_manager import FileProcessingManager
+    from ..managers.tmdb_manager import TMDBManager
+    from .accessibility_manager import AccessibilityManager
+    from .i18n_manager import I18nManager
+    from .ui_migration_manager import UIMigrationManager
+    from .ui_state_manager import UIStateManager
 
 
 class UIComponentManager:
@@ -25,19 +27,19 @@ class UIComponentManager:
 
     def __init__(self, main_window: QMainWindow):
         self.main_window = main_window
-        self.log_dock: Optional[LogDock] = None
-        self.ui_initializer: Optional[UIInitializer] = None
-        self.event_handler_manager: Optional[EventHandlerManager] = None
-        self.status_bar_manager: Optional[StatusBarManager] = None
-        self.accessibility_manager: Optional[AccessibilityManager] = None
-        self.i18n_manager: Optional[I18nManager] = None
-        self.ui_state_manager: Optional[UIStateManager] = None
-        self.ui_migration_manager: Optional[UIMigrationManager] = None
+        self.log_dock: LogDock | None = None
+        self.ui_initializer: UIInitializer | None = None
+        self.event_handler_manager: EventHandlerManager | None = None
+        self.status_bar_manager: StatusBarManager | None = None
+        self.accessibility_manager: AccessibilityManager | None = None
+        self.i18n_manager: I18nManager | None = None
+        self.ui_state_manager: UIStateManager | None = None
+        self.ui_migration_manager: UIMigrationManager | None = None
 
         # 데이터 관리자들
-        self.anime_data_manager: Optional[AnimeDataManager] = None
-        self.file_processing_manager: Optional[FileProcessingManager] = None
-        self.tmdb_manager: Optional[TMDBManager] = None
+        self.anime_data_manager: AnimeDataManager | None = None
+        self.file_processing_manager: FileProcessingManager | None = None
+        self.tmdb_manager: TMDBManager | None = None
 
         # TMDB 검색 다이얼로그 저장
         self.tmdb_search_dialogs = {}

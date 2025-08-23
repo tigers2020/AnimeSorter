@@ -12,29 +12,20 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from ..events import TypedEventBus
-from ..tmdb_search_events import (
-    TMDBBulkSearchCompletedEvent,
-    TMDBBulkSearchProgressEvent,
-    TMDBBulkSearchStartedEvent,
-    TMDBCacheUpdatedEvent,
-    TMDBManualSelectionCompletedEvent,
-    TMDBManualSelectionRequestedEvent,
-    TMDBMatch,
-    TMDBMatchConfidence,
-    TMDBMatchFoundEvent,
-    TMDBMediaType,
-    TMDBSearchCancelledEvent,
-    TMDBSearchCompletedEvent,
-    TMDBSearchFailedEvent,
-    TMDBSearchProgressEvent,
-    TMDBSearchQuery,
-    TMDBSearchResult,
-    TMDBSearchResultsEvent,
-    TMDBSearchStartedEvent,
-    TMDBSearchStatistics,
-    TMDBSearchStatus,
-    TMDBSearchType,
-)
+from ..tmdb_search_events import (TMDBBulkSearchCompletedEvent,
+                                  TMDBBulkSearchProgressEvent,
+                                  TMDBBulkSearchStartedEvent,
+                                  TMDBCacheUpdatedEvent,
+                                  TMDBManualSelectionCompletedEvent,
+                                  TMDBManualSelectionRequestedEvent, TMDBMatch,
+                                  TMDBMatchConfidence, TMDBMatchFoundEvent,
+                                  TMDBMediaType, TMDBSearchCancelledEvent,
+                                  TMDBSearchCompletedEvent,
+                                  TMDBSearchFailedEvent,
+                                  TMDBSearchProgressEvent, TMDBSearchQuery,
+                                  TMDBSearchResult, TMDBSearchResultsEvent,
+                                  TMDBSearchStartedEvent, TMDBSearchStatistics,
+                                  TMDBSearchStatus, TMDBSearchType)
 from .tmdb_search_matcher import SearchResultMatcher
 from .tmdb_search_statistics import SearchStatisticsCollector
 from .tmdb_search_strategies import SearchStrategyFactory
@@ -367,13 +358,10 @@ class TMDBSearchService(ITMDBSearchService):
                 first_air_date=tmdb_result.first_air_date,
                 poster_path=tmdb_result.poster_path,
                 backdrop_path=tmdb_result.backdrop_path,
-                popularity=tmdb_result.popularity,
                 vote_average=tmdb_result.vote_average,
                 vote_count=tmdb_result.vote_count,
                 genres=tmdb_result.genres,
                 media_type=TMDBMediaType.TV,
-                search_score=0.0,  # 기본값
-                match_confidence=TMDBMatchConfidence.NONE,
             )
             search_results.append(search_result)
 
@@ -425,7 +413,7 @@ class TMDBSearchService(ITMDBSearchService):
                 # TMDB 클라이언트가 없는 경우 더미 결과 생성
                 results = self._create_dummy_search_results(query.query_string)
 
-            search_duration_ms = (time.time() - start_time) * 1000
+            (time.time() - start_time) * 1000
 
             # 통계 수집기에 검색 완료 기록
             self.statistics_collector.record_search_completion(
@@ -558,9 +546,8 @@ class TMDBSearchService(ITMDBSearchService):
                 group_title, tmdb_results, auto_match=True
             )
 
-            if match and match.confidence != TMDBMatchConfidence.NONE:
+            if match and match.confidence != TMDBMatchConfidence.UNCERTAIN:
                 # 자동 매칭 성공
-                match.group_id = group_id  # 그룹 ID 설정
                 self._group_matches[group_id] = match
 
                 # 통계 수집기에 매칭 결과 기록
@@ -574,7 +561,7 @@ class TMDBSearchService(ITMDBSearchService):
                 )
 
                 self.logger.info(
-                    f"자동 매칭 성공: {group_id} -> {match.title} (신뢰도: {match.confidence.value})"
+                    f"자동 매칭 성공: {group_id} -> {match.search_result.title} (신뢰도: {match.confidence.value})"
                 )
             else:
                 # 자동 매칭 실패, 수동 선택 요청
@@ -586,13 +573,14 @@ class TMDBSearchService(ITMDBSearchService):
                 candidate_matches = []
                 for tmdb_result, score in suggestions:
                     candidate_match = TMDBMatch(
-                        group_id=group_id,
-                        tmdb_id=tmdb_result.id,
-                        title=tmdb_result.name,
-                        original_title=tmdb_result.original_name,
+                        search_result=TMDBSearchResult(
+                            tmdb_id=tmdb_result.id,
+                            title=tmdb_result.name,
+                            original_title=tmdb_result.original_name,
+                            media_type=TMDBMediaType.TV,
+                        ),
                         confidence=self.result_matcher._score_to_confidence(score),
-                        score=score,
-                        metadata=tmdb_result,
+                        confidence_score=score,
                     )
                     candidate_matches.append(candidate_match)
 

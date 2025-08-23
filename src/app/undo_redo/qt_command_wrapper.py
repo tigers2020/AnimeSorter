@@ -10,21 +10,15 @@ from typing import Any
 
 from PyQt5.QtWidgets import QUndoCommand
 
-from ..commands import (
-    BaseCommand,
-    BatchFileCommand,
-    CommandResult,
-    CopyFileCommand,
-    CreateDirectoryCommand,
-    DeleteFileCommand,
-    MoveFileCommand,
-)
+from ..commands import (BatchFileCommand, CommandResult, CopyFileCommand,
+                        CreateDirectoryCommand, DeleteFileCommand, ICommand,
+                        MoveFileCommand)
 
 
 class QtCommandWrapper(QUndoCommand):
     """기본 Qt Command 래퍼"""
 
-    def __init__(self, base_command: BaseCommand, parent: QUndoCommand | None = None):
+    def __init__(self, base_command: ICommand, parent: QUndoCommand | None = None):
         # QUndoCommand에서 표시할 텍스트 설정
         super().__init__(base_command.description, parent)
 
@@ -233,7 +227,7 @@ class QtBatchFileCommand(QtCommandWrapper):
 
     def __init__(
         self,
-        commands: list[BaseCommand],
+        commands: list[ICommand],
         description: str = "",
         parent: QUndoCommand | None = None,
     ):
@@ -263,6 +257,8 @@ class QtBatchFileCommand(QtCommandWrapper):
             and isinstance(other_batch, BatchFileCommand)
             and other_batch._result
             and base_batch._result
+            and other_batch._result.executed_at is not None
+            and base_batch._result.executed_at is not None
             and abs(
                 (other_batch._result.executed_at - base_batch._result.executed_at).total_seconds()
             )

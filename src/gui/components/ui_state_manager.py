@@ -7,7 +7,8 @@ QSettings를 사용하여 UI 상태를 저장/복원하는 기능을 제공합�
 import logging
 
 from PyQt5.QtCore import QObject, QSettings, pyqtSignal
-from PyQt5.QtWidgets import QDockWidget, QMainWindow, QSplitter, QTableView, QTabWidget
+from PyQt5.QtWidgets import (QDockWidget, QMainWindow, QSplitter, QTableView,
+                             QTabWidget)
 
 
 class UIStateManager(QObject):
@@ -201,9 +202,7 @@ class UIStateManager(QObject):
                             # 각 요소를 정수로 변환
                             int_sizes = []
                             for size in splitter_sizes:
-                                if isinstance(size, str):
-                                    int_sizes.append(int(size))
-                                elif isinstance(size, (int, float)):
+                                if isinstance(size, str | int | float):
                                     int_sizes.append(int(size))
                                 else:
                                     raise ValueError(f"Invalid size type: {type(size)}")

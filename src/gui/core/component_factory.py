@@ -9,18 +9,13 @@ from collections.abc import Callable
 from typing import Any
 
 from ..commands.base_command import BaseCommand
-from ..commands.file_commands import (
-    ChooseFilesCommand,
-    ChooseFolderCommand,
-    StartScanCommand,
-    StopScanCommand,
-)
-from ..commands.organize_commands import CancelOrganizeCommand, StartOrganizeCommand
-from ..commands.tmdb_commands import (
-    SelectTMDBAnimeCommand,
-    SkipTMDBGroupCommand,
-    StartTMDBSearchCommand,
-)
+from ..commands.file_commands import (ChooseFilesCommand, ChooseFolderCommand,
+                                      StartScanCommand, StopScanCommand)
+from ..commands.organize_commands import (CancelOrganizeCommand,
+                                          StartOrganizeCommand)
+from ..commands.tmdb_commands import (SelectTMDBAnimeCommand,
+                                      SkipTMDBGroupCommand,
+                                      StartTMDBSearchCommand)
 from ..interfaces.i_controller import IController
 from ..interfaces.i_event_bus import IEventBus
 from ..interfaces.i_service import IService
@@ -111,7 +106,8 @@ class ComponentFactory:
 
     def _register_default_controllers(self) -> None:
         """기본 컨트롤러들 자동 등록"""
-        from ..controllers.file_processing_controller import FileProcessingController
+        from ..controllers.file_processing_controller import \
+            FileProcessingController
         from ..controllers.organize_controller import OrganizeController
         from ..controllers.tmdb_controller import TMDBController
         from ..controllers.window_manager import WindowManager
@@ -123,7 +119,7 @@ class ComponentFactory:
         self.logger.info("기본 컨트롤러 등록 완료")
 
     def register_controller(
-        self, name: str, controller_class: type[IController], singleton: bool = True
+        self, name: str, controller_class: type[IController], _singleton: bool = True
     ) -> None:
         """
         컨트롤러 등록
@@ -131,13 +127,13 @@ class ComponentFactory:
         Args:
             name: 컨트롤러 이름
             controller_class: 컨트롤러 클래스
-            singleton: 싱글톤 여부
+            _singleton: 싱글톤 여부 (현재 미사용)
         """
         self._registered_controllers[name] = controller_class
         self.logger.debug(f"컨트롤러 등록: {name} ({controller_class.__name__})")
 
     def register_service(
-        self, name: str, service_class: type[IService], singleton: bool = True
+        self, name: str, service_class: type[IService], _singleton: bool = True
     ) -> None:
         """
         서비스 등록
@@ -145,13 +141,13 @@ class ComponentFactory:
         Args:
             name: 서비스 이름
             service_class: 서비스 클래스
-            singleton: 싱글톤 여부
+            _singleton: 싱글톤 여부 (현재 미사용)
         """
         self._registered_services[name] = service_class
         self.logger.debug(f"서비스 등록: {name} ({service_class.__name__})")
 
     def register_view_model(
-        self, name: str, view_model_class: type[IViewModel], singleton: bool = True
+        self, name: str, view_model_class: type[IViewModel], _singleton: bool = True
     ) -> None:
         """
         뷰모델 등록
@@ -159,13 +155,13 @@ class ComponentFactory:
         Args:
             name: 뷰모델 이름
             view_model_class: 뷰모델 클래스
-            singleton: 싱글톤 여부
+            _singleton: 싱글톤 여부 (현재 미사용)
         """
         self._registered_view_models[name] = view_model_class
         self.logger.debug(f"뷰모델 등록: {name} ({view_model_class.__name__})")
 
     def register_command(
-        self, name: str, command_class: type[BaseCommand], singleton: bool = True
+        self, name: str, command_class: type[BaseCommand], _singleton: bool = True
     ) -> None:
         """
         명령 등록
@@ -173,7 +169,7 @@ class ComponentFactory:
         Args:
             name: 명령 이름
             command_class: 명령 클래스
-            singleton: 싱글톤 여부
+            _singleton: 싱글톤 여부 (현재 미사용)
         """
         self._registered_commands[name] = command_class
         self.logger.debug(f"명령 등록: {name} ({command_class.__name__})")

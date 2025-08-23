@@ -6,19 +6,18 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
-from uuid import uuid4
 
-from ...domain import MediaFile, MediaQuality, MediaSource, MediaType
+from ...domain import (MediaFile, MediaMetadata, MediaQuality, MediaSource,
+                       MediaType)
 
 
 class MediaExtractor:
     """미디어 파일에서 메타데이터를 추출하는 클래스"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def extract_media_file(self, file_path: Path) -> Optional[MediaFile]:
+    def extract_media_file(self, file_path: Path) -> MediaFile | None:
         """미디어 파일에서 메타데이터를 추출하여 MediaFile 객체를 생성합니다."""
         try:
             if not file_path.exists():
@@ -38,18 +37,21 @@ class MediaExtractor:
             # 파일명에서 제목, 시리즈, 시즌, 에피소드 정보 추출
             title, series, season, episode = self._extract_title_info(file_path.name)
 
-            return MediaFile(
-                file_id=uuid4(),
-                original_filename=file_path.name,
-                file_path=file_path,
+            # MediaMetadata 생성
+            metadata = MediaMetadata(
                 file_size_bytes=file_stats.st_size,
-                media_type=media_type,
                 quality=quality,
                 source=source,
-                title=title,
-                series=series,
+            )
+
+            return MediaFile(
+                path=file_path,
+                media_type=media_type,
+                original_name=file_path.name,
+                parsed_title=title,
                 season=season,
                 episode=episode,
+                metadata=metadata,
             )
 
         except Exception as e:
@@ -64,47 +66,44 @@ class MediaExtractor:
         audio_extensions = {".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma"}
 
         if extension in video_extensions:
-            return MediaType.ANIME  # 애니메이션 파일이므로 ANIME으로 설정
-        elif extension in audio_extensions:
-            return MediaType.AUDIO
-        else:
-            return MediaType.UNKNOWN
+            return MediaType.VIDEO  # 애니메이션 파일이므로 VIDEO으로 설정
+        if extension in audio_extensions:
+            return MediaType.OTHER  # 오디오는 OTHER로 분류
+        return MediaType.OTHER
 
     def _infer_quality(self, file_path: Path) -> MediaQuality:
         """파일명에서 품질 정보를 추정합니다."""
         filename = file_path.name.lower()
 
         if "1080p" in filename or "1920x1080" in filename:
-            return MediaQuality.HD_1080P
-        elif "720p" in filename or "1280x720" in filename:
+            return MediaQuality.FHD_1080P
+        if "720p" in filename or "1280x720" in filename:
             return MediaQuality.HD_720P
-        elif "4k" in filename or "2160p" in filename or "3840x2160" in filename:
+        if "4k" in filename or "2160p" in filename or "3840x2160" in filename:
             return MediaQuality.UHD_4K
-        elif "480p" in filename:
+        if "480p" in filename:
             return MediaQuality.SD_480P
-        else:
-            return MediaQuality.UNKNOWN
+        return MediaQuality.UNKNOWN
 
     def _infer_source(self, file_path: Path) -> MediaSource:
         """파일명에서 소스 정보를 추정합니다."""
         filename = file_path.name.lower()
 
         if "web-dl" in filename or "webdl" in filename:
-            return MediaSource.WEB_DL
-        elif "bluray" in filename or "bd" in filename:
+            return MediaSource.WEBDL
+        if "bluray" in filename or "bd" in filename:
             return MediaSource.BLURAY
-        elif "dvd" in filename:
+        if "dvd" in filename:
             return MediaSource.DVD
-        elif "tv" in filename or "broadcast" in filename:
+        if "tv" in filename or "broadcast" in filename:
             return MediaSource.TV
-        elif "hdtv" in filename:
+        if "hdtv" in filename:
             return MediaSource.HDTV
-        else:
-            return MediaSource.UNKNOWN
+        return MediaSource.UNKNOWN
 
     def _extract_title_info(
         self, filename: str
-    ) -> tuple[Optional[str], Optional[str], Optional[int], Optional[int]]:
+    ) -> tuple[str | None, str | None, int | None, int | None]:
         """파일명에서 제목, 시리즈, 시즌, 에피소드 정보를 추출합니다."""
         # 기본값
         title = None

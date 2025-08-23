@@ -378,11 +378,15 @@ class VideoMetadataExtractor:
         for file_path in file_paths:
             try:
                 resolution = self.extract_resolution(file_path)
-                quality = self.get_media_quality_from_resolution(resolution)
-                file_qualities.append((file_path, quality))
-                self.logger.info(
-                    f"파일 {Path(file_path).name}: 해상도={resolution}, 품질={quality.value}"
-                )
+                if resolution is None:
+                    self.logger.warning(f"파일 {file_path}의 해상도를 추출할 수 없습니다.")
+                    file_qualities.append((file_path, MediaQuality.UNKNOWN))
+                else:
+                    quality = self.get_media_quality_from_resolution(resolution)
+                    file_qualities.append((file_path, quality))
+                    self.logger.info(
+                        f"파일 {Path(file_path).name}: 해상도={resolution}, 품질={quality.value}"
+                    )
             except Exception as e:
                 self.logger.warning(f"파일 {file_path}의 화질 추출 실패: {e}")
                 file_qualities.append((file_path, MediaQuality.UNKNOWN))
@@ -430,15 +434,22 @@ class VideoMetadataExtractor:
                 "highest_quality": MediaQuality.UNKNOWN.value,
             }
 
-        quality_counts = {}
+        quality_counts: dict[str, int] = {}
         file_qualities = []
 
         for file_path in file_paths:
             try:
                 resolution = self.extract_resolution(file_path)
-                quality = self.get_media_quality_from_resolution(resolution)
-                quality_counts[quality.value] = quality_counts.get(quality.value, 0) + 1
-                file_qualities.append(quality)
+                if resolution is None:
+                    self.logger.warning(f"파일 {file_path}의 해상도를 추출할 수 없습니다.")
+                    quality_counts[MediaQuality.UNKNOWN.value] = (
+                        quality_counts.get(MediaQuality.UNKNOWN.value, 0) + 1
+                    )
+                    file_qualities.append(MediaQuality.UNKNOWN)
+                else:
+                    quality = self.get_media_quality_from_resolution(resolution)
+                    quality_counts[quality.value] = quality_counts.get(quality.value, 0) + 1
+                    file_qualities.append(quality)
             except Exception as e:
                 self.logger.warning(f"파일 {file_path}의 화질 추출 실패: {e}")
                 quality_counts[MediaQuality.UNKNOWN.value] = (

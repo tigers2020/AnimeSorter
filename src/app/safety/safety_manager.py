@@ -3,18 +3,15 @@
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
 
 from ..events import get_event_bus
-from ..safety_events import (
-    SafetyAlertEvent,
-    SafetyModeChangedEvent,
-    SafetyStatusUpdateEvent,
-    TestModeOperationEvent,
-)
+from ..safety_events import (SafetyAlertEvent, SafetyModeChangedEvent,
+                             SafetyStatusUpdateEvent, TestModeOperationEvent)
 from .backup_manager import IBackupManager
 from .confirmation_manager import IConfirmationManager
 from .interruption_manager import IInterruptionManager
@@ -97,7 +94,7 @@ class ISafetyManager(Protocol):
         ...
 
     def request_safe_operation(
-        self, operation_type: str, affected_files: list[Path], operation_callback: callable
+        self, operation_type: str, affected_files: list[Path], operation_callback: Callable
     ) -> bool:
         """안전한 작업 실행 요청"""
         ...
@@ -298,7 +295,7 @@ class SafetyManager:
         return "medium"
 
     def request_safe_operation(
-        self, operation_type: str, affected_files: list[Path], operation_callback: callable
+        self, operation_type: str, affected_files: list[Path], operation_callback: Callable
     ) -> bool:
         """안전한 작업 실행 요청"""
         # 테스트 모드에서의 처리
@@ -410,7 +407,7 @@ class SafetyManager:
         return True
 
     def _handle_test_mode_operation(
-        self, operation_type: str, affected_files: list[Path], operation_callback: callable
+        self, operation_type: str, affected_files: list[Path], operation_callback: Callable
     ) -> bool:
         """테스트 모드 작업 처리"""
         # 테스트 모드 이벤트 발행
@@ -428,7 +425,7 @@ class SafetyManager:
         return True
 
     def _handle_simulation_mode_operation(
-        self, operation_type: str, affected_files: list[Path], operation_callback: callable
+        self, operation_type: str, affected_files: list[Path], operation_callback: Callable
     ) -> bool:
         """시뮬레이션 모드 작업 처리"""
         # 시뮬레이션 모드 이벤트 발행
@@ -597,9 +594,9 @@ class SafetyManager:
             "total_operations": total_operations,
             "successful_operations": successful_operations,
             "failed_operations": failed_operations,
-            "success_rate": (successful_operations / total_operations * 100)
-            if total_operations > 0
-            else 0,
+            "success_rate": (
+                (successful_operations / total_operations * 100) if total_operations > 0 else 0
+            ),
             "risk_incidents": len(self._risk_incidents),
             "safety_score": self._safety_status.safety_score,
             "current_mode": self._current_mode,
@@ -617,7 +614,7 @@ class SafetyManager:
         self.logger.info("안전 관리자 종료 중...")
 
         # 하위 매니저들 종료
-        if self._interruption_manager:
+        if self._interruption_manager and hasattr(self._interruption_manager, "shutdown"):
             self._interruption_manager.shutdown()
 
         self.logger.info("안전 관리자 종료 완료")

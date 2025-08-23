@@ -14,7 +14,8 @@ from typing import TYPE_CHECKING, Any, Optional, Protocol
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
-    from ..journal import FileOperationDetails, IJournalManager, JournalEntry, JournalEntryType
+    from ..journal import (FileOperationDetails, IJournalManager, JournalEntry,
+                           JournalEntryType)
     from ..preflight import IPreflightCoordinator, PreflightCheckResult
     from ..staging import IStagingManager, StagedFile
 
@@ -107,12 +108,21 @@ class ICommand(Protocol):
         """취소 가능 여부"""
         ...
 
+    @property
+    def can_redo(self) -> bool:
+        """재실행 가능 여부"""
+        ...
+
     def execute(self) -> CommandResult:
         """Command 실행"""
         ...
 
     def undo(self) -> CommandResult:
         """Command 취소"""
+        ...
+
+    def redo(self) -> CommandResult:
+        """Command 재실행"""
         ...
 
     def validate(self) -> bool:

@@ -3,14 +3,13 @@
 MainWindow의 모든 관리자들을 조율하여 전체적인 초기화와 관리를 담당합니다.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow
 
 from .event_handler_manager_ui import EventHandlerManagerUI
 from .main_window_initializer import MainWindowInitializer
-
 # from .menu_toolbar_manager import MenuToolbarManager  # 중복 메뉴 생성 방지
 from .ui_component_manager import UIComponentManager
 
@@ -22,9 +21,9 @@ class MainWindowCoordinator:
         self.main_window = main_window
 
         # 각 관리자들
-        self.initializer: Optional[MainWindowInitializer] = None
-        self.ui_component_manager: Optional[UIComponentManager] = None
-        self.event_handler_manager: Optional[EventHandlerManagerUI] = None
+        self.initializer: MainWindowInitializer | None = None
+        self.ui_component_manager: UIComponentManager | None = None
+        self.event_handler_manager: EventHandlerManagerUI | None = None
         # self.menu_toolbar_manager: Optional[MenuToolbarManager] = None  # 중복 메뉴 생성 방지
 
         # 초기화 상태

@@ -9,7 +9,7 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 
 class FileBackupManager:
@@ -20,13 +20,13 @@ class FileBackupManager:
         self.safe_mode = safe_mode
         self.backup_enabled = True
         self.backup_metadata_file = backup_dir / "backup_metadata.json"
-        self.backup_metadata: dict = {}
+        self.backup_metadata: dict[str, Any] = {}
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # 백업 시스템 초기화
         self._init_backup_system()
 
-    def _init_backup_system(self):
+    def _init_backup_system(self) -> None:
         """백업 시스템 초기화"""
         try:
             if self.backup_enabled:
@@ -37,7 +37,7 @@ class FileBackupManager:
             self.logger.error(f"백업 시스템 초기화 실패: {e}")
             self.backup_enabled = False
 
-    def _load_backup_metadata(self):
+    def _load_backup_metadata(self) -> None:
         """백업 메타데이터 로드"""
         try:
             if self.backup_metadata_file.exists():
@@ -48,7 +48,7 @@ class FileBackupManager:
             self.logger.error(f"백업 메타데이터 로드 실패: {e}")
             self.backup_metadata = {}
 
-    def _save_backup_metadata(self):
+    def _save_backup_metadata(self) -> None:
         """백업 메타데이터 저장"""
         try:
             with self.backup_metadata_file.open("w", encoding="utf-8") as f:
@@ -56,7 +56,7 @@ class FileBackupManager:
         except Exception as e:
             self.logger.error(f"백업 메타데이터 저장 실패: {e}")
 
-    def create_backup(self, source_path: Path, operation_id: str) -> Optional[Path]:
+    def create_backup(self, source_path: Path, operation_id: str) -> Path | None:
         """파일 백업 생성"""
         if not self.backup_enabled or not self.safe_mode:
             return None
@@ -138,7 +138,7 @@ class FileBackupManager:
             self.logger.error(f"작업 롤백 실패: {e}")
             return False
 
-    def get_backup_info(self) -> dict:
+    def get_backup_info(self) -> dict[str, Any]:
         """백업 정보 조회"""
         return {
             "backup_enabled": self.backup_enabled,
@@ -182,7 +182,7 @@ class FileBackupManager:
             self.logger.error(f"백업 정리 실패: {e}")
             return 0
 
-    def update_backup_metadata(self, operation_id: str, **kwargs):
+    def update_backup_metadata(self, operation_id: str, **kwargs: Any) -> None:
         """백업 메타데이터 업데이트"""
         try:
             if operation_id in self.backup_metadata:
@@ -197,6 +197,6 @@ class FileBackupManager:
         self.backup_enabled = enabled
         self.logger.info(f"백업 시스템: {'활성화' if enabled else '비활성화'}")
 
-    def get_backup_metadata(self) -> dict:
+    def get_backup_metadata(self) -> dict[str, Any]:
         """백업 메타데이터 반환"""
         return self.backup_metadata.copy()

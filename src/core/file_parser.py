@@ -7,6 +7,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -37,7 +38,7 @@ class FileParser:
         # 캐시 크기 설정 (메모리 사용량과 성능의 균형)
         self._parse_cache_size = 256
 
-    def _compile_patterns(self) -> list[tuple[re.Pattern, str, float]]:
+    def _compile_patterns(self) -> list[tuple[re.Pattern[str], str, float]]:
         """파싱 패턴 컴파일 (최적화된 순서)"""
         return [
             # 가장 일반적이고 정확한 패턴들을 먼저 배치
@@ -149,7 +150,7 @@ class FileParser:
         return self._improved_fallback_parse(name_without_ext, container)
 
     def _extract_metadata(
-        self, match, pattern_type: str, base_confidence: float, container: str
+        self, match: re.Match[str], pattern_type: str, base_confidence: float, container: str
     ) -> ParsedMetadata | None:
         """매치된 패턴에서 메타데이터 추출 (최적화됨)"""
         try:
@@ -502,7 +503,7 @@ class FileParser:
         video_extensions = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".m4v", ".flv", ".webm"]
         return any(filename.lower().endswith(ext) for ext in video_extensions)
 
-    def get_parsing_stats(self, results: list[ParsedMetadata]) -> dict[str, any]:
+    def get_parsing_stats(self, results: list[ParsedMetadata]) -> dict[str, Any]:
         """파싱 통계 반환"""
         if not results:
             return {}

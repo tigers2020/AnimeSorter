@@ -8,7 +8,7 @@ import logging
 import time
 from collections import deque
 from datetime import datetime
-from typing import Deque, Optional
+from typing import Any
 
 
 class TMDBRateLimiter:
@@ -24,12 +24,12 @@ class TMDBRateLimiter:
         self.burst_limit = burst_limit
 
         # 요청 기록 관리
-        self.request_times: Deque[float] = deque()
-        self.last_request_time: Optional[float] = None
+        self.request_times: deque[float] = deque()
+        self.last_request_time: float | None = None
 
         # 에러 및 재시도 관리
         self.error_count = 0
-        self.last_error_time: Optional[float] = None
+        self.last_error_time: float | None = None
         self.backoff_multiplier = 1.0
 
         # 통계 정보
@@ -99,7 +99,7 @@ class TMDBRateLimiter:
 
         return delay_time
 
-    def record_request(self, success: bool = True, response_time: Optional[float] = None):
+    def record_request(self, success: bool = True, response_time: float | None = None) -> None:
         """요청 기록"""
         current_time = time.time()
 
@@ -156,7 +156,7 @@ class TMDBRateLimiter:
 
         return max(0.0, wait_time)
 
-    def get_status(self) -> dict:
+    def get_status(self) -> dict[str, Any]:
         """현재 상태 정보 반환"""
         current_time = time.time()
 
@@ -188,7 +188,7 @@ class TMDBRateLimiter:
             "error_stats": error_stats,
         }
 
-    def reset(self):
+    def reset(self) -> None:
         """속도 제한 관리자 초기화"""
         self.request_times.clear()
         self.last_request_time = None
@@ -201,7 +201,7 @@ class TMDBRateLimiter:
 
         self.logger.info("TMDB 속도 제한 관리자 초기화 완료")
 
-    def set_rate_limit(self, requests_per_second: int, burst_limit: Optional[int] = None):
+    def set_rate_limit(self, requests_per_second: int, burst_limit: int | None = None) -> None:
         """속도 제한 설정 변경"""
         old_rate = self.requests_per_second
         self.requests_per_second = max(1, requests_per_second)
@@ -215,7 +215,7 @@ class TMDBRateLimiter:
             f"속도 제한 변경: {old_rate} → {self.requests_per_second} req/s, 버스트: {self.burst_limit}"
         )
 
-    def cleanup_old_requests(self, max_age_seconds: int = 300):
+    def cleanup_old_requests(self, max_age_seconds: int = 300) -> None:
         """오래된 요청 기록 정리"""
         current_time = time.time()
         cutoff_time = current_time - max_age_seconds
@@ -254,7 +254,7 @@ class TMDBRateLimiter:
 
         return True
 
-    def get_health_status(self) -> dict:
+    def get_health_status(self) -> dict[str, Any]:
         """상태 정보 반환"""
         return {
             "healthy": self.is_healthy(),

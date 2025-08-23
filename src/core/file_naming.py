@@ -6,7 +6,7 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 
 class FileNamingManager:
@@ -25,13 +25,12 @@ class FileNamingManager:
             self.naming_scheme = scheme
             self.logger.info(f"파일명 지정 방식: {scheme}")
             return True
-        else:
-            self.logger.warning(f"지원되지 않는 파일명 지정 방식: {scheme}")
-            return False
+        self.logger.warning(f"지원되지 않는 파일명 지정 방식: {scheme}")
+        return False
 
     def generate_destination_path(
-        self, source_file: Path, metadata: dict, destination_root: Path
-    ) -> Optional[Path]:
+        self, source_file: Path, metadata: dict[str, Any], destination_root: Path
+    ) -> Path | None:
         """대상 파일 경로 생성"""
         try:
             # 기본 정보 추출
@@ -119,30 +118,23 @@ class FileNamingManager:
 
             # 제목 정리
             clean_title = self._clean_title_for_path(title)
-            filename = filename.replace(title, clean_title)
-
-            return filename
+            return filename.replace(title, clean_title)
 
         except Exception as e:
             self.logger.error(f"시리즈 파일명 생성 실패: {e}")
             return f"Unknown S{season:02d}E{episode:02d}{extension}"
 
     def generate_movie_filename(
-        self, title: str, year: Optional[int] = None, extension: str = ".mkv"
+        self, title: str, year: int | None = None, extension: str = ".mkv"
     ) -> str:
         """영화 파일명 생성"""
         try:
             # 기본 영화 파일명 형식
-            if year:
-                filename = f"{title} ({year}){extension}"
-            else:
-                filename = f"{title}{extension}"
+            filename = f"{title} ({year}){extension}" if year else f"{title}{extension}"
 
             # 제목 정리
             clean_title = self._clean_title_for_path(title)
-            filename = filename.replace(title, clean_title)
-
-            return filename
+            return filename.replace(title, clean_title)
 
         except Exception as e:
             self.logger.error(f"영화 파일명 생성 실패: {e}")
@@ -164,15 +156,13 @@ class FileNamingManager:
 
             # 제목 정리
             clean_title = self._clean_title_for_path(title)
-            filename = filename.replace(title, clean_title)
-
-            return filename
+            return filename.replace(title, clean_title)
 
         except Exception as e:
             self.logger.error(f"품질 정보 포함 파일명 생성 실패: {e}")
             return f"Unknown S{season:02d}E{episode:02d}{extension}"
 
-    def get_naming_scheme_info(self) -> dict:
+    def get_naming_scheme_info(self) -> dict[str, Any]:
         """파일명 지정 방식 정보 반환"""
         return {
             "current_scheme": self.naming_scheme,
@@ -198,10 +188,7 @@ class FileNamingManager:
                 return False
 
             # 빈 파일명 확인
-            if not filename.strip():
-                return False
-
-            return True
+            return bool(filename.strip())
 
         except Exception as e:
             self.logger.error(f"파일명 유효성 검사 실패: {e}")

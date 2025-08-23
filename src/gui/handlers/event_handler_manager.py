@@ -10,42 +10,21 @@ import logging
 
 from PyQt5.QtWidgets import QWidget
 
-from app import (
-    BackupCompletedEvent,
-    BackupFailedEvent,
-    BackupStartedEvent,
-    CommandExecutedEvent,
-    CommandFailedEvent,
-    CommandRedoneEvent,
-    CommandUndoneEvent,
-    ConfirmationRequiredEvent,
-    FilesScannedEvent,
-    JournalEntryCreatedEvent,
-    MediaDataGroupingCompletedEvent,
-    MediaDataReadyEvent,
-    OrganizationCompletedEvent,
-    OrganizationProgressEvent,
-    OrganizationStartedEvent,
-    PreflightCompletedEvent,
-    PreflightIssueFoundEvent,
-    PreflightStartedEvent,
-    RedoExecutedEvent,
-    SafetyAlertEvent,
-    SafetyStatusUpdateEvent,
-    ScanStatus,
-    TaskCancelledEvent,
-    TaskCompletedEvent,
-    TaskFailedEvent,
-    TaskProgressEvent,
-    TaskStartedEvent,
-    TMDBMatchFoundEvent,
-    TMDBSearchCompletedEvent,
-    TMDBSearchStartedEvent,
-    TransactionCommittedEvent,
-    TransactionStartedEvent,
-    UndoExecutedEvent,
-    UndoRedoStackChangedEvent,
-)
+from app import (BackupCompletedEvent, BackupFailedEvent, BackupStartedEvent,
+                 CommandExecutedEvent, CommandFailedEvent, CommandRedoneEvent,
+                 CommandUndoneEvent, ConfirmationRequiredEvent,
+                 FilesScannedEvent, JournalEntryCreatedEvent,
+                 MediaDataGroupingCompletedEvent, MediaDataReadyEvent,
+                 OrganizationCompletedEvent, OrganizationProgressEvent,
+                 OrganizationStartedEvent, PreflightCompletedEvent,
+                 PreflightIssueFoundEvent, PreflightStartedEvent,
+                 RedoExecutedEvent, SafetyAlertEvent, SafetyStatusUpdateEvent,
+                 ScanStatus, TaskCancelledEvent, TaskCompletedEvent,
+                 TaskFailedEvent, TaskProgressEvent, TaskStartedEvent,
+                 TMDBMatchFoundEvent, TMDBSearchCompletedEvent,
+                 TMDBSearchStartedEvent, TransactionCommittedEvent,
+                 TransactionStartedEvent, UndoExecutedEvent,
+                 UndoRedoStackChangedEvent)
 
 
 class EventHandlerManager:
@@ -175,19 +154,17 @@ class EventHandlerManager:
 
             elif event.status == ScanStatus.IN_PROGRESS:
                 progress = 0
-                if event.scanned_files_count > 0:
+                files_count = len(event.found_files)
+                if files_count > 0:
                     # 대략적인 진행률 계산
-                    progress = min(50, (event.scanned_files_count // 10) * 5)  # 최대 50%까지
+                    progress = min(50, (files_count // 10) * 5)  # 최대 50%까지
                 self.main_window.left_panel.update_progress(progress)
-                self.main_window.update_status_bar(
-                    f"파일 스캔 중... ({event.total_files_found}개 발견)"
-                )
+                self.main_window.update_status_bar(f"파일 스캔 중... ({files_count}개 발견)")
 
             elif event.status == ScanStatus.COMPLETED:
                 self.main_window.left_panel.update_progress(100)
-                self.main_window.update_status_bar(
-                    f"스캔 완료: {event.total_files_found}개 파일 발견"
-                )
+                files_count = len(event.found_files)
+                self.main_window.update_status_bar(f"스캔 완료: {files_count}개 파일 발견")
 
                 # 스캔 완료 후 파일 처리
                 if event.found_files:

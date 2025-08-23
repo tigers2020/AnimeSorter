@@ -124,6 +124,9 @@ class TypedEventBus(QObject):
         # 약한 참조를 사용하여 메모리 누수 방지
         self._subscribers: dict[type[BaseEvent], WeakValueDict] = defaultdict(WeakValueDict)
 
+        # 강한 참조 구독자 저장소 (수동 정리 필요)
+        self._strong_subscribers: dict[type[BaseEvent], dict[str, Callable]] = {}
+
         # 구독 ID 관리
         self._subscription_counter = 0
         self._subscription_map: dict[str, tuple[type[BaseEvent], str]] = {}
@@ -169,7 +172,7 @@ class TypedEventBus(QObject):
                 subscriber_count = 0
                 if type(event) in self._subscribers:
                     subscriber_count += len(self._subscribers[type(event)])
-                if hasattr(self, "_strong_subscribers") and type(event) in self._strong_subscribers:
+                if type(event) in self._strong_subscribers:
                     subscriber_count += len(self._strong_subscribers[type(event)])
 
                 print(f"📊 [EventBus] 구독자 수: {subscriber_count}명")
@@ -218,8 +221,8 @@ class TypedEventBus(QObject):
                     self._subscribers[event_type][subscription_id] = handler
                 else:
                     # 강한 참조로 저장 (수동 정리 필요)
-                    if not hasattr(self, "_strong_subscribers"):
-                        self._strong_subscribers = defaultdict(dict)
+                    if event_type not in self._strong_subscribers:
+                        self._strong_subscribers[event_type] = {}
                     self._strong_subscribers[event_type][subscription_id] = handler
 
                 # 구독 매핑 저장
@@ -252,8 +255,7 @@ class TypedEventBus(QObject):
 
                 # 강한 참조에서 제거
                 if (
-                    hasattr(self, "_strong_subscribers")
-                    and event_type in self._strong_subscribers
+                    event_type in self._strong_subscribers
                     and handler_key in self._strong_subscribers[event_type]
                 ):
                     del self._strong_subscribers[event_type][handler_key]
@@ -280,10 +282,7 @@ class TypedEventBus(QObject):
                         removed_count += len(self._subscribers[event_type])
                         self._subscribers[event_type].clear()
 
-                    if (
-                        hasattr(self, "_strong_subscribers")
-                        and event_type in self._strong_subscribers
-                    ):
+                    if event_type in self._strong_subscribers:
                         removed_count += len(self._strong_subscribers[event_type])
                         self._strong_subscribers[event_type].clear()
 
@@ -302,11 +301,10 @@ class TypedEventBus(QObject):
                         removed_count += len(subscribers_dict)
                         subscribers_dict.clear()
 
-                    if hasattr(self, "_strong_subscribers"):
-                        for subscribers_dict in self._strong_subscribers.values():
-                            removed_count += len(subscribers_dict)
-                            subscribers_dict.clear()
-                        self._strong_subscribers.clear()
+                    for subscribers_dict in self._strong_subscribers.values():
+                        removed_count += len(subscribers_dict)
+                        subscribers_dict.clear()
+                    self._strong_subscribers.clear()
 
                     self._subscription_map.clear()
 
@@ -333,7 +331,7 @@ class TypedEventBus(QObject):
                     print(f"🔗 [EventBus] 약한 참조 핸들러: {len(weak_handlers)}개")
 
                 # 강한 참조 핸들러들 수집
-                if hasattr(self, "_strong_subscribers") and event_type in self._strong_subscribers:
+                if event_type in self._strong_subscribers:
                     strong_handlers = list(self._strong_subscribers[event_type].values())
                     handlers.extend(strong_handlers)
                     print(f"💪 [EventBus] 강한 참조 핸들러: {len(strong_handlers)}개")
@@ -372,20 +370,17 @@ class TypedEventBus(QObject):
         with self._lock:
             if event_type:
                 count = len(self._subscribers.get(event_type, {}))
-                if hasattr(self, "_strong_subscribers"):
-                    count += len(self._strong_subscribers.get(event_type, {}))
+                count += len(self._strong_subscribers.get(event_type, {}))
                 return count
             total = sum(len(handlers) for handlers in self._subscribers.values())
-            if hasattr(self, "_strong_subscribers"):
-                total += sum(len(handlers) for handlers in self._strong_subscribers.values())
+            total += sum(len(handlers) for handlers in self._strong_subscribers.values())
             return total
 
     def get_event_types(self) -> list[type[BaseEvent]]:
         """등록된 이벤트 타입 목록 반환"""
         with self._lock:
             types = set(self._subscribers.keys())
-            if hasattr(self, "_strong_subscribers"):
-                types.update(self._strong_subscribers.keys())
+            types.update(self._strong_subscribers.keys())
             return list(types)
 
     def get_event_stats(self) -> dict[str, int]:

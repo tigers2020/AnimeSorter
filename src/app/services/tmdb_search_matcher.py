@@ -6,11 +6,13 @@ TMDB 검색 결과 매칭 모듈
 
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
-from core.tmdb_models import TMDBAnimeInfo
+from core import \
+    TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
 
-from ..tmdb_search_events import TMDBMatch, TMDBMatchConfidence
+from ..tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
+                                  TMDBMediaType, TMDBSearchResult)
 
 
 class SearchResultMatcher:
@@ -21,19 +23,18 @@ class SearchResultMatcher:
 
     def match_results_to_group(
         self, group_title: str, search_results: list[TMDBAnimeInfo], auto_match: bool = True
-    ) -> Optional[TMDBMatch]:
+    ) -> TMDBMatch | None:
         """검색 결과를 그룹에 매칭"""
         if not search_results:
             return None
 
         if auto_match:
             return self._auto_match(group_title, search_results)
-        else:
-            return self._manual_match(group_title, search_results)
+        return self._manual_match(group_title, search_results)
 
     def _auto_match(
         self, group_title: str, search_results: list[TMDBAnimeInfo]
-    ) -> Optional[TMDBMatch]:
+    ) -> TMDBMatch | None:
         """자동 매칭 수행"""
         try:
             # 각 결과에 대한 신뢰도 점수 계산
@@ -50,14 +51,18 @@ class SearchResultMatcher:
                 best_result, best_score = scored_results[0]
                 confidence = self._score_to_confidence(best_score)
 
-                return TMDBMatch(
-                    group_id="",  # 그룹 ID는 호출자가 설정
+                # TMDBSearchResult 생성
+                search_result = TMDBSearchResult(
                     tmdb_id=best_result.id,
                     title=best_result.name,
                     original_title=best_result.original_name,
+                    media_type=TMDBMediaType.ANIME,
+                )
+
+                return TMDBMatch(
+                    search_result=search_result,
                     confidence=confidence,
-                    score=best_score,
-                    metadata=best_result,
+                    confidence_score=best_score,
                 )
 
         except Exception as e:
@@ -67,7 +72,7 @@ class SearchResultMatcher:
 
     def _manual_match(
         self, group_title: str, search_results: list[TMDBAnimeInfo]
-    ) -> Optional[TMDBMatch]:
+    ) -> TMDBMatch | None:
         """수동 매칭을 위한 정보 제공"""
         # 수동 매칭의 경우 모든 결과를 반환하되, 점수 정보 포함
         if search_results:
@@ -75,14 +80,18 @@ class SearchResultMatcher:
             score = self._calculate_match_score(group_title, best_result)
             confidence = self._score_to_confidence(score)
 
-            return TMDBMatch(
-                group_id="",  # 그룹 ID는 호출자가 설정
+            # TMDBSearchResult 생성
+            search_result = TMDBSearchResult(
                 tmdb_id=best_result.id,
                 title=best_result.name,
                 original_title=best_result.original_name,
+                media_type=TMDBMediaType.ANIME,
+            )
+
+            return TMDBMatch(
+                search_result=search_result,
                 confidence=confidence,
-                score=score,
-                metadata=best_result,
+                confidence_score=score,
             )
 
         return None
@@ -175,14 +184,13 @@ class SearchResultMatcher:
                 year_diff = abs(group_year - tmdb_year)
                 if year_diff == 0:
                     return 1.0
-                elif year_diff == 1:
+                if year_diff == 1:
                     return 0.8
-                elif year_diff <= 3:
+                if year_diff <= 3:
                     return 0.6
-                elif year_diff <= 5:
+                if year_diff <= 5:
                     return 0.4
-                else:
-                    return 0.2
+                return 0.2
 
         except (ValueError, IndexError):
             pass
@@ -211,8 +219,7 @@ class SearchResultMatcher:
                     # 시즌 수 매칭
                     if group_season <= number_of_seasons:
                         return 1.0
-                    else:
-                        return 0.5
+                    return 0.5
 
         except (ValueError, IndexError):
             pass
@@ -223,12 +230,11 @@ class SearchResultMatcher:
         """점수를 신뢰도로 변환"""
         if score >= 0.9:
             return TMDBMatchConfidence.HIGH
-        elif score >= 0.7:
+        if score >= 0.7:
             return TMDBMatchConfidence.MEDIUM
-        elif score >= 0.5:
+        if score >= 0.5:
             return TMDBMatchConfidence.LOW
-        else:
-            return TMDBMatchConfidence.NONE
+        return TMDBMatchConfidence.UNCERTAIN
 
     def get_match_suggestions(
         self, group_title: str, search_results: list[TMDBAnimeInfo], max_suggestions: int = 5
@@ -255,19 +261,18 @@ class SearchResultMatcher:
         """매칭 결과 검증"""
         try:
             # 최소 신뢰도 확인
-            if match.confidence == TMDBMatchConfidence.NONE:
+            if match.confidence == TMDBMatchConfidence.UNCERTAIN:
                 return False
 
             # 점수 확인
-            if match.score < 0.3:
+            if match.confidence_score < 0.3:
                 return False
 
             # 제목 유사도 재확인
-            title_similarity = self._calculate_title_similarity(group_title, match.title)
-            if title_similarity < 0.2:
-                return False
-
-            return True
+            title_similarity = self._calculate_title_similarity(
+                group_title, match.search_result.title
+            )
+            return not title_similarity < 0.2
 
         except Exception as e:
             self.logger.error(f"매칭 검증 실패: {e}")
@@ -285,7 +290,7 @@ class SearchResultMatcher:
                 }
 
             # 신뢰도 분포
-            confidence_dist = {}
+            confidence_dist: dict[str, int] = {}
             for match in matches:
                 confidence = match.confidence.value
                 confidence_dist[confidence] = confidence_dist.get(confidence, 0) + 1
@@ -295,15 +300,15 @@ class SearchResultMatcher:
             total_score = 0.0
 
             for match in matches:
-                total_score += match.score
+                total_score += match.confidence_score
 
-                if match.score < 0.3:
+                if match.confidence_score < 0.3:
                     score_dist["0.0-0.3"] += 1
-                elif match.score < 0.5:
-                    score_dist["0.3-0.5"] += 1
-                elif match.score < 0.7:
+                elif match.confidence_score < 0.5:
                     score_dist["0.5-0.7"] += 1
-                elif match.score < 0.9:
+                elif match.confidence_score < 0.7:
+                    score_dist["0.5-0.7"] += 1
+                elif match.confidence_score < 0.9:
                     score_dist["0.7-0.9"] += 1
                 else:
                     score_dist["0.9-1.0"] += 1

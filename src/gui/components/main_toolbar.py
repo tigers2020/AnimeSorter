@@ -5,18 +5,9 @@
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QPalette
-from PyQt5.QtWidgets import (
-    QAction,
-    QApplication,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QProgressBar,
-    QPushButton,
-    QSizePolicy,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QAction, QApplication, QFrame, QHBoxLayout,
+                             QLabel, QLineEdit, QProgressBar, QPushButton,
+                             QSizePolicy, QWidget)
 
 
 class StatusBadge(QFrame):
@@ -367,7 +358,7 @@ class MainToolbar(QWidget):
             }
         """
 
-    def darken_color(self, color, factor=0.1):
+    def darken_color(self, color, _factor=0.1):
         """색상을 어둡게 만드는 헬퍼 함수"""
         # 간단한 색상 어둡게 만들기 (실제로는 더 정교한 로직 필요)
         return color

@@ -16,13 +16,9 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoStack
 
 from .qt_command_wrapper import QtCommandWrapper
-from .undo_redo_events import (
-    CommandPushedToStackEvent,
-    RedoExecutedEvent,
-    UndoExecutedEvent,
-    UndoRedoErrorEvent,
-    UndoRedoStackChangedEvent,
-)
+from .undo_redo_events import (CommandPushedToStackEvent, RedoExecutedEvent,
+                               UndoExecutedEvent, UndoRedoErrorEvent,
+                               UndoRedoStackChangedEvent)
 
 
 @dataclass
@@ -409,9 +405,11 @@ class UndoRedoManager(QObject):
                 command_text=command.text(),
                 command_type=command.base_command.__class__.__name__,
                 success=command.undo_result.is_success if command.undo_result else False,
-                execution_time_ms=command.undo_result.execution_time_ms
-                if command.undo_result
-                else 0.0,
+                execution_time_ms=(
+                    command.undo_result.execution_time_ms
+                    if command.undo_result and command.undo_result.execution_time_ms is not None
+                    else 0.0
+                ),
             )
             event_bus.publish(event)
 
@@ -426,9 +424,11 @@ class UndoRedoManager(QObject):
                 command_text=command.text(),
                 command_type=command.base_command.__class__.__name__,
                 success=command.redo_result.is_success if command.redo_result else False,
-                execution_time_ms=command.redo_result.execution_time_ms
-                if command.redo_result
-                else 0.0,
+                execution_time_ms=(
+                    command.redo_result.execution_time_ms
+                    if command.redo_result and command.redo_result.execution_time_ms is not None
+                    else 0.0
+                ),
             )
             event_bus.publish(event)
 

@@ -7,6 +7,7 @@
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 
 class FileValidator:
@@ -24,7 +25,7 @@ class FileValidator:
         # 지원되는 오디오 확장자
         self.audio_extensions = {".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a"}
 
-    def validate_destination(self, path: str) -> dict:
+    def validate_destination(self, path: str) -> dict[str, Any]:
         """대상 경로 유효성 검사"""
         try:
             dest_path = Path(path)
@@ -57,7 +58,7 @@ class FileValidator:
         except Exception as e:
             return {"error": str(e), "valid": False}
 
-    def validate_file_path(self, file_path: str) -> dict:
+    def validate_file_path(self, file_path: str) -> dict[str, Any]:
         """파일 경로 유효성 검사"""
         try:
             path_obj = Path(file_path)
@@ -98,7 +99,7 @@ class FileValidator:
         except Exception as e:
             return {"error": str(e), "valid": False}
 
-    def validate_directory(self, dir_path: str) -> dict:
+    def validate_directory(self, dir_path: str) -> dict[str, Any]:
         """디렉토리 유효성 검사"""
         try:
             dir_obj = Path(dir_path)
@@ -203,10 +204,10 @@ class FileValidator:
             self.logger.error(f"지원 확장자 제거 실패: {e}")
             return False
 
-    def validate_file_list(self, file_paths: list[str]) -> dict[str, list]:
+    def validate_file_list(self, file_paths: list[str]) -> dict[str, Any]:
         """파일 목록 일괄 검증"""
         try:
-            results = {
+            results: dict[str, Any] = {
                 "valid_files": [],
                 "invalid_files": [],
                 "errors": [],
@@ -245,7 +246,7 @@ class FileValidator:
                 "summary": {"total": 0, "valid": 0, "invalid": 0, "errors": 1},
             }
 
-    def check_disk_space(self, path: str, required_bytes: int = 0) -> dict:
+    def check_disk_space(self, path: str, required_bytes: int = 0) -> dict[str, Any]:
         """디스크 공간 확인"""
         try:
             path_obj = Path(path)
@@ -261,7 +262,7 @@ class FileValidator:
 
             total, used, free = shutil.disk_usage(path_obj)
 
-            result = {
+            return {
                 "path": str(path_obj),
                 "total_bytes": total,
                 "used_bytes": used,
@@ -275,12 +276,10 @@ class FileValidator:
                 "valid": True,
             }
 
-            return result
-
         except Exception as e:
             return {"error": str(e), "valid": False}
 
-    def validate_file_permissions(self, file_path: str) -> dict:
+    def validate_file_permissions(self, file_path: str) -> dict[str, Any]:
         """파일 권한 검증"""
         try:
             path_obj = Path(file_path)
@@ -288,7 +287,7 @@ class FileValidator:
             if not path_obj.exists():
                 return {"error": "파일이 존재하지 않습니다", "valid": False}
 
-            result = {
+            return {
                 "path": str(path_obj),
                 "readable": os.access(path_obj, os.R_OK),
                 "writable": os.access(path_obj, os.W_OK),
@@ -298,8 +297,6 @@ class FileValidator:
                 "owner_executable": os.access(path_obj, os.X_OK),
                 "valid": True,
             }
-
-            return result
 
         except Exception as e:
             return {"error": str(e), "valid": False}

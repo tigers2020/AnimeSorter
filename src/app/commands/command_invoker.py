@@ -12,14 +12,10 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoStack
 
 from ..events import TypedEventBus
-from .base_command import CommandResult, CommandStatus, ICommand
-from .command_events import (
-    CommandExecutedEvent,
-    CommandFailedEvent,
-    CommandQueueUpdatedEvent,
-    CommandRedoneEvent,
-    CommandUndoneEvent,
-)
+from .base_command import CommandError, CommandResult, CommandStatus, ICommand
+from .command_events import (CommandExecutedEvent, CommandFailedEvent,
+                             CommandQueueUpdatedEvent, CommandRedoneEvent,
+                             CommandUndoneEvent)
 
 
 class ICommandInvoker(Protocol):
@@ -116,7 +112,7 @@ class CommandInvoker(QObject):
 
             # 예외 발생 시 실패 결과 생성
             result = CommandResult(command_id=command.command_id, status=CommandStatus.FAILED)
-            result.error = type(e).__name__
+            result.error = CommandError(error_type=type(e).__name__, message=str(e), exception=e)
 
             self._on_command_failure(command, result)
             return result
@@ -211,9 +207,9 @@ class CommandInvoker(QObject):
             "total_failed": self._total_failed,
             "current_history_size": len(self._executed_commands),
             "can_undo_count": 1 if self.can_undo() else 0,
-            "can_redo_count": len(self._executed_commands) - self._undo_index - 1
-            if self.can_redo()
-            else 0,
+            "can_redo_count": (
+                len(self._executed_commands) - self._undo_index - 1 if self.can_redo() else 0
+            ),
         }
 
     # === 내부 메서드 ===

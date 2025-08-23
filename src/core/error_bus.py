@@ -160,7 +160,7 @@ class LoggingErrorHandler(ErrorHandler):
 class UserNotificationErrorHandler(ErrorHandler):
     """사용자 알림 에러 핸들러"""
 
-    def __init__(self, notification_callback: Callable | None = None):
+    def __init__(self, notification_callback: Callable[[ErrorEvent], None] | None = None):
         self.notification_callback = notification_callback
 
     def handle_error(self, error_event: ErrorEvent) -> bool:
@@ -186,8 +186,8 @@ class UserNotificationErrorHandler(ErrorHandler):
 class ErrorRecoveryHandler(ErrorHandler):
     """에러 복구 핸들러"""
 
-    def __init__(self):
-        self.recovery_strategies: dict[ErrorRecoveryStrategy, Callable] = {}
+    def __init__(self) -> None:
+        self.recovery_strategies: dict[ErrorRecoveryStrategy, Callable[[ErrorEvent], bool]] = {}
         self._register_default_strategies()
 
     def handle_error(self, error_event: ErrorEvent) -> bool:
@@ -217,7 +217,7 @@ class ErrorRecoveryHandler(ErrorHandler):
             print(f"❌ 에러 복구 핸들러 실패: {e}")
             return False
 
-    def _register_default_strategies(self):
+    def _register_default_strategies(self) -> None:
         """기본 복구 전략 등록"""
         self.recovery_strategies[ErrorRecoveryStrategy.RETRY] = self._retry_strategy
         self.recovery_strategies[ErrorRecoveryStrategy.FALLBACK] = self._fallback_strategy
@@ -241,7 +241,9 @@ class ErrorRecoveryHandler(ErrorHandler):
         print("⏭️ 에러 무시됨")
         return True
 
-    def register_strategy(self, strategy: ErrorRecoveryStrategy, handler: Callable):
+    def register_strategy(
+        self, strategy: ErrorRecoveryStrategy, handler: Callable[[ErrorEvent], bool]
+    ) -> None:
         """사용자 정의 복구 전략 등록"""
         self.recovery_strategies[strategy] = handler
 
@@ -254,7 +256,7 @@ class ErrorBus(QObject):
     error_recovered = pyqtSignal(object)  # ErrorEvent
     error_unrecoverable = pyqtSignal(object)  # ErrorEvent
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.handlers: list[ErrorHandler] = []
         self.error_history: list[ErrorEvent] = []
@@ -263,19 +265,19 @@ class ErrorBus(QObject):
         # 기본 핸들러 등록
         self._register_default_handlers()
 
-    def _register_default_handlers(self):
+    def _register_default_handlers(self) -> None:
         """기본 에러 핸들러 등록"""
         self.add_handler(LoggingErrorHandler())
         self.add_handler(UserNotificationErrorHandler())
         self.add_handler(ErrorRecoveryHandler())
 
-    def add_handler(self, handler: ErrorHandler):
+    def add_handler(self, handler: ErrorHandler) -> None:
         """에러 핸들러 추가"""
         if handler not in self.handlers:
             self.handlers.append(handler)
             print(f"✅ 에러 핸들러 추가: {handler.__class__.__name__}")
 
-    def remove_handler(self, handler: ErrorHandler):
+    def remove_handler(self, handler: ErrorHandler) -> None:
         """에러 핸들러 제거"""
         if handler in self.handlers:
             self.handlers.remove(handler)
@@ -291,7 +293,7 @@ class ErrorBus(QObject):
         developer_message: str = "",
         recovery_strategy: ErrorRecoveryStrategy = ErrorRecoveryStrategy.IGNORE,
         context: ErrorContext | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> ErrorEvent:
         """예외를 ErrorEvent로 변환하여 처리"""
 
@@ -318,7 +320,7 @@ class ErrorBus(QObject):
 
         return error_event
 
-    def _fill_context_info(self, error_event: ErrorEvent):
+    def _fill_context_info(self, error_event: ErrorEvent) -> None:
         """컨텍스트 정보 자동 채우기"""
         if not error_event.context.function_name:
             # 현재 스택 프레임에서 함수명 추출
@@ -330,7 +332,7 @@ class ErrorBus(QObject):
             except Exception:
                 pass
 
-    def _process_error(self, error_event: ErrorEvent):
+    def _process_error(self, error_event: ErrorEvent) -> None:
         """에러 처리 파이프라인"""
         try:
             # 에러 히스토리에 추가
@@ -355,7 +357,7 @@ class ErrorBus(QObject):
         except Exception as e:
             print(f"❌ 에러 처리 파이프라인 실패: {e}")
 
-    def _add_to_history(self, error_event: ErrorEvent):
+    def _add_to_history(self, error_event: ErrorEvent) -> None:
         """에러 히스토리에 추가"""
         self.error_history.append(error_event)
 
@@ -389,8 +391,8 @@ class ErrorBus(QObject):
             return {"total_errors": 0}
 
         total_errors = len(self.error_history)
-        severity_counts = {}
-        category_counts = {}
+        severity_counts: dict[str, int] = {}
+        category_counts: dict[str, int] = {}
         recovery_counts = {"recovered": 0, "unrecovered": 0}
 
         for error in self.error_history:
@@ -413,9 +415,9 @@ class ErrorBus(QObject):
             "severity_distribution": severity_counts,
             "category_distribution": category_counts,
             "recovery_distribution": recovery_counts,
-            "recovery_rate": (recovery_counts["recovered"] / total_errors) * 100
-            if total_errors > 0
-            else 0,
+            "recovery_rate": (
+                (recovery_counts["recovered"] / total_errors) * 100 if total_errors > 0 else 0
+            ),
         }
 
     def clear_history(self):
@@ -501,19 +503,19 @@ error_bus = ErrorBus()
 
 
 # 편의 함수들
-def handle_exception(exception: Exception, **kwargs) -> ErrorEvent:
+def handle_exception(exception: Exception, **kwargs: Any) -> ErrorEvent:
     """전역 예외 처리 함수"""
     return error_bus.handle_exception(exception, **kwargs)
 
 
-def log_error(title: str, message: str, **kwargs) -> ErrorEvent:
+def log_error(title: str, message: str, **kwargs: Any) -> ErrorEvent:
     """에러 로깅 편의 함수"""
     return error_bus.handle_exception(
         Exception(message), title=title, user_message=message, developer_message=message, **kwargs
     )
 
 
-def log_warning(title: str, message: str, **kwargs) -> ErrorEvent:
+def log_warning(title: str, message: str, **kwargs: Any) -> ErrorEvent:
     """경고 로깅 편의 함수"""
     return error_bus.handle_exception(
         Exception(message),

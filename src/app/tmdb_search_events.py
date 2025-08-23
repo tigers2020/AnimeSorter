@@ -128,7 +128,7 @@ class TMDBSearchStartedEvent(BaseEvent):
     """TMDB 검색 시작 이벤트"""
 
     search_id: UUID = field(default_factory=uuid4)
-    query: TMDBSearchQuery = field(default_factory=TMDBSearchQuery)
+    query: TMDBSearchQuery = field(default_factory=lambda: TMDBSearchQuery(""))
     group_id: str | None = None  # 그룹 단위 검색 시
 
 
@@ -149,7 +149,7 @@ class TMDBSearchResultsEvent(BaseEvent):
     """TMDB 검색 결과 이벤트"""
 
     search_id: UUID = field(default_factory=uuid4)
-    query: TMDBSearchQuery = field(default_factory=TMDBSearchQuery)
+    query: TMDBSearchQuery = field(default_factory=lambda: TMDBSearchQuery(""))
     results: list[TMDBSearchResult] = field(default_factory=list)
     search_duration_ms: float = 0.0
     from_cache: bool = False
@@ -179,7 +179,7 @@ class TMDBMatchNotFoundEvent(BaseEvent):
 
     search_id: UUID = field(default_factory=uuid4)
     group_id: str | None = None
-    query: TMDBSearchQuery = field(default_factory=TMDBSearchQuery)
+    query: TMDBSearchQuery = field(default_factory=lambda: TMDBSearchQuery(""))
     search_duration_ms: float = 0.0
     failure_reason: str = "no_matches"
     alternative_suggestions: list[str] = field(default_factory=list)
@@ -190,7 +190,7 @@ class TMDBSearchCompletedEvent(BaseEvent):
     """TMDB 검색 완료 이벤트"""
 
     search_id: UUID = field(default_factory=uuid4)
-    query: TMDBSearchQuery = field(default_factory=TMDBSearchQuery)
+    query: TMDBSearchQuery = field(default_factory=lambda: TMDBSearchQuery(""))
     total_results: int = 0
     matches_found: int = 0
     search_duration_ms: float = 0.0
@@ -202,7 +202,7 @@ class TMDBSearchFailedEvent(BaseEvent):
     """TMDB 검색 실패 이벤트"""
 
     search_id: UUID = field(default_factory=uuid4)
-    query: TMDBSearchQuery = field(default_factory=TMDBSearchQuery)
+    query: TMDBSearchQuery = field(default_factory=lambda: TMDBSearchQuery(""))
     error_type: str = "unknown_error"
     error_message: str = ""
     retry_count: int = 0
@@ -243,7 +243,7 @@ class TMDBManualSelectionRequestedEvent(BaseEvent):
 
     search_id: UUID = field(default_factory=uuid4)
     group_id: str | None = None
-    query: TMDBSearchQuery = field(default_factory=TMDBSearchQuery)
+    query: TMDBSearchQuery = field(default_factory=lambda: TMDBSearchQuery(""))
     candidate_matches: list[TMDBMatch] = field(default_factory=list)
     requires_user_input: bool = True
 

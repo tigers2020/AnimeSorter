@@ -3,11 +3,12 @@
 탭별 델리게이트의 공통 기능을 제공하는 기본 클래스입니다.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QPainter
-from PyQt5.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
+from PyQt5.QtWidgets import (QApplication, QStyle, QStyledItemDelegate,
+                             QStyleOptionViewItem)
 
 
 class BaseCellDelegate(QStyledItemDelegate):
@@ -68,7 +69,7 @@ class BaseCellDelegate(QStyledItemDelegate):
                 return str(data)
         return ""
 
-    def _get_background_color(self, index: Any) -> Optional[QColor]:
+    def _get_background_color(self, index: Any) -> QColor | None:
         """배경색 반환"""
         if hasattr(index, "data"):
             data = index.data(Qt.BackgroundRole)
@@ -76,7 +77,7 @@ class BaseCellDelegate(QStyledItemDelegate):
                 return data
         return None
 
-    def _get_foreground_color(self, index: Any) -> Optional[QColor]:
+    def _get_foreground_color(self, index: Any) -> QColor | None:
         """전경색 반환"""
         if hasattr(index, "data"):
             data = index.data(Qt.ForegroundRole)
@@ -84,7 +85,7 @@ class BaseCellDelegate(QStyledItemDelegate):
                 return data
         return None
 
-    def _get_font(self, index: Any) -> Optional[QFont]:
+    def _get_font(self, index: Any) -> QFont | None:
         """폰트 반환"""
         if hasattr(index, "data"):
             data = index.data(Qt.FontRole)

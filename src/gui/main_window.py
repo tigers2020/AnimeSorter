@@ -7,11 +7,8 @@ import os
 from pathlib import Path
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (
-    QHeaderView,  # Added for QHeaderView
-    QMainWindow,
-    QMessageBox,
-)
+from PyQt5.QtWidgets import QHeaderView  # Added for QHeaderView
+from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
 # New Architecture Components
 # UI Command Bridge
@@ -23,10 +20,8 @@ from core.tmdb_client import TMDBClient
 # Phase 10.2: 국제화 관리 시스템
 # Phase 1: 메인 윈도우 분할 - 기능별 클래스 분리
 from .components.main_window_coordinator import MainWindowCoordinator
-
 # UI Components
 from .components.settings_dialog import SettingsDialog
-
 # Phase 8: UI 상태 관리 및 마이그레이션
 # UI Components
 # Event Handler Manager
@@ -128,12 +123,14 @@ class MainWindow(QMainWindow):
             if str(src_dir) not in sys.path:
                 sys.path.insert(0, str(src_dir))
 
-            from gui.components.main_window.handlers.file_handler import MainWindowFileHandler
-            from gui.components.main_window.handlers.layout_manager import MainWindowLayoutManager
-            from gui.components.main_window.handlers.menu_action_handler import (
-                MainWindowMenuActionHandler,
-            )
-            from gui.components.main_window.handlers.session_manager import MainWindowSessionManager
+            from gui.components.main_window.handlers.file_handler import \
+                MainWindowFileHandler
+            from gui.components.main_window.handlers.layout_manager import \
+                MainWindowLayoutManager
+            from gui.components.main_window.handlers.menu_action_handler import \
+                MainWindowMenuActionHandler
+            from gui.components.main_window.handlers.session_manager import \
+                MainWindowSessionManager
 
             # MainWindowFileHandler 초기화
             if hasattr(self, "file_processing_manager") and hasattr(self, "anime_data_manager"):
@@ -250,7 +247,8 @@ class MainWindow(QMainWindow):
             if str(src_dir) not in sys.path:
                 sys.path.insert(0, str(src_dir))
 
-            from gui.view_models.main_window_view_model_new import MainWindowViewModelNew
+            from gui.view_models.main_window_view_model_new import \
+                MainWindowViewModelNew
 
             print("📋 [MainWindow] ViewModel 초기화 시작...")
 
@@ -474,9 +472,8 @@ class MainWindow(QMainWindow):
         """테이블 컬럼 너비 가져오기 - MainWindowSessionManager로 위임"""
         if self.session_manager:
             return self.session_manager.get_table_column_widths()
-        else:
-            print("⚠️ MainWindowSessionManager가 초기화되지 않았습니다")
-            return {}
+        print("⚠️ MainWindowSessionManager가 초기화되지 않았습니다")
+        return {}
 
     def process_selected_files(self, file_paths: list[str]):
         """선택된 파일들을 처리하고 메타데이터 검색 - MainWindowFileHandler로 위임"""

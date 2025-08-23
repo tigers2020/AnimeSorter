@@ -8,6 +8,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from .file_backup import FileBackupManager
 from .file_handler import FileHandler
@@ -228,15 +229,15 @@ class FileManager:
         """파일 삭제"""
         return self.file_handler.delete_file(Path(file_path))
 
-    def get_file_info(self, file_path: str) -> dict[str, any]:
+    def get_file_info(self, file_path: str) -> dict[str, Any]:
         """파일 정보 조회"""
         return self.file_handler.get_file_info(Path(file_path))
 
-    def validate_destination(self, path: str) -> dict[str, any]:
+    def validate_destination(self, path: str) -> dict[str, Any]:
         """대상 경로 유효성 검사"""
         return self.file_validator.validate_destination(path)
 
-    def get_stats(self) -> dict[str, any]:
+    def get_stats(self) -> dict[str, Any]:
         """통계 정보 조회 (테스트 호환성)"""
         return {
             "recent_destinations_count": len(self._recent_destinations),

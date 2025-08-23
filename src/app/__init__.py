@@ -6,317 +6,153 @@ AnimeSorter Application Core
 
 # 백그라운드 작업 이벤트
 # Core 모듈
-from core import (
-    AppSettings,
-    FileManager,
-    FileOperationResult,
-    FileParser,
-    ParsedMetadata,
-    SettingsManager,
-    TMDBAnimeInfo,
-    TMDBClient,
-)
+from core import (AppSettings, FileManager,  # type: ignore[import-untyped]
+                  FileOperationResult, FileParser, ParsedMetadata,
+                  SettingsManager, TMDBAnimeInfo, TMDBClient)
 
 # 애플리케이션 이벤트
-from .application_events import (
-    FileOperationAppliedEvent,
-    FileOperationPlannedEvent,
-    FilesScannedEvent,
-    MediaFileCreatedEvent,
-    MediaFileDeletedEvent,
-    MediaFileMovedEvent,
-    MediaFileRenamedEvent,
-    MediaGroupCreatedEvent,
-    MetadataSyncedEvent,
-    OperationFailedEvent,
-    SettingsChangedEvent,
-)
-from .background_events import (
-    TaskCancelledEvent,
-    TaskCompletedEvent,
-    TaskFailedEvent,
-    TaskPriority,
-    TaskProgressEvent,
-    TaskQueueStatusEvent,
-    TaskRetryEvent,
-    TaskStartedEvent,
-    TaskStatus,
-)
-
+from .application_events import (FileOperationAppliedEvent,
+                                 FileOperationPlannedEvent, FilesScannedEvent,
+                                 MediaFileCreatedEvent, MediaFileDeletedEvent,
+                                 MediaFileMovedEvent, MediaFileRenamedEvent,
+                                 MediaGroupCreatedEvent, MetadataSyncedEvent,
+                                 OperationFailedEvent, OperationStatus,
+                                 OperationType, ScanStatus,
+                                 SettingsChangedEvent)
+from .background_events import (TaskCancelledEvent, TaskCompletedEvent,
+                                TaskFailedEvent, TaskPriority,
+                                TaskProgressEvent, TaskQueueStatusEvent,
+                                TaskRetryEvent, TaskStartedEvent, TaskStatus)
 # 백그라운드 작업 클래스
 from .background_task import BaseTask, TaskResult, TaskSignals
-
 # Command 패턴
-from .commands import (
-    BaseCommand,
-    BatchCommandCompletedEvent,
-    BatchCommandStartedEvent,
-    BatchFileCommand,
-    CommandError,
-    CommandExecutedEvent,
-    CommandFailedEvent,
-    CommandInvoker,
-    CommandRedoneEvent,
-    CommandResult,
-    CommandStatus,
-    CommandUndoneEvent,
-    CopyFileCommand,
-    CreateDirectoryCommand,
-    DeleteFileCommand,
-    ICommand,
-    ICommandInvoker,
-    MoveFileCommand,
-    RenameFileCommand,
-)
+from .commands import (BaseCommand, BatchCommandCompletedEvent,
+                       BatchCommandStartedEvent, BatchFileCommand,
+                       CommandError, CommandExecutedEvent, CommandFailedEvent,
+                       CommandInvoker, CommandRedoneEvent, CommandResult,
+                       CommandStatus, CommandUndoneEvent, CopyFileCommand,
+                       CreateDirectoryCommand, DeleteFileCommand, ICommand,
+                       ICommandInvoker, MoveFileCommand, RenameFileCommand)
 from .container import DIContainer, get_container
-from .domain import (
-    MediaFile,
-    MediaGroup,
-    MediaLibrary,
-    MediaMetadata,
-    MediaQuality,
-    MediaSource,
-    MediaType,
-    ProcessingFlag,
-)
+from .domain import (MediaFile, MediaGroup, MediaLibrary, MediaMetadata,
+                     MediaQuality, MediaSource, MediaType, ProcessingFlag)
 from .events import BaseEvent, TypedEventBus, get_event_bus
-
 # 저널링 시스템
-from .journal import (
-    FileOperationDetails,
-    IJournalEntry,
-    IJournalManager,
-    IRollbackEngine,
-    ITransaction,
-    JournalCleanupEvent,
-    JournalConfiguration,
-    JournalEntry,
-    JournalEntryCreatedEvent,
-    JournalEntryStatus,
-    JournalEntryType,
-    JournalEntryUpdatedEvent,
-    JournalManager,
-    RollbackCompletedEvent,
-    RollbackEngine,
-    RollbackResult,
-    RollbackStartedEvent,
-    RollbackStrategy,
-    Transaction,
-    TransactionCommittedEvent,
-    TransactionRolledBackEvent,
-    TransactionStartedEvent,
-    TransactionStatus,
-)
-
+from .journal import (FileOperationDetails, IJournalEntry, IJournalManager,
+                      IRollbackEngine, ITransaction, JournalCleanupEvent,
+                      JournalConfiguration, JournalEntry,
+                      JournalEntryCreatedEvent, JournalEntryStatus,
+                      JournalEntryType, JournalEntryUpdatedEvent,
+                      JournalManager, RollbackCompletedEvent, RollbackEngine,
+                      RollbackResult, RollbackStartedEvent, RollbackStrategy,
+                      Transaction, TransactionCommittedEvent,
+                      TransactionRolledBackEvent, TransactionStartedEvent,
+                      TransactionStatus)
 # 미디어 데이터 이벤트
-from .media_data_events import (
-    FilterCriteria,
-    GroupingStrategy,
-    MediaDataClearedEvent,
-    MediaDataErrorEvent,
-    MediaDataExportCompletedEvent,
-    MediaDataExportStartedEvent,
-    MediaDataFilter,
-    MediaDataFilteringCompletedEvent,
-    MediaDataFilteringStartedEvent,
-    MediaDataGrouping,
-    MediaDataGroupingCompletedEvent,
-    MediaDataGroupingStartedEvent,
-    MediaDataLoadStartedEvent,
-    MediaDataParsingCompletedEvent,
-    MediaDataParsingProgressEvent,
-    MediaDataReadyEvent,
-    MediaDataStatistics,
-    MediaDataStatus,
-    MediaDataUpdatedEvent,
-)
-
+from .media_data_events import (FilterCriteria, GroupingStrategy,
+                                MediaDataClearedEvent, MediaDataErrorEvent,
+                                MediaDataExportCompletedEvent,
+                                MediaDataExportStartedEvent, MediaDataFilter,
+                                MediaDataFilteringCompletedEvent,
+                                MediaDataFilteringStartedEvent,
+                                MediaDataGrouping,
+                                MediaDataGroupingCompletedEvent,
+                                MediaDataGroupingStartedEvent,
+                                MediaDataLoadStartedEvent,
+                                MediaDataParsingCompletedEvent,
+                                MediaDataParsingProgressEvent,
+                                MediaDataReadyEvent, MediaDataStatistics,
+                                MediaDataStatus, MediaDataUpdatedEvent)
 # 파일 정리 이벤트
-from .organization_events import (
-    OrganizationCancelledEvent,
-    OrganizationCompletedEvent,
-    OrganizationErrorType,
-    OrganizationFailedEvent,
-    OrganizationPreflightCompletedEvent,
-    OrganizationPreflightData,
-    OrganizationPreflightStartedEvent,
-    OrganizationProgressEvent,
-    OrganizationResult,
-    OrganizationStartedEvent,
-    OrganizationStatus,
-    OrganizationValidationCompletedEvent,
-    OrganizationValidationFailedEvent,
-    OrganizationValidationResult,
-    OrganizationValidationStartedEvent,
-)
-
+from .organization_events import (OrganizationCancelledEvent,
+                                  OrganizationCompletedEvent,
+                                  OrganizationErrorType,
+                                  OrganizationFailedEvent,
+                                  OrganizationPreflightCompletedEvent,
+                                  OrganizationPreflightData,
+                                  OrganizationPreflightStartedEvent,
+                                  OrganizationProgressEvent,
+                                  OrganizationResult, OrganizationStartedEvent,
+                                  OrganizationStatus,
+                                  OrganizationValidationCompletedEvent,
+                                  OrganizationValidationFailedEvent,
+                                  OrganizationValidationResult,
+                                  OrganizationValidationStartedEvent)
 # 프리플라이트 검사
-from .preflight import (
-    BasePreflightChecker,
-    BatchPreflightCompletedEvent,
-    BatchPreflightStartedEvent,
-    CircularReferenceChecker,
-    DiskSpaceChecker,
-    FileConflictChecker,
-    FileLockChecker,
-    IPreflightChecker,
-    IPreflightCoordinator,
-    PathValidityChecker,
-    PermissionChecker,
-    PreflightCheckFailedEvent,
-    PreflightCheckResult,
-    PreflightCompletedEvent,
-    PreflightCoordinator,
-    PreflightIssue,
-    PreflightIssueFoundEvent,
-    PreflightResult,
-    PreflightSeverity,
-    PreflightStartedEvent,
-)
-
+from .preflight import (BasePreflightChecker, BatchPreflightCompletedEvent,
+                        BatchPreflightStartedEvent, CircularReferenceChecker,
+                        DiskSpaceChecker, FileConflictChecker, FileLockChecker,
+                        IPreflightChecker, IPreflightCoordinator,
+                        PathValidityChecker, PermissionChecker,
+                        PreflightCheckFailedEvent, PreflightCheckResult,
+                        PreflightCompletedEvent, PreflightCoordinator,
+                        PreflightIssue, PreflightIssueFoundEvent,
+                        PreflightResult, PreflightSeverity,
+                        PreflightStartedEvent)
 # Safety 시스템
-from .safety import (
-    BackupConfiguration,
-    BackupInfo,
-    BackupManager,
-    BackupStrategy,
-    ConfirmationManager,
-    ConfirmationRequest,
-    ConfirmationResponse,
-    IBackupManager,
-    IConfirmationManager,
-    IInterruptionManager,
-    InterruptionManager,
-    InterruptionRequest,
-    InterruptionResult,
-    ISafetyManager,
-    SafetyConfiguration,
-    SafetyManager,
-    SafetyMode,
-    SafetyStatus,
-)
-
+from .safety import (BackupConfiguration, BackupInfo, BackupManager,
+                     BackupStrategy, ConfirmationManager, ConfirmationRequest,
+                     ConfirmationResponse, IBackupManager,
+                     IConfirmationManager, IInterruptionManager,
+                     InterruptionManager, InterruptionRequest,
+                     InterruptionResult, ISafetyManager, SafetyConfiguration,
+                     SafetyManager, SafetyMode, SafetyStatus)
 # Safety System 이벤트들
-from .safety_events import (
-    BackupCleanupEvent,
-    BackupCompletedEvent,
-    BackupFailedEvent,
-    BackupStartedEvent,
-    BatchOperationWarningEvent,
-    ConfirmationRequiredEvent,
-    ConfirmationResponseEvent,
-    OperationInterruptedEvent,
-    OperationInterruptRequestedEvent,
-    OperationResumeRequestedEvent,
-    SafetyAlertEvent,
-    SafetyModeChangedEvent,
-    SafetyStatusUpdateEvent,
-    TestModeOperationEvent,
-)
-from .services import (
-    BackgroundTaskService,
-    FileOrganizationService,
-    FileScanService,
-    IBackgroundTaskService,
-    IFileOrganizationService,
-    IFileScanService,
-    IMediaDataService,
-    ITMDBSearchService,
-    IUIUpdateService,
-    MediaDataService,
-    TMDBSearchService,
-    UIUpdateService,
-)
+from .safety_events import (BackupCleanupEvent, BackupCompletedEvent,
+                            BackupFailedEvent, BackupStartedEvent,
+                            BatchOperationWarningEvent,
+                            ConfirmationRequiredEvent,
+                            ConfirmationResponseEvent,
+                            OperationInterruptedEvent,
+                            OperationInterruptRequestedEvent,
+                            OperationResumeRequestedEvent, SafetyAlertEvent,
+                            SafetyModeChangedEvent, SafetyStatusUpdateEvent,
+                            TestModeOperationEvent)
+from .services import (BackgroundTaskService, FileOrganizationService,
+                       FileScanService, IBackgroundTaskService,
+                       IFileOrganizationService, IFileScanService,
+                       IMediaDataService, ITMDBSearchService, IUIUpdateService,
+                       MediaDataService, TMDBSearchService, UIUpdateService)
 from .setup import cleanup_application, get_service, initialize_application
-from .simple_events import (
-    FileOperationAppliedEvent,
-    # 파일 조작 이벤트
-    FileOperationPlannedEvent,
-    FilesScannedEvent,
-    # 미디어 파일/그룹 이벤트
-    MediaFileCreatedEvent,
-    MediaGroupCreatedEvent,
-    # 메타데이터 이벤트
-    MetadataSyncedEvent,
-    OperationFailedEvent,
-    OperationStatus,
-    OperationType,
-    # 상태 열거형
-    ScanStatus,
-)
-
+# Note: simple_events.py has been removed due to duplication with application_events.py
+# All event classes are now imported from application_events.py
 # TMDB 검색 이벤트
-from .tmdb_search_events import (
-    TMDBBulkSearchCompletedEvent,
-    TMDBBulkSearchProgressEvent,
-    TMDBBulkSearchStartedEvent,
-    TMDBCacheUpdatedEvent,
-    TMDBManualSelectionCompletedEvent,
-    TMDBManualSelectionRequestedEvent,
-    TMDBMatch,
-    TMDBMatchConfidence,
-    TMDBMatchFoundEvent,
-    TMDBMatchNotFoundEvent,
-    TMDBMediaType,
-    TMDBRateLimitEvent,
-    TMDBSearchCancelledEvent,
-    TMDBSearchCompletedEvent,
-    TMDBSearchFailedEvent,
-    TMDBSearchProgressEvent,
-    TMDBSearchQuery,
-    TMDBSearchResult,
-    TMDBSearchResultsEvent,
-    TMDBSearchStartedEvent,
-    TMDBSearchStatistics,
-    TMDBSearchStatus,
-    TMDBSearchType,
-)
-
+from .tmdb_search_events import (TMDBBulkSearchCompletedEvent,
+                                 TMDBBulkSearchProgressEvent,
+                                 TMDBBulkSearchStartedEvent,
+                                 TMDBCacheUpdatedEvent,
+                                 TMDBManualSelectionCompletedEvent,
+                                 TMDBManualSelectionRequestedEvent, TMDBMatch,
+                                 TMDBMatchConfidence, TMDBMatchFoundEvent,
+                                 TMDBMatchNotFoundEvent, TMDBMediaType,
+                                 TMDBRateLimitEvent, TMDBSearchCancelledEvent,
+                                 TMDBSearchCompletedEvent,
+                                 TMDBSearchFailedEvent,
+                                 TMDBSearchProgressEvent, TMDBSearchQuery,
+                                 TMDBSearchResult, TMDBSearchResultsEvent,
+                                 TMDBSearchStartedEvent, TMDBSearchStatistics,
+                                 TMDBSearchStatus, TMDBSearchType)
 # UI 이벤트
-from .ui_events import (
-    ErrorMessageEvent,
-    FileCountUpdateEvent,
-    MemoryUsageUpdateEvent,
-    MenuStateUpdateEvent,
-    ProgressUpdateEvent,
-    SettingsExportEvent,
-    SettingsImportEvent,
-    SettingsResetEvent,
-    SettingsSavedEvent,
-    # UI 업데이트 이벤트
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TableDataUpdateEvent,
-    ThemeUpdateEvent,
-    UIStateUpdateEvent,
-    WindowTitleUpdateEvent,
-)
-
+from .ui_events import (ErrorMessageEvent, FileCountUpdateEvent,  # UI 업데이트 이벤트
+                        MemoryUsageUpdateEvent, MenuStateUpdateEvent,
+                        ProgressUpdateEvent, SettingsExportEvent,
+                        SettingsImportEvent, SettingsResetEvent,
+                        SettingsSavedEvent, StatusBarUpdateEvent,
+                        SuccessMessageEvent, TableDataUpdateEvent,
+                        ThemeUpdateEvent, UIStateUpdateEvent,
+                        WindowTitleUpdateEvent)
 # Undo/Redo 시스템
-from .undo_redo import (
-    CommandPushedToStackEvent,
-    IUndoRedoManager,
-    QtBatchFileCommand,
-    QtCommandWrapper,
-    QtCopyFileCommand,
-    QtCreateDirectoryCommand,
-    QtDeleteFileCommand,
-    QtMoveFileCommand,
-    QtRenameFileCommand,
-    RedoExecutedEvent,
-    StackClearedEvent,
-    UndoExecutedEvent,
-    UndoRedoConfiguration,
-    UndoRedoEnabledEvent,
-    UndoRedoErrorEvent,
-    UndoRedoManager,
-    UndoRedoMenuManager,
-    UndoRedoShortcutManager,
-    UndoRedoStackChangedEvent,
-    UndoRedoStatistics,
-    UndoRedoToolbarManager,
-    UndoRedoUIIntegration,
-)
+from .undo_redo import (CommandPushedToStackEvent, IUndoRedoManager,
+                        QtBatchFileCommand, QtCommandWrapper,
+                        QtCopyFileCommand, QtCreateDirectoryCommand,
+                        QtDeleteFileCommand, QtMoveFileCommand,
+                        QtRenameFileCommand, RedoExecutedEvent,
+                        StackClearedEvent, UndoExecutedEvent,
+                        UndoRedoConfiguration, UndoRedoEnabledEvent,
+                        UndoRedoErrorEvent, UndoRedoManager,
+                        UndoRedoMenuManager, UndoRedoShortcutManager,
+                        UndoRedoStackChangedEvent, UndoRedoStatistics,
+                        UndoRedoToolbarManager, UndoRedoUIIntegration)
 
 __all__ = [
     "DIContainer",

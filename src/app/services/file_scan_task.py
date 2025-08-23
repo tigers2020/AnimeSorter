@@ -8,11 +8,12 @@ FileScanService의 로직을 BaseTask 기반으로 재구현하여
 import logging
 import time
 from pathlib import Path
+from uuid import uuid4
 
+from ..application_events import FilesScannedEvent, ScanStatus
 from ..background_events import TaskPriority
 from ..background_task import BaseTask, TaskResult
 from ..events import TypedEventBus
-from ..simple_events import FilesScannedEvent, ScanStatus
 
 
 class FileScanTask(BaseTask):
@@ -110,14 +111,11 @@ class FileScanTask(BaseTask):
 
             # FilesScannedEvent 발행 (올바른 매개변수 사용)
             scan_event = FilesScannedEvent(
-                scan_id=self.task_id,
-                directory_path=self.directory_path,  # Path 객체 그대로 전달
-                found_files=[Path(f) for f in scanned_files],  # file_paths → found_files
-                total_files_found=len(scanned_files),
-                scanned_files_count=len(scanned_files),
+                scan_id=uuid4(),
+                directory_path=self.directory_path,
+                found_files=[Path(f) for f in scanned_files],
+                scan_duration_seconds=time.time() - start_time,
                 status=ScanStatus.COMPLETED,
-                scan_duration_seconds=time.time()
-                - start_time,  # scan_duration → scan_duration_seconds
             )
 
             self.event_bus.publish(scan_event)

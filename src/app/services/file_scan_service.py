@@ -55,7 +55,7 @@ class FileScanService(IFileScanService):
         self.event_bus = event_bus
         self.background_task_service = background_task_service
         self.logger = logging.getLogger(self.__class__.__name__)
-        self._active_scans: dict[UUID, UUID] = {}  # scan_id -> background_task_id
+        self._active_scans: dict[UUID, str] = {}  # scan_id -> background_task_id
 
         self.logger.info("FileScanService 초기화 완료 (백그라운드 처리)")
 
@@ -74,7 +74,7 @@ class FileScanService(IFileScanService):
         # FileScanTask 생성
         scan_task = FileScanTask(
             event_bus=self.event_bus,
-            directory_path=directory_path,
+            directory_path=str(directory_path),
             recursive=recursive,
             extensions=extensions
             or {".mkv", ".mp4", ".avi", ".wmv", ".mov", ".flv", ".webm", ".m4v"},
@@ -84,7 +84,7 @@ class FileScanService(IFileScanService):
 
         # 백그라운드 작업 제출
         background_task_id = self.background_task_service.submit_task(scan_task)
-        self._active_scans[scan_id] = background_task_id
+        self._active_scans[scan_id] = str(background_task_id)
 
         self.logger.info(
             f"디렉토리 스캔 작업 제출됨: {scan_id} (백그라운드 태스크 ID: {background_task_id})"
@@ -120,7 +120,7 @@ class FileScanService(IFileScanService):
 
         # 백그라운드 작업 제출
         background_task_id = self.background_task_service.submit_task(scan_task)
-        self._active_scans[scan_id] = background_task_id
+        self._active_scans[scan_id] = str(background_task_id)
 
         self.logger.info(
             f"파일 목록 스캔 작업 제출됨: {scan_id} (백그라운드 태스크 ID: {background_task_id})"

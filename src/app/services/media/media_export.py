@@ -16,7 +16,7 @@ from ...domain import MediaFile, MediaGroup
 class MediaExporter:
     """미디어 데이터를 다양한 형식으로 내보내는 클래스"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def export_data(
@@ -62,13 +62,11 @@ class MediaExporter:
         except Exception as e:
             self.logger.error(f"데이터 내보내기 실패: {e}")
 
-            result = {
+            return {
                 "export_path": export_path,
                 "error": str(e),
                 "success": False,
             }
-
-            return result
 
     def _prepare_export_data(
         self,
@@ -105,15 +103,15 @@ class MediaExporter:
     def _media_file_to_dict(self, media_file: MediaFile) -> dict[str, Any]:
         """MediaFile을 딕셔너리로 변환합니다."""
         return {
-            "file_id": str(media_file.file_id),
-            "original_filename": media_file.original_filename,
-            "file_path": str(media_file.file_path),
-            "file_size_bytes": media_file.file_size_bytes,
+            "file_id": str(media_file.id),
+            "original_filename": media_file.original_name or "",
+            "file_path": str(media_file.path),
+            "file_size_bytes": media_file.metadata.file_size_bytes if media_file.metadata else 0,
             "media_type": media_file.media_type.value,
-            "quality": media_file.quality.value,
-            "source": media_file.source.value,
-            "title": media_file.title,
-            "series": media_file.series,
+            "quality": media_file.metadata.quality.value if media_file.metadata else "unknown",
+            "source": media_file.metadata.source.value if media_file.metadata else "unknown",
+            "title": media_file.parsed_title or "",
+            "series": media_file.parsed_title or "",
             "season": media_file.season,
             "episode": media_file.episode,
         }
@@ -121,11 +119,11 @@ class MediaExporter:
     def _media_group_to_dict(self, media_group: MediaGroup) -> dict[str, Any]:
         """MediaGroup을 딕셔너리로 변환합니다."""
         return {
-            "group_id": media_group.group_id,
+            "group_id": str(media_group.id),
             "title": media_group.title,
             "total_episodes": media_group.total_episodes,
-            "media_type": media_group.media_type.value,
-            "files": [self._media_file_to_dict(f) for f in media_group.files],
+            "episode_count": media_group.episode_count,
+            "files": [ep for ep in media_group.episode_numbers],  # 에피소드 번호만 반환
         }
 
     def _calculate_statistics(
@@ -146,9 +144,9 @@ class MediaExporter:
             }
 
         # 타입별, 품질별, 소스별 통계
-        files_by_type = {}
-        files_by_quality = {}
-        files_by_source = {}
+        files_by_type: dict[str, int] = {}
+        files_by_quality: dict[str, int] = {}
+        files_by_source: dict[str, int] = {}
 
         total_size = 0
         file_sizes = []
@@ -158,18 +156,17 @@ class MediaExporter:
             type_key = file.media_type.value
             files_by_type[type_key] = files_by_type.get(type_key, 0) + 1
 
-            # 품질별 통계
-            quality_key = file.quality.value
-            files_by_quality[quality_key] = files_by_quality.get(quality_key, 0) + 1
+            # 품질별, 소스별, 파일 크기 통계 (메타데이터가 있는 경우만)
+            if file.metadata:
+                quality_key = file.metadata.quality.value
+                files_by_quality[quality_key] = files_by_quality.get(quality_key, 0) + 1
 
-            # 소스별 통계
-            source_key = file.source.value
-            files_by_source[source_key] = files_by_source.get(source_key, 0) + 1
+                source_key = file.metadata.source.value
+                files_by_source[source_key] = files_by_source.get(source_key, 0) + 1
 
-            # 파일 크기 통계
-            if file.file_size_bytes > 0:
-                total_size += file.file_size_bytes
-                file_sizes.append(file.file_size_bytes / (1024 * 1024))  # MB로 변환
+                if file.metadata.file_size_bytes > 0:
+                    total_size += file.metadata.file_size_bytes
+                    file_sizes.append(file.metadata.file_size_bytes / (1024 * 1024))  # MB로 변환
 
         # 파일 크기 통계 계산
         average_size = sum(file_sizes) / len(file_sizes) if file_sizes else 0.0
@@ -238,8 +235,7 @@ class MediaExporter:
             if export_path.exists():
                 # 파일이 이미 존재하는 경우 덮어쓸 수 있는지 확인
                 return export_path.is_file() and export_path.parent.is_dir()
-            else:
-                # 부모 디렉토리가 존재하거나 생성 가능한지 확인
-                return export_path.parent.exists() or export_path.parent.is_dir()
+            # 부모 디렉토리가 존재하거나 생성 가능한지 확인
+            return export_path.parent.exists() or export_path.parent.is_dir()
         except Exception:
             return False

@@ -13,24 +13,18 @@ from uuid import UUID, uuid4
 
 from ..domain import MediaFile, MediaGroup
 from ..events import TypedEventBus
-from ..media_data_events import (
-    MediaDataClearedEvent,
-    MediaDataErrorEvent,
-    MediaDataExportCompletedEvent,
-    MediaDataExportStartedEvent,
-    MediaDataFilter,
-    MediaDataFilteringCompletedEvent,
-    MediaDataFilteringStartedEvent,
-    MediaDataGrouping,
-    MediaDataGroupingCompletedEvent,
-    MediaDataGroupingStartedEvent,
-    MediaDataLoadStartedEvent,
-    MediaDataParsingCompletedEvent,
-    MediaDataReadyEvent,
-    MediaDataStatistics,
-    MediaDataStatus,
-    MediaDataUpdatedEvent,
-)
+from ..media_data_events import (MediaDataClearedEvent, MediaDataErrorEvent,
+                                 MediaDataExportCompletedEvent,
+                                 MediaDataExportStartedEvent, MediaDataFilter,
+                                 MediaDataFilteringCompletedEvent,
+                                 MediaDataFilteringStartedEvent,
+                                 MediaDataGrouping,
+                                 MediaDataGroupingCompletedEvent,
+                                 MediaDataGroupingStartedEvent,
+                                 MediaDataLoadStartedEvent,
+                                 MediaDataParsingCompletedEvent,
+                                 MediaDataReadyEvent, MediaDataStatistics,
+                                 MediaDataStatus, MediaDataUpdatedEvent)
 from .media import MediaExporter, MediaExtractor, MediaFilter, MediaProcessor
 
 
@@ -150,7 +144,7 @@ class MediaDataService(IMediaDataService):
 
             # 파싱된 파일들을 저장
             for media_file in processed_files:
-                self._media_files[media_file.file_id] = media_file
+                self._media_files[media_file.id] = media_file
 
             parsing_duration = time.time() - start_time
 
@@ -203,14 +197,14 @@ class MediaDataService(IMediaDataService):
         try:
             # MediaProcessor를 사용하여 데이터 정규화
             normalized_file = self.media_processor.normalize_media_file(media_file)
-            self._media_files[normalized_file.file_id] = normalized_file
+            self._media_files[normalized_file.id] = normalized_file
 
             # 업데이트 이벤트 발행
             self.event_bus.publish(
                 MediaDataUpdatedEvent(updated_files=[normalized_file], update_type="added")
             )
 
-            self.logger.debug(f"미디어 파일 추가됨: {normalized_file.original_filename}")
+            self.logger.debug(f"미디어 파일 추가됨: {normalized_file.original_name}")
             return True
 
         except Exception as e:
@@ -234,7 +228,7 @@ class MediaDataService(IMediaDataService):
                     MediaDataUpdatedEvent(updated_files=[removed_file], update_type="removed")
                 )
 
-                self.logger.debug(f"미디어 파일 제거됨: {removed_file.original_filename}")
+                self.logger.debug(f"미디어 파일 제거됨: {removed_file.original_name}")
                 return True
 
             return False
@@ -246,10 +240,10 @@ class MediaDataService(IMediaDataService):
     def update_media_file(self, media_file: MediaFile) -> bool:
         """미디어 파일 업데이트"""
         try:
-            if media_file.file_id in self._media_files:
+            if media_file.id in self._media_files:
                 # MediaProcessor를 사용하여 데이터 정규화
                 normalized_file = self.media_processor.normalize_media_file(media_file)
-                self._media_files[normalized_file.file_id] = normalized_file
+                self._media_files[normalized_file.id] = normalized_file
 
                 # 그룹 업데이트
                 self._update_file_in_groups(normalized_file)
@@ -259,7 +253,7 @@ class MediaDataService(IMediaDataService):
                     MediaDataUpdatedEvent(updated_files=[normalized_file], update_type="modified")
                 )
 
-                self.logger.debug(f"미디어 파일 업데이트됨: {normalized_file.original_filename}")
+                self.logger.debug(f"미디어 파일 업데이트됨: {normalized_file.original_name}")
                 return True
 
             return False
@@ -534,13 +528,19 @@ class MediaDataService(IMediaDataService):
     def _remove_file_from_groups(self, file_id: UUID) -> None:
         """그룹에서 파일 제거"""
         for group in self._groups.values():
-            group.files = [f for f in group.files if f.file_id != file_id]
-            group.total_episodes = len(group.files)
+            # episodes 딕셔너리에서 해당 파일 ID를 가진 에피소드 제거
+            episodes_to_remove = [
+                ep_num for ep_num, ep_file_id in group.episodes.items() if ep_file_id == file_id
+            ]
+            for ep_num in episodes_to_remove:
+                del group.episodes[ep_num]
+            group.total_episodes = len(group.episodes)
 
     def _update_file_in_groups(self, media_file: MediaFile) -> None:
         """그룹 내 파일 업데이트"""
         for group in self._groups.values():
-            for i, file in enumerate(group.files):
-                if file.file_id == media_file.file_id:
-                    group.files[i] = media_file
+            # episodes 딕셔너리에서 해당 파일 ID를 가진 에피소드 찾아서 업데이트
+            for ep_num, ep_file_id in group.episodes.items():
+                if ep_file_id == media_file.id:
+                    group.episodes[ep_num] = media_file.id
                     break

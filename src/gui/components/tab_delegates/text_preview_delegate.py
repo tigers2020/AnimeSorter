@@ -94,7 +94,7 @@ class TextPreviewDelegate(BaseCellDelegate):
 
             if title and original_title and title != original_title:
                 return f"제목: {title}\n원제: {original_title}"
-            elif title:
+            if title:
                 return f"제목: {title}"
 
         return ""

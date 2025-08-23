@@ -8,15 +8,11 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
-from ..tmdb_search_events import (
-    TMDBMatch,
-    TMDBMatchConfidence,
-    TMDBSearchStatistics,
-    TMDBSearchStatus,
-    TMDBSearchType,
-)
+from ..tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
+                                  TMDBSearchStatistics, TMDBSearchStatus,
+                                  TMDBSearchType)
 
 
 class SearchStatisticsCollector:
@@ -51,7 +47,7 @@ class SearchStatisticsCollector:
                 "query": query,
                 "start_time": time.time(),
                 "start_datetime": datetime.now(),
-                "status": TMDBSearchStatus.STARTED.value,
+                "status": TMDBSearchStatus.SEARCHING.value,
                 "results_count": 0,
                 "match_found": False,
                 "confidence": None,
@@ -71,7 +67,7 @@ class SearchStatisticsCollector:
         search_id: str,
         status: TMDBSearchStatus,
         results_count: int = 0,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """검색 완료 기록"""
         try:
@@ -99,7 +95,7 @@ class SearchStatisticsCollector:
         except Exception as e:
             self.logger.error(f"검색 완료 기록 실패: {e}")
 
-    def record_match_result(self, search_id: str, match: Optional[TMDBMatch]) -> None:
+    def record_match_result(self, search_id: str, match: TMDBMatch | None) -> None:
         """매칭 결과 기록"""
         try:
             # 검색 기록에 매칭 정보 추가
@@ -108,7 +104,7 @@ class SearchStatisticsCollector:
                     if match:
                         record["match_found"] = True
                         record["confidence"] = match.confidence.value
-                        record["score"] = match.score
+                        record["score"] = match.confidence_score
 
                         # 매칭 통계 업데이트
                         self._current_stats["total_matches"] += 1
@@ -123,7 +119,7 @@ class SearchStatisticsCollector:
                             self._current_stats["no_confidence_matches"] += 1
                     else:
                         record["match_found"] = False
-                        record["confidence"] = TMDBMatchConfidence.NONE.value
+                        record["confidence"] = TMDBMatchConfidence.UNCERTAIN.value
                         record["score"] = 0.0
                     break
 
@@ -133,11 +129,13 @@ class SearchStatisticsCollector:
                     "search_id": search_id,
                     "timestamp": time.time(),
                     "datetime": datetime.now(),
-                    "group_id": match.group_id,
-                    "tmdb_id": match.tmdb_id,
-                    "title": match.title,
+                    "group_id": str(
+                        match.search_result.tmdb_id
+                    ),  # group_id는 없으므로 tmdb_id 사용
+                    "tmdb_id": match.search_result.tmdb_id,
+                    "title": match.search_result.title,
                     "confidence": match.confidence.value,
-                    "score": match.score,
+                    "score": match.confidence_score,
                 }
                 self._match_history.append(match_record)
 
@@ -174,15 +172,10 @@ class SearchStatisticsCollector:
                 total_searches=self._current_stats["total_searches"],
                 successful_searches=self._current_stats["successful_searches"],
                 failed_searches=self._current_stats["failed_searches"],
-                success_rate=success_rate,
-                total_matches=self._current_stats["total_matches"],
-                high_confidence_matches=self._current_stats["high_confidence_matches"],
-                medium_confidence_matches=self._current_stats["medium_confidence_matches"],
-                low_confidence_matches=self._current_stats["low_confidence_matches"],
-                no_confidence_matches=self._current_stats["no_confidence_matches"],
-                match_rate=match_rate,
-                average_search_duration=avg_search_duration,
-                last_updated=datetime.now(),
+                cached_results=self._current_stats.get("cached_results", 0),
+                api_calls_count=self._current_stats.get("api_calls_count", 0),
+                average_search_time_ms=avg_search_duration * 1000,  # 초를 밀리초로 변환
+                cache_hit_rate=self._current_stats.get("cache_hit_rate", 0.0),
             )
 
         except Exception as e:
@@ -190,7 +183,7 @@ class SearchStatisticsCollector:
             return TMDBSearchStatistics()
 
     def get_search_history(
-        self, days: int = 7, search_type: Optional[TMDBSearchType] = None
+        self, days: int = 7, search_type: TMDBSearchType | None = None
     ) -> list[dict[str, Any]]:
         """검색 히스토리 반환"""
         try:
@@ -209,7 +202,7 @@ class SearchStatisticsCollector:
             return []
 
     def get_match_history(
-        self, days: int = 7, min_confidence: Optional[TMDBMatchConfidence] = None
+        self, days: int = 7, min_confidence: TMDBMatchConfidence | None = None
     ) -> list[dict[str, Any]]:
         """매칭 히스토리 반환"""
         try:
@@ -252,7 +245,7 @@ class SearchStatisticsCollector:
     def get_search_type_statistics(self) -> dict[str, dict[str, Any]]:
         """검색 타입별 통계"""
         try:
-            type_stats = defaultdict(
+            type_stats: dict[str, dict[str, Any]] = defaultdict(
                 lambda: {
                     "count": 0,
                     "successful": 0,
@@ -301,7 +294,7 @@ class SearchStatisticsCollector:
         try:
             cutoff_time = time.time() - (days * 24 * 3600)
 
-            confidence_dist = defaultdict(int)
+            confidence_dist: dict[str, int] = defaultdict(int)
             for record in self._match_history:
                 if record["timestamp"] >= cutoff_time:
                     confidence = record["confidence"]
@@ -394,7 +387,7 @@ class SearchStatisticsCollector:
     def export_statistics(self, format: str = "json") -> dict[str, Any]:
         """통계 데이터 내보내기"""
         try:
-            export_data = {
+            return {
                 "current_statistics": self.get_current_statistics().__dict__,
                 "search_type_statistics": self.get_search_type_statistics(),
                 "confidence_distribution": self.get_confidence_distribution(),
@@ -404,16 +397,18 @@ class SearchStatisticsCollector:
                 "data_summary": {
                     "total_search_records": len(self._search_history),
                     "total_match_records": len(self._match_history),
-                    "oldest_search": min([r["start_datetime"] for r in self._search_history])
-                    if self._search_history
-                    else None,
-                    "newest_search": max([r["start_datetime"] for r in self._search_history])
-                    if self._search_history
-                    else None,
+                    "oldest_search": (
+                        min([r["start_datetime"] for r in self._search_history])
+                        if self._search_history
+                        else None
+                    ),
+                    "newest_search": (
+                        max([r["start_datetime"] for r in self._search_history])
+                        if self._search_history
+                        else None
+                    ),
                 },
             }
-
-            return export_data
 
         except Exception as e:
             self.logger.error(f"통계 데이터 내보내기 실패: {e}")

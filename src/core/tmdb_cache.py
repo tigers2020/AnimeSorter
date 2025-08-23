@@ -28,7 +28,7 @@ class TMDBCacheManager:
 
         # 캐시 설정
         self.cache_enabled = True
-        self.memory_cache = {}  # 메모리 캐시 (빠른 접근용)
+        self.memory_cache: dict[str, Any] = {}  # 메모리 캐시 (빠른 접근용)
         self.cache_lock = threading.Lock()
 
         # 캐시 디렉토리 생성
@@ -213,7 +213,7 @@ class TMDBCacheManager:
             )
 
             # 캐시 파일 크기별 분포
-            size_distribution = {}
+            size_distribution: dict[str, int] = {}
             for f in cache_files:
                 size_mb = f.stat().st_size / (1024 * 1024)
                 if size_mb < 1:

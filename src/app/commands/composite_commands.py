@@ -12,13 +12,9 @@ from typing import Any
 
 from ..journal import JournalEntryType
 from .base_command import BaseCommand, CommandResult
-from .file_commands import (
-    CopyFileCommand,
-    CreateDirectoryCommand,
-    DeleteFileCommand,
-    MoveFileCommand,
-    RenameFileCommand,
-)
+from .file_commands import (CopyFileCommand, CreateDirectoryCommand,
+                            DeleteFileCommand, MoveFileCommand,
+                            RenameFileCommand)
 
 
 @dataclass
@@ -212,22 +208,18 @@ class BatchFileOperationCommand(BaseCommand):
 
             if operation_type == "move":
                 return MoveFileCommand(
-                    source_path=source_path,
-                    destination_path=Path(destination_path) if destination_path else None,
-                    description=f"파일 이동: {source_path.name}",
+                    source=source_path,
+                    destination=Path(destination_path) if destination_path else source_path,
                 )
 
             if operation_type == "copy":
                 return CopyFileCommand(
-                    source_path=source_path,
-                    destination_path=Path(destination_path) if destination_path else None,
-                    description=f"파일 복사: {source_path.name}",
+                    source=source_path,
+                    destination=Path(destination_path) if destination_path else source_path,
                 )
 
             if operation_type == "delete":
-                return DeleteFileCommand(
-                    file_path=source_path, description=f"파일 삭제: {source_path.name}"
-                )
+                return DeleteFileCommand(file_path=source_path)
 
             if operation_type == "rename":
                 new_name = operation.get("new_name", "")
@@ -235,13 +227,10 @@ class BatchFileOperationCommand(BaseCommand):
                     return RenameFileCommand(
                         file_path=source_path,
                         new_name=new_name,
-                        description=f"파일 이름 변경: {source_path.name} -> {new_name}",
                     )
 
-            elif operation_type == "create_directory":
-                return CreateDirectoryCommand(
-                    directory_path=source_path, description=f"디렉토리 생성: {source_path.name}"
-                )
+                elif operation_type == "create_directory":
+                    return CreateDirectoryCommand(directory_path=source_path)
 
             else:
                 self.logger.warning(f"지원하지 않는 작업 타입: {operation_type}")
@@ -285,13 +274,15 @@ class BatchFileOperationCommand(BaseCommand):
                 "batch_total_operations": self._total_operations,
                 "batch_successful_operations": len(self._successful_operations),
                 "batch_failed_operations": len(self._failed_operations),
-                "batch_success_rate": len(self._successful_operations) / self._total_operations
-                if self._total_operations > 0
-                else 0,
+                "batch_success_rate": (
+                    len(self._successful_operations) / self._total_operations
+                    if self._total_operations > 0
+                    else 0
+                ),
                 "batch_failed_operations_details": self._failed_operations,
-                "batch_execution_mode": "continue_on_error"
-                if self.config.continue_on_error
-                else "stop_on_error",
+                "batch_execution_mode": (
+                    "continue_on_error" if self.config.continue_on_error else "stop_on_error"
+                ),
             }
         )
 
@@ -403,9 +394,11 @@ class BatchFileOperationCommand(BaseCommand):
             "successful_operations": len(self._successful_operations),
             "failed_operations": len(self._failed_operations),
             "current_operation": self._current_operation,
-            "progress_percentage": (self._completed_operations / self._total_operations * 100)
-            if self._total_operations > 0
-            else 0,
+            "progress_percentage": (
+                (self._completed_operations / self._total_operations * 100)
+                if self._total_operations > 0
+                else 0
+            ),
         }
 
 

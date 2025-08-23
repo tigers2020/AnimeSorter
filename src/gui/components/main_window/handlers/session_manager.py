@@ -7,7 +7,7 @@ MainWindow에서 세션 및 설정 관리 관련 로직을 담당하는 핸들�
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from core.settings_manager import SettingsManager
 
@@ -426,7 +426,7 @@ class MainWindowSessionManager:
         except Exception:
             return -1
 
-    def _get_column_name_by_index(self, table, column_index: int) -> Optional[str]:
+    def _get_column_name_by_index(self, table, column_index: int) -> str | None:
         """컬럼 인덱스로 이름 가져오기"""
         try:
             model = table.model()

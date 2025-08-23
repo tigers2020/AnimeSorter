@@ -632,9 +632,9 @@ class JournalManager:
             "successful_entries": len([e for e in self._entries.values() if e.success]),
             "failed_entries": len([e for e in self._entries.values() if not e.success]),
             "last_save_time": self._last_save_time.isoformat() if self._last_save_time else None,
-            "last_cleanup_time": self._last_cleanup_time.isoformat()
-            if self._last_cleanup_time
-            else None,
+            "last_cleanup_time": (
+                self._last_cleanup_time.isoformat() if self._last_cleanup_time else None
+            ),
         }
 
         # 타입별 통계
@@ -683,6 +683,6 @@ class JournalManager:
         """컨텍스트 매니저 진입"""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, _exc_val, _exc_tb):
         """컨텍스트 매니저 종료"""
         self.shutdown()

@@ -5,18 +5,12 @@ Undo/Redo 기능을 PyQt5 UI에 통합하는 컴포넌트들
 """
 
 import logging
+from typing import Any, cast
 
 from PyQt5.QtCore import QObject, QTimer
 from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import (
-    QAction,
-    QMainWindow,
-    QMenu,
-    QMenuBar,
-    QShortcut,
-    QToolBar,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QAction, QMainWindow, QMenu, QMenuBar, QShortcut,
+                             QToolBar, QWidget)
 
 from .undo_redo_manager import UndoRedoManager
 
@@ -107,13 +101,13 @@ class UndoRedoMenuManager(QObject):
         self.undo_action = QAction("실행 취소(&U)", self.menu_bar)
         self.undo_action.setShortcut(QKeySequence.Undo)
         self.undo_action.setStatusTip("마지막 작업을 취소합니다")
-        self.undo_action.triggered.connect(self.undo_redo_manager.undo)
+        self.undo_action.triggered.connect(lambda: self.undo_redo_manager.undo() or None)  # type: ignore[arg-type]
 
         # 재실행 액션
         self.redo_action = QAction("다시 실행(&R)", self.menu_bar)
         self.redo_action.setShortcut(QKeySequence.Redo)
         self.redo_action.setStatusTip("취소한 작업을 다시 실행합니다")
-        self.redo_action.triggered.connect(self.undo_redo_manager.redo)
+        self.redo_action.triggered.connect(lambda: self.undo_redo_manager.redo() or None)  # type: ignore[arg-type]
 
         # 메뉴에 액션 추가
         self.edit_menu.addAction(self.undo_action)
@@ -131,12 +125,12 @@ class UndoRedoMenuManager(QObject):
         # 기존 편집 메뉴 찾기
         for action in self.menu_bar.actions():
             menu = action.menu()
-            if menu and menu.title().replace("&", "").lower() in ["편집", "edit"]:
+            if menu is not None and menu.title().replace("&", "").lower() in ["편집", "edit"]:
                 self.logger.debug("기존 편집 메뉴 발견")
                 return menu
 
         # 편집 메뉴가 없으면 생성
-        edit_menu = self.menu_bar.addMenu("편집(&E)")
+        edit_menu = cast(QMenu, self.menu_bar.addMenu("편집(&E)"))
         self.logger.debug("새 편집 메뉴 생성")
         return edit_menu
 
@@ -200,16 +194,16 @@ class UndoRedoToolbarManager(QObject):
     def _setup_toolbar(self) -> None:
         """툴바 설정"""
         # 취소 버튼
-        self.undo_action = self.toolbar.addAction("↶")
+        self.undo_action = cast(QAction, self.toolbar.addAction("↶"))
         self.undo_action.setText("취소")
         self.undo_action.setToolTip("마지막 작업을 취소합니다 (Ctrl+Z)")
-        self.undo_action.triggered.connect(self.undo_redo_manager.undo)
+        self.undo_action.triggered.connect(lambda: self.undo_redo_manager.undo() or None)  # type: ignore[arg-type]
 
         # 재실행 버튼
-        self.redo_action = self.toolbar.addAction("↷")
+        self.redo_action = cast(QAction, self.toolbar.addAction("↷"))
         self.redo_action.setText("재실행")
         self.redo_action.setToolTip("취소한 작업을 다시 실행합니다 (Ctrl+Y)")
-        self.redo_action.triggered.connect(self.undo_redo_manager.redo)
+        self.redo_action.triggered.connect(lambda: self.undo_redo_manager.redo() or None)  # type: ignore[arg-type]
 
         # 구분자 추가
         self.toolbar.addSeparator()
@@ -282,10 +276,9 @@ class UndoRedoUIIntegration(QObject):
         self.shortcut_manager = UndoRedoShortcutManager(self.main_window, self.undo_redo_manager)
 
         # 메뉴 설정 (메뉴바가 있는 경우)
-        if self.main_window.menuBar():
-            self.menu_manager = UndoRedoMenuManager(
-                self.main_window.menuBar(), self.undo_redo_manager
-            )
+        menu_bar = self.main_window.menuBar()
+        if menu_bar is not None:
+            self.menu_manager = UndoRedoMenuManager(menu_bar, self.undo_redo_manager)
 
         # 툴바 설정 (기본 툴바 찾기 또는 생성)
         toolbar = self._find_or_create_toolbar()
@@ -307,7 +300,7 @@ class UndoRedoUIIntegration(QObject):
             return toolbars[0]
 
         # 새 툴바 생성
-        toolbar = self.main_window.addToolBar("편집")
+        toolbar = cast(QToolBar, self.main_window.addToolBar("편집"))
         toolbar.setObjectName("editToolBar")
         self.logger.debug("새 편집 툴바 생성")
         return toolbar
@@ -330,11 +323,12 @@ class UndoRedoUIIntegration(QObject):
         self._last_current_index = self.undo_redo_manager.get_current_index()
 
         # 통계 업데이트 (상태바에 표시할 수 있음)
-        if hasattr(self.main_window, "statusBar"):
+        status_bar = self.main_window.statusBar()
+        if status_bar is not None:
             stats = self.undo_redo_manager.get_statistics()
             if stats.total_commands_executed > 0:
                 status_text = f"실행: {stats.total_commands_executed} | 취소: {stats.total_undos} | 재실행: {stats.total_redos}"
-                self.main_window.statusBar().showMessage(status_text, 2000)
+                status_bar.showMessage(status_text, 2000)
 
     def set_enabled(self, enabled: bool) -> None:
         """전체 UI 활성화/비활성화"""
@@ -363,7 +357,7 @@ class UndoRedoUIIntegration(QObject):
 
         self.logger.info(f"Undo/Redo UI {'활성화' if enabled else '비활성화'}")
 
-    def get_status_info(self) -> dict[str, any]:
+    def get_status_info(self) -> dict[str, Any]:
         """상태 정보 조회"""
         stats = self.undo_redo_manager.get_statistics()
         return {

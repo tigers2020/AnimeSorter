@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from app.events import BaseEvent
+from .events import BaseEvent
 
 
 class OrganizationStatus(Enum):

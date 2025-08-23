@@ -16,7 +16,8 @@ from typing import Any, Optional
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
-from .error_bus import ErrorCategory, ErrorRecoveryStrategy, ErrorSeverity, error_bus
+from .error_bus import (ErrorCategory, ErrorRecoveryStrategy, ErrorSeverity,
+                        error_bus)
 
 
 class CrashReport:
@@ -179,19 +180,27 @@ class GlobalExceptionHandler(QObject):
             print(f"  타입: {exc_type.__name__}")
             print(f"  메시지: {str(exception)}")
 
-            # ErrorBus를 통한 에러 처리
-            error_bus.handle_exception(
-                exception,
-                severity=ErrorSeverity.CRITICAL,
-                category=ErrorCategory.SYSTEM,
-                title="처리되지 않은 예외",
-                user_message="애플리케이션에서 예상치 못한 오류가 발생했습니다",
-                developer_message=f"예외 타입: {exc_type.__name__}, 메시지: {str(exception)}",
-                recovery_strategy=ErrorRecoveryStrategy.TERMINATE,
-            )
+            # ErrorBus를 통한 에러 처리 (BaseException을 Exception으로 캐스팅)
+            if isinstance(exception, Exception):
+                error_bus.handle_exception(
+                    exception,
+                    severity=ErrorSeverity.CRITICAL,
+                    category=ErrorCategory.SYSTEM,
+                    title="처리되지 않은 예외",
+                    user_message="애플리케이션에서 예상치 못한 오류가 발생했습니다",
+                    developer_message=f"예외 타입: {exc_type.__name__}, 메시지: {str(exception)}",
+                    recovery_strategy=ErrorRecoveryStrategy.TERMINATE,
+                )
 
-            # 크래시 리포트 생성
-            crash_report = CrashReport(exception, traceback_str)
+            # 크래시 리포트 생성 (BaseException을 Exception으로 캐스팅)
+            if isinstance(exception, Exception):
+                crash_report = CrashReport(exception, traceback_str)
+            else:
+                # BaseException의 경우 기본 정보로 CrashReport 생성
+                crash_report = CrashReport(
+                    Exception(f"BaseException: {type(exception).__name__}: {str(exception)}"),
+                    traceback_str,
+                )
             self._save_crash_report(crash_report)
 
             # 시그널 발생
@@ -201,12 +210,19 @@ class GlobalExceptionHandler(QObject):
             # 사용자에게 알림
             self._show_crash_dialog(crash_report)
 
-            # 예외 콜백 실행
-            self._execute_exception_callbacks(exception, crash_report)
+            # 예외 콜백 실행 (BaseException을 Exception으로 캐스팅)
+            if isinstance(exception, Exception):
+                self._execute_exception_callbacks(exception, crash_report)
+            else:
+                # BaseException의 경우 기본 Exception으로 변환하여 콜백 실행
+                self._execute_exception_callbacks(
+                    Exception(f"BaseException: {type(exception).__name__}: {str(exception)}"),
+                    crash_report,
+                )
 
             # 기존 핸들러 호출 (백업된 경우)
             if (
-                self.original_excepthook
+                self.original_excepthook is not None
                 and self.original_excepthook != self._python_exception_handler
             ):
                 with contextlib.suppress(Exception):
@@ -216,7 +232,7 @@ class GlobalExceptionHandler(QObject):
             print(f"❌ Python 예외 핸들러에서 오류 발생: {e}")
             # 최후의 수단: 원래 핸들러 호출
             if (
-                self.original_excepthook
+                self.original_excepthook is not None
                 and self.original_excepthook != self._python_exception_handler
             ):
                 with contextlib.suppress(Exception):
@@ -225,7 +241,7 @@ class GlobalExceptionHandler(QObject):
     def _show_crash_dialog(self, crash_report: CrashReport):
         """크래시 다이얼로그 표시"""
         try:
-            if self.app and self.app.activeWindow():
+            if self.app and hasattr(self.app, "activeWindow") and self.app.activeWindow():
                 # 메인 윈도우가 있는 경우에만 다이얼로그 표시
                 msg_box = QMessageBox()
                 msg_box.setIcon(QMessageBox.Critical)

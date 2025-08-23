@@ -201,14 +201,14 @@ class SettingsManager(QObject):
         warnings = {}
 
         if not self.settings.tmdb_api_key:
-            warnings[
-                "tmdb_api_key"
-            ] = "TMDB API 키가 설정되지 않았습니다. TMDB 검색 기능이 제한됩니다."
+            warnings["tmdb_api_key"] = (
+                "TMDB API 키가 설정되지 않았습니다. TMDB 검색 기능이 제한됩니다."
+            )
 
         if not self.settings.destination_root:
-            warnings[
-                "destination_root"
-            ] = "대상 디렉토리가 설정되지 않았습니다. 파일 정리 기능이 제한됩니다."
+            warnings["destination_root"] = (
+                "대상 디렉토리가 설정되지 않았습니다. 파일 정리 기능이 제한됩니다."
+            )
         elif not Path(self.settings.destination_root).exists():
             errors["destination_root"] = "대상 디렉토리가 존재하지 않습니다"
 
@@ -313,6 +313,8 @@ class SettingsManager(QObject):
 
         try:
             new_config = config_manager.config
+            if new_config is None:
+                return
 
             # 주요 설정들을 동기화
             if new_config.destination_root != self.settings.destination_root:

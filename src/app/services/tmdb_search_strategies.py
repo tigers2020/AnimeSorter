@@ -7,17 +7,18 @@ TMDB 검색 전략 모듈
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any
 
-from core.tmdb_client import TMDBClient
-from core.tmdb_models import TMDBAnimeInfo
+from core import \
+    TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
+from core import TMDBClient  # type: ignore[import-untyped]
 
 
 class SearchStrategy(ABC):
     """검색 전략 인터페이스"""
 
     @abstractmethod
-    def search(self, tmdb_client: TMDBClient, query: str, **kwargs) -> list[TMDBAnimeInfo]:
+    def search(self, tmdb_client: TMDBClient, query: str, **kwargs: Any) -> list[TMDBAnimeInfo]:
         """검색 실행"""
 
     @abstractmethod
@@ -28,7 +29,7 @@ class SearchStrategy(ABC):
 class ExactMatchStrategy(SearchStrategy):
     """정확한 매칭 전략"""
 
-    def search(self, tmdb_client: TMDBClient, query: str, **kwargs) -> list[TMDBAnimeInfo]:
+    def search(self, tmdb_client: TMDBClient, query: str, **kwargs: Any) -> list[TMDBAnimeInfo]:
         """정확한 제목 매칭으로 검색"""
         try:
             results = tmdb_client.search_anime(query, **kwargs)
@@ -44,7 +45,7 @@ class ExactMatchStrategy(SearchStrategy):
         original_lower = result.original_name.lower().strip()
 
         # 완전 일치
-        if query_lower == title_lower or query_lower == original_lower:
+        if query_lower in (title_lower, original_lower):
             return 1.0
 
         # 부분 일치
@@ -65,7 +66,7 @@ class ExactMatchStrategy(SearchStrategy):
 class FuzzyMatchStrategy(SearchStrategy):
     """퍼지 매칭 전략"""
 
-    def search(self, tmdb_client: TMDBClient, query: str, **kwargs) -> list[TMDBAnimeInfo]:
+    def search(self, tmdb_client: TMDBClient, query: str, **kwargs: Any) -> list[TMDBAnimeInfo]:
         """퍼지 매칭으로 검색"""
         try:
             # 여러 변형으로 검색 시도
@@ -204,7 +205,7 @@ class YearBasedStrategy(SearchStrategy):
 
         return score
 
-    def _extract_year(self, query: str) -> Optional[int]:
+    def _extract_year(self, query: str) -> int | None:
         """쿼리에서 연도 추출"""
         year_pattern = r"\b(19|20)\d{2}\b"
         match = re.search(year_pattern, query)
@@ -246,7 +247,7 @@ class SeasonBasedStrategy(SearchStrategy):
 
         return score
 
-    def _extract_season_info(self, query: str) -> Optional[dict]:
+    def _extract_season_info(self, query: str) -> dict | None:
         """쿼리에서 시즌 정보 추출"""
         # 시즌 1, Season 1, S1 등의 패턴
         season_patterns = [

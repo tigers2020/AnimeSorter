@@ -11,11 +11,9 @@ from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 from ..events import get_event_bus
-from ..safety_events import (
-    BatchOperationWarningEvent,
-    ConfirmationRequiredEvent,
-    ConfirmationResponseEvent,
-)
+from ..safety_events import (BatchOperationWarningEvent,
+                             ConfirmationRequiredEvent,
+                             ConfirmationResponseEvent)
 
 
 @dataclass
@@ -192,7 +190,7 @@ class ConfirmationManager:
         file_count = len(affected_files)
 
         # 총 크기 계산
-        total_size_mb = 0
+        total_size_mb = 0.0
         for file_path in affected_files:
             try:
                 if file_path.exists() and file_path.is_file():

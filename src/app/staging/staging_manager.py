@@ -12,6 +12,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 from uuid import UUID, uuid4
 
 
@@ -53,7 +54,7 @@ class StagedFile:
     staged_at: datetime
     file_size: int
     checksum: str | None = None
-    metadata: dict[str, any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     status: str = "staged"  # staged, processing, completed, failed, cleaned
 
 
@@ -62,24 +63,35 @@ class IStagingManager:
 
     def stage_file(self, source_path: Path, operation_type: str) -> StagedFile:
         """파일을 스테이징 디렉토리에 준비"""
+        raise NotImplementedError
 
     def stage_directory(self, source_path: Path, operation_type: str) -> StagedFile:
         """디렉토리를 스테이징 디렉토리에 준비"""
+        raise NotImplementedError
 
     def get_staged_file(self, staging_id: UUID) -> StagedFile | None:
         """스테이징된 파일 정보 조회"""
+        raise NotImplementedError
 
     def commit_staged_file(self, staging_id: UUID) -> bool:
         """스테이징된 파일 작업 완료"""
+        raise NotImplementedError
 
     def rollback_staged_file(self, staging_id: UUID) -> bool:
         """스테이징된 파일 롤백"""
+        raise NotImplementedError
 
     def cleanup_old_staging(self) -> int:
         """오래된 스테이징 파일 정리"""
+        raise NotImplementedError
 
-    def get_staging_summary(self) -> dict[str, any]:
+    def get_staging_summary(self) -> dict[str, Any]:
         """스테이징 상태 요약"""
+        raise NotImplementedError
+
+    def get_staging_directory(self) -> Path:
+        """스테이징 디렉토리 경로 반환"""
+        raise NotImplementedError
 
 
 class StagingManager:
@@ -103,7 +115,7 @@ class StagingManager:
 
         self.logger.info("StagingManager 초기화 완료")
 
-    def _initialize_directories(self):
+    def _initialize_directories(self) -> None:
         """필요한 디렉토리들 초기화"""
         try:
             # 스테이징 디렉토리 생성
@@ -355,11 +367,11 @@ class StagingManager:
             self.logger.error(f"스테이징 파일 정리 실패: {e}")
             return 0
 
-    def get_staging_summary(self) -> dict[str, any]:
+    def get_staging_summary(self) -> dict[str, Any]:
         """스테이징 상태 요약"""
         try:
             total_files = len(self._staged_files)
-            status_counts = {}
+            status_counts: dict[str, int] = {}
             total_size = 0
 
             for staged_file in self._staged_files.values():
@@ -373,9 +385,9 @@ class StagingManager:
                 "total_size_bytes": total_size,
                 "total_size_mb": total_size / (1024 * 1024),
                 "staging_directory": str(self.config.staging_directory),
-                "last_cleanup": self._last_cleanup_time.isoformat()
-                if self._last_cleanup_time
-                else None,
+                "last_cleanup": (
+                    self._last_cleanup_time.isoformat() if self._last_cleanup_time else None
+                ),
                 "auto_cleanup_enabled": self.config.auto_cleanup,
             }
 
@@ -383,7 +395,7 @@ class StagingManager:
             self.logger.error(f"스테이징 요약 생성 실패: {e}")
             return {}
 
-    def _calculate_checksum(self, file_path: Path) -> str:
+    def _calculate_checksum(self, file_path: Path) -> str | None:
         """파일 체크섬 계산"""
         try:
             import hashlib
@@ -400,7 +412,7 @@ class StagingManager:
             self.logger.warning(f"체크섬 계산 실패: {e}")
             return None
 
-    def _get_file_permissions(self, file_path: Path) -> dict[str, any]:
+    def _get_file_permissions(self, file_path: Path) -> dict[str, Any]:
         """파일 권한 정보 조회"""
         try:
             stat_info = file_path.stat()

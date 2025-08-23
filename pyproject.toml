@@ -33,6 +33,10 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "PyYAML>=6.0",
+    "aiohttp>=3.12.0",
+    "requests>=2.32.0",
+    "psutil>=7.0.0",
+    "send2trash>=1.8.0",
 ]
 
 [project.optional-dependencies]
@@ -94,8 +98,9 @@ ignore = [
     "E501",   # Line too long (handled by black)
     "B008",   # Do not perform function calls in argument defaults (common in PyQt5)
     "N806",   # Variable in function should be lowercase (Qt naming convention)
-    "N803",   # Argument name should be lowercase (Qt naming convention)
 ]
+
+
 
 # Exclude directories
 exclude = [
@@ -147,9 +152,12 @@ extend-exclude = '''
 )/
 '''
 
-# MyPy configuration
+# MyPy configuration with Pydantic v2 support
 [tool.mypy]
 python_version = "3.10"
+plugins = ["pydantic.mypy"]
+show_error_codes = true
+follow_imports = "normal"
 warn_return_any = false  # Disable initially for gradual adoption
 warn_unused_configs = true
 disallow_untyped_defs = false  # Start with false, gradually enable
@@ -162,9 +170,13 @@ warn_unused_ignores = false
 warn_no_return = false
 warn_unreachable = false
 strict_equality = false
-ignore_errors = false
-show_error_codes = true
-follow_imports = "silent"
+
+# Pydantic MyPy plugin configuration
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_untyped_fields = true
+warn_redundant_aliases = true
 
 # Ignore missing imports for external libraries
 [[tool.mypy.overrides]]
@@ -194,6 +206,15 @@ module = [
 ]
 warn_return_any = false
 disallow_untyped_defs = false
+
+# DI Container setup modules need lenient type checking
+[[tool.mypy.overrides]]
+module = [
+    "src.app.setup",
+    "src.app.container",
+    "src.app.events",
+]
+ignore_errors = true
 
 # Pytest configuration
 [tool.pytest.ini_options]

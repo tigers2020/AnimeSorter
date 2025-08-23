@@ -11,9 +11,9 @@ from typing import Protocol
 
 from PyQt5.QtCore import QObject, QThreadPool, QTimer
 
-from app.background_events import TaskQueueStatusEvent
-from app.background_task import BaseTask, TaskStatus
-from app.events import TypedEventBus
+from ..background_events import TaskQueueStatusEvent
+from ..background_task import BaseTask, TaskStatus
+from ..events import TypedEventBus
 
 
 class IBackgroundTaskService(Protocol):
@@ -64,6 +64,8 @@ class BackgroundTaskService(QObject):
 
         # QThreadPool 설정
         self.thread_pool = QThreadPool.globalInstance()
+        if self.thread_pool is None:
+            self.thread_pool = QThreadPool()
         self.thread_pool.setMaxThreadCount(max_concurrent_tasks)
 
         # 작업 관리
@@ -123,6 +125,9 @@ class BackgroundTaskService(QObject):
 
     def _process_queue(self) -> None:
         """대기 중인 작업을 스레드풀에 제출"""
+        if self.thread_pool is None:
+            return
+
         while (
             self.pending_queue
             and self.thread_pool.activeThreadCount() < self.thread_pool.maxThreadCount()
@@ -194,6 +199,19 @@ class BackgroundTaskService(QObject):
         completed_count = self.total_completed
         failed_count = self.total_failed
 
+        if self.thread_pool is None:
+            return {
+                "total_tasks": self.total_submitted,
+                "running_tasks": running_count,
+                "pending_tasks": pending_count,
+                "completed_tasks": completed_count,
+                "failed_tasks": failed_count,
+                "cancelled_tasks": self.total_cancelled,
+                "queue_size": pending_count,
+                "max_concurrent_tasks": 0,
+                "active_threads": 0,
+            }
+
         return {
             "total_tasks": self.total_submitted,
             "running_tasks": running_count,
@@ -210,6 +228,9 @@ class BackgroundTaskService(QObject):
         """최대 동시 실행 작업 수 설정"""
         if max_tasks < 1:
             raise ValueError("최대 동시 작업 수는 1 이상이어야 합니다")
+
+        if self.thread_pool is None:
+            return
 
         old_count = self.thread_pool.maxThreadCount()
         self.thread_pool.setMaxThreadCount(max_tasks)
@@ -281,7 +302,7 @@ class BackgroundTaskService(QObject):
         cancelled_count = self.cancel_all_tasks("서비스 종료")
 
         # QThreadPool 대기 (최대 5초)
-        if not self.thread_pool.waitForDone(5000):
+        if self.thread_pool is not None and not self.thread_pool.waitForDone(5000):
             self.logger.warning("QThreadPool 정리 타임아웃 (5초)")
 
         # 리소스 정리

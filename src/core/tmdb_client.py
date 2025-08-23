@@ -10,7 +10,7 @@ import os
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import tmdbsimple as tmdb
 
@@ -294,7 +294,7 @@ class TMDBClient:
 
             # 기본 필드 설정
             return TMDBAnimeInfo(
-                id=tmdb_data.get("id"),
+                id=tmdb_data.get("id", 0),
                 name=tmdb_data.get("name", ""),
                 original_name=tmdb_data.get("original_name", ""),
                 overview=tmdb_data.get("overview", ""),
@@ -432,7 +432,7 @@ class TMDBClient:
         """속도 제한 관리자 상태 반환"""
         return self.rate_limiter.get_health_status()
 
-    def set_rate_limit(self, requests_per_second: int, burst_limit: Optional[int] = None) -> None:
+    def set_rate_limit(self, requests_per_second: int, burst_limit: int | None = None) -> None:
         """속도 제한 설정 변경"""
         self.rate_limiter.set_rate_limit(requests_per_second, burst_limit)
 

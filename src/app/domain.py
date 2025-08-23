@@ -132,7 +132,7 @@ class MediaFile:
     # 사용자 정의 속성
     custom_attributes: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """생성 후 초기화"""
         # Path 타입 강제
         if isinstance(self.path, str):
@@ -418,8 +418,8 @@ class MediaLibrary:
         total_files = len(self.files)
         total_groups = len(self.groups)
 
-        file_types = {}
-        processing_flags = {}
+        file_types: dict[str, int] = {}
+        processing_flags: dict[str, int] = {}
         total_size_bytes = 0
 
         for file in self.files.values():

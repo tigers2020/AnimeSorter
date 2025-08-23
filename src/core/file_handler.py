@@ -8,6 +8,7 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from .types import FileOperationResult
 
@@ -202,7 +203,7 @@ class FileHandler:
             self.logger.error(f"고유 경로 생성 실패: {e}")
             return target_path
 
-    def get_file_info(self, file_path: Path) -> dict:
+    def get_file_info(self, file_path: Path) -> dict[str, Any]:
         """파일 정보 조회"""
         try:
             if not file_path.exists():

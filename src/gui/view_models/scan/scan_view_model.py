@@ -8,23 +8,11 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from app import (
-    ErrorMessageEvent,
-    FileCountUpdateEvent,
-    FilesScannedEvent,
-    IFileScanService,
-    IUIUpdateService,
-    ScanCompletedEvent,
-    ScanFailedEvent,
-    ScanProgressEvent,
-    ScanStartedEvent,
-    ScanStoppedEvent,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TypedEventBus,
-    get_event_bus,
-    get_service,
-)
+from app import (ErrorMessageEvent, FileCountUpdateEvent, FilesScannedEvent,
+                 IFileScanService, IUIUpdateService, ScanCompletedEvent,
+                 ScanFailedEvent, ScanProgressEvent, ScanStartedEvent,
+                 ScanStoppedEvent, StatusBarUpdateEvent, SuccessMessageEvent,
+                 TypedEventBus, get_event_bus, get_service)
 
 from .scan_state import ScanCapabilities, ScanState
 
@@ -312,14 +300,13 @@ class ScanViewModel(QObject):
         """파일 크기를 범위로 분류"""
         if file_size < 1024 * 1024:  # 1MB 미만
             return "< 1MB"
-        elif file_size < 100 * 1024 * 1024:  # 100MB 미만
+        if file_size < 100 * 1024 * 1024:  # 100MB 미만
             return "1MB - 100MB"
-        elif file_size < 1024 * 1024 * 1024:  # 1GB 미만
+        if file_size < 1024 * 1024 * 1024:  # 1GB 미만
             return "100MB - 1GB"
-        elif file_size < 10 * 1024 * 1024 * 1024:  # 10GB 미만
+        if file_size < 10 * 1024 * 1024 * 1024:  # 10GB 미만
             return "1GB - 10GB"
-        else:
-            return "> 10GB"
+        return "> 10GB"
 
     def _update_capabilities(self):
         """UI 기능 상태 업데이트"""

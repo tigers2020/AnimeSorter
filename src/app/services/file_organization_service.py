@@ -13,27 +13,26 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from app.background_task import BaseTask, TaskResult
-from app.events import TypedEventBus
-from app.organization_events import (
-    OrganizationCancelledEvent,
-    OrganizationCompletedEvent,
-    OrganizationErrorType,
-    OrganizationFailedEvent,
-    OrganizationPreflightCompletedEvent,
-    OrganizationPreflightData,
-    OrganizationPreflightStartedEvent,
-    OrganizationProgressEvent,
-    OrganizationResult,
-    OrganizationStartedEvent,
-    OrganizationStatus,
-    OrganizationValidationCompletedEvent,
-    OrganizationValidationFailedEvent,
-    OrganizationValidationResult,
-    OrganizationValidationStartedEvent,
-)
-from app.services.background_task_service import IBackgroundTaskService
-from core.video_metadata_extractor import VideoMetadataExtractor
+from core import VideoMetadataExtractor  # type: ignore[import-untyped]
+
+from ..background_task import BaseTask, TaskResult, TaskStatus
+from ..events import TypedEventBus
+from ..organization_events import (OrganizationCancelledEvent,
+                                   OrganizationCompletedEvent,
+                                   OrganizationErrorType,
+                                   OrganizationFailedEvent,
+                                   OrganizationPreflightCompletedEvent,
+                                   OrganizationPreflightData,
+                                   OrganizationPreflightStartedEvent,
+                                   OrganizationProgressEvent,
+                                   OrganizationResult,
+                                   OrganizationStartedEvent,
+                                   OrganizationStatus,
+                                   OrganizationValidationCompletedEvent,
+                                   OrganizationValidationFailedEvent,
+                                   OrganizationValidationResult,
+                                   OrganizationValidationStartedEvent)
+from .background_task_service import IBackgroundTaskService
 
 
 class IFileOrganizationService(ABC):
@@ -81,7 +80,7 @@ class FileOrganizationTask(BaseTask):
         event_bus: TypedEventBus,
         dry_run: bool = False,
     ):
-        super().__init__(f"파일 정리: {destination_directory.name}")
+        super().__init__(event_bus, f"파일 정리: {destination_directory.name}")
         self.organization_id = organization_id
         self.grouped_items = grouped_items
         self.destination_directory = destination_directory
@@ -223,7 +222,12 @@ class FileOrganizationTask(BaseTask):
                         partial_result=result,
                     )
                 )
-                return TaskResult(False, "사용자에 의해 취소됨", {"result": result})
+                return TaskResult(
+                    task_id=self.task_id,
+                    status=TaskStatus.CANCELLED,
+                    success=False,
+                    result_data={"result": result},
+                )
             self.event_bus.publish(
                 OrganizationCompletedEvent(
                     organization_id=self.organization_id,
@@ -231,7 +235,12 @@ class FileOrganizationTask(BaseTask):
                     status=OrganizationStatus.ORGANIZATION_COMPLETED,
                 )
             )
-            return TaskResult(True, "파일 정리 완료", {"result": result})
+            return TaskResult(
+                task_id=self.task_id,
+                status=TaskStatus.COMPLETED,
+                success=True,
+                result_data={"result": result},
+            )
 
         except Exception as e:
             self.logger.error(f"파일 정리 작업 실패: {e}")
@@ -246,12 +255,17 @@ class FileOrganizationTask(BaseTask):
                     partial_result=error_result,
                 )
             )
-            return TaskResult(False, f"파일 정리 실패: {str(e)}", {"error": str(e)})
+            return TaskResult(
+                task_id=self.task_id,
+                status=TaskStatus.FAILED,
+                success=False,
+                result_data={"error": str(e)},
+            )
 
-    def cancel(self) -> None:
+    def cancel(self, reason: str = "사용자 요청") -> None:
         """작업 취소"""
         self._cancelled = True
-        self.logger.info(f"파일 정리 작업 취소 요청: {self.organization_id}")
+        self.logger.info(f"파일 정리 작업 취소 요청: {self.organization_id} (사유: {reason})")
 
     def _count_total_files(self, grouped_items: dict[str, Any]) -> int:
         """전체 파일 수 계산"""
@@ -337,7 +351,7 @@ class FileOrganizationService(IFileOrganizationService):
         self.event_bus = event_bus
         self.background_task_service = background_task_service
         self.logger = logging.getLogger(self.__class__.__name__)
-        self._active_organizations: dict[UUID, UUID] = {}  # organization_id -> background_task_id
+        self._active_organizations: dict[UUID, str] = {}  # organization_id -> background_task_id
 
         self.logger.info("FileOrganizationService 초기화 완료")
 

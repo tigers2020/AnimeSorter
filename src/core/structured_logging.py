@@ -10,6 +10,7 @@ import logging.handlers
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from functools import wraps
@@ -151,11 +152,11 @@ class RotatingFileHandler(logging.handlers.RotatingFileHandler):
         self.max_bytes = max_bytes
         self.backup_count = backup_count
 
-    def do_rollover(self):
+    def do_rollover(self) -> None:
         """로그 로테이션 수행"""
         if self.stream:
             self.stream.close()
-            self.stream = None
+            self.stream = None  # type: ignore[assignment]
 
         # 기존 백업 파일들을 한 단계씩 이동
         for i in range(self.backup_count - 1, 0, -1):
@@ -219,7 +220,9 @@ class PerformanceLogger:
                 extra_fields={"performance_metric": metric.to_dict()},
             )
 
-    def performance_decorator(self, operation: str = None, category: str = LogCategory.PERFORMANCE):
+    def performance_decorator(
+        self, operation: str | None = None, category: str = LogCategory.PERFORMANCE
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """성능 측정을 위한 데코레이터"""
 
         def decorator(func):
@@ -272,7 +275,7 @@ class PerformanceLogger:
             "total_duration": sum(durations),
         }
 
-    def clear_metrics(self):
+    def clear_metrics(self) -> None:
         """성능 메트릭 초기화"""
         with QMutexLocker(self._lock):
             self.metrics.clear()
@@ -304,8 +307,11 @@ class StructuredLogger(QObject):
 
         # 로그 디렉토리 설정
         if log_dir is None:
-            log_dir = Path.home() / ".animesorter" / "logs"
-        self.log_dir = Path(log_dir)
+            self.log_dir = Path.home() / ".animesorter" / "logs"
+        elif isinstance(log_dir, str):
+            self.log_dir = Path(log_dir)
+        else:
+            self.log_dir = log_dir
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         # 로거 설정
@@ -379,22 +385,22 @@ class StructuredLogger(QObject):
         message: str,
         category: str = LogCategory.SYSTEM,
         extra_fields: dict[str, Any] | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """로그 메시지 기록"""
         # LogRecord에 추가 필드 설정
         record = self.logger.makeRecord(self.logger.name, level, "", 0, message, (), None)
 
+        # category 속성 설정 (안전한 방법)
+        if hasattr(record, "category"):
+            record.category = category
+
+        # extra_fields와 kwargs를 로그 메시지에 포함
+        all_extra = {}
         if extra_fields:
-            record.extra_fields = extra_fields
-
-        record.category = category
-
-        # 추가 키워드 인자들을 extra_fields에 추가
+            all_extra.update(extra_fields)
         if kwargs:
-            if not hasattr(record, "extra_fields"):
-                record.extra_fields = {}
-            record.extra_fields.update(kwargs)
+            all_extra.update(kwargs)
 
         # 로그 기록
         self.logger.handle(record)
@@ -406,14 +412,17 @@ class StructuredLogger(QObject):
     def log_exception(
         self,
         exception: Exception,
-        message: str = None,
+        message: str | None = None,
         category: str = LogCategory.SYSTEM,
         level: int = LogLevel.ERROR,
-    ):
+    ) -> None:
         """예외 정보와 함께 로그 기록"""
         exc_info = sys.exc_info()
         if exc_info[0] is None:
-            exc_info = (type(exception), exception, exception.__traceback__)
+            exc_info = (type(exception), exception, exception.__traceback__)  # type: ignore[assignment]
+        else:
+            # 타입 안전성을 위해 명시적 캐스팅
+            exc_info = (exc_info[0], exc_info[1], exc_info[2])  # type: ignore[assignment]
 
         extra_fields = {
             "exception_type": type(exception).__name__,
@@ -423,7 +432,7 @@ class StructuredLogger(QObject):
 
         self.log(level, message or str(exception), category, extra_fields)
 
-    def set_level(self, level: int):
+    def set_level(self, level: int) -> None:
         """로그 레벨 설정"""
         self.log_level = level
         self.logger.setLevel(level)
@@ -455,7 +464,7 @@ class StructuredLogger(QObject):
         except Exception as e:
             return f"로그 파일 읽기 실패: {e}"
 
-    def clear_logs(self, keep_recent: int = 1):
+    def clear_logs(self, keep_recent: int = 1) -> None:
         """오래된 로그 파일 정리"""
         log_files = self.get_log_files()
 
@@ -541,7 +550,7 @@ class StructuredLogger(QObject):
 _global_logger: StructuredLogger | None = None
 
 
-def get_logger(name: str = "AnimeSorter", **kwargs) -> StructuredLogger:
+def get_logger(name: str = "AnimeSorter", **kwargs: Any) -> StructuredLogger:
     """전역 로거 인스턴스 반환"""
     global _global_logger
 
@@ -572,49 +581,51 @@ def get_performance_logger() -> PerformanceLogger:
 
 
 # 편의 함수들
-def trace(message: str, **kwargs):
+def trace(message: str, **kwargs: Any) -> None:
     """TRACE 레벨 로그"""
     logger = get_logger()
     logger.trace(message, **kwargs)
 
 
-def debug(message: str, **kwargs):
+def debug(message: str, **kwargs: Any) -> None:
     """DEBUG 레벨 로그"""
     logger = get_logger()
     logger.debug(message, **kwargs)
 
 
-def info(message: str, **kwargs):
+def info(message: str, **kwargs: Any) -> None:
     """INFO 레벨 로그"""
     logger = get_logger()
     logger.info(message, **kwargs)
 
 
-def warning(message: str, **kwargs):
+def warning(message: str, **kwargs: Any) -> None:
     """WARNING 레벨 로그"""
     logger = get_logger()
     logger.warning(message, **kwargs)
 
 
-def error(message: str, **kwargs):
+def error(message: str, **kwargs: Any) -> None:
     """ERROR 레벨 로그"""
     logger = get_logger()
     logger.error(message, **kwargs)
 
 
-def critical(message: str, **kwargs):
+def critical(message: str, **kwargs: Any) -> None:
     """CRITICAL 레벨 로그"""
     logger = get_logger()
     logger.critical(message, **kwargs)
 
 
-def log_exception(exception: Exception, message: str = None, **kwargs):
+def log_exception(exception: Exception, message: str | None = None, **kwargs: Any) -> None:
     """예외 정보와 함께 로그 기록"""
     logger = get_logger()
     logger.log_exception(exception, message, **kwargs)
 
 
-def performance_measure(operation: str, category: str = LogCategory.PERFORMANCE):
+def performance_measure(
+    operation: str, category: str = LogCategory.PERFORMANCE
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """성능 측정 데코레이터"""
 
     def decorator(func):

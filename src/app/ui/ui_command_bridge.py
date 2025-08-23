@@ -8,11 +8,7 @@ Phase 3: 모든 UI 액션을 Command 시스템을 통해 수행
 import logging
 
 from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import (
-    QMainWindow,
-    QMessageBox,
-    QProgressDialog,
-)
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QProgressDialog
 
 from ..commands import CommandResult, ICommand
 from ..journal import IJournalManager
@@ -461,12 +457,12 @@ class UICommandBridge(QObject):
     @property
     def can_undo(self) -> bool:
         """Undo 가능 여부"""
-        return self.undo_stack_bridge and self.undo_stack_bridge.can_undo
+        return bool(self.undo_stack_bridge and self.undo_stack_bridge.can_undo)
 
     @property
     def can_redo(self) -> bool:
         """Redo 가능 여부"""
-        return self.undo_stack_bridge and self.undo_stack_bridge.can_redo
+        return bool(self.undo_stack_bridge and self.undo_stack_bridge.can_redo)
 
     def clear_history(self):
         """Command 히스토리 정리"""

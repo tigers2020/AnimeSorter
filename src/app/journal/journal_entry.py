@@ -165,7 +165,7 @@ class JournalEntry:
     tags: list[str] = field(default_factory=list)
     notes: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """초기화 후 처리"""
         self.logger = logging.getLogger(f"Journal.Entry[{self.entry_id.hex[:8]}]")
 
@@ -242,9 +242,9 @@ class JournalEntry:
             "created_at": self.created_at.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "operation_details": self.operation_details.to_dict()
-            if self.operation_details
-            else None,
+            "operation_details": (
+                self.operation_details.to_dict() if self.operation_details else None
+            ),
             "success": self.success,
             "error_message": self.error_message,
             "execution_time_ms": self.execution_time_ms,

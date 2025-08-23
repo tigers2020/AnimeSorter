@@ -12,7 +12,9 @@ from .file_manager import FileManager
 from .file_parser import FileParser, ParsedMetadata
 from .settings_manager import AppSettings, SettingsManager
 from .tmdb_client import TMDBAnimeInfo, TMDBClient
+from .tmdb_models import TMDBAnimeInfo as TMDBAnimeInfoModel
 from .types import FileOperationResult
+from .video_metadata_extractor import VideoMetadataExtractor
 
 __all__ = [
     "FileParser",
@@ -23,4 +25,6 @@ __all__ = [
     "FileOperationResult",
     "SettingsManager",
     "AppSettings",
+    "VideoMetadataExtractor",
+    "TMDBAnimeInfoModel",
 ]
