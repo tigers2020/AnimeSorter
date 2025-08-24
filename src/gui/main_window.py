@@ -30,6 +30,9 @@ from .components.settings_dialog import SettingsDialog
 from .managers.anime_data_manager import AnimeDataManager
 from .managers.file_processing_manager import FileProcessingManager
 from .managers.tmdb_manager import TMDBManager
+# Theme Engine Integration
+from .theme.engine.theme_manager import ThemeManager
+from .theme.engine.token_loader import TokenLoader
 
 # Table Models
 
@@ -60,6 +63,13 @@ class MainWindow(QMainWindow):
 
         # 설정 관리자 초기화
         self.settings_manager = SettingsManager()
+
+        # 테마 엔진 초기화
+        self.theme_manager = ThemeManager()
+        self.token_loader = TokenLoader()
+
+        # 기본 테마 적용
+        self._apply_theme()
 
         # 모든 컴포넌트 초기화 (조율자를 통해)
         self.coordinator.initialize_all_components()
@@ -97,6 +107,28 @@ class MainWindow(QMainWindow):
 
         # 파일 관리자 초기화
         self.file_manager = None
+
+    def _apply_theme(self):
+        """테마를 적용합니다"""
+        try:
+            # 현재 테마 가져오기
+            current_theme = self.theme_manager.current_theme
+
+            # 테마 데이터 로드
+            theme_data = self.theme_manager.get_theme_data(current_theme)
+            if theme_data:
+                # QSS 스타일 적용
+                qss_style = self.theme_manager.generate_qss(current_theme)
+                if qss_style:
+                    self.setStyleSheet(qss_style)
+                    print(f"테마 적용 완료: {current_theme}")
+                else:
+                    print(f"테마 QSS 생성 실패: {current_theme}")
+            else:
+                print(f"테마 데이터를 찾을 수 없음: {current_theme}")
+
+        except Exception as e:
+            print(f"테마 적용 중 오류 발생: {e}")
 
         # 포스터 캐시 초기화
         self.poster_cache = {}

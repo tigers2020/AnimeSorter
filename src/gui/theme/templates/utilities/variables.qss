@@ -1,0 +1,212 @@
+/* QSS 변수 정의 */
+/* 이 파일은 모든 QSS 템플릿에서 공통으로 사용되는 변수들을 정의합니다 */
+
+/* 색상 변수 */
+:root {
+    /* 주요 색상 */
+    --primary-color: #007bff;
+    --primary-hover: #0056b3;
+    --primary-active: #004085;
+    --primary-disabled: #6c757d;
+    
+    --secondary-color: #6c757d;
+    --secondary-hover: #545b62;
+    --secondary-active: #4e555b;
+    --secondary-disabled: #adb5bd;
+    
+    --success-color: #28a745;
+    --success-hover: #1e7e34;
+    --success-active: #1c7430;
+    
+    --warning-color: #ffc107;
+    --warning-hover: #e0a800;
+    --warning-active: #d39e00;
+    
+    --error-color: #dc3545;
+    --error-hover: #c82333;
+    --error-active: #bd2130;
+    
+    --info-color: #17a2b8;
+    --info-hover: #138496;
+    --info-active: #117a8b;
+    
+    /* 중성 색상 */
+    --white: #ffffff;
+    --black: #000000;
+    --gray-50: #f8f9fa;
+    --gray-100: #e9ecef;
+    --gray-200: #dee2e6;
+    --gray-300: #ced4da;
+    --gray-400: #adb5bd;
+    --gray-500: #6c757d;
+    --gray-600: #495057;
+    --gray-700: #343a40;
+    --gray-800: #212529;
+    --gray-900: #0d1117;
+    
+    /* 기능적 색상 */
+    --background: var(--white);
+    --surface: var(--gray-50);
+    --surface-elevated: var(--white);
+    --surface-depressed: var(--gray-100);
+    
+    --text: var(--gray-900);
+    --text-secondary: var(--gray-600);
+    --text-disabled: var(--gray-400);
+    --text-inverse: var(--white);
+    
+    --border: var(--gray-200);
+    --border-focus: var(--primary-color);
+    --border-hover: var(--gray-300);
+    --divider: var(--gray-200);
+    
+    /* 인터랙티브 색상 */
+    --hover: var(--gray-100);
+    --active: var(--gray-200);
+    --selected: rgba(0, 123, 255, 0.1);
+    
+    /* 포커스 색상 */
+    --focus-outline: var(--primary-color);
+    --focus-ring: rgba(0, 123, 255, 0.25);
+    
+    /* 그림자 색상 */
+    --shadow-small: rgba(0, 0, 0, 0.1);
+    --shadow-medium: rgba(0, 0, 0, 0.15);
+    --shadow-large: rgba(0, 0, 0, 0.2);
+}
+
+/* 다크 테마 변수 */
+[data-theme="dark"] {
+    --background: var(--gray-900);
+    --surface: var(--gray-800);
+    --surface-elevated: var(--gray-700);
+    --surface-depressed: var(--gray-900);
+    
+    --text: var(--white);
+    --text-secondary: var(--gray-300);
+    --text-disabled: var(--gray-500);
+    --text-inverse: var(--black);
+    
+    --border: var(--gray-700);
+    --border-hover: var(--gray-600);
+    --divider: var(--gray-700);
+    
+    --hover: var(--gray-800);
+    --active: var(--gray-700);
+    --selected: rgba(0, 123, 255, 0.2);
+    
+    --shadow-small: rgba(0, 0, 0, 0.3);
+    --shadow-medium: rgba(0, 0, 0, 0.4);
+    --shadow-large: rgba(0, 0, 0, 0.5);
+}
+
+/* 고대비 테마 변수 */
+[data-theme="high-contrast"] {
+    --primary-color: #0066cc;
+    --background: var(--white);
+    --text: var(--black);
+    --border: var(--black);
+    
+    --focus-outline: var(--primary-color);
+    --focus-ring: var(--primary-color);
+}
+
+/* 폰트 변수 */
+:root {
+    --font-family-primary: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", sans-serif;
+    --font-family-monospace: "Consolas", "Monaco", "Courier New", monospace;
+    
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-base: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
+    --font-size-3xl: 30px;
+    --font-size-4xl: 36px;
+    
+    --font-weight-light: 300;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    
+    --line-height-tight: 1.25;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.75;
+}
+
+/* 간격 변수 */
+:root {
+    --spacing-0: 0;
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+    --spacing-3xl: 64px;
+    
+    --spacing-button-x: 16px;
+    --spacing-button-y: 12px;
+    --spacing-input: 12px;
+    --spacing-card: 16px;
+    --spacing-section: 24px;
+}
+
+/* 테두리 변수 */
+:root {
+    --border-width-none: 0;
+    --border-width-thin: 1px;
+    --border-width-normal: 2px;
+    --border-width-thick: 3px;
+    
+    --border-radius-none: 0;
+    --border-radius-sm: 2px;
+    --border-radius-normal: 4px;
+    --border-radius-md: 6px;
+    --border-radius-lg: 8px;
+    --border-radius-xl: 12px;
+    --border-radius-full: 9999px;
+    
+    --border-style-solid: solid;
+    --border-style-dashed: dashed;
+    --border-style-dotted: dotted;
+}
+
+/* 그림자 변수 */
+:root {
+    --shadow-small: 0 1px 2px 0 var(--shadow-small);
+    --shadow-medium: 0 4px 6px 0 var(--shadow-medium);
+    --shadow-large: 0 10px 15px 0 var(--shadow-large);
+}
+
+/* 전환 변수 */
+:root {
+    --transition-fast: 150ms ease-out;
+    --transition-normal: 300ms ease-in-out;
+    --transition-slow: 500ms ease-in-out;
+    
+    --transition-properties: all;
+}
+
+/* Z-인덱스 변수 */
+:root {
+    --z-dropdown: 1000;
+    --z-sticky: 1020;
+    --z-fixed: 1030;
+    --z-modal-backdrop: 1040;
+    --z-modal: 1050;
+    --z-popover: 1060;
+    --z-tooltip: 1070;
+}
+
+/* 반응형 브레이크포인트 변수 */
+:root {
+    --breakpoint-xs: 0;
+    --breakpoint-sm: 576px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 992px;
+    --breakpoint-xl: 1200px;
+    --breakpoint-xxl: 1400px;
+}

@@ -1,0 +1,530 @@
+/* 버튼 컴포넌트 스타일 */
+/* 이 파일은 버튼의 다양한 스타일과 상태를 정의합니다 */
+
+/* 기본 버튼 스타일 */
+QPushButton {
+    /* 기본 속성 */
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: var(--border-width-thin) solid var(--button-border);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: var(--font-family-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--line-height-tight);
+    
+    /* 전환 효과 */
+    transition: all var(--transition-fast);
+    
+    /* 텍스트 정렬 */
+    text-align: center;
+    
+    /* 최소 크기 */
+    min-height: 36px;
+    min-width: 80px;
+}
+
+/* 버튼 호버 상태 */
+QPushButton:hover {
+    background-color: var(--button-hover-bg);
+    border-color: var(--button-hover-border);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-small);
+}
+
+/* 버튼 눌림 상태 */
+QPushButton:pressed {
+    background-color: var(--button-active-bg);
+    border-color: var(--button-active-border);
+    transform: translateY(0);
+    box-shadow: var(--shadow-xs);
+}
+
+/* 버튼 포커스 상태 */
+QPushButton:focus {
+    outline: 2px solid var(--focus-outline);
+    outline-offset: 2px;
+}
+
+/* 버튼 비활성화 상태 */
+QPushButton:disabled {
+    background-color: var(--button-disabled-bg);
+    color: var(--button-disabled-text);
+    border-color: var(--button-disabled-border);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* 기본 버튼 변형 */
+.btn-primary {
+    background-color: var(--primary-color);
+    color: var(--white);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.btn-primary:pressed {
+    background-color: var(--primary-active);
+    border-color: var(--primary-active);
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    color: var(--white);
+    border-color: var(--secondary-color);
+}
+
+.btn-secondary:hover {
+    background-color: var(--secondary-hover);
+    border-color: var(--secondary-hover);
+}
+
+.btn-secondary:pressed {
+    background-color: var(--secondary-active);
+    border-color: var(--secondary-active);
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    color: var(--white);
+    border-color: var(--success-color);
+}
+
+.btn-success:hover {
+    background-color: var(--success-hover);
+    border-color: var(--success-hover);
+}
+
+.btn-success:pressed {
+    background-color: var(--success-active);
+    border-color: var(--success-active);
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    color: var(--white);
+    border-color: var(--danger-color);
+}
+
+.btn-danger:hover {
+    background-color: var(--danger-hover);
+    border-color: var(--danger-hover);
+}
+
+.btn-danger:pressed {
+    background-color: var(--danger-active);
+    border-color: var(--danger-active);
+}
+
+.btn-warning {
+    background-color: var(--warning-color);
+    color: var(--white);
+    border-color: var(--warning-color);
+}
+
+.btn-warning:hover {
+    background-color: var(--warning-hover);
+    border-color: var(--warning-hover);
+}
+
+.btn-warning:pressed {
+    background-color: var(--warning-active);
+    border-color: var(--warning-active);
+}
+
+.btn-info {
+    background-color: var(--info-color);
+    color: var(--white);
+    border-color: var(--info-color);
+}
+
+.btn-info:hover {
+    background-color: var(--info-hover);
+    border-color: var(--info-hover);
+}
+
+.btn-info:pressed {
+    background-color: var(--info-active);
+    border-color: var(--info-active);
+}
+
+/* 아웃라인 버튼 변형 */
+.btn-outline-primary {
+    background-color: transparent;
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--primary-color);
+    color: var(--white);
+}
+
+.btn-outline-secondary {
+    background-color: transparent;
+    color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--secondary-color);
+    color: var(--white);
+}
+
+.btn-outline-success {
+    background-color: transparent;
+    color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.btn-outline-success:hover {
+    background-color: var(--success-color);
+    color: var(--white);
+}
+
+.btn-outline-danger {
+    background-color: transparent;
+    color: var(--danger-color);
+    border-color: var(--danger-color);
+}
+
+.btn-outline-danger:hover {
+    background-color: var(--danger-color);
+    color: var(--white);
+}
+
+.btn-outline-warning {
+    background-color: transparent;
+    color: var(--warning-color);
+    border-color: var(--warning-color);
+}
+
+.btn-outline-warning:hover {
+    background-color: var(--warning-color);
+    color: var(--white);
+}
+
+.btn-outline-info {
+    background-color: transparent;
+    color: var(--info-color);
+    border-color: var(--info-color);
+}
+
+.btn-outline-info:hover {
+    background-color: var(--info-color);
+    color: var(--white);
+}
+
+/* 버튼 크기 변형 */
+.btn-xs {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    min-height: 24px;
+    min-width: 60px;
+}
+
+.btn-sm {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    min-height: 28px;
+    min-width: 70px;
+}
+
+.btn-md {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
+    min-height: 36px;
+    min-width: 80px;
+}
+
+.btn-lg {
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--font-size-base);
+    min-height: 44px;
+    min-width: 100px;
+}
+
+.btn-xl {
+    padding: var(--spacing-md) var(--spacing-xl);
+    font-size: var(--font-size-lg);
+    min-height: 52px;
+    min-width: 120px;
+}
+
+/* 버튼 모양 변형 */
+.btn-rounded {
+    border-radius: 9999px;
+}
+
+.btn-square {
+    border-radius: var(--border-radius-sm);
+}
+
+.btn-circle {
+    border-radius: 50%;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+}
+
+.btn-circle.btn-xs {
+    min-width: 24px;
+    min-height: 24px;
+}
+
+.btn-circle.btn-sm {
+    min-width: 28px;
+    min-height: 28px;
+}
+
+.btn-circle.btn-lg {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.btn-circle.btn-xl {
+    min-width: 52px;
+    min-height: 52px;
+}
+
+/* 버튼 그룹 스타일 */
+.btn-group {
+    display: flex;
+}
+
+.btn-group QPushButton {
+    border-radius: 0;
+    margin-left: -1px;
+}
+
+.btn-group QPushButton:first-child {
+    border-top-left-radius: var(--border-radius-md);
+    border-bottom-left-radius: var(--border-radius-md);
+    margin-left: 0;
+}
+
+.btn-group QPushButton:last-child {
+    border-top-right-radius: var(--border-radius-md);
+    border-bottom-right-radius: var(--border-radius-md);
+}
+
+/* 버튼 로딩 상태 */
+.btn-loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* 버튼 아이콘 스타일 */
+.btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+}
+
+.btn-icon-only {
+    padding: var(--spacing-sm);
+    min-width: 36px;
+    min-height: 36px;
+}
+
+/* 버튼 블록 스타일 */
+.btn-block {
+    width: 100%;
+    display: block;
+}
+
+/* 버튼 플로팅 액션 */
+.btn-floating {
+    position: fixed;
+    bottom: var(--spacing-lg);
+    right: var(--spacing-lg);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    color: var(--white);
+    border: none;
+    box-shadow: var(--shadow-large);
+    z-index: var(--z-index-floating);
+}
+
+.btn-floating:hover {
+    background-color: var(--primary-hover);
+    transform: scale(1.1);
+    box-shadow: var(--shadow-xl);
+}
+
+.btn-floating:pressed {
+    background-color: var(--primary-active);
+    transform: scale(0.95);
+}
+
+/* 버튼 그라데이션 스타일 */
+.btn-gradient-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    border: none;
+    color: var(--white);
+}
+
+.btn-gradient-primary:hover {
+    background: linear-gradient(135deg, var(--primary-hover), var(--primary-active));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.btn-gradient-secondary {
+    background: linear-gradient(135deg, var(--secondary-color), var(--secondary-hover));
+    border: none;
+    color: var(--white);
+}
+
+.btn-gradient-secondary:hover {
+    background: linear-gradient(135deg, var(--secondary-hover), var(--secondary-active));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+/* 버튼 글래스모피즘 스타일 */
+.btn-glass {
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text);
+}
+
+.btn-glass:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+/* 버튼 네온 스타일 */
+.btn-neon {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 0 10px var(--primary-color);
+    text-shadow: 0 0 5px var(--primary-color);
+}
+
+.btn-neon:hover {
+    background-color: var(--primary-color);
+    color: var(--white);
+    box-shadow: 0 0 20px var(--primary-color);
+    text-shadow: none;
+}
+
+/* 버튼 스켈레톤 스타일 */
+.btn-skeleton {
+    background: linear-gradient(90deg, 
+        var(--skeleton-color) 25%, 
+        var(--skeleton-highlight) 50%, 
+        var(--skeleton-color) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    color: transparent;
+    border: none;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* 버튼 펄스 효과 */
+.btn-pulse {
+    animation: pulse 2s infinite;
+}
+
+.btn-pulse:hover {
+    animation: none;
+}
+
+/* 버튼 타이핑 효과 */
+.btn-typing {
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 2px solid var(--primary-color);
+    animation: typing 3s steps(40, end), blink-caret 0.75s step-end infinite;
+}
+
+@keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+}
+
+@keyframes blink-caret {
+    from, to { border-color: transparent; }
+    50% { border-color: var(--primary-color); }
+}
+
+/* 버튼 슬라이드 효과 */
+.btn-slide {
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.btn-slide::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+    z-index: -1;
+}
+
+.btn-slide:hover::before {
+    left: 100%;
+}
+
+/* 버튼 리플 효과 */
+.btn-ripple {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-ripple::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-ripple:active::after {
+    width: 300px;
+    height: 300px;
+}
