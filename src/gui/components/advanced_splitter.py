@@ -39,24 +39,7 @@ class AdvancedSplitter(QSplitter):
         self.setHandleWidth(8)
         self.setOpaqueResize(True)
 
-        # 스플리터 핸들 스타일 설정
-        self.setStyleSheet(
-            """
-            QSplitter::handle {
-                background-color: #bdc3c7;
-                border: 1px solid #95a5a6;
-                border-radius: 2px;
-            }
-            QSplitter::handle:hover {
-                background-color: #3498db;
-                border-color: #2980b9;
-            }
-            QSplitter::handle:pressed {
-                background-color: #2980b9;
-                border-color: #1f4e79;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
 
     def setup_advanced_features(self):
         """고급 기능 설정"""
@@ -555,7 +538,7 @@ class SplitterControlPanel(QWidget):
 
         # 현재 비율 표시 라벨
         self.ratio_label = QLabel("비율: 60% / 40%")
-        self.ratio_label.setStyleSheet("color: #7f8c8d; font-size: 10px;")
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.ratio_label)
 
         # 구분선
@@ -680,7 +663,7 @@ class SplitterControlPanel(QWidget):
         # 간단한 상태 표시를 위해 ratio_label을 임시로 사용
         original_text = self.ratio_label.text()
         self.ratio_label.setText(message)
-        self.ratio_label.setStyleSheet("color: #e74c3c; font-size: 10px; font-weight: bold;")
+        # 스타일은 테마 시스템에서 관리
 
         # 2초 후 원래 텍스트로 복원
         from PyQt5.QtCore import QTimer
@@ -690,4 +673,4 @@ class SplitterControlPanel(QWidget):
     def restore_ratio_label(self, text):
         """비율 라벨 복원"""
         self.ratio_label.setText(text)
-        self.ratio_label.setStyleSheet("color: #7f8c8d; font-size: 10px;")
+        # 스타일은 테마 시스템에서 관리

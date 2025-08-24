@@ -12,12 +12,12 @@ THEMES_DIR = Path(__file__).parent
 
 # 기본 테마들
 DEFAULT_THEMES = {
-    'light': 'light_theme.json',
-    'dark': 'dark_theme.json',
-    'auto': 'auto_theme.json',
+    "light": "light_theme.json",
+    "dark": "dark_theme.json",
+    "auto": "auto_theme.json",
 }
 
 __all__ = [
-    'THEMES_DIR',
-    'DEFAULT_THEMES',
+    "THEMES_DIR",
+    "DEFAULT_THEMES",
 ]

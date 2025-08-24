@@ -58,22 +58,7 @@ class LeftPanel(QWidget):
     def create_quick_actions_group(self):
         """빠른 작업 그룹 생성"""
         group = QGroupBox("🚀 빠른 작업")
-        group.setStyleSheet(
-            """
-            QGroupBox {
-                font-weight: bold;
-                border: 2px solid #bdc3c7;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
 
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
@@ -84,32 +69,21 @@ class LeftPanel(QWidget):
         source_layout.setContentsMargins(0, 0, 0, 0)
 
         source_label = QLabel("📁 소스 디렉토리")
-        source_label.setStyleSheet("font-weight: bold; color: #2c3e50;")
+        # 스타일은 테마 시스템에서 관리
         source_layout.addWidget(source_label)
 
         self.source_dir_label = QLabel("선택되지 않음")
-        self.source_dir_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: #ecf0f1;
-                border: 1px solid #bdc3c7;
-                border-radius: 4px;
-                padding: 8px;
-                color: #7f8c8d;
-                font-style: italic;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         self.source_dir_label.setWordWrap(True)
         source_layout.addWidget(self.source_dir_label)
 
         source_buttons = QHBoxLayout()
         self.btnChooseSourceFolder = QPushButton("📂 폴더 선택")
-        self.btnChooseSourceFolder.setStyleSheet(self.get_button_style("#3498db"))
+        # 스타일은 테마 시스템에서 관리
         self.btnChooseSourceFolder.setToolTip("애니메이션 파일이 있는 소스 폴더를 선택합니다")
 
         self.btnChooseSourceFiles = QPushButton("📄 파일 선택")
-        self.btnChooseSourceFiles.setStyleSheet(self.get_button_style("#3498db"))
+        # 스타일은 테마 시스템에서 관리
         self.btnChooseSourceFiles.setToolTip("개별 애니메이션 파일들을 선택합니다")
 
         source_buttons.addWidget(self.btnChooseSourceFolder)
@@ -124,27 +98,16 @@ class LeftPanel(QWidget):
         dest_layout.setContentsMargins(0, 0, 0, 0)
 
         dest_label = QLabel("🎯 대상 디렉토리")
-        dest_label.setStyleSheet("font-weight: bold; color: #2c3e50;")
+        # 스타일은 테마 시스템에서 관리
         dest_layout.addWidget(dest_label)
 
         self.dest_dir_label = QLabel("선택되지 않음")
-        self.dest_dir_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: #ecf0f1;
-                border: 1px solid #bdc3c7;
-                border-radius: 4px;
-                padding: 8px;
-                color: #7f8c8d;
-                font-style: italic;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         self.dest_dir_label.setWordWrap(True)
         dest_layout.addWidget(self.dest_dir_label)
 
         self.btnChooseDestFolder = QPushButton("📂 폴더 선택")
-        self.btnChooseDestFolder.setStyleSheet(self.get_button_style("#27ae60"))
+        # 스타일은 테마 시스템에서 관리
         self.btnChooseDestFolder.setToolTip("정리된 파일을 저장할 대상 폴더를 선택합니다")
 
         dest_layout.addWidget(self.btnChooseDestFolder)
@@ -158,11 +121,11 @@ class LeftPanel(QWidget):
         # 스캔 제어 버튼들
         scan_layout = QHBoxLayout()
         self.btnStart = QPushButton("▶️ 스캔 시작")
-        self.btnStart.setStyleSheet(self.get_button_style("#e74c3c"))
+        # 스타일은 테마 시스템에서 관리
         self.btnStart.setEnabled(False)  # 소스가 선택되지 않으면 비활성화
 
         self.btnPause = QPushButton("⏸️ 일시정지")
-        self.btnPause.setStyleSheet(self.get_button_style("#f39c12"))
+        # 스타일은 테마 시스템에서 관리
         self.btnPause.setEnabled(False)
 
         scan_layout.addWidget(self.btnStart)
@@ -175,42 +138,27 @@ class LeftPanel(QWidget):
     def create_stats_group(self):
         """통계 그룹 생성"""
         group = QGroupBox("📊 통계")
-        group.setStyleSheet(
-            """
-            QGroupBox {
-                font-weight: bold;
-                border: 2px solid #bdc3c7;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
 
         layout = QFormLayout(group)
         layout.setSpacing(8)
 
         # 통계 라벨들
         self.lblTotal = QLabel("0")
-        self.lblTotal.setStyleSheet("font-weight: bold; color: #2c3e50; font-size: 14px;")
+        # 스타일은 테마 시스템에서 관리
 
         self.lblParsed = QLabel("0")
-        self.lblParsed.setStyleSheet("font-weight: bold; color: #27ae60; font-size: 14px;")
+        # 스타일은 테마 시스템에서 관리
 
         self.lblPending = QLabel("0")
-        self.lblPending.setStyleSheet("font-weight: bold; color: #f39c12; font-size: 14px;")
+        # 스타일은 테마 시스템에서 관리
 
         self.lblGroups = QLabel("0")
-        self.lblGroups.setStyleSheet("font-weight: bold; color: #9b59b6; font-size: 14px;")
+        # 스타일은 테마 시스템에서 관리
 
         # 완료된 항목 정리 버튼
         self.btnClearCompleted = QPushButton("✅ 완료된 항목 정리")
-        self.btnClearCompleted.setStyleSheet(self.get_button_style("#95a5a6"))
+        # 스타일은 테마 시스템에서 관리
 
         layout.addRow("전체:", self.lblTotal)
         layout.addRow("완료:", self.lblParsed)
@@ -238,42 +186,12 @@ class LeftPanel(QWidget):
         """소스 파일 수 표시 업데이트"""
         if file_count > 0:
             self.source_dir_label.setText(f"선택된 파일: {file_count}개")
-            self.source_dir_label.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #d5f4e6;
-                    border: 1px solid #27ae60;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #27ae60;
-                    font-weight: bold;
-                }
-            """
-            )
+            # 스타일은 테마 시스템에서 관리
         else:
             self.source_dir_label.setText("소스 폴더: 선택되지 않음")
-            self.source_dir_label.setStyleSheet("")
+            # 스타일은 테마 시스템에서 관리
 
-    def get_button_style(self, color: str) -> str:
-        """버튼 스타일 생성"""
-        return f"""
-            QPushButton {{
-                background-color: {color};
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 12px;
-            }}
-            QPushButton:hover {{
-                background-color: {color}dd;
-            }}
-            QPushButton:disabled {{
-                background-color: #bdc3c7;
-                color: #7f8c8d;
-            }}
-        """
+    # 스타일은 테마 시스템에서 관리
 
     def setup_connections(self):
         """시그널/슬롯 연결 설정"""
@@ -429,24 +347,13 @@ class LeftPanel(QWidget):
                 display_path = f"...{display_path[-37:]}"
 
             self.source_dir_label.setText(f"소스 폴더: {display_path}")
-            self.source_dir_label.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #d5f4e6;
-                    border: 1px solid #27ae60;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #27ae60;
-                    font-weight: bold;
-                }
-            """
-            )
+            # 스타일은 테마 시스템에서 관리
 
             # 스캔 버튼 활성화
             self.btnStart.setEnabled(True)
         else:
             self.source_dir_label.setText("소스 폴더: 선택되지 않음")
-            self.source_dir_label.setStyleSheet("")
+            # 스타일은 테마 시스템에서 관리
             self.btnStart.setEnabled(False)
 
     def update_dest_directory_display(self, folder_path: str):
@@ -461,21 +368,10 @@ class LeftPanel(QWidget):
                 display_path = f"...{display_path[-37:]}"
 
             self.dest_dir_label.setText(f"대상 폴더: {display_path}")
-            self.dest_dir_label.setStyleSheet(
-                """
-                QLabel {
-                    background-color: #ffeaa7;
-                    border: 1px solid #fdcb6e;
-                    border-radius: 4px;
-                    padding: 8px;
-                    color: #e17055;
-                    font-weight: bold;
-                }
-            """
-            )
+            # 스타일은 테마 시스템에서 관리
         else:
             self.dest_dir_label.setText("대상 폴더: 선택되지 않음")
-            self.dest_dir_label.setStyleSheet("")
+            # 스타일은 테마 시스템에서 관리
 
     def update_progress(self, progress_percent: int):
         """진행률 업데이트 (0-100)"""

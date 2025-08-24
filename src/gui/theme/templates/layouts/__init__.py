@@ -10,6 +10,4 @@ from pathlib import Path
 LAYOUTS_DIR = Path(__file__).parent
 
 # 기본 레이아웃 템플릿들
-__all__ = [
-    'LAYOUTS_DIR'
-]
+__all__ = ["LAYOUTS_DIR"]

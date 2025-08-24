@@ -10,6 +10,4 @@ from pathlib import Path
 COMPONENTS_DIR = Path(__file__).parent
 
 # 기본 컴포넌트 템플릿들
-__all__ = [
-    'COMPONENTS_DIR'
-]
+__all__ = ["COMPONENTS_DIR"]

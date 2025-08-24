@@ -13,13 +13,13 @@ QPushButton {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
     line-height: var(--line-height-tight);
-    
+
     /* 전환 효과 */
     transition: all var(--transition-fast);
-    
+
     /* 텍스트 정렬 */
     text-align: center;
-    
+
     /* 최소 크기 */
     min-height: 36px;
     min-width: 80px;
@@ -436,9 +436,9 @@ QPushButton:disabled {
 
 /* 버튼 스켈레톤 스타일 */
 .btn-skeleton {
-    background: linear-gradient(90deg, 
-        var(--skeleton-color) 25%, 
-        var(--skeleton-highlight) 50%, 
+    background: linear-gradient(90deg,
+        var(--skeleton-color) 25%,
+        var(--skeleton-highlight) 50%,
         var(--skeleton-color) 75%);
     background-size: 200% 100%;
     animation: skeleton-loading 1.5s infinite;

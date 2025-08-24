@@ -77,16 +77,7 @@ class GroupDetailPanel(QWidget):
         self.poster_frame = QFrame()
         self.poster_frame.setFixedSize(200, 300)
         self.poster_frame.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.poster_frame.setStyleSheet(
-            """
-            QFrame {
-                background: qlineargradient(x1:0, y:1, x2:1, y:0,
-                    stop:0 #404853, stop:1 #2d323b);
-                border-radius: 12px;
-                border: 1px solid #323844;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
 
         # 접근성 설정
         self.poster_frame.setAccessibleName("포스터 영역")
@@ -101,17 +92,7 @@ class GroupDetailPanel(QWidget):
         self.poster_label = QLabel()
         self.poster_label.setAlignment(Qt.AlignCenter)
         self.poster_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.poster_label.setStyleSheet(
-            """
-            QLabel {
-                background: transparent;
-                border-radius: 8px;
-                color: #c9cfda;
-                font-weight: 600;
-                font-size: 14px;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
 
         # 접근성 설정
         self.poster_label.setAccessibleName("포스터 이미지")
@@ -146,30 +127,14 @@ class GroupDetailPanel(QWidget):
         for i, (key, label_text, default_value) in enumerate(fields):
             # 라벨
             label = QLabel(label_text)
-            label.setStyleSheet(
-                """
-                QLabel {
-                    color: #9aa3b2;
-                    font-size: 12px;
-                    font-weight: 500;
-                }
-            """
-            )
+            # 스타일은 테마 시스템에서 관리
 
             # 접근성 설정
             label.setAccessibleName(f"{label_text} 라벨")
 
             # 값
             value_label = QLabel(default_value)
-            value_label.setStyleSheet(
-                """
-                QLabel {
-                    color: #e7eaf0;
-                    font-size: 12px;
-                    font-weight: 400;
-                }
-            """
-            )
+            # 스타일은 테마 시스템에서 관리
             value_label.setWordWrap(True)
 
             # 접근성 설정
@@ -312,18 +277,7 @@ class GroupDetailPanel(QWidget):
 
         # 새로운 상태 칩 생성
         status_chip = QLabel(status)
-        status_chip.setStyleSheet(
-            """
-            QLabel {
-                background: #343a44;
-                color: #cfd6e3;
-                font-size: 12px;
-                padding: 2px 8px;
-                border-radius: 999px;
-                font-weight: 500;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
 
         # 접근성 설정
         status_chip.setAccessibleName("상태")
@@ -344,18 +298,7 @@ class GroupDetailPanel(QWidget):
         # 새로운 태그 칩들 생성
         for i, tag in enumerate(tags):
             chip = QLabel(tag)
-            chip.setStyleSheet(
-                """
-                QLabel {
-                    background: #343a44;
-                    color: #c9cfda;
-                    font-size: 12px;
-                    padding: 4px 8px;
-                    border-radius: 999px;
-                    font-weight: 500;
-                }
-            """
-            )
+            # 스타일은 테마 시스템에서 관리
 
             # 접근성 설정
             chip.setAccessibleName(f"태그 {i + 1}")

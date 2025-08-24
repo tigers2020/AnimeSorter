@@ -43,22 +43,7 @@ class StatusBadge(QFrame):
         layout.addWidget(separator3)
         layout.addWidget(self.duplicate_label)
 
-        # 스타일 설정
-        self.setStyleSheet(
-            """
-            QFrame {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 6px;
-                padding: 4px 8px;
-            }
-            QLabel {
-                color: #495057;
-                font-size: 11px;
-                font-weight: 500;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
 
         # 크기 정책 설정
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -75,43 +60,7 @@ class StatusBadge(QFrame):
 
     def update_theme_colors(self):
         """테마에 따른 색상 업데이트"""
-        palette = QApplication.palette()
-        is_dark = palette.color(QPalette.Window).lightness() < 128
-
-        if is_dark:
-            # 다크 테마
-            self.setStyleSheet(
-                """
-                QFrame {
-                    background-color: #343a40;
-                    border: 1px solid #495057;
-                    border-radius: 6px;
-                    padding: 4px 8px;
-                }
-                QLabel {
-                    color: #e9ecef;
-                    font-size: 11px;
-                    font-weight: 500;
-                }
-            """
-            )
-        else:
-            # 라이트 테마
-            self.setStyleSheet(
-                """
-                QFrame {
-                    background-color: #f8f9fa;
-                    border: 1px solid #dee2e6;
-                    border-radius: 6px;
-                    padding: 4px 8px;
-                }
-                QLabel {
-                    color: #495057;
-                    font-size: 11px;
-                    font-weight: 500;
-                }
-            """
-            )
+        # 스타일은 테마 시스템에서 관리
 
 
 class MainToolbar(QWidget):
@@ -163,7 +112,7 @@ class MainToolbar(QWidget):
         # 스캔 버튼 (중립색)
         self.btn_scan = QPushButton("🔍 스캔")
         self.btn_scan.setToolTip("소스 디렉토리 스캔 (F5)")
-        self.btn_scan.setStyleSheet(self.get_button_style("#6c757d"))  # 중립색
+        # 스타일은 테마 시스템에서 관리
         self.btn_scan.clicked.connect(self.scan_requested.emit)
         self.btn_scan.setMinimumHeight(32)
         self.btn_scan.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -171,7 +120,7 @@ class MainToolbar(QWidget):
         # 미리보기 버튼 (중립색)
         self.btn_preview = QPushButton("👁️ 미리보기")
         self.btn_preview.setToolTip("변경 사항 미리보기 (Space)")
-        self.btn_preview.setStyleSheet(self.get_button_style("#6c757d"))  # 중립색
+        # 스타일은 테마 시스템에서 관리
         self.btn_preview.clicked.connect(self.preview_requested.emit)
         self.btn_preview.setMinimumHeight(32)
         self.btn_preview.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -179,7 +128,7 @@ class MainToolbar(QWidget):
         # 정리 실행 버튼 (프라이머리 색상)
         self.btn_organize = QPushButton("🚀 정리 실행")
         self.btn_organize.setToolTip("파일 정리 실행 (Ctrl+Enter)")
-        self.btn_organize.setStyleSheet(self.get_button_style("#27ae60", is_primary=True))
+        # 스타일은 테마 시스템에서 관리
         self.btn_organize.clicked.connect(self.organize_requested.emit)
         self.btn_organize.setMinimumHeight(32)
         self.btn_organize.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -227,7 +176,7 @@ class MainToolbar(QWidget):
         # 설정 버튼
         self.btn_settings = QPushButton("⚙️")
         self.btn_settings.setToolTip("설정")
-        self.btn_settings.setStyleSheet(self.get_button_style("#6c757d"))  # 중립색
+        # 스타일은 테마 시스템에서 관리
         self.btn_settings.clicked.connect(self.settings_requested.emit)
         self.btn_settings.setMinimumHeight(28)
         self.btn_settings.setMaximumWidth(40)
@@ -245,7 +194,7 @@ class MainToolbar(QWidget):
         self.btn_detail_toggle.setToolTip("상세 패널 토글 (Alt+I)")
         self.btn_detail_toggle.setCheckable(True)
         self.btn_detail_toggle.setChecked(True)  # 기본적으로 표시
-        self.btn_detail_toggle.setStyleSheet(self.get_toggle_button_style())
+        # 스타일은 테마 시스템에서 관리
         self.btn_detail_toggle.clicked.connect(self.on_detail_toggle_clicked)
         self.btn_detail_toggle.setMinimumHeight(28)
         self.btn_detail_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -255,7 +204,7 @@ class MainToolbar(QWidget):
         self.btn_file_toggle.setToolTip("파일 패널 토글 (Alt+F)")
         self.btn_file_toggle.setCheckable(True)
         self.btn_file_toggle.setChecked(True)  # 기본적으로 표시
-        self.btn_file_toggle.setStyleSheet(self.get_toggle_button_style())
+        # 스타일은 테마 시스템에서 관리
         self.btn_file_toggle.clicked.connect(self.on_file_toggle_clicked)
         self.btn_file_toggle.setMinimumHeight(28)
         self.btn_file_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -279,89 +228,16 @@ class MainToolbar(QWidget):
         separator = QFrame()
         separator.setFrameShape(QFrame.VLine)
         separator.setFrameShadow(QFrame.Sunken)
-        separator.setStyleSheet("QFrame { background-color: #dee2e6; }")
+        # 스타일은 테마 시스템에서 관리
         separator.setMaximumWidth(1)
         separator.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         return separator
 
-    def get_button_style(self, color, is_primary=False):
-        """버튼 스타일 생성"""
-        if is_primary:
-            return f"""
-                QPushButton {{
-                    background-color: {color};
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                    border-radius: 6px;
-                font-weight: bold;
-                    font-size: 12px;
-                }}
-                QPushButton:hover {{
-                    background-color: {self.darken_color(color)};
-                }}
-                QPushButton:pressed {{
-                    background-color: {self.darken_color(color, 0.2)};
-                }}
-                QPushButton:disabled {{
-                background-color: #95a5a6;
-                color: #ecf0f1;
-                }}
-            """
-        return f"""
-                QPushButton {{
-                    background-color: {color};
-                color: white;
-                border: none;
-                    padding: 6px 12px;
-                border-radius: 4px;
-                    font-weight: 500;
-                    font-size: 11px;
-                }}
-                QPushButton:hover {{
-                    background-color: {self.darken_color(color)};
-                }}
-                QPushButton:pressed {{
-                    background-color: {self.darken_color(color, 0.2)};
-                }}
-                QPushButton:disabled {{
-                    background-color: #95a5a6;
-                    color: #ecf0f1;
-                }}
-            """
+    # 스타일은 테마 시스템에서 관리
 
-    def get_toggle_button_style(self):
-        """토글 버튼 스타일 생성"""
-        return """
-            QPushButton {
-                background-color: #6c757d;
-                color: white;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 4px;
-                font-weight: 500;
-                font-size: 11px;
-            }
-            QPushButton:hover {
-                background-color: #5a6268;
-            }
-            QPushButton:pressed {
-                background-color: #545b62;
-            }
-            QPushButton:checked {
-                background-color: #495057;
-                font-weight: bold;
-            }
-            QPushButton:disabled {
-                background-color: #95a5a6;
-                color: #ecf0f1;
-            }
-        """
+    # 스타일은 테마 시스템에서 관리
 
-    def darken_color(self, color, _factor=0.1):
-        """색상을 어둡게 만드는 헬퍼 함수"""
-        # 간단한 색상 어둡게 만들기 (실제로는 더 정교한 로직 필요)
-        return color
+    # 스타일은 테마 시스템에서 관리
 
     def setup_shortcuts(self):
         """단축키 설정"""

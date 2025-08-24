@@ -9,11 +9,11 @@ from pathlib import Path
 
 # 자산 디렉토리 경로
 ASSETS_DIR = Path(__file__).parent
-ICONS_DIR = ASSETS_DIR / 'icons'
-IMAGES_DIR = ASSETS_DIR / 'images'
+ICONS_DIR = ASSETS_DIR / "icons"
+IMAGES_DIR = ASSETS_DIR / "images"
 
 __all__ = [
-    'ASSETS_DIR',
-    'ICONS_DIR', 
-    'IMAGES_DIR',
+    "ASSETS_DIR",
+    "ICONS_DIR",
+    "IMAGES_DIR",
 ]

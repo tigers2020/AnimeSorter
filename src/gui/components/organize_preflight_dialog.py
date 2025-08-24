@@ -38,18 +38,7 @@ class OrganizePreflightDialog(QDialog):
         self.setModal(True)
         self.setMinimumSize(600, 500)
 
-        # 테마에 맞는 기본 스타일 설정
-        self.setStyleSheet(
-            """
-            QDialog {
-                background-color: palette(window);
-                color: palette(window-text);
-            }
-            QLabel {
-                color: palette(window-text);
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
 
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
@@ -67,37 +56,14 @@ class OrganizePreflightDialog(QDialog):
         self.summary_text = QTextEdit()
         self.summary_text.setReadOnly(True)
         self.summary_text.setMaximumHeight(300)
-        self.summary_text.setStyleSheet(
-            """
-            QTextEdit {
-                background-color: palette(base);
-                color: palette(text);
-                border: 1px solid palette(mid);
-                border-radius: 4px;
-                padding: 10px;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 11px;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.summary_text)
 
         # 경고 메시지
         warning_label = QLabel(
             "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다."
         )
-        warning_label.setStyleSheet(
-            """
-            QLabel {
-                color: palette(button-text);
-                background-color: palette(light);
-                border: 1px solid palette(mid);
-                border-radius: 4px;
-                padding: 10px;
-                font-weight: bold;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(warning_label)
 
         # 버튼 영역
@@ -106,42 +72,12 @@ class OrganizePreflightDialog(QDialog):
 
         # 취소 버튼
         self.cancel_button = QPushButton("❌ 취소")
-        self.cancel_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: palette(button);
-                color: palette(button-text);
-                border: 1px solid palette(mid);
-                padding: 10px 20px;
-                border-radius: 4px;
-                font-weight: bold;
-                min-width: 100px;
-            }
-            QPushButton:hover {
-                background-color: palette(light);
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         self.cancel_button.clicked.connect(self.reject)
 
         # 진행 버튼
         self.proceed_button = QPushButton("✅ 진행")
-        self.proceed_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: palette(button);
-                color: palette(button-text);
-                border: 1px solid palette(mid);
-                padding: 10px 20px;
-                border-radius: 4px;
-                font-weight: bold;
-                min-width: 100px;
-            }
-            QPushButton:hover {
-                background-color: palette(light);
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         self.proceed_button.clicked.connect(self.on_proceed_clicked)
 
         button_layout.addWidget(self.cancel_button)
@@ -150,7 +86,7 @@ class OrganizePreflightDialog(QDialog):
 
         # 자막 파일 처리 섹션
         subtitle_section = QLabel("📝 자막 파일 처리")
-        subtitle_section.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(subtitle_section)
 
         subtitle_info = QLabel(
@@ -163,7 +99,7 @@ class OrganizePreflightDialog(QDialog):
 
         # 빈 디렉토리 정리 섹션
         cleanup_section = QLabel("🗑️ 빈 디렉토리 정리")
-        cleanup_section.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(cleanup_section)
 
         cleanup_info = QLabel(
@@ -337,18 +273,7 @@ class OrganizePreflightDialog(QDialog):
                 and "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다" in warning_label.text()
             ):
                 warning_label.setText("👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다.")
-                warning_label.setStyleSheet(
-                    """
-                    QLabel {
-                        color: palette(button-text);
-                        background-color: palette(light);
-                        border: 1px solid palette(mid);
-                        border-radius: 4px;
-                        padding: 10px;
-                        font-weight: bold;
-                    }
-                """
-                )
+                # 스타일은 테마 시스템에서 관리
         else:
             # 일반 모드로 복원
             self.setWindowTitle("📁 정리 실행 확인")
@@ -372,15 +297,4 @@ class OrganizePreflightDialog(QDialog):
                 warning_label.setText(
                     "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다."
                 )
-                warning_label.setStyleSheet(
-                    """
-                    QLabel {
-                        color: palette(button-text);
-                        background-color: palette(light);
-                        border: 1px solid palette(mid);
-                        border-radius: 4px;
-                        padding: 10px;
-                        font-weight: bold;
-                    }
-                """
-                )
+                # 스타일은 테마 시스템에서 관리

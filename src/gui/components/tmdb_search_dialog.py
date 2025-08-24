@@ -97,7 +97,7 @@ class TMDBSearchDialog(QDialog):
         layout = QVBoxLayout(group)
 
         self.lblGroupTitle = QLabel(f"제목: {self.group_title}")
-        self.lblGroupTitle.setStyleSheet("font-weight: bold; font-size: 14px;")
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.lblGroupTitle)
 
         return group
@@ -127,7 +127,7 @@ class TMDBSearchDialog(QDialog):
 
         # 검색 상태
         self.lblSearchStatus = QLabel("검색 중...")
-        self.lblSearchStatus.setStyleSheet("color: #3498db; font-style: italic;")
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.lblSearchStatus)
 
         # 검색 결과 리스트
@@ -272,7 +272,7 @@ class TMDBSearchDialog(QDialog):
         # 포스터 (100x150 크기로 통일)
         poster_label = QLabel()
         poster_label.setFixedSize(100, 150)  # 일관된 크기로 조정
-        poster_label.setStyleSheet("border: 1px solid #ddd; background-color: #f8f9fa;")
+        # 스타일은 테마 시스템에서 관리
 
         if anime.poster_path:
             try:
@@ -308,12 +308,12 @@ class TMDBSearchDialog(QDialog):
             title_text = getattr(anime, "name", "제목 없음")
             print(f"📺 제목 설정: {title_text}")
             title_label = QLabel(title_text)
-            title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            # 스타일은 테마 시스템에서 관리
             info_layout.addWidget(title_label)
         except Exception as e:
             print(f"❌ 제목 설정 실패: {e}")
             title_label = QLabel("제목 없음")
-            title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            # 스타일은 테마 시스템에서 관리
             info_layout.addWidget(title_label)
 
         # 원제목 (original_name 속성 사용)
@@ -322,7 +322,7 @@ class TMDBSearchDialog(QDialog):
             if original_name and original_name != getattr(anime, "name", ""):
                 print(f"🎬 원제목 설정: {original_name}")
                 original_label = QLabel(f"원제목: {original_name}")
-                original_label.setStyleSheet("color: #666; font-size: 12px;")
+                # 스타일은 테마 시스템에서 관리
                 info_layout.addWidget(original_label)
         except Exception as e:
             print(f"❌ 원제목 설정 실패: {e}")
@@ -334,7 +334,7 @@ class TMDBSearchDialog(QDialog):
                 print(f"📝 개요 설정: {overview[:50]}...")
                 overview_text = overview[:100] + "..." if len(overview) > 100 else overview
                 overview_label = QLabel(overview_text)
-                overview_label.setStyleSheet("color: #555; font-size: 11px;")
+                # 스타일은 테마 시스템에서 관리
                 overview_label.setWordWrap(True)
                 info_layout.addWidget(overview_label)
         except Exception as e:
@@ -358,7 +358,7 @@ class TMDBSearchDialog(QDialog):
             if meta_info:
                 print(f"📊 메타데이터 설정: {meta_info}")
                 meta_label = QLabel(" | ".join(meta_info))
-                meta_label.setStyleSheet("color: #888; font-size: 10px;")
+                # 스타일은 테마 시스템에서 관리
                 info_layout.addWidget(meta_label)
         except Exception as e:
             print(f"❌ 메타데이터 설정 실패: {e}")

@@ -87,7 +87,7 @@ class LogDock(QDockWidget):
 
         # 로그 통계 정보
         self.lbl_log_count = QLabel("활동: 0 | 오류: 0")
-        self.lbl_log_count.setStyleSheet("color: #7f8c8d; font-size: 10px;")
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.lbl_log_count)
 
         layout.addStretch(1)
@@ -102,46 +102,14 @@ class LogDock(QDockWidget):
         self.btn_clear_logs = QToolButton()
         self.btn_clear_logs.setToolTip("모든 로그 클리어")
         self.btn_clear_logs.setText("🗑️")
-        self.btn_clear_logs.setStyleSheet(
-            """
-            QToolButton {
-                border: 1px solid #bdc3c7;
-                border-radius: 3px;
-                padding: 2px;
-                background-color: #ecf0f1;
-            }
-            QToolButton:hover {
-                background-color: #d5dbdb;
-                border-color: #95a5a6;
-            }
-            QToolButton:pressed {
-                background-color: #bdc3c7;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.btn_clear_logs)
 
         # 로그 내보내기 버튼
         self.btn_export_logs = QToolButton()
         self.btn_export_logs.setToolTip("로그 내보내기")
         self.btn_export_logs.setText("📤")
-        self.btn_export_logs.setStyleSheet(
-            """
-            QToolButton {
-                border: 1px solid #bdc3c7;
-                border-radius: 3px;
-                padding: 2px;
-                background-color: #ecf0f1;
-            }
-            QToolButton:hover {
-                background-color: #d5dbdb;
-                border-color: #95a5a6;
-            }
-            QToolButton:pressed {
-                background-color: #bdc3c7;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.btn_export_logs)
 
         return panel

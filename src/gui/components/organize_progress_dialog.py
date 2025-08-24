@@ -560,18 +560,7 @@ class OrganizeProgressDialog(QDialog):
         # 현재 파일 정보
         self.current_file_label = QLabel("대기 중...")
         self.current_file_label.setWordWrap(True)
-        self.current_file_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 8px;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 10px;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.current_file_label)
 
         # 로그 영역
@@ -581,25 +570,7 @@ class OrganizeProgressDialog(QDialog):
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setMaximumHeight(150)
-        # Theme에 맞는 색상으로 stylesheet 설정
-        palette = self.palette()
-        bg_color = palette.color(palette.Base).name()
-        border_color = palette.color(palette.Mid).name()
-        text_color = palette.color(palette.Text).name()
-
-        self.log_text.setStyleSheet(
-            f"""
-            QTextEdit {{
-                background-color: {bg_color};
-                border: 1px solid {border_color};
-                border-radius: 4px;
-                padding: 5px;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 9px;
-                color: {text_color};
-            }}
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.log_text)
 
         # 버튼 영역
@@ -608,22 +579,7 @@ class OrganizeProgressDialog(QDialog):
 
         # 취소 버튼
         self.cancel_button = QPushButton("❌ 취소")
-        self.cancel_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #dc3545;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #c82333;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         self.cancel_button.clicked.connect(self.cancel_operation)
         button_layout.addWidget(self.cancel_button)
 

@@ -147,35 +147,7 @@ class FileOrganizationHandler(QObject):
             msg_box.setText(message)
             msg_box.setIcon(QMessageBox.Information)
 
-            # Theme에 맞는 색상으로 stylesheet 설정
-            palette = self.main_window.palette()
-            bg_color = palette.color(palette.Window).name()
-            text_color = palette.color(palette.WindowText).name()
-            button_bg = palette.color(palette.Button).name()
-            button_text = palette.color(palette.ButtonText).name()
-
-            msg_box.setStyleSheet(
-                f"""
-                QMessageBox {{
-                    background-color: {bg_color};
-                    color: {text_color};
-                }}
-                QMessageBox QPushButton {{
-                    background-color: {button_bg};
-                    color: {button_text};
-                    border: 1px solid {palette.color(palette.Mid).name()};
-                    border-radius: 4px;
-                    padding: 6px 12px;
-                    min-width: 60px;
-                }}
-                QMessageBox QPushButton:hover {{
-                    background-color: {palette.color(palette.Light).name()};
-                }}
-                QMessageBox QPushButton:pressed {{
-                    background-color: {palette.color(palette.Dark).name()};
-                }}
-            """
-            )
+            # 스타일은 테마 시스템에서 관리
 
             msg_box.exec_()
 

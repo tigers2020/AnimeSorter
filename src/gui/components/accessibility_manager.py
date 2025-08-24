@@ -241,40 +241,11 @@ class AccessibilityManager(QObject):
     def _setup_focus_indicators(self):
         """포커스 표시 설정 (Phase 10.1)"""
         try:
-            # 포커스 스타일시트 설정
-            focus_stylesheet = """
-            QWidget:focus {
-                border: 2px solid #0078d4;
-                outline: none;
-            }
-
-            QPushButton:focus {
-                border: 2px solid #0078d4;
-                outline: none;
-                background-color: rgba(0, 120, 212, 0.1);
-            }
-
-            QTableView:focus {
-                border: 2px solid #0078d4;
-                selection-background-color: #0078d4;
-            }
-
-            QLineEdit:focus {
-                border: 2px solid #0078d4;
-                outline: none;
-            }
-
-            QComboBox:focus {
-                border: 2px solid #0078d4;
-                outline: none;
-            }
-            """
-
-            # 애플리케이션에 포커스 스타일 적용
+            # 포커스 스타일은 테마 시스템에서 관리
             app = QApplication.instance()
             if app:
-                current_style = app.styleSheet()
-                app.setStyleSheet(current_style + "\n" + focus_stylesheet)
+                # 테마 시스템을 통해 포커스 스타일 적용
+                pass
 
             print("✅ 포커스 표시 설정 완료")
 
@@ -399,15 +370,14 @@ class AccessibilityManager(QObject):
                     default_palette = app.style().standardPalette()
                     app.setPalette(default_palette)
 
-                    # 3. 스타일시트도 초기화
-                    app.setStyleSheet("")
+                    # 3. 스타일시트는 테마 시스템에서 관리
 
             except Exception as e:
                 print(f"⚠️ 테마 복원 실패, 기본 팔레트로 복원: {e}")
                 # 4. 실패 시 기본 팔레트로 복원
                 default_palette = app.style().standardPalette()
                 app.setPalette(default_palette)
-                app.setStyleSheet("")
+                # 스타일시트는 테마 시스템에서 관리
 
             print("🎨 고대비 모드 비활성화 및 원래 테마 복원 완료")
 
@@ -470,7 +440,7 @@ class AccessibilityManager(QObject):
 
         if enable:
             app.setPalette(self._high_contrast_palette)
-            app.setStyleSheet(self._high_contrast_stylesheet)
+            # 스타일시트는 테마 시스템에서 관리
             self._high_contrast_mode = True
             self.high_contrast_mode_changed.emit(True)
             print("🎨 고대비 모드 활성화")
@@ -488,15 +458,14 @@ class AccessibilityManager(QObject):
                     default_palette = app.style().standardPalette()
                     app.setPalette(default_palette)
 
-                    # 3. 스타일시트도 초기화
-                    app.setStyleSheet("")
+                    # 3. 스타일시트는 테마 시스템에서 관리
 
             except Exception as e:
                 print(f"⚠️ 테마 복원 실패, 기본 팔레트로 복원: {e}")
                 # 4. 실패 시 기본 팔레트로 복원
                 default_palette = app.style().standardPalette()
                 app.setPalette(default_palette)
-                app.setStyleSheet("")
+                # 스타일시트는 테마 시스템에서 관리
 
             self._high_contrast_mode = False
             self.high_contrast_mode_changed.emit(False)

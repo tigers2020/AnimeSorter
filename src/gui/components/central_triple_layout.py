@@ -90,7 +90,7 @@ class CentralTripleLayout(QWidget):
 
         # 헤더
         header_label = QLabel("그룹 상세")
-        header_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        # 스타일은 테마 시스템에서 관리
         detail_layout.addWidget(header_label)
 
         # 실제 상세 패널 컴포넌트
@@ -110,7 +110,7 @@ class CentralTripleLayout(QWidget):
 
         # 헤더
         header_label = QLabel("애니메이션 그룹")
-        header_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        # 스타일은 테마 시스템에서 관리
         group_layout.addWidget(header_label)
 
         # 필터 칩들 (임시)
@@ -120,17 +120,7 @@ class CentralTripleLayout(QWidget):
         filter_chips = ["전체", "미매칭", "충돌", "중복", "완료"]
         for chip_text in filter_chips:
             chip = QLabel(chip_text)
-            chip.setStyleSheet(
-                """
-                QLabel {
-                    background: #343a44;
-                    border-radius: 999px;
-                    padding: 4px 10px;
-                    font-size: 12px;
-                    color: #c9cfda;
-                }
-            """
-            )
+            # 스타일은 테마 시스템에서 관리
             filter_layout.addWidget(chip)
 
         filter_layout.addStretch()
@@ -138,21 +128,7 @@ class CentralTripleLayout(QWidget):
 
         # 그룹 테이블
         self.group_table = QTableView()
-        self.group_table.setStyleSheet(
-            """
-            QTableView {
-                background: #2a2f37;
-                border: 1px solid #323844;
-                border-radius: 8px;
-            }
-            QHeaderView::section {
-                background: #20252c;
-                padding: 9px 10px;
-                border-bottom: 1px solid #323844;
-                font-weight: 600;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         group_layout.addWidget(self.group_table)
 
     def create_file_panel(self):
@@ -168,26 +144,12 @@ class CentralTripleLayout(QWidget):
 
         # 헤더
         header_label = QLabel("선택된 그룹의 파일들")
-        header_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        # 스타일은 테마 시스템에서 관리
         file_layout.addWidget(header_label)
 
         # 파일 테이블
         self.file_table = QTableView()
-        self.file_table.setStyleSheet(
-            """
-            QTableView {
-                background: #2a2f37;
-                border: 1px solid #323844;
-                border-radius: 8px;
-            }
-            QHeaderView::section {
-                background: #20252c;
-                padding: 9px 10px;
-                border-bottom: 1px solid #323844;
-                font-weight: 600;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         file_layout.addWidget(self.file_table)
 
     def setup_splitter_ratios(self):

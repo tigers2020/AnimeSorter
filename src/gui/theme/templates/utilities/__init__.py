@@ -10,6 +10,4 @@ from pathlib import Path
 UTILITIES_DIR = Path(__file__).parent
 
 # 기본 유틸리티 템플릿들
-__all__ = [
-    'UTILITIES_DIR'
-]
+__all__ = ["UTILITIES_DIR"]

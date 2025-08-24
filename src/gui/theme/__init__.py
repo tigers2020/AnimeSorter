@@ -5,18 +5,18 @@ AnimeSorter 테마 시스템
 템플릿 시스템을 제공합니다.
 """
 
-from .engine.theme_manager import ThemeManager
-from .engine.token_loader import TokenLoader
-from .engine.template_loader import TemplateLoader
 from .engine.color_utils import ColorUtils
 from .engine.icon_manager import IconManager
+from .engine.template_loader import TemplateLoader
+from .engine.theme_manager import ThemeManager
+from .engine.token_loader import TokenLoader
 
 __all__ = [
-    'ThemeManager',
-    'TokenLoader', 
-    'TemplateLoader',
-    'ColorUtils',
-    'IconManager',
+    "ThemeManager",
+    "TokenLoader",
+    "TemplateLoader",
+    "ColorUtils",
+    "IconManager",
 ]
 
-__version__ = '1.0.0'
+__version__ = "1.0.0"

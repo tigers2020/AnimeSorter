@@ -196,28 +196,14 @@ class SearchWidget(QWidget):
 
         # 검색 라벨
         search_label = QLabel("🔍 검색:")
-        search_label.setStyleSheet("font-weight: bold; color: #2c3e50;")
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(search_label)
 
         # 검색 입력 필드
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("제목, 경로, 시즌, 에피소드, 해상도, 코덱으로 검색...")
         self.search_input.setMinimumWidth(300)
-        self.search_input.setStyleSheet(
-            """
-            QLineEdit {
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 6px;
-                font-size: 12px;
-                background-color: white;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-                background-color: #f8f9fa;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         layout.addWidget(self.search_input)
 
         # 검색 입력 시그널 연결
@@ -225,18 +211,7 @@ class SearchWidget(QWidget):
 
         # 초기화 버튼
         clear_button = QLabel("❌")
-        clear_button.setStyleSheet(
-            """
-            QLabel {
-                color: #e74c3c;
-                font-size: 16px;
-                padding: 5px;
-            }
-            QLabel:hover {
-                color: #c0392b;
-            }
-        """
-        )
+        # 스타일은 테마 시스템에서 관리
         clear_button.mousePressEvent = self._clear_search
         layout.addWidget(clear_button)
 

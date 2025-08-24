@@ -8,28 +8,28 @@
     --primary-hover: #0056b3;
     --primary-active: #004085;
     --primary-disabled: #6c757d;
-    
+
     --secondary-color: #6c757d;
     --secondary-hover: #545b62;
     --secondary-active: #4e555b;
     --secondary-disabled: #adb5bd;
-    
+
     --success-color: #28a745;
     --success-hover: #1e7e34;
     --success-active: #1c7430;
-    
+
     --warning-color: #ffc107;
     --warning-hover: #e0a800;
     --warning-active: #d39e00;
-    
+
     --error-color: #dc3545;
     --error-hover: #c82333;
     --error-active: #bd2130;
-    
+
     --info-color: #17a2b8;
     --info-hover: #138496;
     --info-active: #117a8b;
-    
+
     /* 중성 색상 */
     --white: #ffffff;
     --black: #000000;
@@ -43,32 +43,32 @@
     --gray-700: #343a40;
     --gray-800: #212529;
     --gray-900: #0d1117;
-    
+
     /* 기능적 색상 */
     --background: var(--white);
     --surface: var(--gray-50);
     --surface-elevated: var(--white);
     --surface-depressed: var(--gray-100);
-    
+
     --text: var(--gray-900);
     --text-secondary: var(--gray-600);
     --text-disabled: var(--gray-400);
     --text-inverse: var(--white);
-    
+
     --border: var(--gray-200);
     --border-focus: var(--primary-color);
     --border-hover: var(--gray-300);
     --divider: var(--gray-200);
-    
+
     /* 인터랙티브 색상 */
     --hover: var(--gray-100);
     --active: var(--gray-200);
     --selected: rgba(0, 123, 255, 0.1);
-    
+
     /* 포커스 색상 */
     --focus-outline: var(--primary-color);
     --focus-ring: rgba(0, 123, 255, 0.25);
-    
+
     /* 그림자 색상 */
     --shadow-small: rgba(0, 0, 0, 0.1);
     --shadow-medium: rgba(0, 0, 0, 0.15);
@@ -81,20 +81,20 @@
     --surface: var(--gray-800);
     --surface-elevated: var(--gray-700);
     --surface-depressed: var(--gray-900);
-    
+
     --text: var(--white);
     --text-secondary: var(--gray-300);
     --text-disabled: var(--gray-500);
     --text-inverse: var(--black);
-    
+
     --border: var(--gray-700);
     --border-hover: var(--gray-600);
     --divider: var(--gray-700);
-    
+
     --hover: var(--gray-800);
     --active: var(--gray-700);
     --selected: rgba(0, 123, 255, 0.2);
-    
+
     --shadow-small: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.4);
     --shadow-large: rgba(0, 0, 0, 0.5);
@@ -106,7 +106,7 @@
     --background: var(--white);
     --text: var(--black);
     --border: var(--black);
-    
+
     --focus-outline: var(--primary-color);
     --focus-ring: var(--primary-color);
 }
@@ -115,7 +115,7 @@
 :root {
     --font-family-primary: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", sans-serif;
     --font-family-monospace: "Consolas", "Monaco", "Courier New", monospace;
-    
+
     --font-size-xs: 12px;
     --font-size-sm: 14px;
     --font-size-base: 16px;
@@ -124,13 +124,13 @@
     --font-size-2xl: 24px;
     --font-size-3xl: 30px;
     --font-size-4xl: 36px;
-    
+
     --font-weight-light: 300;
     --font-weight-normal: 400;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
-    
+
     --line-height-tight: 1.25;
     --line-height-normal: 1.5;
     --line-height-relaxed: 1.75;
@@ -146,7 +146,7 @@
     --spacing-xl: 32px;
     --spacing-2xl: 48px;
     --spacing-3xl: 64px;
-    
+
     --spacing-button-x: 16px;
     --spacing-button-y: 12px;
     --spacing-input: 12px;
@@ -160,7 +160,7 @@
     --border-width-thin: 1px;
     --border-width-normal: 2px;
     --border-width-thick: 3px;
-    
+
     --border-radius-none: 0;
     --border-radius-sm: 2px;
     --border-radius-normal: 4px;
@@ -168,7 +168,7 @@
     --border-radius-lg: 8px;
     --border-radius-xl: 12px;
     --border-radius-full: 9999px;
-    
+
     --border-style-solid: solid;
     --border-style-dashed: dashed;
     --border-style-dotted: dotted;
@@ -186,7 +186,7 @@
     --transition-fast: 150ms ease-out;
     --transition-normal: 300ms ease-in-out;
     --transition-slow: 500ms ease-in-out;
-    
+
     --transition-properties: all;
 }
 
