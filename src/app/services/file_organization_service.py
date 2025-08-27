@@ -14,6 +14,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from core import VideoMetadataExtractor  # type: ignore[import-untyped]
+from core.file_parser import FileParser
 
 from ..background_task import BaseTask, TaskResult, TaskStatus
 from ..events import TypedEventBus
@@ -89,6 +90,7 @@ class FileOrganizationTask(BaseTask):
         self.logger = logging.getLogger(f"{self.__class__.__name__}_{organization_id}")
         self._cancelled = False
         self.video_metadata_extractor = VideoMetadataExtractor()
+        self.file_parser = FileParser()
 
     def execute(self) -> TaskResult:
         """파일 정리 실행"""
@@ -143,20 +145,40 @@ class FileOrganizationTask(BaseTask):
                             f"그룹 '{group_name}' 화질별 분류: 고화질 {len(high_quality_files)}개, 저화질 {len(low_quality_files)}개"
                         )
 
-                        # 고화질 파일들을 원본 그룹 디렉토리에 배치
+                        # 고화질 파일들을 시즌별로 분류하여 배치
                         if high_quality_files:
-                            high_quality_dir = self.destination_directory / self._sanitize_filename(
-                                group_name
-                            )
-                            if not self.dry_run:
-                                high_quality_dir.mkdir(parents=True, exist_ok=True)
-                                result.created_directories.append(high_quality_dir)
-
-                            # 고화질 파일들 처리
+                            # 시즌별로 파일 분류
+                            season_files = {}
                             for file_data in files:
                                 if file_data.get("source_path") in high_quality_files:
+                                    # 파일명에서 시즌 정보를 다시 파싱
+                                    file_path = Path(file_data.get("source_path", ""))
+                                    parsed_metadata = self._parse_filename(file_path.name)
+                                    season = (
+                                        parsed_metadata.season
+                                        if parsed_metadata
+                                        else file_data.get("season", 1)
+                                    )
+
+                                    if season not in season_files:
+                                        season_files[season] = []
+                                    season_files[season].append(file_data)
+
+                            # 각 시즌별로 디렉토리 생성 및 파일 처리
+                            for season, season_file_list in season_files.items():
+                                season_dir = (
+                                    self.destination_directory
+                                    / self._sanitize_filename(group_name)
+                                    / f"Season{season:02d}"
+                                )
+                                if not self.dry_run:
+                                    season_dir.mkdir(parents=True, exist_ok=True)
+                                    result.created_directories.append(season_dir)
+
+                                # 해당 시즌의 파일들 처리
+                                for file_data in season_file_list:
                                     success = self._organize_single_file(
-                                        file_data, high_quality_dir, result
+                                        file_data, season_dir, result
                                     )
                                     if success:
                                         result.success_count += 1
@@ -164,22 +186,41 @@ class FileOrganizationTask(BaseTask):
                                         result.error_count += 1
                                     processed_files += 1
 
-                        # 저화질 파일들을 '_low res/' 서브디렉토리에 배치
+                        # 저화질 파일들을 시즌별로 분류하여 '_low res/' 서브디렉토리에 배치
                         if low_quality_files:
-                            low_quality_dir = (
-                                self.destination_directory
-                                / self._sanitize_filename(group_name)
-                                / "_low res"
-                            )
-                            if not self.dry_run:
-                                low_quality_dir.mkdir(parents=True, exist_ok=True)
-                                result.created_directories.append(low_quality_dir)
-
-                            # 저화질 파일들 처리
+                            # 시즌별로 파일 분류
+                            season_files = {}
                             for file_data in files:
                                 if file_data.get("source_path") in low_quality_files:
+                                    # 파일명에서 시즌 정보를 다시 파싱
+                                    file_path = Path(file_data.get("source_path", ""))
+                                    parsed_metadata = self._parse_filename(file_path.name)
+                                    season = (
+                                        parsed_metadata.season
+                                        if parsed_metadata
+                                        else file_data.get("season", 1)
+                                    )
+
+                                    if season not in season_files:
+                                        season_files[season] = []
+                                    season_files[season].append(file_data)
+
+                            # 각 시즌별로 디렉토리 생성 및 파일 처리
+                            for season, season_file_list in season_files.items():
+                                season_dir = (
+                                    self.destination_directory
+                                    / self._sanitize_filename(group_name)
+                                    / "_low res"
+                                    / f"Season{season:02d}"
+                                )
+                                if not self.dry_run:
+                                    season_dir.mkdir(parents=True, exist_ok=True)
+                                    result.created_directories.append(season_dir)
+
+                                # 해당 시즌의 파일들 처리
+                                for file_data in season_file_list:
                                     success = self._organize_single_file(
-                                        file_data, low_quality_dir, result
+                                        file_data, season_dir, result
                                     )
                                     if success:
                                         result.success_count += 1
@@ -296,8 +337,16 @@ class FileOrganizationTask(BaseTask):
                     # 파일이 이미 존재하는 경우 처리
                     target_path = self._generate_unique_filename(target_path)
 
+                # 파일 복사
                 shutil.copy2(source_path, target_path)
                 result.processed_files.append(target_path)
+
+                # 원본 파일 삭제 (복사 성공 후)
+                try:
+                    source_path.unlink()
+                    self.logger.debug(f"원본 파일 삭제 완료: {source_path}")
+                except Exception as e:
+                    self.logger.warning(f"원본 파일 삭제 실패: {source_path} - {e}")
             else:
                 result.processed_files.append(target_path)
 
@@ -310,15 +359,16 @@ class FileOrganizationTask(BaseTask):
 
     def _generate_target_filename(self, file_data: dict[str, Any]) -> str:
         """대상 파일명 생성"""
-        # 파일 데이터에서 제목, 에피소드 등 정보 추출하여 파일명 생성
+        # 파일 데이터에서 제목, 에피소드, 시즌 등 정보 추출하여 파일명 생성
         title = file_data.get("title", "Unknown")
         episode = file_data.get("episode", "")
+        season = file_data.get("season", 1)  # 시즌 정보 추가
         source_path = Path(file_data.get("source_path", ""))
 
         if episode:
-            filename = f"{title} - E{episode:02d}{source_path.suffix}"
+            filename = f"{title} - S{season:02d}E{episode:02d}{source_path.suffix}"
         else:
-            filename = f"{title}{source_path.suffix}"
+            filename = f"{title} - S{season:02d}{source_path.suffix}"
 
         return self._sanitize_filename(filename)
 

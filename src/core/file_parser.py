@@ -56,7 +56,115 @@ class FileParser:
             ),
             # 패턴 2: Title.E## 형태 (Exx 표기 - 매우 일반적)
             (re.compile(r"^(.+?)\.E(\d+)", re.IGNORECASE), "title_episode_exx", 0.9),
-            # 패턴 3A: [Group] Title - Episode.decimal (해상도).ext - 우선순위 상승
+            # 패턴 2B: [Group] Title S## - Episode (해상도) [코드] - 그룹 포함 (최고 우선순위)
+            (
+                re.compile(
+                    r"^\[([^\]]+)\]\s*(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\(([^)]*(?:\d+p|HD|SD)[^)]*)\)\s*\[([^\]]+)\]",
+                    re.IGNORECASE,
+                ),
+                "group_title_season_episode_resolution_code",
+                0.95,
+            ),
+            # 패턴 2C: [Group] Title S## - Episode (해상도) - 그룹 포함 (높은 우선순위)
+            (
+                re.compile(
+                    r"^\[([^\]]+)\]\s*(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\(([^)]*(?:\d+p|HD|SD)[^)]*)\)",
+                    re.IGNORECASE,
+                ),
+                "group_title_season_episode_resolution",
+                0.9,
+            ),
+            # 패턴 2D: [Group] Title S## - Episode [코드] - 그룹 포함 (높은 우선순위)
+            (
+                re.compile(
+                    r"^\[([^\]]+)\]\s*(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\[([^\]]+)\]",
+                    re.IGNORECASE,
+                ),
+                "group_title_season_episode_code",
+                0.9,
+            ),
+            # 패턴 2E: [Group] Title S## - Episode - 그룹 포함 (높은 우선순위)
+            (
+                re.compile(
+                    r"^\[([^\]]+)\]\s*(.+?)\s+S(\d+)\s*-\s*(\d+)",
+                    re.IGNORECASE,
+                ),
+                "group_title_season_episode",
+                0.85,
+            ),
+            # 패턴 2F: Title S## - Episode (해상도) [코드] (그룹 없음)
+            (
+                re.compile(
+                    r"^(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\(([^)]*(?:\d+p|HD|SD)[^)]*)\)\s*\[([^\]]+)\]",
+                    re.IGNORECASE,
+                ),
+                "title_season_episode_resolution_code",
+                0.9,
+            ),
+            # 패턴 2G: Title S## - Episode (해상도) (그룹 없음)
+            (
+                re.compile(
+                    r"^(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\(([^)]*(?:\d+p|HD|SD)[^)]*)\)",
+                    re.IGNORECASE,
+                ),
+                "title_season_episode_resolution",
+                0.85,
+            ),
+            # 패턴 2H: Title S## - Episode [코드] (그룹 없음)
+            (
+                re.compile(
+                    r"^(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\[([^\]]+)\]",
+                    re.IGNORECASE,
+                ),
+                "title_season_episode_code",
+                0.85,
+            ),
+            # 패턴 2I: Title S## - Episode (그룹 없음)
+            (
+                re.compile(
+                    r"^(.+?)\s+S(\d+)\s*-\s*(\d+)",
+                    re.IGNORECASE,
+                ),
+                "title_season_episode",
+                0.8,
+            ),
+            # 패턴 3A: [Group] Title S## - Episode (해상도) [코드] - 새로운 패턴 (우선순위 상승)
+            (
+                re.compile(
+                    r"^\[([^\]]+)\]\s*(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\(([^)]*(?:\d+p|HD|SD)[^)]*)\)\s*\[([^\]]+)\]",
+                    re.IGNORECASE,
+                ),
+                "group_title_season_episode_resolution_code",
+                0.95,
+            ),
+            # 패턴 3B: [Group] Title S## - Episode (해상도) - 새로운 패턴
+            (
+                re.compile(
+                    r"^\[([^\]]+)\]\s*(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\(([^)]*(?:\d+p|HD|SD)[^)]*)\)",
+                    re.IGNORECASE,
+                ),
+                "group_title_season_episode_resolution",
+                0.9,
+            ),
+            # 패턴 3C: [Group] Title S## - Episode [코드] - 새로운 패턴
+            (
+                re.compile(
+                    r"^\[([^\]]+)\]\s*(.+?)\s+S(\d+)\s*-\s*(\d+)\s*\[([^\]]+)\]",
+                    re.IGNORECASE,
+                ),
+                "group_title_season_episode_code",
+                0.9,
+            ),
+            # 패턴 3D: [Group] Title S## - Episode - 새로운 패턴
+            (
+                re.compile(
+                    r"^\[([^\]]+)\]\s*(.+?)\s+S(\d+)\s*-\s*(\d+)",
+                    re.IGNORECASE,
+                ),
+                "group_title_season_episode",
+                0.85,
+            ),
+            # 패턴 3E: [Group] Title - Episode.decimal (해상도).ext - 우선순위 상승
             (
                 re.compile(
                     r"^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+(?:\.\d+)?)\s*\(([^)]*(?:\d+p|HD|SD)[^)]*)\)",
@@ -65,7 +173,7 @@ class FileParser:
                 "group_title_episode_decimal_resolution",
                 0.9,
             ),
-            # 패턴 3: [Group] Title - Episode (추가정보).ext - 해상도 정확도 개선
+            # 패턴 3F: [Group] Title - Episode (추가정보).ext - 해상도 정확도 개선
             (
                 re.compile(
                     r"^\[([^\]]+)\]\s*(.+?)\s*-\s*(\d+)\s*\([^)]*\b(\d{3,5}x\d{3,5}|\d{3,5}p)\b[^)]*\)",
@@ -112,7 +220,7 @@ class FileParser:
             (
                 re.compile(r"^(.+?)\s+(?:Season\s*(\d+))?\s*(\d+)$", re.IGNORECASE),
                 "title_season_episode_space",
-                0.7,
+                0.8,
             ),
             # 패턴 11: [Group]Title Episode.ext (공백 없음)
             (
@@ -188,6 +296,52 @@ class FileParser:
                     confidence=base_confidence,
                 )
 
+            if pattern_type == "group_title_season_episode_resolution_code":
+                group, title, season, episode, resolution, code = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    season=int(season),
+                    episode=int(episode),
+                    resolution=resolution,
+                    group=group,
+                    container=container,
+                    confidence=base_confidence,
+                )
+
+            if pattern_type == "group_title_season_episode_resolution":
+                group, title, season, episode, resolution = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    season=int(season),
+                    episode=int(episode),
+                    resolution=resolution,
+                    group=group,
+                    container=container,
+                    confidence=base_confidence,
+                )
+
+            if pattern_type == "group_title_season_episode_code":
+                group, title, season, episode, code = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    season=int(season),
+                    episode=int(episode),
+                    group=group,
+                    container=container,
+                    confidence=base_confidence,
+                )
+
+            if pattern_type == "group_title_season_episode":
+                group, title, season, episode = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    season=int(season),
+                    episode=int(episode),
+                    group=group,
+                    container=container,
+                    confidence=base_confidence,
+                )
+
             if pattern_type == "group_title_episode_with_resolution":
                 group, title, episode, resolution = groups
                 return ParsedMetadata(
@@ -235,22 +389,22 @@ class FileParser:
                     confidence=base_confidence,
                 )
 
-            if pattern_type == "group_title_episode":
-                group, title, episode = groups
-                return ParsedMetadata(
-                    title=self._clean_title_cached(title),
-                    episode=int(episode),
-                    group=group,
-                    container=container,
-                    confidence=base_confidence,
-                )
-
             if pattern_type == "group_title_episode_bracket_resolution":
                 group, title, episode, resolution = groups
                 return ParsedMetadata(
                     title=self._clean_title_cached(title),
                     episode=int(episode),
                     resolution=resolution,
+                    group=group,
+                    container=container,
+                    confidence=base_confidence,
+                )
+
+            if pattern_type == "group_title_episode":
+                group, title, episode = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    episode=int(episode),
                     group=group,
                     container=container,
                     confidence=base_confidence,
@@ -280,6 +434,48 @@ class FileParser:
                 return ParsedMetadata(
                     title=self._clean_title_cached(title),
                     season=int(season) if season else 1,
+                    episode=int(episode),
+                    container=container,
+                    confidence=base_confidence,
+                )
+
+            if pattern_type == "title_season_episode_resolution_code":
+                title, season, episode, resolution, code = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    season=int(season),
+                    episode=int(episode),
+                    resolution=resolution,
+                    container=container,
+                    confidence=base_confidence,
+                )
+
+            if pattern_type == "title_season_episode_resolution":
+                title, season, episode, resolution = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    season=int(season),
+                    episode=int(episode),
+                    resolution=resolution,
+                    container=container,
+                    confidence=base_confidence,
+                )
+
+            if pattern_type == "title_season_episode_code":
+                title, season, episode, code = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    season=int(season),
+                    episode=int(episode),
+                    container=container,
+                    confidence=base_confidence,
+                )
+
+            if pattern_type == "title_season_episode":
+                title, season, episode = groups
+                return ParsedMetadata(
+                    title=self._clean_title_cached(title),
+                    season=int(season),
                     episode=int(episode),
                     container=container,
                     confidence=base_confidence,
