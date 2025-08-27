@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QHeaderView  # Added for QHeaderView
-from PyQt5.QtWidgets import QMainWindow, QMessageBox
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
 
 # New Architecture Components
 # UI Command Bridge
@@ -22,6 +22,8 @@ from core.tmdb_client import TMDBClient
 from .components.main_window_coordinator import MainWindowCoordinator
 # UI Components
 from .components.settings_dialog import SettingsDialog
+# Theme Engine Integration
+from .components.theme_manager import ThemeManager
 # Phase 8: UI 상태 관리 및 마이그레이션
 # UI Components
 # Event Handler Manager
@@ -30,6 +32,7 @@ from .components.settings_dialog import SettingsDialog
 from .managers.anime_data_manager import AnimeDataManager
 from .managers.file_processing_manager import FileProcessingManager
 from .managers.tmdb_manager import TMDBManager
+from .theme.engine.variable_loader import VariableLoader as TokenLoader
 
 # Table Models
 
@@ -61,8 +64,20 @@ class MainWindow(QMainWindow):
         # 설정 관리자 초기화
         self.settings_manager = SettingsManager()
 
+        # 테마 엔진 초기화
+        self.theme_manager = ThemeManager()
+        # 테마 디렉토리 경로 설정
+        theme_dir = Path(__file__).parent / "theme"
+        self.token_loader = TokenLoader(theme_dir)
+
+        # 초기 테마 적용 (UI 컴포넌트 초기화 전에)
+        self._apply_theme()
+
         # 모든 컴포넌트 초기화 (조율자를 통해)
         self.coordinator.initialize_all_components()
+
+        # UI 컴포넌트 초기화 완료 후 테마 재적용 (확실히 하기 위해)
+        self._apply_theme()
 
         # 데이터 매니저들 초기화 (핸들러 초기화 전에 먼저 실행)
         self.init_data_managers()
@@ -73,9 +88,15 @@ class MainWindow(QMainWindow):
         # 기본 연결 설정
         self.setup_connections()
 
+        # 테마 변경 시그널 연결
+        self._connect_theme_signals()
+
         self.current_scan_id = None
         self.current_organization_id = None
         self.current_tmdb_search_id = None
+
+        # 테마 모니터링 위젯 초기화
+        self.theme_monitor_widget = None
 
         # UI Command 시스템 관련 초기화
         self.undo_stack_bridge = None
@@ -98,19 +119,159 @@ class MainWindow(QMainWindow):
         # 파일 관리자 초기화
         self.file_manager = None
 
-        # 포스터 캐시 초기화
-        self.poster_cache = {}
+    def _apply_theme(self):
+        """테마를 적용합니다"""
+        try:
+            # 설정에서 저장된 테마 가져오기
+            saved_theme = self.settings_manager.get_setting("theme", "light")
 
-        # 접근성 및 국제화 관리자 (조율자에서 관리됨)
-        self.accessibility_manager = None
-        self.i18n_manager = None
+            # auto 테마인 경우 시스템 테마 감지
+            current_theme = self._detect_system_theme() if saved_theme == "auto" else saved_theme
 
-        # MainWindow 핸들러들 초기화
-        self.file_handler = None
-        self.session_manager = None
-        self.menu_action_handler = None
-        self.layout_manager = None
-        self.tmdb_search_handler = None
+            print(f"🎨 자동 테마 적용: 설정={saved_theme}, 적용={current_theme}")
+
+            # 루트 위젯에 테마별 objectName 설정
+            self._set_theme_object_name(current_theme)
+
+            # 테마 전환 (저장된 테마 적용)
+            if self.theme_manager.switch_theme(current_theme):
+                print(f"✅ 테마 적용 완료: {current_theme}")
+            else:
+                print(f"❌ 테마 적용 실패: {current_theme}")
+
+        except Exception as e:
+            print(f"❌ 테마 적용 중 오류 발생: {e}")
+            # 오류 발생 시 기본 라이트 테마 적용
+            try:
+                self.theme_manager.switch_theme("light")
+                self._set_theme_object_name("light")
+                print("🔄 기본 라이트 테마로 복구")
+            except Exception as fallback_error:
+                print(f"❌ 기본 테마 복구도 실패: {fallback_error}")
+
+    def _detect_system_theme(self) -> str:
+        """시스템 테마를 감지합니다"""
+        try:
+            from PyQt5.QtGui import QPalette
+            from PyQt5.QtWidgets import QApplication
+
+            app = QApplication.instance()
+            if app:
+                palette = app.palette()
+                background_color = palette.color(QPalette.Window)
+
+                # 배경색의 밝기를 기준으로 다크/라이트 테마 판단
+                brightness = (
+                    background_color.red() * 299
+                    + background_color.green() * 587
+                    + background_color.blue() * 114
+                ) / 1000
+
+                if brightness < 128:
+                    return "dark"
+                return "light"
+
+            return "light"  # 기본값
+
+        except Exception as e:
+            print(f"⚠️ 시스템 테마 감지 실패: {e}")
+            return "light"  # 기본값
+
+    def _set_theme_object_name(self, theme_name: str) -> None:
+        """테마별로 루트 위젯의 objectName을 설정합니다"""
+        try:
+            if theme_name == "dark":
+                self.setObjectName("AppDark")
+            elif theme_name == "high-contrast":
+                self.setObjectName("AppHighContrast")
+            else:
+                # Light theme (default)
+                self.setObjectName("")
+
+            print(f"🎨 테마 objectName 설정: {theme_name} → {self.objectName() or 'Light'}")
+
+            # 하위 위젯들도 테마 변경 알림
+            self._notify_theme_change_to_children(theme_name)
+
+        except Exception as e:
+            print(f"❌ 테마 objectName 설정 실패: {e}")
+
+    def _notify_theme_change_to_children(self, theme_name: str) -> None:
+        """하위 위젯들에게 테마 변경을 알립니다"""
+        try:
+            # 모든 하위 위젯을 찾아서 테마 변경 알림
+            for child in self.findChildren(QWidget):
+                if hasattr(child, "on_theme_changed"):
+                    child.on_theme_changed(theme_name)
+
+        except Exception as e:
+            print(f"❌ 하위 위젯 테마 변경 알림 실패: {e}")
+
+    def switch_theme(self, theme_name: str) -> bool:
+        """테마를 전환합니다"""
+        try:
+            print(f"🔄 테마 전환 시작: {self.theme_manager.get_current_theme()} → {theme_name}")
+
+            # 테마 전환
+            if self.theme_manager.switch_theme(theme_name):
+                # 루트 위젯 objectName 업데이트
+                self._set_theme_object_name(theme_name)
+
+                # 테마 변경 시그널 발생
+                self.theme_manager.theme_changed.emit(
+                    self.theme_manager.get_current_theme(), theme_name
+                )
+
+                print(f"✅ 테마 전환 완료: {theme_name}")
+                return True
+            print(f"❌ 테마 전환 실패: {theme_name}")
+            return False
+
+        except Exception as e:
+            print(f"❌ 테마 전환 중 오류: {e}")
+            return False
+
+    def get_available_themes(self) -> list[str]:
+        """사용 가능한 테마 목록을 반환합니다"""
+        try:
+            return ["light", "dark", "high-contrast"]
+        except Exception as e:
+            print(f"❌ 테마 목록 조회 실패: {e}")
+            return ["light"]
+
+    def get_current_theme(self) -> str:
+        """현재 테마를 반환합니다"""
+        try:
+            return self.theme_manager.get_current_theme()
+        except Exception as e:
+            print(f"❌ 현재 테마 조회 실패: {e}")
+            return "light"
+
+    def _connect_theme_signals(self):
+        """테마 변경 시그널을 연결합니다"""
+        try:
+            # 테마 변경 시그널 연결
+            self.theme_manager.theme_changed.connect(self._on_theme_changed)
+            self.theme_manager.icon_theme_changed.connect(self._on_icon_theme_changed)
+            print("✅ 테마 변경 시그널 연결 완료")
+        except Exception as e:
+            print(f"❌ 테마 시그널 연결 실패: {e}")
+
+    def _on_theme_changed(self, old_theme: str, new_theme: str):
+        """테마가 변경되었을 때 호출됩니다"""
+        try:
+            print(f"🎨 테마 변경: {old_theme} → {new_theme}")
+            # 여기에 테마 변경 시 추가적인 UI 업데이트 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ 테마 변경 처리 중 오류: {e}")
+
+    def _on_icon_theme_changed(self, icon_theme: str):
+        """아이콘 테마가 변경되었을 때 호출됩니다"""
+        try:
+            print(f"🖼️ 아이콘 테마 변경: {icon_theme}")
+            # 여기에 아이콘 테마 변경 시 추가적인 UI 업데이트 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ 아이콘 테마 변경 처리 중 오류: {e}")
 
     def _initialize_handlers(self):
         """MainWindow 핸들러들을 초기화합니다."""
@@ -1135,3 +1296,23 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"❌ 설정 다이얼로그 표시 실패: {e}")
             QMessageBox.critical(self, "오류", f"설정 다이얼로그를 열 수 없습니다:\n{e}")
+
+    def show_theme_monitor(self):
+        """테마 모니터링 위젯 표시"""
+        try:
+            if not self.theme_monitor_widget:
+                from .theme.theme_monitor_widget import ThemeMonitorWidget
+
+                self.theme_monitor_widget = ThemeMonitorWidget(self.theme_manager, self)
+
+            if self.theme_monitor_widget.isVisible():
+                self.theme_monitor_widget.raise_()
+                self.theme_monitor_widget.activateWindow()
+            else:
+                self.theme_monitor_widget.show()
+
+            print("✅ 테마 모니터링 위젯이 표시되었습니다.")
+
+        except Exception as e:
+            print(f"❌ 테마 모니터링 위젯 표시 실패: {e}")
+            QMessageBox.critical(self, "오류", f"테마 모니터링 위젯을 열 수 없습니다:\n{e}")
