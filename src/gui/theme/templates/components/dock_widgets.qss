@@ -1,0 +1,660 @@
+/* ==========================================================================
+   Dock Widget Styling (PyQt5 100% Compatible)
+   QDockWidget, QDockWidgetTitleBar 스타일링 - 접힘/전개 가능한 패널
+
+   사용법:
+   - dock.setProperty("class", "main-dock") → 메인 도크 위젯 스타일
+   - dock.setProperty("class", "log-dock") → 로그 도크 위젯 스타일
+   - dock.setProperty("class", "panel-dock") → 패널 도크 위젯 스타일
+   - dock.setProperty("active", true) → 활성 상태 강조
+   ========================================================================== */
+
+/* ==========================================================================
+   QDockWidget Base Styles
+   ========================================================================== */
+
+/* 기본 도크 위젯 스타일 */
+QDockWidget {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+/* 도크 위젯 제목 표시줄 */
+QDockWidget::title {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* 도크 위젯 제목 표시줄 호버 */
+QDockWidget::title:hover {
+    background-color: #e9ecef;
+    color: #212529;
+}
+
+/* 도크 위젯 제목 표시줄 포커스 */
+QDockWidget::title:focus {
+    background-color: #e9ecef;
+    color: #212529;
+    border-color: #007bff;
+}
+
+/* 활성 상태 강조 */
+QDockWidget[active="true"]::title {
+    border: 2px solid #007bff;
+    background-color: #e3f2fd;
+}
+
+/* ==========================================================================
+   Dock Widget Title Bar Buttons (Valid Subcontrols)
+   ========================================================================== */
+
+/* 도크 위젯 제목 표시줄 닫기 버튼 */
+QDockWidget::close-button {
+    subcontrol-position: right;
+    subcontrol-origin: margin;
+    width: 16px;
+    height: 16px;
+    /* image: url(:/icons/dark/close.svg); - PyQt5 QSS 미지원 */
+    border: none;
+    border-radius: 2px;
+    padding: 2px;
+    margin: 0 2px;
+    background-color: transparent;
+}
+
+QDockWidget::close-button:hover {
+    background-color: #e9ecef;
+}
+
+QDockWidget::close-button:pressed {
+    background-color: #dee2e6;
+}
+
+/* 도크 위젯 제목 표시줄 떠있음 버튼 */
+QDockWidget::float-button {
+    subcontrol-position: right;
+    subcontrol-origin: margin;
+    width: 16px;
+    height: 16px;
+    /* image: url(:/icons/dark/chevron-up.svg); - PyQt5 QSS 미지원 */
+    border: none;
+    border-radius: 2px;
+    padding: 2px;
+    margin: 0 2px;
+    background-color: transparent;
+}
+
+QDockWidget::float-button:hover {
+    background-color: #e9ecef;
+}
+
+QDockWidget::float-button:pressed {
+    background-color: #dee2e6;
+}
+
+/* ==========================================================================
+   Dock Widget Variants
+   ========================================================================== */
+
+/* 메인 도크 위젯 */
+QDockWidget[class="main-dock"] {
+    background-color: #ffffff;
+    border: 2px solid #007bff;
+    border-radius: 6px;
+    margin: 4px;
+}
+
+QDockWidget[class="main-dock"]::title {
+    background-color: #007bff;
+    color: #ffffff;
+    border: 2px solid #007bff;
+    border-bottom: 1px solid #007bff;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+QDockWidget[class="main-dock"]::title:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+    color: #ffffff;
+}
+
+/* 로그 도크 위젯 */
+QDockWidget[class="log-dock"] {
+    background-color: #f8f9fa;
+    border: 1px solid #6c757d;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+QDockWidget[class="log-dock"]::title {
+    background-color: #6c757d;
+    color: #ffffff;
+    border: 1px solid #6c757d;
+    border-bottom: 1px solid #6c757d;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QDockWidget[class="log-dock"]::title:hover {
+    background-color: #545b62;
+    border-color: #545b62;
+    color: #ffffff;
+}
+
+/* 패널 도크 위젯 */
+QDockWidget[class="panel-dock"] {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+QDockWidget[class="panel-dock"]::title {
+    background-color: #e9ecef;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+QDockWidget[class="panel-dock"]::title:hover {
+    background-color: #dee2e6;
+    color: #212529;
+}
+
+/* 파일 패널 도크 위젯 */
+QDockWidget[class="file-panel-dock"] {
+    background-color: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+QDockWidget[class="file-panel-dock"]::title {
+    background-color: #90caf9;
+    color: #1565c0;
+    border: 1px solid #90caf9;
+    border-bottom: 1px solid #90caf9;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QDockWidget[class="file-panel-dock"]::title:hover {
+    background-color: #64b5f6;
+    border-color: #64b5f6;
+    color: #0d47a1;
+}
+
+/* ==========================================================================
+   Dock Widget States
+   ========================================================================== */
+
+/* 도크 위젯 비활성화 상태 */
+QDockWidget:disabled {
+    background-color: #f8f9fa;
+    border-color: #e9ecef;
+}
+
+QDockWidget:disabled::title {
+    background-color: #e9ecef;
+    color: #adb5bd;
+    border-color: #e9ecef;
+}
+
+/* 도크 위젯 포커스 상태 */
+QDockWidget:focus {
+    border-color: #007bff;
+    border-width: 2px;
+}
+
+QDockWidget:focus::title {
+    border-color: #007bff;
+    border-width: 2px;
+}
+
+/* ==========================================================================
+   Dock Widget Content Area (Platform-Safe Selectors)
+   ========================================================================== */
+
+/* 도크 위젯 내용 영역 - 플랫폼 편차 대비용 보강 선택자 */
+QDockWidget QWidget#DockContent {
+    background-color: #ffffff;
+    border: none;
+    border-top: 1px solid #dee2e6;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* 메인 도크 위젯 내용 영역 */
+QDockWidget[class="main-dock"] QWidget#DockContent {
+    background-color: #ffffff;
+    border-top: 1px solid #007bff;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+/* 로그 도크 위젯 내용 영역 */
+QDockWidget[class="log-dock"] QWidget#DockContent {
+    background-color: #f8f9fa;
+    border-top: 1px solid #6c757d;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* 패널 도크 위젯 내용 영역 */
+QDockWidget[class="panel-dock"] QWidget#DockContent {
+    background-color: #ffffff;
+    border-top: 1px solid #dee2e6;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* 파일 패널 도크 위젯 내용 영역 */
+QDockWidget[class="file-panel-dock"] QWidget#DockContent {
+    background-color: #e3f2fd;
+    border-top: 1px solid #90caf9;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* ==========================================================================
+   Dock Widget Features
+   ========================================================================== */
+
+/* 도크 위젯 기능별 스타일 */
+QDockWidget[class="movable-dock"] {
+    border-style: solid;
+}
+
+QDockWidget[class="floatable-dock"] {
+    border-style: solid;
+}
+
+QDockWidget[class="closable-dock"] {
+    border-style: solid;
+}
+
+QDockWidget[class="dockable-dock"] {
+    border-style: solid;
+}
+
+/* ==========================================================================
+   Dock Widget Sizes
+   ========================================================================== */
+
+/* 작은 도크 위젯 */
+QDockWidget[class="dock-small"] {
+    min-width: 200px;
+    min-height: 150px;
+}
+
+QDockWidget[class="dock-small"]::title {
+    padding: 4px 6px;
+    font-size: 11px;
+}
+
+/* 중간 도크 위젯 */
+QDockWidget[class="dock-medium"] {
+    min-width: 300px;
+    min-height: 200px;
+}
+
+QDockWidget[class="dock-medium"]::title {
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+/* 큰 도크 위젯 */
+QDockWidget[class="dock-large"] {
+    min-width: 400px;
+    min-height: 300px;
+}
+
+QDockWidget[class="dock-large"]::title {
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+/* ==========================================================================
+   Dock Widget Special States
+   ========================================================================== */
+
+/* 도크 위젯 최소화 상태 */
+QDockWidget[class="minimized-dock"] {
+    border-width: 1px;
+    margin: 1px;
+}
+
+QDockWidget[class="minimized-dock"]::title {
+    padding: 4px 6px;
+    font-size: 11px;
+}
+
+/* 도크 위젯 최대화 상태 */
+QDockWidget[class="maximized-dock"] {
+    border-width: 2px;
+    margin: 4px;
+}
+
+QDockWidget[class="maximized-dock"]::title {
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* 도크 위젯 떠다니는 상태 */
+QDockWidget[class="floating-dock"] {
+    border-width: 2px;
+    border-radius: 8px;
+    margin: 6px;
+}
+
+QDockWidget[class="floating-dock"]::title {
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Enhanced Dock Widget Controls
+   ========================================================================== */
+
+/* 도크 위젯 제목 표시줄 버튼 그룹 */
+QDockWidget::title > QWidget {
+    background-color: transparent;
+    border: none;
+    margin: 0px;
+    padding: 0px;
+}
+
+/* 도크 위젯 제목 표시줄 라벨 */
+QDockWidget::title > QLabel {
+    background-color: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    margin: 0px;
+    padding: 0px;
+}
+
+/* 도크 위젯 제목 표시줄 버튼 컨테이너 */
+QDockWidget::title > QToolBar {
+    background-color: transparent;
+    border: none;
+    spacing: 1px;
+    margin: 0px;
+    padding: 0px;
+}
+
+/* ==========================================================================
+   Main Window Docking Separators
+   ========================================================================== */
+
+/* 메인윈도우 도킹 구분선/핸들 */
+QMainWindow::separator {
+    background-color: #dee2e6;
+    width: 4px;
+    height: 4px;
+}
+
+QMainWindow::separator:hover {
+    background-color: #adb5bd;
+}
+
+/* ==========================================================================
+   Theme-Specific Overrides
+   ========================================================================== */
+
+/* Dark Theme Overrides */
+QWidget#AppDark QDockWidget {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+QWidget#AppDark QDockWidget::title {
+    background-color: #495057;
+    color: #f8f9fa;
+    border-color: #495057;
+}
+
+QWidget#AppDark QDockWidget::title:hover {
+    background-color: #6c757d;
+    color: #ffffff;
+}
+
+QWidget#AppDark QDockWidget QWidget#DockContent {
+    background-color: #343a40;
+    border-top-color: #495057;
+}
+
+QWidget#AppDark QDockWidget[class="main-dock"] {
+    border-color: #4dabf7;
+}
+
+QWidget#AppDark QDockWidget[class="main-dock"]::title {
+    background-color: #4dabf7;
+    color: #000000;
+    border-color: #4dabf7;
+}
+
+QWidget#AppDark QDockWidget[class="main-dock"]::title:hover {
+    background-color: #339af0;
+    border-color: #339af0;
+}
+
+QWidget#AppDark QDockWidget[class="log-dock"] {
+    border-color: #6c757d;
+}
+
+QWidget#AppDark QDockWidget[class="log-dock"]::title {
+    background-color: #6c757d;
+    color: #ffffff;
+    border-color: #6c757d;
+}
+
+QWidget#AppDark QDockWidget[class="log-dock"]::title:hover {
+    background-color: #5a6268;
+    border-color: #5a6268;
+}
+
+QWidget#AppDark QDockWidget[class="panel-dock"] {
+    border-color: #495057;
+}
+
+QWidget#AppDark QDockWidget[class="panel-dock"]::title {
+    background-color: #495057;
+    color: #f8f9fa;
+    border-color: #495057;
+}
+
+QWidget#AppDark QDockWidget[class="panel-dock"]::title:hover {
+    background-color: #6c757d;
+    color: #ffffff;
+}
+
+QWidget#AppDark QDockWidget[class="file-panel-dock"] {
+    border-color: #2c5aa0;
+}
+
+QWidget#AppDark QDockWidget[class="file-panel-dock"]::title {
+    background-color: #2c5aa0;
+    color: #ffffff;
+    border-color: #2c5aa0;
+}
+
+QWidget#AppDark QDockWidget[class="file-panel-dock"]::title:hover {
+    background-color: #1e3a5f;
+    border-color: #1e3a5f;
+}
+
+QWidget#AppDark QDockWidget[class="file-panel-dock"] QWidget#DockContent {
+    background-color: #1e3a5f;
+    border-top-color: #2c5aa0;
+}
+
+/* 다크 테마 아이콘/색 보강 */
+QWidget#AppDark QDockWidget::close-button {
+    /* image: url(:/icons/light/close.svg); - PyQt5 QSS 미지원 */
+}
+
+QWidget#AppDark QDockWidget::float-button {
+    /* image: url(:/icons/light/chevron-up.svg); - PyQt5 QSS 미지원 */
+}
+
+QWidget#AppDark QMainWindow::separator {
+    background-color: #495057;
+}
+
+QWidget#AppDark QMainWindow::separator:hover {
+    background-color: #6c757d;
+}
+
+/* High Contrast Theme Overrides */
+QWidget#AppHighContrast QDockWidget {
+    background-color: #000000;
+    border-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QDockWidget::title {
+    background-color: #000000;
+    color: #ffffff;
+    border-color: #000000;
+    border-width: 2px;
+    font-weight: 700;
+}
+
+QWidget#AppHighContrast QDockWidget::title:hover {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #000000;
+}
+
+QWidget#AppHighContrast QDockWidget QWidget#DockContent {
+    background-color: #000000;
+    border-top-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="main-dock"] {
+    border-color: #000080;
+    border-width: 3px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="main-dock"]::title {
+    background-color: #000080;
+    color: #ffffff;
+    border-color: #000080;
+    border-width: 3px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="main-dock"]::title:hover {
+    background-color: #0000ff;
+    border-color: #0000ff;
+}
+
+QWidget#AppHighContrast QDockWidget[class="log-dock"] {
+    border-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="log-dock"]::title {
+    background-color: #000000;
+    color: #ffffff;
+    border-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="log-dock"]::title:hover {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #000000;
+}
+
+QWidget#AppHighContrast QDockWidget[class="panel-dock"] {
+    border-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="panel-dock"]::title {
+    background-color: #000000;
+    color: #ffffff;
+    border-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="panel-dock"]::title:hover {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #000000;
+}
+
+QWidget#AppHighContrast QDockWidget[class="file-panel-dock"] {
+    border-color: #000080;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="file-panel-dock"]::title {
+    background-color: #000080;
+    color: #ffffff;
+    border-color: #000080;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QDockWidget[class="file-panel-dock"]::title:hover {
+    background-color: #0000ff;
+    border-color: #0000ff;
+}
+
+/* ==========================================================================
+   Accessibility Enhancements
+   ========================================================================== */
+
+/* High Contrast 포커스 가시성 강화 */
+QWidget#AppHighContrast QDockWidget:focus {
+    border-width: 3px;
+    border-color: #000000;
+}
+
+QWidget#AppHighContrast QDockWidget:focus::title {
+    border-width: 3px;
+    border-color: #000000;
+}
+
+/* 도크 위젯 제목 표시줄 버튼 접근성 */
+QWidget#AppHighContrast QDockWidget::close-button,
+QWidget#AppHighContrast QDockWidget::float-button {
+    border: 2px solid #000000;
+}
+
+QWidget#AppHighContrast QDockWidget::close-button:focus,
+QWidget#AppHighContrast QDockWidget::float-button:focus {
+    border: 2px solid #ffffff;
+    background-color: #000000;
+}
+
+/* 하이 콘트라스트 - 포커스/테두리 강화 */
+QWidget#AppHighContrast QMainWindow::separator {
+    background-color: #000000;
+    width: 6px;
+    height: 6px;
+}

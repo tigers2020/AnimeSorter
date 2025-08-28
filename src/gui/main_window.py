@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
 # Local imports
 from core.settings_manager import SettingsManager
 from core.tmdb_client import TMDBClient
+from core.unified_event_system import get_unified_event_bus
 
 # Phase 10.1: 접근성 관리 시스템
 # Phase 10.2: 국제화 관리 시스템
@@ -64,6 +65,9 @@ class MainWindow(QMainWindow):
         # 설정 관리자 초기화
         self.settings_manager = SettingsManager()
 
+        # 통합 이벤트 시스템 초기화
+        self.unified_event_bus = get_unified_event_bus()
+
         # 테마 엔진 초기화
         self.theme_manager = ThemeManager()
         # 테마 디렉토리 경로 설정
@@ -91,12 +95,27 @@ class MainWindow(QMainWindow):
         # 테마 변경 시그널 연결
         self._connect_theme_signals()
 
+        # 통합 이벤트 시스템 연결
+        self._connect_unified_event_system()
+
         self.current_scan_id = None
         self.current_organization_id = None
         self.current_tmdb_search_id = None
 
         # 테마 모니터링 위젯 초기화
         self.theme_monitor_widget = None
+
+    def publish_event(self, event):
+        """통합 이벤트 시스템을 통해 이벤트를 발행합니다"""
+        try:
+            if self.unified_event_bus:
+                return self.unified_event_bus.publish(event)
+            else:
+                print("⚠️ 통합 이벤트 버스가 초기화되지 않았습니다")
+                return False
+        except Exception as e:
+            print(f"❌ 이벤트 발행 실패: {e}")
+            return False
 
         # UI Command 시스템 관련 초기화
         self.undo_stack_bridge = None
@@ -257,10 +276,22 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"❌ 테마 시그널 연결 실패: {e}")
 
-    def _on_theme_changed(self, old_theme: str, new_theme: str):
+    def _connect_unified_event_system(self):
+        """통합 이벤트 시스템을 연결합니다"""
+        try:
+            # 이벤트 버스 시그널 연결
+            self.unified_event_bus.event_published.connect(self._on_event_published)
+            self.unified_event_bus.event_handled.connect(self._on_event_handled)
+            self.unified_event_bus.event_failed.connect(self._on_event_failed)
+
+            print("✅ 통합 이벤트 시스템 연결 완료")
+        except Exception as e:
+            print(f"❌ 통합 이벤트 시스템 연결 실패: {e}")
+
+    def _on_theme_changed(self, theme: str):
         """테마가 변경되었을 때 호출됩니다"""
         try:
-            print(f"🎨 테마 변경: {old_theme} → {new_theme}")
+            print(f"🎨 테마 변경: {theme}")
             # 여기에 테마 변경 시 추가적인 UI 업데이트 로직을 구현할 수 있습니다
         except Exception as e:
             print(f"❌ 테마 변경 처리 중 오류: {e}")
@@ -272,6 +303,32 @@ class MainWindow(QMainWindow):
             # 여기에 아이콘 테마 변경 시 추가적인 UI 업데이트 로직을 구현할 수 있습니다
         except Exception as e:
             print(f"❌ 아이콘 테마 변경 처리 중 오류: {e}")
+
+    def _on_event_published(self, event):
+        """이벤트가 발행되었을 때 호출됩니다"""
+        try:
+            print(
+                f"📢 이벤트 발행: {event.__class__.__name__} (source: {event.source}, priority: {event.priority})"
+            )
+            # 여기에 이벤트 발행 시 추가적인 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ 이벤트 발행 처리 중 오류: {e}")
+
+    def _on_event_handled(self, event_type: str, handler_name: str):
+        """이벤트가 처리되었을 때 호출됩니다"""
+        try:
+            print(f"✅ 이벤트 처리: {event_type} -> {handler_name}")
+            # 여기에 이벤트 처리 완료 시 추가적인 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ 이벤트 처리 완료 처리 중 오류: {e}")
+
+    def _on_event_failed(self, event_type: str, handler_name: str, error: str):
+        """이벤트 처리에 실패했을 때 호출됩니다"""
+        try:
+            print(f"❌ 이벤트 처리 실패: {event_type} -> {handler_name} - {error}")
+            # 여기에 이벤트 처리 실패 시 추가적인 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ 이벤트 처리 실패 처리 중 오류: {e}")
 
     def _initialize_handlers(self):
         """MainWindow 핸들러들을 초기화합니다."""

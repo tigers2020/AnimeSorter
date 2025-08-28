@@ -1,0 +1,235 @@
+/* ==========================================================================
+   Menu Components Styling
+   QMenuBar, QMenu, QToolTip
+   ========================================================================== */
+
+/* ==========================================================================
+   Subtask 14.1: Style QMenuBar Base Appearance
+   ========================================================================== */
+
+/* QMenuBar 기본 스타일 */
+QMenuBar {
+    background-color: #ffffff;  /* --surface */
+    color: #495057;  /* --text-primary */
+    border: none;
+    border-bottom: 1px solid #dee2e6;  /* --border */
+    padding: 4px 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* QMenuBar 아이템 기본 스타일 */
+QMenuBar::item {
+    background-color: transparent;
+    color: #495057;  /* --text-primary */
+    padding: 8px 12px;
+    margin: 0px 2px;
+    border-radius: 4px;
+}
+
+/* QMenuBar 아이템 호버 상태 */
+QMenuBar::item:hover {
+    background-color: #f8f9fa;  /* --hover */
+    color: #212529;  /* --text-primary */
+}
+
+/* QMenuBar 아이템 선택된 상태 */
+QMenuBar::item:selected {
+    background-color: #e9ecef;  /* --hover */
+    color: #212529;  /* --text-primary */
+}
+
+/* QMenuBar 아이템 눌린 상태 */
+QMenuBar::item:pressed {
+    background-color: #dee2e6;  /* --hover */
+    color: #212529;  /* --text-primary */
+}
+
+/* ==========================================================================
+   Subtask 14.2: Style QMenu Base Appearance
+   ========================================================================== */
+
+/* QMenu 기본 스타일 */
+QMenu {
+    background-color: #ffffff;  /* --surface-elevated */
+    color: #495057;  /* --text-primary */
+    border: 1px solid #dee2e6;  /* --border */
+    border-radius: 6px;
+    padding: 4px 0px;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+/* QMenu 아이템 기본 스타일 */
+QMenu::item {
+    background-color: transparent;
+    color: #495057;  /* --text-primary */
+    padding: 8px 16px;
+    margin: 0px;
+    border: none;
+}
+
+/* QMenu 아이템 호버 상태 */
+QMenu::item:hover {
+    background-color: #f8f9fa;  /* --hover */
+    color: #212529;  /* --text-primary */
+}
+
+/* QMenu 아이템 선택된 상태 */
+QMenu::item:selected {
+    background-color: #e9ecef;  /* --hover */
+    color: #212529;  /* --text-primary */
+}
+
+/* QMenu 구분선 */
+QMenu::separator {
+    height: 1px;
+    background-color: #dee2e6;  /* --border */
+    margin: 4px 8px;
+}
+
+/* ==========================================================================
+   Subtask 14.4: Style QToolTip Appearance
+   ========================================================================== */
+
+/* QToolTip 기본 스타일 */
+QToolTip {
+    background-color: #212529;  /* 반투명 다크 배경 */
+    color: #ffffff;  /* 흰색 텍스트 */
+    border: 1px solid #495057;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 400;
+    margin: 0px;
+}
+
+/* ==========================================================================
+   Dark Theme Overrides
+   ========================================================================== */
+
+/* 다크 테마 QMenuBar */
+QWidget#AppDark QMenuBar {
+    background-color: #343a40;                    /* --surface-dark */
+    color: #f8f9fa;                               /* --text-primary-dark */
+    border-bottom-color: #495057;                 /* --divider-dark */
+}
+
+QWidget#AppDark QMenuBar::item {
+    background-color: transparent;
+    color: #f8f9fa;                               /* --text-primary-dark */
+    border-radius: 4px;
+}
+
+QWidget#AppDark QMenuBar::item:hover {
+    background-color: #495057;                     /* --hover-dark */
+    color: #ffffff;                                /* --text-white */
+}
+
+QWidget#AppDark QMenuBar::item:selected {
+    background-color: #4dabf7;                     /* --primary-dark */
+    color: #000000;                                /* --text-black */
+}
+
+QWidget#AppDark QMenuBar::item:pressed {
+    background-color: #339af0;                     /* --primary-pressed-dark */
+    color: #000000;                                /* --text-black */
+}
+
+/* 다크 테마 QMenu */
+QWidget#AppDark QMenu {
+    background-color: #343a40;                     /* --surface-dark */
+    color: #f8f9fa;                               /* --text-primary-dark */
+    border-color: #495057;                         /* --border-dark */
+}
+
+QWidget#AppDark QMenu::item {
+    background-color: transparent;
+    color: #f8f9fa;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QMenu::item:hover {
+    background-color: #495057;                     /* --hover-dark */
+    color: #ffffff;                                /* --text-white */
+}
+
+QWidget#AppDark QMenu::item:selected {
+    background-color: #4dabf7;                     /* --primary-dark */
+    color: #000000;                                /* --text-black */
+}
+
+QWidget#AppDark QMenu::separator {
+    background-color: #495057;                     /* --border-dark */
+}
+
+/* 다크 테마 QToolTip */
+QWidget#AppDark QToolTip {
+    background-color: #212529;                     /* --surface-dark */
+    color: #ffffff;                                /* --text-white */
+    border-color: #495057;                         /* --border-dark */
+}
+
+/* ==========================================================================
+   Light Theme Overrides
+   ========================================================================== */
+
+/* 라이트 테마 QMenuBar */
+QWidget#AppLight QMenuBar {
+    background-color: #ffffff;                     /* --surface-light */
+    color: #495057;                                /* --text-primary-light */
+    border-bottom-color: #dee2e6;                 /* --divider-light */
+}
+
+QWidget#AppLight QMenuBar::item {
+    background-color: transparent;
+    color: #495057;                                /* --text-primary-light */
+    border-radius: 4px;
+}
+
+QWidget#AppLight QMenuBar::item:hover {
+    background-color: #f8f9fa;                     /* --hover-light */
+    color: #212529;                                /* --text-primary-light */
+}
+
+QWidget#AppLight QMenuBar::item:selected {
+    background-color: #007bff;                     /* --primary-light */
+    color: #ffffff;                                /* --text-white */
+}
+
+QWidget#AppLight QMenuBar::item:pressed {
+    background-color: #0056b3;                     /* --primary-pressed-light */
+    color: #ffffff;                                /* --text-white */
+}
+
+/* 라이트 테마 QMenu */
+QWidget#AppLight QMenu {
+    background-color: #ffffff;                     /* --surface-light */
+    color: #495057;                                /* --text-primary-light */
+    border-color: #dee2e6;                         /* --border-light */
+}
+
+QWidget#AppLight QMenu::item {
+    background-color: transparent;
+    color: #495057;                                /* --text-primary-light */
+}
+
+QWidget#AppLight QMenu::item:hover {
+    background-color: #f8f9fa;                     /* --hover-light */
+    color: #212529;                                /* --text-primary-light */
+}
+
+QWidget#AppLight QMenu::item:selected {
+    background-color: #007bff;                     /* --primary-light */
+    color: #ffffff;                                /* --text-white */
+}
+
+QWidget#AppLight QMenu::separator {
+    background-color: #dee2e6;                     /* --border-light */
+}
+
+/* 라이트 테마 QToolTip */
+QWidget#AppLight QToolTip {
+    background-color: #212529;                     /* --surface-light */
+    color: #ffffff;                                /* --text-white */
+    border-color: #495057;                         /* --border-light */
+}

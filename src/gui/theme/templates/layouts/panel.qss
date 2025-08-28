@@ -1,0 +1,338 @@
+/* ===== 패널 및 레이아웃 기본 스타일 ===== */
+
+/* 기본 패널 */
+QWidget[class="panel"] {
+    /* 기본 패널 */
+}
+
+QWidget[class="panel"] QLabel {
+    /* 패널 라벨 */
+}
+
+QWidget[class="panel"] QLabel[class="title"] {
+    /* 패널 제목 */
+}
+
+QWidget[class="panel"] QLabel[class="subtitle"] {
+    /* 패널 부제목 */
+}
+
+/* 패널 헤더 */
+QLabel[class="panel-header"] {
+    /* 패널 헤더 */
+}
+
+/* 필터 칩 */
+QLabel[class="filter-chip"] {
+    /* 필터 칩 */
+}
+
+/* 그룹 테이블 */
+QTableView[class="group-table"] {
+    /* 그룹 테이블 */
+}
+
+/* 파일 테이블 */
+QTableView[class="file-table"] {
+    /* 파일 테이블 */
+}
+
+/* 포스터 프레임 */
+QFrame[class="poster-frame"] {
+    /* 포스터 프레임 */
+}
+
+/* 포스터 라벨 */
+QLabel[class="poster-label"] {
+    /* 포스터 라벨 */
+}
+
+/* 메타데이터 라벨 */
+QLabel[class="metadata-label"] {
+    /* 메타데이터 라벨 */
+}
+
+/* 메타데이터 값 */
+QLabel[class="metadata-value"] {
+    /* 메타데이터 값 */
+}
+
+/* 검색 라벨 */
+QLabel[class="search-label"] {
+    /* 검색 라벨 */
+}
+
+/* 검색 입력 */
+QLineEdit[class="search-input"] {
+    /* 검색 입력 */
+}
+
+/* 클리어 버튼 */
+QLabel[class="clear-button"] {
+    /* 클리어 버튼 */
+}
+
+/* 테이블 뷰 */
+QTableView[class="table-view"] {
+    /* 테이블 뷰 */
+}
+
+/* 고급 스플리터 */
+QSplitter[class="advanced-splitter"] {
+    /* 고급 스플리터 */
+}
+
+/* 로그 카운트 */
+QLabel[class="log-count"] {
+    /* 로그 카운트 */
+}
+
+/* 로그 클리어 버튼 */
+QToolButton[class="log-clear-button"] {
+    /* 로그 클리어 버튼 */
+}
+
+/* 로그 내보내기 버튼 */
+QToolButton[class="log-export-button"] {
+    /* 로그 내보내기 버튼 */
+}
+
+/* 비율 라벨 */
+QLabel[class="ratio-label"] {
+    /* 비율 라벨 */
+}
+
+/* 상태 칩 */
+QLabel[class="status-chip"] {
+    /* 상태 칩 */
+}
+
+/* 태그 칩 */
+QLabel[class="tag-chip"] {
+    /* 태그 칩 */
+}
+
+/* 애니메이션 제목 */
+QLabel[class="anime-title"] {
+    /* 애니메이션 제목 */
+}
+
+/* 애니메이션 원제목 */
+QLabel[class="anime-original-title"] {
+    /* 애니메이션 원제목 */
+}
+
+/* 애니메이션 개요 */
+QLabel[class="anime-overview"] {
+    /* 애니메이션 개요 */
+}
+
+/* 애니메이션 메타데이터 */
+QLabel[class="anime-meta"] {
+    /* 애니메이션 메타데이터 */
+}
+
+/* 섹션 헤더 */
+QLabel[class="section-header"] {
+    /* 섹션 헤더 */
+}
+
+/* 상태 라벨 */
+QLabel[class="status-label"] {
+    /* 상태 라벨 */
+}
+
+/* 현재 테마 라벨 */
+QLabel[class="current-theme-label"] {
+    /* 현재 테마 라벨 */
+}
+
+/* 상세 패널 */
+QWidget[class="detail-panel"] {
+    /* 상세 패널 */
+}
+
+QWidget[class="detail-panel"] QLabel {
+    /* 상세 패널 라벨 */
+}
+
+QWidget[class="detail-panel"] QLabel[class="title"] {
+    /* 상세 패널 제목 */
+}
+
+QWidget[class="detail-panel"] QLabel[class="subtitle"] {
+    /* 상세 패널 부제목 */
+}
+
+/* 사이드바 패널 */
+QWidget[class="sidebar-panel"] {
+    /* 사이드바 패널 */
+}
+
+QWidget[class="sidebar-panel"] QLabel {
+    /* 사이드바 패널 라벨 */
+}
+
+QWidget[class="sidebar-panel"] QLabel[class="title"] {
+    /* 사이드바 패널 제목 */
+}
+
+QWidget[class="sidebar-panel"] QLabel[class="subtitle"] {
+    /* 사이드바 패널 부제목 */
+}
+
+/* 툴바 패널 */
+QWidget[class="toolbar-panel"] {
+    /* 툴바 패널 */
+}
+
+QWidget[class="toolbar-panel"] QLabel {
+    /* 툴바 패널 라벨 */
+}
+
+QWidget[class="toolbar-panel"] QLabel[class="title"] {
+    /* 툴바 패널 제목 */
+}
+
+QWidget[class="toolbar-panel"] QLabel[class="subtitle"] {
+    /* 툴바 패널 부제목 */
+}
+
+/* 상태 패널 */
+QWidget[class="status-panel"] {
+    /* 상태 패널 */
+}
+
+QWidget[class="status-panel"] QLabel {
+    /* 상태 패널 라벨 */
+}
+
+QWidget[class="status-panel"] QLabel[class="title"] {
+    /* 상태 패널 제목 */
+}
+
+QWidget[class="status-panel"] QLabel[class="subtitle"] {
+    /* 상태 패널 부제목 */
+}
+
+/* 정보 패널 */
+QWidget[class="info-panel"] {
+    /* 정보 패널 */
+}
+
+QWidget[class="info-panel"] QLabel {
+    /* 정보 패널 라벨 */
+}
+
+QWidget[class="info-panel"] QLabel[class="title"] {
+    /* 정보 패널 제목 */
+}
+
+QWidget[class="info-panel"] QLabel[class="subtitle"] {
+    /* 정보 패널 부제목 */
+}
+
+/* 경고 패널 */
+QWidget[class="warning-panel"] {
+    /* 경고 패널 */
+}
+
+QWidget[class="warning-panel"] QLabel {
+    /* 경고 패널 라벨 */
+}
+
+QWidget[class="warning-panel"] QLabel[class="title"] {
+    /* 경고 패널 제목 */
+}
+
+QWidget[class="warning-panel"] QLabel[class="subtitle"] {
+    /* 경고 패널 부제목 */
+}
+
+/* 오류 패널 */
+QWidget[class="error-panel"] {
+    /* 오류 패널 */
+}
+
+QWidget[class="error-panel"] QLabel {
+    /* 오류 패널 라벨 */
+}
+
+QWidget[class="error-panel"] QLabel[class="title"] {
+    /* 오류 패널 제목 */
+}
+
+QWidget[class="error-panel"] QLabel[class="subtitle"] {
+    /* 오류 패널 부제목 */
+}
+
+/* 성공 패널 */
+QWidget[class="success-panel"] {
+    /* 성공 패널 */
+}
+
+QWidget[class="success-panel"] QLabel {
+    /* 성공 패널 라벨 */
+}
+
+QWidget[class="success-panel"] QLabel[class="title"] {
+    /* 성공 패널 제목 */
+}
+
+QWidget[class="success-panel"] QLabel[class="subtitle"] {
+    /* 성공 패널 부제목 */
+}
+
+/* 카드 패널 */
+QWidget[class="card-panel"] {
+    /* 카드 패널 */
+}
+
+QWidget[class="card-panel"] QLabel {
+    /* 카드 패널 라벨 */
+}
+
+QWidget[class="card-panel"] QLabel[class="title"] {
+    /* 카드 패널 제목 */
+}
+
+QWidget[class="card-panel"] QLabel[class="subtitle"] {
+    /* 카드 패널 부제목 */
+}
+
+/* 탭 패널 */
+QWidget[class="tab-panel"] {
+    /* 탭 패널 */
+}
+
+QWidget[class="tab-panel"] QLabel {
+    /* 탭 패널 라벨 */
+}
+
+QWidget[class="tab-panel"] QLabel[class="title"] {
+    /* 탭 패널 제목 */
+}
+
+QWidget[class="tab-panel"] QLabel[class="subtitle"] {
+    /* 탭 패널 부제목 */
+}
+
+/* 스크롤 패널 */
+QWidget[class="scroll-panel"] {
+    /* 스크롤 패널 */
+}
+
+QWidget[class="scroll-panel"] QLabel {
+    /* 스크롤 패널 라벨 */
+}
+
+QWidget[class="scroll-panel"] QLabel[class="title"] {
+    /* 스크롤 패널 제목 */
+}
+
+QWidget[class="scroll-panel"] QLabel[class="subtitle"] {
+    /* 스크롤 패널 부제목 */
+}
+
+/* 반응형 디자인 - PyQt5에서는 지원되지 않음 */
+/* @media 쿼리는 제거됨 */

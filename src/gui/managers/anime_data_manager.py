@@ -4,13 +4,16 @@
 """
 
 import re
-
 # 상대 경로로 수정
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from PyQt5.QtCore import QObject, pyqtSignal
+
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from core.unified_event_system import (EventCategory, EventPriority,
+                                       get_unified_event_bus)
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from core.tmdb_client import TMDBAnimeInfo
@@ -73,9 +76,24 @@ class AnimeDataManager(QObject):
         self.tmdb_client = tmdb_client
         self.group_tmdb_matches = {}  # 그룹별 TMDB 매치 결과 저장
 
+        # 통합 이벤트 시스템 초기화
+        self.unified_event_bus = get_unified_event_bus()
+
     def add_item(self, item: ParsedItem):
         """아이템 추가"""
         self.items.append(item)
+
+        # 통합 이벤트 시스템을 통해 이벤트 발행
+        if self.unified_event_bus:
+            from core.unified_event_system import BaseEvent
+
+            event = BaseEvent(
+                source="AnimeDataManager",
+                category=EventCategory.MEDIA,
+                priority=EventPriority.NORMAL,
+                metadata={"item_id": item.id, "title": item.title},
+            )
+            self.unified_event_bus.publish(event)
 
     def add_items(self, items: list[ParsedItem]):
         """여러 아이템 추가"""

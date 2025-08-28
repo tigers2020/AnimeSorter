@@ -1,0 +1,246 @@
+/* ===== 메인 윈도우 기본 스타일 ===== */
+
+/* QMainWindow */
+QMainWindow {
+    /* 기본 스타일 */
+}
+
+QMainWindow::title {
+    /* 윈도우 제목 */
+}
+
+/* QMenuBar */
+QMenuBar {
+    /* 기본 스타일 */
+}
+
+QMenuBar::item {
+    /* 메뉴바 아이템 */
+}
+
+QMenuBar::item:selected {
+    /* 선택된 아이템 */
+}
+
+QMenuBar::item:pressed {
+    /* 눌린 아이템 */
+}
+
+/* QToolBar */
+QToolBar {
+    /* 기본 스타일 */
+}
+
+QToolBar::handle {
+    /* 툴바 핸들 */
+}
+
+QToolBar::separator {
+    /* 툴바 구분선 */
+}
+
+/* QStatusBar */
+QStatusBar {
+    /* 기본 스타일 */
+}
+
+QStatusBar::item {
+    /* 상태바 아이템 */
+}
+
+QStatusBar QLabel {
+    /* 상태바 라벨 */
+}
+
+/* QDockWidget */
+QDockWidget {
+    /* 기본 스타일 */
+}
+
+QDockWidget::title {
+    /* 도킹 위젯 제목 */
+}
+
+QDockWidget::close-button {
+    /* 닫기 버튼 */
+}
+
+QDockWidget::float-button {
+    /* 떠있는 버튼 */
+}
+
+/* QSplitter */
+QSplitter {
+    /* 기본 스타일 */
+}
+
+QSplitter::handle {
+    /* 분할 핸들 */
+}
+
+QSplitter::handle:horizontal {
+    /* 수평 분할 핸들 */
+}
+
+QSplitter::handle:vertical {
+    /* 수직 분할 핸들 */
+}
+
+/* QTabWidget */
+QTabWidget {
+    /* 기본 스타일 */
+}
+
+QTabWidget::pane {
+    /* 탭 패널 */
+}
+
+QTabBar::tab {
+    /* 탭 버튼 */
+}
+
+QTabBar::tab:selected {
+    /* 선택된 탭 */
+}
+
+QTabBar::tab:hover:!selected {
+    /* 호버된 탭 */
+}
+
+/* QLineEdit */
+QLineEdit {
+    /* 기본 스타일 */
+}
+
+QLineEdit:focus {
+    /* 포커스 상태 */
+}
+
+/* QTextEdit */
+QTextEdit {
+    /* 기본 스타일 */
+}
+
+QTextEdit:focus {
+    /* 포커스 상태 */
+}
+
+/* QTreeView */
+QTreeView {
+    /* 기본 스타일 */
+}
+
+QTreeView::item {
+    /* 트리 아이템 */
+}
+
+QTreeView::item:selected {
+    /* 선택된 아이템 */
+}
+
+QTreeView::item:hover:!selected {
+    /* 호버된 아이템 */
+}
+
+QTreeView::branch {
+    /* 트리 브랜치 */
+}
+
+QTreeView::branch:has-children:!has-siblings:closed {
+    /* 접힌 브랜치 */
+}
+
+QTreeView::branch:closed:has-children:has-siblings {
+    /* 접힌 브랜치 */
+}
+
+QTreeView::branch:open:has-children:!has-siblings {
+    /* 펼쳐진 브랜치 */
+}
+
+QTreeView::branch:open:has-children:has-siblings {
+    /* 펼쳐진 브랜치 */
+}
+
+QTreeView::branch:has-children:!has-siblings:!closed {
+    /* 펼쳐진 브랜치 */
+}
+
+QTreeView::branch:closed:has-children:has-siblings:!closed {
+    /* 접힌 브랜치 */
+}
+
+QTreeView::branch:open:has-children:!has-siblings:!closed {
+    /* 펼쳐진 브랜치 */
+}
+
+QTreeView::branch:open:has-children:has-siblings:!closed {
+    /* 펼쳐진 브랜치 */
+}
+
+/* QListView */
+QListView {
+    /* 기본 스타일 */
+}
+
+QListView::item {
+    /* 리스트 아이템 */
+}
+
+QListView::item:selected {
+    /* 선택된 아이템 */
+}
+
+QListView::item:hover:!selected {
+    /* 호버된 아이템 */
+}
+
+/* QTableView */
+QTableView {
+    /* 기본 스타일 */
+}
+
+QTableView::item {
+    /* 테이블 아이템 */
+}
+
+QTableView::item:selected {
+    /* 선택된 아이템 */
+}
+
+QTableView::item:hover:!selected {
+    /* 호버된 아이템 */
+}
+
+/* QHeaderView */
+QHeaderView {
+    /* 기본 스타일 */
+}
+
+QHeaderView::section {
+    /* 헤더 섹션 */
+}
+
+QHeaderView::section:first {
+    /* 첫 번째 섹션 */
+}
+
+QHeaderView::section:last {
+    /* 마지막 섹션 */
+}
+
+QHeaderView::section:hover {
+    /* 호버된 섹션 */
+}
+
+QHeaderView::section:pressed {
+    /* 눌린 섹션 */
+}
+
+QHeaderView::section:checked {
+    /* 체크된 섹션 */
+}
+
+QHeaderView::section:disabled {
+    /* 비활성화된 섹션 */
+}

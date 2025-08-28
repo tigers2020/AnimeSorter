@@ -1,0 +1,610 @@
+/* ==========================================================================
+   Label Styling (PyQt5 100% Compatible)
+   QLabel 스타일링 - 텍스트 색상, 폰트 크기, 폰트 굵기 유틸리티
+
+   사용법:
+   - label.setProperty("uColor", "text-primary") → 텍스트 색상
+   - label.setProperty("uSize", "text-sm") → 폰트 크기
+   - label.setProperty("uWeight", "font-medium") → 폰트 굵기
+   - label.style().unpolish(label); label.style().polish(label) → 즉시 반영
+
+   주의사항:
+   - hover 효과를 위해 코드에서 label.setAttribute(Qt.WA_Hover, True) 설정 필요
+   - line-height는 PyQt5 QSS 미지원으로 제거됨
+   - outline은 PyQt5 QSS 미지원으로 제거됨
+   ========================================================================== */
+
+/* ==========================================================================
+   QLabel Base Styles
+   ========================================================================== */
+
+/* 기본 QLabel 스타일 */
+QLabel {
+    background-color: transparent;
+    color: #212529;
+    font-size: 14px;
+    font-weight: 400;
+    padding: 0px;
+    margin: 0px;
+    border: none;
+}
+
+/* QLabel 포커스 상태 */
+QLabel:focus {
+    color: #212529;
+    border: 2px solid #007bff;
+    border-radius: 4px;
+}
+
+/* QLabel 비활성화 상태 */
+QLabel:disabled {
+    color: #adb5bd;
+}
+
+/* ==========================================================================
+   Text Color Utility Classes (uColor)
+   ========================================================================== */
+
+/* Primary Text Colors */
+QLabel[uColor="text-primary"] {
+    color: #007bff;
+}
+
+QLabel[uColor="text-primary"]:hover {
+    color: #0056b3;
+}
+
+QLabel[uColor="text-primary"]:disabled {
+    color: #6c757d;
+}
+
+/* Secondary Text Colors */
+QLabel[uColor="text-secondary"] {
+    color: #6c757d;
+}
+
+QLabel[uColor="text-secondary"]:hover {
+    color: #495057;
+}
+
+QLabel[uColor="text-secondary"]:disabled {
+    color: #adb5bd;
+}
+
+/* Success Text Colors */
+QLabel[uColor="text-success"] {
+    color: #28a745;
+}
+
+QLabel[uColor="text-success"]:hover {
+    color: #1e7e34;
+}
+
+QLabel[uColor="text-success"]:disabled {
+    color: #6c757d;
+}
+
+/* Warning Text Colors (어두운 배경 전용 - WCAG AA 충족) */
+QLabel[uColor="text-warning"] {
+    color: #e0a800;
+}
+
+QLabel[uColor="text-warning"]:hover {
+    color: #d39e00;
+}
+
+QLabel[uColor="text-warning"]:disabled {
+    color: #6c757d;
+}
+
+/* Danger Text Colors */
+QLabel[uColor="text-danger"] {
+    color: #dc3545;
+}
+
+QLabel[uColor="text-danger"]:hover {
+    color: #c82333;
+}
+
+QLabel[uColor="text-danger"]:disabled {
+    color: #6c757d;
+}
+
+/* Info Text Colors */
+QLabel[uColor="text-info"] {
+    color: #17a2b8;
+}
+
+QLabel[uColor="text-info"]:hover {
+    color: #117a8b;
+}
+
+QLabel[uColor="text-info"]:disabled {
+    color: #6c757d;
+}
+
+/* Light Text Colors (다크 배경 전용 - WCAG AA 충족) */
+QLabel[uColor="text-light"] {
+    color: #f8f9fa;
+}
+
+QLabel[uColor="text-light"]:hover {
+    color: #e2e6ea;
+}
+
+QLabel[uColor="text-light"]:disabled {
+    color: #adb5bd;
+}
+
+/* Dark Text Colors */
+QLabel[uColor="text-dark"] {
+    color: #343a40;
+}
+
+QLabel[uColor="text-dark"]:hover {
+    color: #212529;
+}
+
+QLabel[uColor="text-dark"]:disabled {
+    color: #6c757d;
+}
+
+/* Muted Text Colors */
+QLabel[uColor="text-muted"] {
+    color: #6c757d;
+}
+
+QLabel[uColor="text-muted"]:hover {
+    color: #495057;
+}
+
+QLabel[uColor="text-muted"]:disabled {
+    color: #adb5bd;
+}
+
+/* White Text Colors */
+QLabel[uColor="text-white"] {
+    color: #ffffff;
+}
+
+QLabel[uColor="text-white"]:hover {
+    color: #f8f9fa;
+}
+
+QLabel[uColor="text-white"]:disabled {
+    color: #adb5bd;
+}
+
+/* ==========================================================================
+   Font Size Utility Classes (uSize)
+   ========================================================================== */
+
+/* Extra Small Text */
+QLabel[uSize="text-xs"] {
+    font-size: 12px;
+}
+
+/* Small Text */
+QLabel[uSize="text-sm"] {
+    font-size: 14px;
+}
+
+/* Base Text */
+QLabel[uSize="text-base"] {
+    font-size: 16px;
+}
+
+/* Large Text */
+QLabel[uSize="text-lg"] {
+    font-size: 18px;
+}
+
+/* Extra Large Text */
+QLabel[uSize="text-xl"] {
+    font-size: 20px;
+}
+
+/* 2X Large Text */
+QLabel[uSize="text-2xl"] {
+    font-size: 24px;
+}
+
+/* 3X Large Text */
+QLabel[uSize="text-3xl"] {
+    font-size: 30px;
+}
+
+/* 4X Large Text */
+QLabel[uSize="text-4xl"] {
+    font-size: 36px;
+}
+
+/* 5X Large Text */
+QLabel[uSize="text-5xl"] {
+    font-size: 48px;
+}
+
+/* 6X Large Text */
+QLabel[uSize="text-6xl"] {
+    font-size: 64px;
+}
+
+/* ==========================================================================
+   Font Weight Utility Classes (uWeight)
+   ========================================================================== */
+
+/* Thin Font Weight */
+QLabel[uWeight="font-thin"] {
+    font-weight: 100;
+}
+
+/* Extra Light Font Weight */
+QLabel[uWeight="font-extralight"] {
+    font-weight: 200;
+}
+
+/* Light Font Weight */
+QLabel[uWeight="font-light"] {
+    font-weight: 300;
+}
+
+/* Normal Font Weight */
+QLabel[uWeight="font-normal"] {
+    font-weight: 400;
+}
+
+/* Medium Font Weight */
+QLabel[uWeight="font-medium"] {
+    font-weight: 500;
+}
+
+/* Semi Bold Font Weight */
+QLabel[uWeight="font-semibold"] {
+    font-weight: 600;
+}
+
+/* Bold Font Weight */
+QLabel[uWeight="font-bold"] {
+    font-weight: 700;
+}
+
+/* Extra Bold Font Weight */
+QLabel[uWeight="font-extrabold"] {
+    font-weight: 800;
+}
+
+/* Black Font Weight */
+QLabel[uWeight="font-black"] {
+    font-weight: 900;
+}
+
+/* ==========================================================================
+   Text Alignment Utility Classes (uAlign)
+   ========================================================================== */
+
+/* Text Alignment */
+QLabel[uAlign="text-left"] {
+    qproperty-alignment: AlignLeft;
+}
+
+QLabel[uAlign="text-center"] {
+    qproperty-alignment: AlignCenter;
+}
+
+QLabel[uAlign="text-right"] {
+    qproperty-alignment: AlignRight;
+}
+
+QLabel[uAlign="text-justify"] {
+    qproperty-alignment: AlignJustify;
+}
+
+/* Vertical Alignment */
+QLabel[uAlign="text-top"] {
+    qproperty-alignment: AlignTop;
+}
+
+QLabel[uAlign="text-bottom"] {
+    qproperty-alignment: AlignBottom;
+}
+
+QLabel[uAlign="text-vcenter"] {
+    qproperty-alignment: AlignVCenter;
+}
+
+/* Combined Alignment */
+QLabel[uAlign="text-center-vcenter"] {
+    qproperty-alignment: AlignCenter | AlignVCenter;
+}
+
+QLabel[uAlign="text-left-vcenter"] {
+    qproperty-alignment: AlignLeft | AlignVCenter;
+}
+
+QLabel[uAlign="text-right-vcenter"] {
+    qproperty-alignment: AlignRight | AlignVCenter;
+}
+
+/* ==========================================================================
+   Typography Presets (Material Design + WCAG Compliant)
+   ========================================================================== */
+
+/* Heading Presets (H1-H6) */
+QLabel[uColor="h1"], QLabel[uColor="h2"], QLabel[uColor="h3"],
+QLabel[uColor="h4"], QLabel[uColor="h5"], QLabel[uColor="h6"] {
+    color: #212529;
+}
+
+QLabel[uSize="h1"] {
+    font-size: 32px;
+}
+
+QLabel[uSize="h2"] {
+    font-size: 28px;
+}
+
+QLabel[uSize="h3"] {
+    font-size: 24px;
+}
+
+QLabel[uSize="h4"] {
+    font-size: 20px;
+}
+
+QLabel[uSize="h5"] {
+    font-size: 18px;
+}
+
+QLabel[uSize="h6"] {
+    font-size: 16px;
+}
+
+QLabel[uWeight="h1"], QLabel[uWeight="h2"], QLabel[uWeight="h3"] {
+    font-weight: 700;
+}
+
+QLabel[uWeight="h4"], QLabel[uWeight="h5"], QLabel[uWeight="h6"] {
+    font-weight: 600;
+}
+
+/* Body Text Presets */
+QLabel[uColor="body-lg"], QLabel[uColor="body"], QLabel[uColor="body-sm"] {
+    color: #495057;
+}
+
+QLabel[uSize="body-lg"] {
+    font-size: 16px;
+}
+
+QLabel[uSize="body"] {
+    font-size: 14px;
+}
+
+QLabel[uSize="body-sm"] {
+    font-size: 12px;
+}
+
+QLabel[uWeight="body-lg"], QLabel[uWeight="body"], QLabel[uWeight="body-sm"] {
+    font-weight: 400;
+}
+
+/* Caption Presets */
+QLabel[uColor="caption"] {
+    color: #6c757d;
+}
+
+QLabel[uSize="caption"] {
+    font-size: 12px;
+}
+
+QLabel[uWeight="caption"] {
+    font-weight: 400;
+}
+
+/* Link Presets */
+QLabel[uColor="link"] {
+    color: #007bff;
+}
+
+QLabel[uSize="link"] {
+    font-size: 14px;
+}
+
+QLabel[uWeight="link"] {
+    font-weight: 400;
+}
+
+QLabel[uColor="link"]:hover {
+    color: #0056b3;
+}
+
+QLabel[uColor="link"]:disabled {
+    color: #6c757d;
+}
+
+/* Status Presets */
+QLabel[uColor="status-success"] {
+    color: #28a745;
+}
+
+QLabel[uColor="status-warning"] {
+    color: #e0a800;
+}
+
+QLabel[uColor="status-error"] {
+    color: #dc3545;
+}
+
+QLabel[uColor="status-info"] {
+    color: #17a2b8;
+}
+
+QLabel[uSize="status-success"], QLabel[uSize="status-warning"],
+QLabel[uSize="status-error"], QLabel[uSize="status-info"] {
+    font-size: 14px;
+}
+
+QLabel[uWeight="status-success"], QLabel[uWeight="status-warning"],
+QLabel[uWeight="status-error"], QLabel[uWeight="status-info"] {
+    font-weight: 500;
+}
+
+/* ==========================================================================
+   Badge Presets (Accessibility Enhanced)
+   ========================================================================== */
+
+/* Base Badge */
+QLabel[uColor="badge"] {
+    color: #ffffff;
+}
+
+QLabel[uSize="badge"] {
+    font-size: 12px;
+}
+
+QLabel[uWeight="badge"] {
+    font-weight: 600;
+}
+
+QLabel[uColor="badge"], QLabel[uColor="badge-primary"], QLabel[uColor="badge-secondary"],
+QLabel[uColor="badge-success"], QLabel[uColor="badge-danger"], QLabel[uColor="badge-info"],
+QLabel[uColor="badge-dark"] {
+    background-color: #6c757d;
+    padding: 4px 8px;
+    border-radius: 12px;
+    min-width: 20px;
+    text-align: center;
+}
+
+/* Badge Variants */
+QLabel[uColor="badge-primary"] {
+    background-color: #007bff;
+}
+
+QLabel[uColor="badge-secondary"] {
+    background-color: #6c757d;
+}
+
+QLabel[uColor="badge-success"] {
+    background-color: #28a745;
+}
+
+QLabel[uColor="badge-warning"] {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+QLabel[uColor="badge-danger"] {
+    background-color: #dc3545;
+}
+
+QLabel[uColor="badge-info"] {
+    background-color: #17a2b8;
+}
+
+QLabel[uColor="badge-light"] {
+    background-color: #f8f9fa;
+    color: #212529;
+}
+
+QLabel[uColor="badge-dark"] {
+    background-color: #343a40;
+}
+
+/* ==========================================================================
+   Interactive States
+   ========================================================================== */
+
+/* Hover Effects for Interactive Labels */
+QLabel[uColor="interactive"]:hover {
+    color: #0056b3;
+}
+
+QLabel[uColor="interactive"]:disabled {
+    color: #adb5bd;
+}
+
+/* Focus States for Accessibility */
+QLabel:focus {
+    border: 2px solid #007bff;
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   Theme-Specific Overrides
+   ========================================================================== */
+
+/* Dark Theme Overrides */
+QWidget#AppDark QLabel {
+    color: #f8f9fa;
+}
+
+QWidget#AppDark QLabel[uColor="text-primary"] {
+    color: #4dabf7;
+}
+
+QWidget#AppDark QLabel[uColor="text-secondary"] {
+    color: #adb5bd;
+}
+
+QWidget#AppDark QLabel[uColor="text-muted"] {
+    color: #6c757d;
+}
+
+QWidget#AppDark QLabel[uColor="h1"], QWidget#AppDark QLabel[uColor="h2"],
+QWidget#AppDark QLabel[uColor="h3"], QWidget#AppDark QLabel[uColor="h4"],
+QWidget#AppDark QLabel[uColor="h5"], QWidget#AppDark QLabel[uColor="h6"] {
+    color: #ffffff;
+}
+
+QWidget#AppDark QLabel[uColor="body-lg"], QWidget#AppDark QLabel[uColor="body"],
+QWidget#AppDark QLabel[uColor="body-sm"] {
+    color: #dee2e6;
+}
+
+QWidget#AppDark QLabel[uColor="caption"] {
+    color: #6c757d;
+}
+
+/* High Contrast Theme Overrides */
+QWidget#AppHighContrast QLabel {
+    color: #000000;
+}
+
+QWidget#AppHighContrast QLabel[uWeight="h1"], QWidget#AppHighContrast QLabel[uWeight="h2"],
+QWidget#AppHighContrast QLabel[uWeight="h3"], QWidget#AppHighContrast QLabel[uWeight="h4"],
+QWidget#AppHighContrast QLabel[uWeight="h5"], QWidget#AppHighContrast QLabel[uWeight="h6"] {
+    font-weight: 700;
+}
+
+QWidget#AppHighContrast QLabel[uColor="text-primary"] {
+    color: #000080;
+}
+
+QWidget#AppHighContrast QLabel[uColor="text-secondary"] {
+    color: #000000;
+}
+
+QWidget#AppHighContrast QLabel[uColor="text-muted"] {
+    color: #000000;
+}
+
+QWidget#AppHighContrast QLabel[uColor="h1"], QWidget#AppHighContrast QLabel[uColor="h2"],
+QWidget#AppHighContrast QLabel[uColor="h3"], QWidget#AppHighContrast QLabel[uColor="h4"],
+QWidget#AppHighContrast QLabel[uColor="h5"], QWidget#AppHighContrast QLabel[uColor="h6"] {
+    color: #000000;
+}
+
+QWidget#AppHighContrast QLabel[uColor="body-lg"], QWidget#AppHighContrast QLabel[uColor="body"],
+QWidget#AppHighContrast QLabel[uColor="body-sm"] {
+    color: #000000;
+}
+
+QWidget#AppHighContrast QLabel[uColor="caption"] {
+    color: #000000;
+}
+
+QWidget#AppHighContrast QLabel[uWeight="body-lg"], QWidget#AppHighContrast QLabel[uWeight="body"],
+QWidget#AppHighContrast QLabel[uWeight="body-sm"], QWidget#AppHighContrast QLabel[uWeight="caption"] {
+    font-weight: 600;
+}

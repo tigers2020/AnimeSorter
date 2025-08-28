@@ -1,0 +1,215 @@
+/* ===== 다이얼로그 및 팝업 기본 스타일 ===== */
+
+/* QDialog */
+QDialog {
+    /* 기본 스타일 */
+}
+
+QDialog:focus {
+    /* 포커스 상태 */
+}
+
+/* QDialogButtonBox */
+QDialogButtonBox {
+    /* 기본 스타일 */
+}
+
+QDialogButtonBox QPushButton {
+    /* 다이얼로그 버튼 */
+}
+
+/* QMessageBox */
+QMessageBox {
+    /* 기본 스타일 */
+}
+
+QMessageBox QPushButton {
+    /* 메시지박스 버튼 */
+}
+
+QMessageBox QLabel {
+    /* 메시지박스 라벨 */
+}
+
+/* QInputDialog */
+QInputDialog {
+    /* 기본 스타일 */
+}
+
+QInputDialog QLineEdit {
+    /* 입력 다이얼로그 텍스트 입력 */
+}
+
+QInputDialog QLineEdit:focus {
+    /* 포커스 상태 */
+}
+
+QInputDialog QLabel {
+    /* 입력 다이얼로그 라벨 */
+}
+
+QInputDialog QPushButton {
+    /* 입력 다이얼로그 버튼 */
+}
+
+/* QFileDialog */
+QFileDialog {
+    /* 기본 스타일 */
+}
+
+QFileDialog QLineEdit {
+    /* 파일 경로 입력 */
+}
+
+QFileDialog QLineEdit:focus {
+    /* 포커스 상태 */
+}
+
+QFileDialog QComboBox {
+    /* 파일 타입 선택 */
+}
+
+QFileDialog QComboBox:focus {
+    /* 포커스 상태 */
+}
+
+QFileDialog QTreeView {
+    /* 파일 트리 뷰 */
+}
+
+QFileDialog QTreeView::item {
+    /* 파일 트리 아이템 */
+}
+
+QFileDialog QTreeView::item:hover {
+    /* 호버된 아이템 */
+}
+
+QFileDialog QTreeView::item:selected {
+    /* 선택된 아이템 */
+}
+
+QFileDialog QTreeView::item:focus {
+    /* 포커스된 아이템 */
+}
+
+QFileDialog QTreeView::branch {
+    /* 파일 트리 브랜치 */
+}
+
+QFileDialog QTreeView::branch:has-children:!has-siblings:closed {
+    /* 접힌 브랜치 */
+}
+
+QFileDialog QTreeView::branch:closed:has-children:has-siblings {
+    /* 접힌 브랜치 */
+}
+
+QFileDialog QTreeView::branch:open:has-children:!has-siblings {
+    /* 펼쳐진 브랜치 */
+}
+
+QFileDialog QTreeView::branch:open:has-children:has-siblings {
+    /* 펼쳐진 브랜치 */
+}
+
+QFileDialog QPushButton {
+    /* 파일 다이얼로그 버튼 */
+}
+
+QFileDialog QLabel {
+    /* 파일 다이얼로그 라벨 */
+}
+
+/* QColorDialog */
+QColorDialog {
+    /* 기본 스타일 */
+}
+
+QColorDialog QPushButton {
+    /* 색상 다이얼로그 버튼 */
+}
+
+QColorDialog QLabel {
+    /* 색상 다이얼로그 라벨 */
+}
+
+/* QFontDialog */
+QFontDialog {
+    /* 기본 스타일 */
+}
+
+QFontDialog QListWidget {
+    /* 폰트 목록 */
+}
+
+QFontDialog QListWidget::item {
+    /* 폰트 목록 아이템 */
+}
+
+QFontDialog QListWidget::item:hover {
+    /* 호버된 아이템 */
+}
+
+QFontDialog QListWidget::item:selected {
+    /* 선택된 아이템 */
+}
+
+QFontDialog QComboBox {
+    /* 폰트 크기 선택 */
+}
+
+QFontDialog QComboBox:focus {
+    /* 포커스 상태 */
+}
+
+QFontDialog QSpinBox {
+    /* 폰트 크기 입력 */
+}
+
+QFontDialog QSpinBox:focus {
+    /* 포커스 상태 */
+}
+
+QFontDialog QPushButton {
+    /* 폰트 다이얼로그 버튼 */
+}
+
+QFontDialog QLabel {
+    /* 폰트 다이얼로그 라벨 */
+}
+
+/* QToolTip */
+QToolTip {
+    /* 기본 스타일 */
+}
+
+/* QMenu */
+QMenu {
+    /* 기본 스타일 */
+}
+
+QMenu::item {
+    /* 메뉴 아이템 */
+}
+
+QMenu::item:selected {
+    /* 선택된 아이템 */
+}
+
+QMenu::separator {
+    /* 메뉴 구분선 */
+}
+
+/* QMenuBar QMenu */
+QMenuBar QMenu {
+    /* 기본 스타일 */
+}
+
+QMenuBar QMenu::item {
+    /* 메뉴바 메뉴 아이템 */
+}
+
+QMenuBar QMenu::item:selected {
+    /* 선택된 아이템 */
+}

@@ -1,0 +1,574 @@
+/* ==========================================================================
+   Status Bar and Menu Bar Styling (PyQt5 100% Compatible)
+   QStatusBar, QMenuBar 스타일링 - 상태 표시줄과 메뉴 표시줄
+
+   사용법:
+   - statusBar.setProperty("class", "main-status") → 메인 상태바 스타일
+   - menuBar.setProperty("class", "main-menu") → 메인 메뉴바 스타일
+   ========================================================================== */
+
+/* ==========================================================================
+   QStatusBar Base Styles
+   ========================================================================== */
+
+/* 기본 상태바 스타일 */
+QStatusBar {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-top: 1px solid #dee2e6;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+    padding: 4px 8px;
+    margin: 0px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #495057;
+}
+
+/* 상태바 구분선 */
+QStatusBar::separator {
+    background-color: #dee2e6;
+    width: 1px;
+    margin: 2px 4px;
+}
+
+/* 상태바 호버 상태 */
+QStatusBar:hover {
+    background-color: #e9ecef;
+}
+
+/* ==========================================================================
+   Status Bar Variants
+   ========================================================================== */
+
+/* 메인 상태바 */
+QStatusBar[class="main-status"] {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-top: 1px solid #dee2e6;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+QStatusBar[class="main-status"]::separator {
+    background-color: #dee2e6;
+    width: 1px;
+    margin: 3px 6px;
+}
+
+/* 편집 상태바 */
+QStatusBar[class="edit-status"] {
+    background-color: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-top: 1px solid #90caf9;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 400;
+}
+
+QStatusBar[class="edit-status"]::separator {
+    background-color: #90caf9;
+    width: 1px;
+    margin: 2px 4px;
+}
+
+/* 로그 상태바 */
+QStatusBar[class="log-status"] {
+    background-color: #f8f9fa;
+    border: 1px solid #6c757d;
+    border-top: 1px solid #6c757d;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 400;
+}
+
+QStatusBar[class="log-status"]::separator {
+    background-color: #6c757d;
+    width: 1px;
+    margin: 2px 4px;
+}
+
+/* ==========================================================================
+   Status Bar Elements
+   ========================================================================== */
+
+/* 상태바 라벨 */
+QStatusBar QLabel {
+    background-color: transparent;
+    color: inherit;
+    border: none;
+    padding: 0px;
+    margin: 0px 2px;
+}
+
+/* 상태바 진행률 표시줄 */
+QStatusBar QProgressBar {
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
+    border-radius: 2px;
+    text-align: center;
+    min-height: 16px;
+    max-height: 16px;
+    min-width: 100px;
+    max-width: 200px;
+}
+
+QStatusBar QProgressBar::chunk {
+    background-color: #007bff;
+    border-radius: 1px;
+}
+
+/* 상태바 버튼 */
+QStatusBar QPushButton {
+    background-color: transparent;
+    border: 1px solid #dee2e6;
+    border-radius: 2px;
+    padding: 2px 6px;
+    font-size: 11px;
+    min-height: 16px;
+    max-height: 16px;
+}
+
+QStatusBar QPushButton:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+QStatusBar QPushButton:pressed {
+    background-color: #dee2e6;
+    border-color: #adb5bd;
+}
+
+/* 상태바 콤보박스 */
+QStatusBar QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 2px;
+    padding: 2px 6px;
+    font-size: 11px;
+    min-height: 16px;
+    max-height: 16px;
+    min-width: 80px;
+    max-width: 120px;
+}
+
+QStatusBar QComboBox:hover {
+    border-color: #adb5bd;
+}
+
+QStatusBar QComboBox:focus {
+    border-color: #007bff;
+    border-width: 2px;
+}
+
+/* ==========================================================================
+   QMenuBar Base Styles
+   ========================================================================== */
+
+/* 기본 메뉴바 스타일 */
+QMenuBar {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    padding: 4px 8px;
+    margin: 0px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #495057;
+}
+
+/* 메뉴바 아이템 */
+QMenuBar::item {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 6px 12px;
+    margin: 0px 2px;
+    color: #495057;
+}
+
+/* 메뉴바 아이템 호버 */
+QMenuBar::item:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+    color: #212529;
+}
+
+/* 메뉴바 아이템 선택 */
+QMenuBar::item:selected {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: #ffffff;
+}
+
+/* 메뉴바 아이템 비활성화 */
+QMenuBar::item:disabled {
+    background-color: transparent;
+    border-color: transparent;
+    color: #adb5bd;
+}
+
+/* 메뉴바 아이템 포커스 */
+QMenuBar::item:focus {
+    border-color: #007bff;
+    border-width: 2px;
+}
+
+/* ==========================================================================
+   Menu Bar Variants
+   ========================================================================== */
+
+/* 메인 메뉴바 */
+QMenuBar[class="main-menu"] {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QMenuBar[class="main-menu"]::item {
+    padding: 8px 16px;
+    margin: 0px 3px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* 편집 메뉴바 */
+QMenuBar[class="edit-menu"] {
+    background-color: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-bottom: 1px solid #90caf9;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+QMenuBar[class="edit-menu"]::item {
+    padding: 6px 12px;
+    margin: 0px 2px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* 파일 메뉴바 */
+QMenuBar[class="file-menu"] {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+QMenuBar[class="file-menu"]::item {
+    padding: 6px 12px;
+    margin: 0px 2px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* ==========================================================================
+   Menu Bar Special Elements
+   ========================================================================== */
+
+/* 메뉴바 구분선 */
+QMenuBar::separator {
+    background-color: #dee2e6;
+    width: 1px;
+    margin: 4px 2px;
+}
+
+/* 메뉴바 드롭다운 화살표 */
+QMenuBar::down-arrow {
+    width: 8px;
+    height: 8px;
+    border: none;
+    background-color: transparent;
+            /* image: url(:/icons/dark/chevron-down.svg); - PyQt5 QSS 미지원 */
+}
+
+QMenuBar::down-arrow:on {
+            /* image: url(:/icons/dark/chevron-up.svg); - PyQt5 QSS 미지원 */
+}
+
+/* 메뉴바 아이템 체크 표시 */
+QMenuBar::item:checked {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+    color: #212529;
+}
+
+/* 메뉴바 아이템 기본 */
+QMenuBar::item:default {
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Status Bar Status Indicators
+   ========================================================================== */
+
+/* 상태 표시 라벨 */
+QStatusBar QLabel[class="status-message"] {
+    color: #495057;
+    font-weight: 400;
+}
+
+QStatusBar QLabel[class="status-info"] {
+    color: #17a2b8;
+    font-weight: 500;
+}
+
+QStatusBar QLabel[class="status-success"] {
+    color: #28a745;
+    font-weight: 500;
+}
+
+QStatusBar QLabel[class="status-warning"] {
+    color: #e0a800;
+    font-weight: 500;
+}
+
+QStatusBar QLabel[class="status-error"] {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+/* 상태 칩 */
+QStatusBar QLabel[class="status-chip"] {
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 2px 8px;
+    color: #495057;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+QStatusBar QLabel[class="status-chip-info"] {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+QStatusBar QLabel[class="status-chip-success"] {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+QStatusBar QLabel[class="status-chip-warning"] {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
+}
+
+QStatusBar QLabel[class="status-chip-error"] {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+/* ==========================================================================
+   Menu Bar Menu Items
+   ========================================================================== */
+
+/* 메뉴바 메뉴 아이템 */
+QMenuBar::item[class="menu-file"] {
+    color: #007bff;
+}
+
+QMenuBar::item[class="menu-edit"] {
+    color: #28a745;
+}
+
+QMenuBar::item[class="menu-view"] {
+    color: #6c757d;
+}
+
+QMenuBar::item[class="menu-tools"] {
+    color: #ffc107;
+}
+
+QMenuBar::item[class="menu-help"] {
+    color: #17a2b8;
+}
+
+/* 메뉴바 메뉴 아이템 호버 */
+QMenuBar::item[class="menu-file"]:hover {
+    background-color: #e3f2fd;
+    border-color: #90caf9;
+    color: #1565c0;
+}
+
+QMenuBar::item[class="menu-edit"]:hover {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+QMenuBar::item[class="menu-view"]:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+    color: #495057;
+}
+
+QMenuBar::item[class="menu-tools"]:hover {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
+}
+
+QMenuBar::item[class="menu-help"]:hover {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+/* ==========================================================================
+   Theme-Specific Overrides
+   ========================================================================== */
+
+/* Dark Theme Overrides */
+QWidget#AppDark QStatusBar {
+    background-color: #343a40;
+    border-color: #495057;
+    color: #f8f9fa;
+}
+
+QWidget#AppDark QStatusBar::separator {
+    background-color: #6c757d;
+}
+
+QWidget#AppDark QStatusBar[class="main-status"] {
+    background-color: #495057;
+    border-color: #6c757d;
+}
+
+QWidget#AppDark QStatusBar[class="edit-status"] {
+    background-color: #1e3a5f;
+    border-color: #2c5aa0;
+}
+
+QWidget#AppDark QStatusBar[class="log-status"] {
+    background-color: #343a40;
+    border-color: #6c757d;
+}
+
+QWidget#AppDark QMenuBar {
+    background-color: #343a40;
+    border-color: #495057;
+    color: #f8f9fa;
+}
+
+QWidget#AppDark QMenuBar::item {
+    color: #f8f9fa;
+}
+
+QWidget#AppDark QMenuBar::item:hover {
+    background-color: #495057;
+    border-color: #6c757d;
+    color: #ffffff;
+}
+
+QWidget#AppDark QMenuBar::item:selected {
+    background-color: #4dabf7;
+    border-color: #4dabf7;
+    color: #000000;
+}
+
+QWidget#AppDark QMenuBar[class="main-menu"] {
+    background-color: #495057;
+    border-color: #6c757d;
+}
+
+QWidget#AppDark QMenuBar[class="edit-menu"] {
+    background-color: #1e3a5f;
+    border-color: #2c5aa0;
+}
+
+QWidget#AppDark QMenuBar[class="file-menu"] {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+/* High Contrast Theme Overrides */
+QWidget#AppHighContrast QStatusBar {
+    background-color: #000000;
+    border-color: #000000;
+    border-width: 2px;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+QWidget#AppHighContrast QStatusBar::separator {
+    background-color: #ffffff;
+    width: 2px;
+}
+
+QWidget#AppHighContrast QStatusBar[class="main-status"] {
+    background-color: #000000;
+    border-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QStatusBar[class="edit-status"] {
+    background-color: #000080;
+    border-color: #000080;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QStatusBar[class="log-status"] {
+    background-color: #000000;
+    border-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QMenuBar {
+    background-color: #000000;
+    border-color: #000000;
+    border-width: 2px;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+QWidget#AppHighContrast QMenuBar::item {
+    color: #ffffff;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QMenuBar::item:hover {
+    background-color: #ffffff;
+    border-color: #000000;
+    color: #000000;
+}
+
+QWidget#AppHighContrast QMenuBar::item:selected {
+    background-color: #000080;
+    border-color: #000000;
+    color: #ffffff;
+}
+
+QWidget#AppHighContrast QMenuBar[class="main-menu"] {
+    background-color: #000000;
+    border-color: #000000;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QMenuBar[class="edit-menu"] {
+    background-color: #000080;
+    border-color: #000080;
+    border-width: 2px;
+}
+
+QWidget#AppHighContrast QMenuBar[class="file-menu"] {
+    background-color: #000000;
+    border-color: #000000;
+    border-width: 2px;
+}

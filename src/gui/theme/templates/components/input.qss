@@ -1,0 +1,456 @@
+/* ==========================================================================
+   Input Fields Styling (PyQt5 100% Compatible)
+   QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit
+
+   주의사항:
+   - placeholder 텍스트 색상은 코드에서 팔레트로 설정
+   - opacity는 Qt QSS 미지원, 대체 아이콘 사용
+   - 부정 선택자(:!selected) 사용 지양
+   ========================================================================== */
+
+/* ==========================================================================
+   QLineEdit Base Styles
+   ========================================================================== */
+
+/* QLineEdit 기본 스타일 */
+QLineEdit {
+    background-color: #ffffff;
+    color: #212529;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 400;
+    min-height: 20px;
+    selection-background-color: #007bff;
+    selection-color: #ffffff;
+}
+
+/* QLineEdit 호버 상태 */
+QLineEdit:hover {
+    border-color: #adb5bd;
+}
+
+/* QLineEdit 포커스 상태 */
+QLineEdit:focus {
+    border-color: #007bff;
+    border-width: 2px;
+    background-color: #ffffff;
+}
+
+/* QLineEdit 포커스 + 호버 상태 */
+QLineEdit:focus:hover {
+    border-color: #0056b3;
+    border-width: 2px;
+}
+
+/* QLineEdit 포커스 + 비활성화 상태 (포커스 효과 없음) */
+QLineEdit:focus:disabled {
+    border-color: #e9ecef;
+    border-width: 1px;
+}
+
+/* QLineEdit 비활성화 상태 */
+QLineEdit:disabled {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+    border-color: #e9ecef;
+}
+
+/* QLineEdit 읽기 전용 상태 */
+QLineEdit:read-only {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border-color: #e9ecef;
+}
+
+/* ==========================================================================
+   QComboBox Base Styles
+   ========================================================================== */
+
+/* QComboBox 기본 스타일 */
+QComboBox {
+    background-color: #ffffff;
+    color: #212529;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    padding-right: 32px; /* 화살표 공간 */
+    font-size: 14px;
+    font-weight: 400;
+    min-height: 20px;
+    min-width: 100px;
+}
+
+/* QComboBox 호버 상태 */
+QComboBox:hover {
+    border-color: #adb5bd;
+}
+
+/* QComboBox 포커스 상태 */
+QComboBox:focus {
+    border-color: #007bff;
+    border-width: 2px;
+    background-color: #ffffff;
+}
+
+/* QComboBox 포커스 + 호버 상태 */
+QComboBox:focus:hover {
+    border-color: #0056b3;
+    border-width: 2px;
+}
+
+/* QComboBox 포커스 + 비활성화 상태 (포커스 효과 없음) */
+QComboBox:focus:disabled {
+    border-color: #e9ecef;
+    border-width: 1px;
+}
+
+/* QComboBox 비활성화 상태 */
+QComboBox:disabled {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+    border-color: #e9ecef;
+}
+
+/* QComboBox 드롭다운 영역 고정 */
+QComboBox::drop-down {
+    width: 24px;                   /* 화살표 영역 고정 */
+    border: none;
+    background: transparent;
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+}
+
+       /* QComboBox 드롭다운 화살표 */
+       QComboBox::down-arrow {
+           width: 12px;
+           height: 12px;
+           border: none;
+           background-color: transparent;
+           /* image: url(:/icons/dark/chevron-down.svg); - PyQt5 QSS 미지원 */
+       }
+
+       QComboBox::down-arrow:on {
+           /* transform: rotate(180deg); 제거 - Qt QSS 미지원 */
+           /* image: url(:/icons/dark/chevron-up.svg); - PyQt5 QSS 미지원 */
+       }
+
+/* QComboBox 드롭다운 화살표 호버 */
+QComboBox::down-arrow:hover {
+    background-color: #f8f9fa;
+    border-radius: 2px;
+}
+
+/* QComboBox 드롭다운 화살표 눌림 */
+QComboBox::down-arrow:pressed {
+    background-color: #e9ecef;
+    border-radius: 2px;
+}
+
+/* QComboBox 드롭다운 화살표 비활성화 */
+QComboBox:disabled::down-arrow {
+    /* opacity: 0.5; 제거 - Qt QSS 미지원 */
+    /* image: url(:/icons/dark/chevron-down-disabled.svg); - PyQt5 QSS 미지원 */
+}
+
+/* QComboBox 드롭다운 리스트 */
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    selection-background-color: #007bff;
+    selection-color: #ffffff;
+    /* outline: none; 제거 - Qt QSS 미지원 */
+}
+
+/* QComboBox 드롭다운 아이템 */
+QComboBox QAbstractItemView::item {
+    padding: 8px 12px;
+    min-height: 20px;
+    color: #212529;
+}
+
+/* QComboBox 드롭다운 아이템 호버 */
+QComboBox QAbstractItemView::item:hover {
+    background-color: #f8f9fa;
+    color: #212529;
+}
+
+/* QComboBox 드롭다운 아이템 선택 */
+QComboBox QAbstractItemView::item:selected {
+    background-color: #007bff;
+    color: #ffffff;
+}
+
+/* QComboBox 드롭다운 아이템 비활성화 */
+QComboBox QAbstractItemView::item:disabled {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+}
+
+/* QComboBox 드롭다운 스크롤바 */
+QComboBox QAbstractItemView QScrollBar:vertical {
+    width: 8px;
+    background-color: #f8f9fa;
+}
+
+QComboBox QAbstractItemView QScrollBar::handle:vertical {
+    background-color: #dee2e6;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+QComboBox QAbstractItemView QScrollBar::handle:vertical:hover {
+    background-color: #adb5bd;
+}
+
+/* ==========================================================================
+   QSpinBox Styling
+   ========================================================================== */
+
+/* QSpinBox 기본 스타일 */
+QSpinBox {
+    background-color: #ffffff;
+    color: #212529;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    padding-right: 32px; /* 화살표 공간 */
+    font-size: 14px;
+    font-weight: 400;
+    min-height: 20px;
+    min-width: 80px;
+}
+
+/* QSpinBox 호버 상태 */
+QSpinBox:hover {
+    border-color: #adb5bd;
+}
+
+/* QSpinBox 포커스 상태 */
+QSpinBox:focus {
+    border-color: #007bff;
+    border-width: 2px;
+    background-color: #ffffff;
+}
+
+/* QSpinBox 포커스 + 호버 상태 */
+QSpinBox:focus:hover {
+    border-color: #0056b3;
+    border-width: 2px;
+}
+
+/* QSpinBox 포커스 + 비활성화 상태 (포커스 효과 없음) */
+QSpinBox:focus:disabled {
+    border-color: #e9ecef;
+    border-width: 1px;
+}
+
+/* QSpinBox 비활성화 상태 */
+QSpinBox:disabled {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+    border-color: #e9ecef;
+}
+
+/* QSpinBox 버튼 영역 명시 */
+QSpinBox::up-button, QSpinBox::down-button {
+    width: 16px;                   /* 화살표와 일치 */
+    border: none;
+    background: transparent;
+    subcontrol-origin: border;
+}
+
+QSpinBox::up-button {
+    subcontrol-position: top right;
+}
+
+QSpinBox::down-button {
+    subcontrol-position: bottom right;
+}
+
+/* QSpinBox 위쪽 화살표 */
+QSpinBox::up-arrow {
+    width: 16px;
+    height: 16px;
+    border: none;
+    background-color: transparent;
+    /* image: url(:/icons/dark/chevron-up.svg); - PyQt5 QSS 미지원 */
+}
+
+/* QSpinBox 아래쪽 화살표 */
+QSpinBox::down-arrow {
+    width: 16px;
+    height: 16px;
+    border: none;
+    background-color: transparent;
+    /* image: url(:/icons/dark/chevron-down.svg); - PyQt5 QSS 미지원 */
+}
+
+/* QSpinBox 버튼 호버 상태 */
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background-color: #f8f9fa;
+    border-radius: 2px;
+}
+
+/* QSpinBox 버튼 눌림 상태 */
+QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {
+    background-color: #e9ecef;
+    border-radius: 2px;
+}
+
+/* QSpinBox 화살표 호버 상태 */
+QSpinBox::up-arrow:hover,
+QSpinBox::down-arrow:hover {
+    background-color: #f8f9fa;
+    border-radius: 2px;
+}
+
+/* QSpinBox 화살표 눌림 상태 */
+QSpinBox::up-arrow:pressed,
+QSpinBox::down-arrow:pressed {
+    background-color: #e9ecef;
+    border-radius: 2px;
+}
+
+/* QSpinBox 화살표 비활성화 상태 */
+QSpinBox:disabled::up-arrow {
+    /* opacity: 0.5; 제거 - Qt QSS 미지원 */
+    /* image: url(:/icons/dark/chevron-up-disabled.svg); - PyQt5 QSS 미지원 */
+}
+
+QSpinBox:disabled::down-arrow {
+    /* opacity: 0.5; 제거 - Qt QSS 미지원 */
+    /* image: url(:/icons/dark/chevron-down-disabled.svg); - PyQt5 QSS 미지원 */
+}
+
+/* QSpinBox 화살표 포커스 상태 */
+QSpinBox:focus::up-arrow,
+QSpinBox:focus::down-arrow {
+    background-color: transparent;
+}
+
+/* QSpinBox 화살표 포커스 + 호버 상태 */
+QSpinBox:focus::up-arrow:hover,
+QSpinBox:focus::down-arrow:hover {
+    background-color: #f8f9fa;
+    border-radius: 2px;
+}
+
+/* QSpinBox 화살표 포커스 + 눌림 상태 */
+QSpinBox:focus::up-arrow:pressed,
+QSpinBox:focus::down-arrow:pressed {
+    background-color: #e9ecef;
+    border-radius: 2px;
+}
+
+/* ==========================================================================
+   QTextEdit Styling
+   ========================================================================== */
+
+/* QTextEdit 기본 스타일 */
+QTextEdit {
+    background-color: #ffffff;
+    color: #212529;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 400;
+    selection-background-color: #007bff;
+    selection-color: #ffffff;
+}
+
+/* QTextEdit 호버 상태 */
+QTextEdit:hover {
+    border-color: #adb5bd;
+}
+
+/* QTextEdit 포커스 상태 */
+QTextEdit:focus {
+    border-color: #007bff;
+    border-width: 2px;
+    background-color: #ffffff;
+}
+
+/* QTextEdit 포커스 + 호버 상태 */
+QTextEdit:focus:hover {
+    border-color: #0056b3;
+    border-width: 2px;
+}
+
+/* QTextEdit 포커스 + 비활성화 상태 (포커스 효과 없음) */
+QTextEdit:focus:disabled {
+    border-color: #e9ecef;
+    border-width: 1px;
+}
+
+/* QTextEdit 비활성화 상태 */
+QTextEdit:disabled {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+    border-color: #e9ecef;
+}
+
+/* QTextEdit 읽기 전용 상태 */
+QTextEdit:read-only {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border-color: #e9ecef;
+}
+
+/* ==========================================================================
+   QPlainTextEdit Styling
+   ========================================================================== */
+
+/* QPlainTextEdit 기본 스타일 */
+QPlainTextEdit {
+    background-color: #ffffff;
+    color: #212529;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 400;
+    selection-background-color: #007bff;
+    selection-color: #ffffff;
+}
+
+/* QPlainTextEdit 호버 상태 */
+QPlainTextEdit:hover {
+    border-color: #adb5bd;
+}
+
+/* QPlainTextEdit 포커스 상태 */
+QPlainTextEdit:focus {
+    border-color: #007bff;
+    border-width: 2px;
+    background-color: #ffffff;
+}
+
+/* QPlainTextEdit 포커스 + 호버 상태 */
+QPlainTextEdit:focus:hover {
+    border-color: #0056b3;
+    border-width: 2px;
+}
+
+/* QPlainTextEdit 포커스 + 비활성화 상태 (포커스 효과 없음) */
+QPlainTextEdit:focus:disabled {
+    border-color: #e9ecef;
+    border-width: 1px;
+}
+
+/* QPlainTextEdit 비활성화 상태 */
+QPlainTextEdit:disabled {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+    border-color: #e9ecef;
+}
+
+/* QPlainTextEdit 읽기 전용 상태 */
+QPlainTextEdit:read-only {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border-color: #e9ecef;
+}

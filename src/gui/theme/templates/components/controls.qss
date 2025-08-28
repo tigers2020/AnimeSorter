@@ -1,0 +1,366 @@
+/* ===== 핵심 컨트롤 요소 스타일 ===== */
+/*
+   이 파일은 핵심 컨트롤 요소만 포함합니다:
+   - QCheckBox, QRadioButton, QProgressBar
+
+   다른 스타일들은 별도 파일로 분리되었습니다:
+   - menu.qss: QMenuBar, QMenu, QToolTip
+   - input.qss: QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit
+*/
+
+/* ==========================================================================
+   Subtask 13.1: Style QCheckBox Default Indicator
+   ========================================================================== */
+
+/* QCheckBox 기본 스타일 */
+QCheckBox {
+    color: #495057;  /* --text-primary */
+    font-size: 14px;
+    font-weight: 400;
+    spacing: 8px;
+    padding: 2px;
+}
+
+/* QCheckBox 인디케이터 - 기본 상태 */
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #dee2e6;  /* --border */
+    border-radius: 3px;
+    background-color: #ffffff;  /* --background */
+    margin: 0px;
+}
+
+/* QCheckBox 인디케이터 - 체크되지 않은 상태 */
+QCheckBox::indicator:unchecked {
+    background-color: #ffffff;  /* --background */
+    border: 2px solid #dee2e6;  /* --border */
+}
+
+/* QCheckBox 호버 효과 */
+QCheckBox::indicator:hover {
+    border-color: #adb5bd;
+}
+
+QCheckBox::indicator:checked:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+        /* QCheckBox 인디케이터 - 체크된 상태 */
+        QCheckBox::indicator:checked {
+            background-color: #007bff;  /* --primary-color */
+            border: 2px solid #007bff;  /* --primary-color */
+            /* image: url(:/icons/dark/check.svg); - PyQt5 QSS 미지원 */
+        }
+
+/* ==========================================================================
+   Subtask 13.4: Implement Focus and Disabled States
+   ========================================================================== */
+
+/* QCheckBox 포커스 상태 */
+QCheckBox:focus::indicator {
+    border: 2px solid #007bff;  /* --focus-outline */
+    border-radius: 3px;
+}
+
+/* QCheckBox 비활성화 상태 */
+QCheckBox:disabled {
+    color: #adb5bd;  /* --text-disabled */
+}
+
+QCheckBox:disabled::indicator {
+    background-color: #f1f3f5;  /* 기존 #f8f9fa 대체 */
+    border: 2px solid #e9ecef;
+}
+
+QCheckBox:disabled::indicator:checked {
+    background-color: #adb5bd;  /* 회색으로 채움 */
+    border: 2px solid #adb5bd;
+}
+
+/* ==========================================================================
+   Subtask 13.3: Style QRadioButton Indicator
+   ========================================================================== */
+
+/* QRadioButton 기본 스타일 */
+QRadioButton {
+    color: #495057;  /* --text-primary */
+    font-size: 14px;
+    font-weight: 400;
+    spacing: 8px;
+    padding: 2px;
+}
+
+/* QRadioButton 인디케이터 - 기본 상태 */
+QRadioButton::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #dee2e6;  /* --border */
+    border-radius: 9px;  /* 원형 모양 */
+    background-color: #ffffff;  /* --background */
+    margin: 0px;
+}
+
+/* QRadioButton 인디케이터 - 선택되지 않은 상태 */
+QRadioButton::indicator:unchecked {
+    background-color: #ffffff;  /* --background */
+    border: 2px solid #dee2e6;  /* --border */
+}
+
+        /* QRadioButton 인디케이터 - 선택된 상태 */
+        QRadioButton::indicator:checked {
+            background-color: #007bff;  /* --primary-color */
+            border: 2px solid #007bff;  /* --primary-color */
+            /* qradialgradient와 rgba는 PyQt5 QSS 미지원 - 단순 색상으로 대체 */
+        }
+
+/* QRadioButton 포커스 상태 */
+QRadioButton:focus::indicator {
+    border: 2px solid #007bff;  /* --focus-outline */
+    border-radius: 9px;
+}
+
+/* QRadioButton 비활성화 상태 */
+QRadioButton:disabled {
+    color: #adb5bd;  /* --text-disabled */
+}
+
+QRadioButton:disabled::indicator {
+    background-color: #f1f3f5;
+    border: 2px solid #e9ecef;
+}
+
+QRadioButton:disabled::indicator:checked {
+    border: 2px solid #6c757d;
+    background: #6c757d;  /* PyQt5 QSS 미지원 함수 대체 */
+}
+
+/* QSlider */
+QSlider {
+    /* 기본 스타일 */
+}
+
+QSlider::groove:horizontal {
+    /* 수평 그루브 */
+}
+
+QSlider::handle:horizontal {
+    /* 수평 핸들 */
+}
+
+QSlider::groove:vertical {
+    /* 수직 그루브 */
+}
+
+QSlider::handle:vertical {
+    /* 수직 핸들 */
+}
+
+/* ==========================================================================
+   Subtask 11.1: Implement Base Progress Bar Structure and Dimensions
+   ========================================================================== */
+
+/* QProgressBar 기본 스타일 */
+QProgressBar {
+    background-color: #e9ecef;  /* --surface-depressed */
+    border: 1px solid #dee2e6;  /* --border */
+    border-radius: 4px;
+    height: 8px;  /* 슬림한 6-8px 높이 */
+    text-align: center;
+    color: #ffffff;  /* --text-inverse (흰색 텍스트) */
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0px;
+    margin: 0px;
+}
+
+/* QProgressBar 트랙 (groove) */
+QProgressBar::groove {
+    background-color: #e9ecef;  /* --surface-depressed */
+    border: none;
+    border-radius: 4px;
+    height: 8px;
+}
+
+/* ==========================================================================
+   Subtask 11.2: Implement Progress Chunk Styling
+   ========================================================================== */
+
+/* QProgressBar 청크 (진행률 표시) */
+QProgressBar::chunk {
+    background-color: #007bff;  /* --primary-color */
+    border: none;
+    border-radius: 4px;
+    height: 8px;
+    margin: 0px;
+}
+
+/* ==========================================================================
+   Subtask 11.4: Implement Success and Warning Role-Based Coloring
+   ========================================================================== */
+
+/* 성공 역할 진행률바 */
+QProgressBar[role="success"]::chunk {
+    background-color: #28a745;  /* --success-color */
+}
+
+/* 경고 역할 진행률바 */
+QProgressBar[role="warning"]::chunk {
+    background-color: #ffc107;  /* --warning-color */
+}
+
+/* ==========================================================================
+   Subtask 11.5: Implement Error and Disabled Role-Based Coloring / States
+   ========================================================================== */
+
+/* 오류 역할 진행률바 */
+QProgressBar[role="error"]::chunk {
+    background-color: #dc3545;  /* --error-color */
+}
+
+/* 비활성화된 진행률바 */
+QProgressBar:disabled {
+    background-color: #f8f9fa;  /* --surface-disabled */
+    border-color: #e9ecef;
+    color: #adb5bd;  /* --text-disabled */
+}
+
+QProgressBar:disabled::chunk {
+    background-color: #adb5bd;  /* --primary-disabled */
+}
+
+/*
+   메뉴 관련 스타일은 menu.qss로 분리되었습니다:
+   - QMenuBar, QMenu, QToolTip
+*/
+
+/*
+   입력 필드 관련 스타일은 input.qss로 분리되었습니다:
+   - QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit
+*/
+
+/* ==========================================================================
+   Subtask 13.5: High Contrast Theme & Final Verification
+   ========================================================================== */
+
+/* Dark Theme Overrides */
+QWidget#AppDark QCheckBox {
+    color: #f8f9fa;  /* --text-primary for dark theme */
+}
+
+QWidget#AppDark QCheckBox::indicator {
+    background-color: #495057;  /* --surface for dark theme */
+    border: 2px solid #6c757d;  /* --border for dark theme */
+}
+
+QWidget#AppDark QCheckBox::indicator:checked {
+    background-color: #4dabf7;  /* --primary-color for dark theme */
+    border: 2px solid #4dabf7;  /* --primary-color for dark theme */
+}
+
+QWidget#AppDark QCheckBox:disabled {
+    color: #6c757d;  /* --text-disabled for dark theme */
+}
+
+QWidget#AppDark QCheckBox:disabled::indicator {
+    background-color: #343a40;  /* --gray-800 for dark theme */
+    border: 2px solid #495057;  /* --border for dark theme */
+}
+
+QWidget#AppDark QCheckBox:disabled::indicator:checked {
+    background-color: #495057;  /* --gray-600 for dark theme */
+    border: 2px solid #495057;  /* --gray-600 for dark theme */
+}
+
+QWidget#AppDark QRadioButton {
+    color: #f8f9fa;  /* --text-primary for dark theme */
+}
+
+QWidget#AppDark QRadioButton::indicator {
+    background-color: #495057;  /* --surface for dark theme */
+    border: 2px solid #6c757d;  /* --border for dark theme */
+}
+
+QWidget#AppDark QRadioButton::indicator:checked {
+    background-color: #4dabf7;  /* --primary-color for dark theme */
+    border: 2px solid #4dabf7;  /* --primary-color for dark theme */
+}
+
+QWidget#AppDark QRadioButton:disabled {
+    color: #6c757d;  /* --text-disabled for dark theme */
+}
+
+QWidget#AppDark QRadioButton:disabled::indicator {
+    background-color: #343a40;  /* --gray-800 for dark theme */
+    border: 2px solid #495057;  /* --border for dark theme */
+}
+
+QWidget#AppDark QRadioButton:disabled::indicator:checked {
+    background-color: #495057;  /* --gray-600 for dark theme */
+    border: 2px solid #495057;  /* --gray-600 for dark theme */
+}
+
+/* High Contrast Theme Overrides */
+QWidget#AppHighContrast QCheckBox {
+    color: #000000;
+    font-weight: 700;
+}
+
+QWidget#AppHighContrast QCheckBox::indicator {
+    background-color: #ffffff;
+    border: 2px solid #000000;
+    border-radius: 3px;
+}
+
+QWidget#AppHighContrast QCheckBox::indicator:checked {
+    background-color: #000080;  /* High contrast blue */
+    border: 2px solid #000000;
+}
+
+QWidget#AppHighContrast QCheckBox:focus::indicator {
+    border: 3px solid #000000;
+}
+
+QWidget#AppHighContrast QCheckBox:disabled {
+    color: #808080;
+}
+
+QWidget#AppHighContrast QCheckBox:disabled::indicator {
+    background-color: #c0c0c0;
+    border: 2px solid #808080;
+}
+
+QWidget#AppHighContrast QRadioButton {
+    color: #000000;
+    font-weight: 700;
+}
+
+QWidget#AppHighContrast QRadioButton::indicator {
+    background-color: #ffffff;
+    border: 2px solid #000000;
+    border-radius: 9px;
+}
+
+QWidget#AppHighContrast QRadioButton::indicator:checked {
+    background-color: #000080;  /* High contrast blue */
+    border: 2px solid #000000;
+}
+
+QWidget#AppHighContrast QRadioButton:focus::indicator {
+    border: 3px solid #000000;
+}
+
+QWidget#AppHighContrast QRadioButton:disabled {
+    color: #808080;
+}
+
+QWidget#AppHighContrast QRadioButton:disabled::indicator {
+    background-color: #c0c0c0;
+    border: 2px solid #808080;
+}
+
+QWidget#AppHighContrast QRadioButton:disabled::indicator:checked {
+    background-color: #808080;
+    border: 2px solid #808080;
+}

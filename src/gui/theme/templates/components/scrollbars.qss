@@ -1,0 +1,205 @@
+/* ==========================================================================
+   Scrollbar Styling (PyQt5 100% Compatible)
+   QScrollBar 스타일링 - 슬림하고 덜 침투적인 외관
+
+   사용법:
+   - 자동으로 모든 QScrollBar에 적용
+   - 테마별 색상 자동 적용
+   ========================================================================== */
+
+/* ==========================================================================
+   Subtask 12.1: Define Scrollbar Dimensions
+   ========================================================================== */
+
+/* 수직 스크롤바 - 슬림한 8px 너비 */
+QScrollBar:vertical {
+    width: 8px;
+    background-color: transparent;
+    border: none;
+    margin: 0px;
+}
+
+/* 수평 스크롤바 - 슬림한 8px 높이 */
+QScrollBar:horizontal {
+    height: 8px;
+    background-color: transparent;
+    border: none;
+    margin: 0px;
+}
+
+/* ==========================================================================
+   Subtask 12.2: Style Scrollbar Track
+   ========================================================================== */
+
+/* 스크롤바 트랙 (groove) - 투명하게 설정 */
+QScrollBar::groove:vertical {
+    background-color: transparent;
+    border: none;
+    width: 8px;
+}
+
+QScrollBar::groove:horizontal {
+    background-color: transparent;
+    border: none;
+    height: 8px;
+}
+
+/* ==========================================================================
+   Subtask 12.3: Style Scrollbar Handle (Default & Hover)
+   ========================================================================== */
+
+/* 수직 스크롤바 핸들 - 기본 상태 */
+QScrollBar::handle:vertical {
+    background-color: #ced4da;  /* --gray-400 */
+    border-radius: 4px;
+    min-height: 20px;
+    margin: 0px;
+}
+
+/* 수직 스크롤바 핸들 - 호버 상태 */
+QScrollBar::handle:vertical:hover {
+    background-color: #adb5bd;  /* --gray-500 */
+    border-radius: 4px;
+}
+
+/* 수평 스크롤바 핸들 - 기본 상태 */
+QScrollBar::handle:horizontal {
+    background-color: #ced4da;  /* --gray-400 */
+    border-radius: 4px;
+    min-width: 20px;
+    margin: 0px;
+}
+
+/* 수평 스크롤바 핸들 - 호버 상태 */
+QScrollBar::handle:horizontal:hover {
+    background-color: #adb5bd;  /* --gray-500 */
+    border-radius: 4px;
+}
+
+/* ==========================================================================
+   Subtask 12.4: Hide or Simplify Scrollbar Buttons
+   ========================================================================== */
+
+/* 스크롤바 버튼들 완전히 숨김 */
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical,
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0px;
+    height: 0px;
+    background: transparent;
+    border: none;
+}
+
+/* 스크롤바 페이지 영역 숨김 */
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical,
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal {
+    background: transparent;
+    border: none;
+}
+
+/* ==========================================================================
+   Subtask 12.5: Dark Theme Contrast & Overall Review
+   ========================================================================== */
+
+/* Dark Theme Overrides */
+QWidget#AppDark QScrollBar::handle:vertical {
+    background-color: #6c757d;  /* --gray-600 for better contrast */
+}
+
+QWidget#AppDark QScrollBar::handle:vertical:hover {
+    background-color: #495057;  /* --gray-700 for better contrast */
+}
+
+QWidget#AppDark QScrollBar::handle:horizontal {
+    background-color: #6c757d;  /* --gray-600 for better contrast */
+}
+
+QWidget#AppDark QScrollBar::handle:horizontal:hover {
+    background-color: #495057;  /* --gray-700 for better contrast */
+}
+
+/* High Contrast Theme Overrides */
+QWidget#AppHighContrast QScrollBar::handle:vertical {
+    background-color: #000000;
+    border: 1px solid #ffffff;
+}
+
+QWidget#AppHighContrast QScrollBar::handle:vertical:hover {
+    background-color: #ffffff;
+    border: 1px solid #000000;
+}
+
+QWidget#AppHighContrast QScrollBar::handle:horizontal {
+    background-color: #000000;
+    border: 1px solid #ffffff;
+}
+
+QWidget#AppHighContrast QScrollBar::handle:horizontal:hover {
+    background-color: #ffffff;
+    border: 1px solid #000000;
+}
+
+/* ==========================================================================
+   Additional Scrollbar Enhancements
+   ========================================================================== */
+
+/* 스크롤바 포커스 상태 */
+QScrollBar:focus {
+    border: none;
+    outline: none;
+}
+
+/* 스크롤바 비활성화 상태 */
+QScrollBar:disabled {
+    background-color: transparent;
+}
+
+QScrollBar:disabled::handle {
+    background-color: #e9ecef;  /* --gray-200 */
+}
+
+/* ==========================================================================
+   Legacy Support & Fallbacks
+   ========================================================================== */
+
+/* 기존 스타일과의 호환성을 위한 추가 규칙들 */
+QScrollBar::corner {
+    background-color: transparent;
+    border: none;
+}
+
+/* QScrollArea 내부 스크롤바 스타일링 */
+QScrollArea QScrollBar:vertical {
+    width: 8px;
+}
+
+QScrollArea QScrollBar:horizontal {
+    height: 8px;
+}
+
+/* QTextEdit, QPlainTextEdit 내부 스크롤바 */
+QTextEdit QScrollBar:vertical,
+QPlainTextEdit QScrollBar:vertical {
+    width: 8px;
+}
+
+QTextEdit QScrollBar:horizontal,
+QPlainTextEdit QScrollBar:horizontal {
+    height: 8px;
+}
+
+/* QListView, QTreeView, QTableView 내부 스크롤바 */
+QListView QScrollBar:vertical,
+QTreeView QScrollBar:vertical,
+QTableView QScrollBar:vertical {
+    width: 8px;
+}
+
+QListView QScrollBar:horizontal,
+QTreeView QScrollBar:horizontal,
+QTableView QScrollBar:horizontal {
+    height: 8px;
+}

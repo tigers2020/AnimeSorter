@@ -1,0 +1,544 @@
+/* ==========================================================================
+   Table and List Styling (QTableView/QTreeView)
+   테이블과 리스트 뷰 스타일링 - 헤더, 선택된 행, 셀 내용
+
+   주의사항:
+   - QHeaderView는 세로/가로 헤더 모두 지원
+   - 선택된 행은 반투명 배경으로 구현
+   - 커스텀 델리게이트는 별도 스타일링 필요
+   ========================================================================== */
+
+/* ==========================================================================
+   Table/Tree Header Styling (QHeaderView)
+   ========================================================================== */
+
+/* 헤더 기본 스타일 */
+QHeaderView {
+    background-color: #f8f9fa;                    /* --surface-depressed */
+    color: #212529;                               /* --text-primary */
+    border: none;
+    border-bottom: 1px solid #dee2e6;            /* 1px --divider */
+    font-weight: 600;                             /* font-weight-bold */
+    font-size: 13px;                              /* --text-sm */
+    padding: 8px 12px;                            /* 8px 그리드: 8px(상하), 12px(좌우) */
+    min-height: 24px;                             /* 최소 헤더 높이 */
+}
+
+/* 헤더 섹션 스타일 */
+QHeaderView::section {
+    background-color: transparent;
+    color: #212529;                               /* --text-primary */
+    border: none;
+    border-right: 1px solid #dee2e6;             /* 1px --divider */
+    padding: 8px 12px;                            /* 8px 그리드: 8px(상하), 12px(좌우) */
+    font-weight: 600;                             /* font-weight-bold */
+    font-size: 13px;                              /* --text-sm */
+    text-align: left;                             /* 텍스트 왼쪽 정렬 */
+}
+
+/* 마지막 헤더 섹션 (오른쪽 테두리 제거) */
+QHeaderView::section:last {
+    border-right: none;
+}
+
+/* 헤더 섹션 호버 상태 */
+QHeaderView::section:hover {
+    background-color: #e9ecef;                    /* --hover */
+    color: #212529;                               /* --text-primary */
+}
+
+/* 헤더 섹션 눌림 상태 (정렬 시) */
+QHeaderView::section:pressed {
+    background-color: #dee2e6;                    /* --active */
+    color: #212529;                               /* --text-primary */
+}
+
+/* 헤더 섹션 포커스 상태 */
+QHeaderView::section:focus {
+    background-color: #e3f2fd;                    /* --focus-light */
+    color: #212529;                               /* --text-primary */
+    border: 2px solid #007bff;                    /* --border-focus */
+}
+
+/* ==========================================================================
+   Table View Styling (QTableView)
+   ========================================================================== */
+
+/* 테이블 뷰 기본 스타일 */
+QTableView {
+    background-color: #ffffff;                    /* --surface */
+    alternate-background-color: #f8f9fa;         /* --surface-secondary */
+    color: #212529;                               /* text-primary */
+    border: 1px solid #dee2e6;                   /* --divider */
+    border-radius: 4px;                           /* --border-radius */
+    gridline-color: #e9ecef;                     /* --border-light */
+    selection-background-color: #e3f2fd; /* --selected (rgba 대체) */
+    selection-color: #212529;                     /* --text-primary */
+    outline: none;                                /* 포커스 아웃라인 제거 */
+}
+
+/* 테이블 뷰 아이템 스타일 */
+QTableView::item {
+    background-color: transparent;
+    color: #212529;                               /* text-primary */
+    border: none;
+    padding: 8px 12px;                            /* 8px 그리드: 8px(상하), 12px(좌우) */
+    min-height: 24px;                             /* 최소 행 높이 */
+}
+
+/* 테이블 뷰 아이템 호버 상태 */
+QTableView::item:hover {
+    background-color: #f8f9fa;                    /* --hover */
+    color: #212529;                               /* --text-primary */
+}
+
+/* 테이블 뷰 아이템 선택 상태 */
+QTableView::item:selected {
+    background-color: #e3f2fd;    /* --selected (rgba 대체) */
+    color: #212529;                               /* --text-primary */
+}
+
+/* 테이블 뷰 아이템 선택 + 호버 상태 */
+QTableView::item:selected:hover {
+    background-color: #bbdefb;   /* --selected-hover (rgba 대체) */
+    color: #212529;                               /* --text-primary */
+}
+
+/* 테이블 뷰 아이템 포커스 상태 */
+QTableView::item:focus {
+    background-color: #f3f9ff;   /* --focus-light (rgba 대체) */
+    color: #212529;                               /* --text-primary */
+    border: 2px solid #007bff;                    /* --border-focus */
+}
+
+/* ==========================================================================
+   Tree View Styling (QTreeView)
+   ========================================================================== */
+
+/* 트리 뷰 기본 스타일 */
+QTreeView {
+    background-color: #ffffff;                    /* --surface */
+    color: #212529;                               /* text-primary */
+    border: 1px solid #dee2e6;                   /* --divider */
+    border-radius: 4px;                           /* --border-radius */
+    selection-background-color: #e3f2fd; /* --selected (rgba 대체) */
+    selection-color: #212529;                     /* --text-primary */
+    outline: none;                                /* 포커스 아웃라인 제거 */
+    show-decoration-selected: 1;                  /* 선택된 아이템 강조 */
+}
+
+/* 트리 뷰 아이템 스타일 */
+QTreeView::item {
+    background-color: transparent;
+    color: #212529;                               /* text-primary */
+    border: none;
+    padding: 4px 8px;                             /* 8px 그리드: 4px(상하), 8px(좌우) */
+    min-height: 20px;                             /* 최소 아이템 높이 */
+}
+
+/* 트리 뷰 아이템 호버 상태 */
+QTreeView::item:hover {
+    background-color: #f8f9fa;                    /* --hover */
+    color: #212529;                               /* --text-primary */
+}
+
+/* 트리 뷰 아이템 선택 상태 */
+QTreeView::item:selected {
+    background-color: #e3f2fd;    /* --selected (rgba 대체) */
+    color: #212529;                               /* --text-primary */
+}
+
+/* 트리 뷰 아이템 선택 + 호버 상태 */
+QTreeView::item:selected:hover {
+    background-color: rgba(0, 123, 255, 0.15);   /* semi-transparent --selected-hover */
+    color: #212529;                               /* --text-primary */
+}
+
+/* 트리 뷰 아이템 포커스 상태 */
+QTreeView::item:focus {
+    background-color: rgba(0, 123, 255, 0.05);   /* semi-transparent --focus-light */
+    color: #212529;                               /* --text-primary */
+    border: 2px solid #007bff;                    /* --border-focus */
+}
+
+/* 트리 뷰 브랜치 스타일 */
+QTreeView::branch {
+    background-color: transparent;
+    color: #6c757d;                               /* --text-secondary */
+}
+
+/* 트리 뷰 브랜치 호버 상태 */
+QTreeView::branch:hover {
+    background-color: #f8f9fa;                    /* --hover */
+    color: #495057;                               /* --text-primary */
+}
+
+/* 트리 뷰 브랜치 선택 상태 */
+QTreeView::branch:selected {
+    background-color: rgba(0, 123, 255, 0.1);    /* semi-transparent --selected */
+    color: #212529;                               /* --text-primary */
+}
+
+/* ==========================================================================
+   Custom Chip Delegates Styling
+   ========================================================================== */
+
+/* 경고 칩 스타일 */
+QTableView::item[chip="warning"], QTreeView::item[chip="warning"] {
+    background-color: #fff3cd;                    /* --warning-color */
+    color: #856404;                               /* 경고 텍스트 색상 (WCAG 대비) */
+    border: 1px solid #ffeaa7;
+    border-radius: 12px;                          /* 둥근 모서리 */
+    padding: 2px 8px;                             /* 칩 내부 여백 */
+    margin: 2px;                                  /* 칩 간격 */
+}
+
+/* 에러 칩 스타일 */
+QTableView::item[chip="error"], QTreeView::item[chip="error"] {
+    background-color: #f8d7da;                    /* --error-color */
+    color: #721c24;                               /* 에러 텍스트 색상 (WCAG 대비) */
+    border: 1px solid #f5c6cb;
+    border-radius: 12px;                          /* 둥근 모서리 */
+    padding: 2px 8px;                             /* 칩 내부 여백 */
+    margin: 2px;                                  /* 칩 간격 */
+}
+
+/* 성공 칩 스타일 */
+QTableView::item[chip="success"], QTreeView::item[chip="success"] {
+    background-color: #d4edda;                    /* --success-color */
+    color: #155724;                               /* 성공 텍스트 색상 (WCAG 대비) */
+    border: 1px solid #c3e6cb;
+    border-radius: 12px;                          /* 둥근 모서리 */
+    padding: 2px 8px;                             /* 칩 내부 여백 */
+    margin: 2px;                                  /* 칩 간격 */
+}
+
+/* 정보 칩 스타일 */
+QTableView::item[chip="info"], QTreeView::item[chip="info"] {
+    background-color: #d1ecf1;                    /* --info-color */
+    color: #0c5460;                               /* 정보 텍스트 색상 (WCAG 대비) */
+    border: 1px solid #bee5eb;
+    border-radius: 12px;                          /* 둥근 모서리 */
+    padding: 2px 8px;                             /* 칩 내부 여백 */
+    margin: 2px;                                  /* 칩 간격 */
+}
+
+/* ==========================================================================
+   Scroll Bar Styling for Tables/Trees
+   ========================================================================== */
+
+/* 테이블/트리 스크롤바 */
+QTableView QScrollBar:vertical, QTreeView QScrollBar:vertical {
+    width: 12px;
+    background-color: #f8f9fa;                    /* --surface-secondary */
+    border: none;
+}
+
+QTableView QScrollBar::handle:vertical, QTreeView QScrollBar::handle:vertical {
+    background-color: #dee2e6;                    /* --divider */
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QTableView QScrollBar::handle:vertical:hover, QTreeView QScrollBar::handle:vertical:hover {
+    background-color: #adb5bd;                    /* --border-hover */
+}
+
+/* 가로 스크롤바 */
+QTableView QScrollBar:horizontal, QTreeView QScrollBar:horizontal {
+    height: 12px;
+    background-color: #f8f9fa;                    /* --surface-secondary */
+    border: none;
+}
+
+QTableView QScrollBar::handle:horizontal, QTreeView QScrollBar::handle:horizontal {
+    background-color: #dee2e6;                    /* --divider */
+    border-radius: 6px;
+    min-width: 20px;
+}
+
+QTableView QScrollBar::handle:horizontal:hover, QTreeView QScrollBar::handle:horizontal:hover {
+    background-color: #adb5bd;                    /* --border-hover */
+}
+
+/* ==========================================================================
+   Dark Theme Overrides
+   ========================================================================== */
+
+/* 다크 테마 헤더 */
+QWidget#AppDark QHeaderView {
+    background-color: #495057;                    /* --surface-depressed-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+    border-bottom-color: #6c757d;                /* --divider-dark */
+}
+
+QWidget#AppDark QHeaderView::section {
+    color: #dee2e6;                               /* --text-primary-dark */
+    border-right-color: #6c757d;                 /* --divider-dark */
+}
+
+QWidget#AppDark QHeaderView::section:hover {
+    background-color: #6c757d;                    /* --hover-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QHeaderView::section:pressed {
+    background-color: #495057;                    /* --active-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QHeaderView::section:focus {
+    background-color: #1e3a5f;                    /* --focus-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+    border-color: #4dabf7;                        /* --border-focus-dark */
+}
+
+/* 다크 테마 테이블 뷰 */
+QWidget#AppDark QTableView {
+    background-color: #343a40;                    /* --surface-dark */
+    alternate-background-color: #495057;          /* --surface-secondary-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+    border-color: #6c757d;                       /* --divider-dark */
+    gridline-color: #495057;                     /* --border-light-dark */
+    selection-background-color: rgba(77, 171, 247, 0.1); /* semi-transparent --selected-dark */
+    selection-color: #dee2e6;                     /* --text-primary-dark */
+}
+
+QWidget#AppDark QTableView::item {
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTableView::item:hover {
+    background-color: #495057;                    /* --hover-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTableView::item:selected {
+    background-color: rgba(77, 171, 247, 0.1);   /* semi-transparent --selected-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTableView::item:selected:hover {
+    background-color: rgba(77, 171, 247, 0.15);  /* semi-transparent --selected-hover-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTableView::item:focus {
+    background-color: rgba(77, 171, 247, 0.05);  /* semi-transparent --focus-light-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+    border-color: #4dabf7;                        /* --border-focus-dark */
+}
+
+/* 다크 테마 트리 뷰 */
+QWidget#AppDark QTreeView {
+    background-color: #343a40;                    /* --surface-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+    border-color: #6c757d;                       /* --divider-dark */
+    selection-background-color: rgba(77, 171, 247, 0.1); /* semi-transparent --selected-dark */
+    selection-color: #dee2e6;                     /* --text-primary-dark */
+}
+
+QWidget#AppDark QTreeView::item {
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTreeView::item:hover {
+    background-color: #495057;                    /* --hover-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTreeView::item:selected {
+    background-color: rgba(77, 171, 247, 0.1);   /* semi-transparent --selected-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTreeView::item:selected:hover {
+    background-color: rgba(77, 171, 247, 0.15);  /* semi-transparent --selected-hover-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTreeView::item:focus {
+    background-color: rgba(77, 171, 247, 0.05);  /* semi-transparent --focus-light-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+    border-color: #4dabf7;                        /* --border-focus-dark */
+}
+
+QWidget#AppDark QTreeView::branch {
+    color: #adb5bd;                               /* --text-secondary-dark */
+}
+
+QWidget#AppDark QTreeView::branch:hover {
+    background-color: #495057;                    /* --hover-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+QWidget#AppDark QTreeView::branch:selected {
+    background-color: rgba(77, 171, 247, 0.1);   /* semi-transparent --selected-dark */
+    color: #dee2e6;                               /* --text-primary-dark */
+}
+
+/* 다크 테마 스크롤바 */
+QWidget#AppDark QTableView QScrollBar:vertical, QWidget#AppDark QTreeView QScrollBar:vertical {
+    background-color: #495057;                    /* --surface-secondary-dark */
+}
+
+QWidget#AppDark QTableView QScrollBar::handle:vertical, QWidget#AppDark QTreeView QScrollBar::handle:vertical {
+    background-color: #6c757d;                    /* --divider-dark */
+}
+
+QWidget#AppDark QTableView QScrollBar::handle:vertical:hover, QWidget#AppDark QTreeView QScrollBar::handle:vertical:hover {
+    background-color: #adb5bd;                    /* --border-hover-dark */
+}
+
+QWidget#AppDark QTableView QScrollBar:horizontal, QWidget#AppDark QTreeView QScrollBar:horizontal {
+    background-color: #495057;                    /* --surface-secondary-dark */
+}
+
+QWidget#AppDark QTableView QScrollBar::handle:horizontal, QWidget#AppDark QTreeView QScrollBar::handle:horizontal {
+    background-color: #6c757d;                    /* --divider-dark */
+}
+
+QWidget#AppDark QTableView QScrollBar::handle:horizontal:hover, QWidget#AppDark QTreeView QScrollBar::handle:horizontal:hover {
+    background-color: #adb5bd;                    /* --border-hover-dark */
+}
+
+/* ==========================================================================
+   High Contrast Theme Overrides
+   ========================================================================== */
+
+/* 하이 콘트라스트 테마 헤더 */
+QWidget#AppHighContrast QHeaderView {
+    background-color: #000000;                    /* --surface-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+    border-bottom-color: #000000;                /* --divider-high-contrast */
+}
+
+QWidget#AppHighContrast QHeaderView::section {
+    color: #ffffff;                               /* --text-high-contrast */
+    border-right-color: #000000;                 /* --divider-high-contrast */
+}
+
+QWidget#AppHighContrast QHeaderView::section:hover {
+    background-color: #333333;                    /* --hover-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+}
+
+QWidget#AppHighContrast QHeaderView::section:pressed {
+    background-color: #000000;                    /* --active-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+}
+
+QWidget#AppHighContrast QHeaderView::section:focus {
+    background-color: #000000;                    /* --focus-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+    border: 3px solid #ffffff;                    /* --focus-high-contrast */
+}
+
+/* 하이 콘트라스트 테마 테이블 뷰 */
+QWidget#AppHighContrast QTableView {
+    background-color: #000000;                    /* --surface-high-contrast */
+    alternate-background-color: #333333;          /* --surface-secondary-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+    border-color: #000000;                       /* --divider-high-contrast */
+    gridline-color: #000000;                     /* --border-high-contrast */
+    selection-background-color: #ffffff;          /* --selected-high-contrast */
+    selection-color: #000000;                     /* --text-inverse-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView::item {
+    color: #ffffff;                               /* --text-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView::item:hover {
+    background-color: #333333;                    /* --hover-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView::item:selected {
+    background-color: #ffffff;                    /* --selected-high-contrast */
+    color: #000000;                               /* --text-inverse-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView::item:selected:hover {
+    background-color: #ffffff;                    /* --selected-high-contrast */
+    color: #000000;                               /* --text-inverse-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView::item:focus {
+    background-color: #000000;                    /* --focus-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+    border: 3px solid #ffffff;                    /* --focus-high-contrast */
+}
+
+/* 하이 콘트라스트 테마 트리 뷰 */
+QWidget#AppHighContrast QTreeView {
+    background-color: #000000;                    /* --surface-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+    border-color: #000000;                       /* --divider-high-contrast */
+    selection-background-color: #ffffff;          /* --selected-high-contrast */
+    selection-color: #000000;                     /* --text-inverse-high-contrast */
+}
+
+QWidget#AppHighContrast QTreeView::item {
+    color: #ffffff;                               /* --text-high-contrast */
+}
+
+QWidget#AppHighContrast QTreeView::item:hover {
+    background-color: #333333;                    /* --hover-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+}
+
+QWidget#AppHighContrast QTreeView::item:selected {
+    background-color: #ffffff;                    /* --selected-high-contrast */
+    color: #000000;                               /* --text-inverse-high-contrast */
+}
+
+QWidget#AppHighContrast QTreeView::item:selected:hover {
+    background-color: #ffffff;                    /* --selected-high-contrast */
+    color: #000000;                               /* --text-inverse-high-contrast */
+}
+
+QWidget#AppHighContrast QTreeView::item:focus {
+    background-color: #000000;                    /* --focus-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+    border: 3px solid #ffffff;                    /* --focus-high-contrast */
+}
+
+QWidget#AppHighContrast QTreeView::branch {
+    color: #ffffff;                               /* --text-high-contrast */
+}
+
+QWidget#AppHighContrast QTreeView::branch:hover {
+    background-color: #333333;                    /* --hover-high-contrast */
+    color: #ffffff;                               /* --text-high-contrast */
+}
+
+QWidget#AppHighContrast QTreeView::branch:selected {
+    background-color: #ffffff;                    /* --selected-high-contrast */
+    color: #000000;                               /* --text-inverse-high-contrast */
+}
+
+/* 하이 콘트라스트 테마 스크롤바 */
+QWidget#AppHighContrast QTableView QScrollBar:vertical, QWidget#AppHighContrast QTreeView QScrollBar:vertical {
+    background-color: #333333;                    /* --surface-secondary-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView QScrollBar::handle:vertical, QWidget#AppHighContrast QTreeView QScrollBar::handle:vertical {
+    background-color: #000000;                    /* --divider-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView QScrollBar::handle:vertical:hover, QWidget#AppHighContrast QTreeView QScrollBar::handle:vertical:hover {
+    background-color: #ffffff;                    /* --hover-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView QScrollBar:horizontal, QWidget#AppHighContrast QTreeView QScrollBar:horizontal {
+    background-color: #333333;                    /* --surface-secondary-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView QScrollBar::handle:horizontal, QWidget#AppHighContrast QTreeView QScrollBar::handle:horizontal {
+    background-color: #000000;                    /* --divider-high-contrast */
+}
+
+QWidget#AppHighContrast QTableView QScrollBar::handle:horizontal:hover, QWidget#AppHighContrast QTreeView QScrollBar::handle:horizontal:hover {
+    background-color: #ffffff;                    /* --hover-high-contrast */
+}

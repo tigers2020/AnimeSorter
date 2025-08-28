@@ -19,6 +19,7 @@ class ThemeManager(QObject):
 
     theme_changed = pyqtSignal(str)  # 테마 변경 시그널
     palette_updated = pyqtSignal(QPalette)  # 팔레트 업데이트 시그널
+    icon_theme_changed = pyqtSignal(str)  # 아이콘 테마 변경 시그널
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -194,6 +195,7 @@ class ThemeManager(QObject):
             # 시그널 발생
             self.theme_changed.emit(theme)
             self.palette_updated.emit(palette)
+            self.icon_theme_changed.emit(effective_theme)
 
             logger.info(f"✅ 테마 '{theme}' 적용 완료 (실제 적용: {effective_theme})")
             return True

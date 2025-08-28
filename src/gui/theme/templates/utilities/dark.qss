@@ -1,0 +1,290 @@
+/* ==========================================================================
+   Dark Theme QSS (PyQt5 100% Compatible)
+   다크 테마 전용 스타일 - 루트 위젯에 objectName="AppDark" 설정 필요
+   ========================================================================== */
+
+/* ==========================================================================
+   Dark Theme - Root Widget Targeting
+   ========================================================================== */
+
+/* Primary Colors */
+QWidget#AppDark QPushButton {
+    background: #0056b3;
+    color: #ffffff;
+    border: 1px solid #0056b3;
+}
+
+QWidget#AppDark QPushButton:hover {
+    background: #004085;
+    border-color: #004085;
+}
+
+QWidget#AppDark QPushButton:pressed {
+    background: #003366;
+    border-color: #003366;
+}
+
+QWidget#AppDark QPushButton:disabled {
+    background: #495057;
+    color: #6c757d;
+    border-color: #343a40;
+}
+
+/* Secondary Colors */
+QWidget#AppDark QPushButton[kind="secondary"] {
+    background: #495057;
+    color: #ffffff;
+    border: 1px solid #495057;
+}
+
+QWidget#AppDark QPushButton[kind="secondary"]:hover {
+    background: #343a40;
+    border-color: #343a40;
+}
+
+QWidget#AppDark QPushButton[kind="secondary"]:pressed {
+    background: #212529;
+    border-color: #212529;
+}
+
+/* Success Colors */
+QWidget#AppDark QPushButton[kind="success"] {
+    background: #1e7e34;
+    color: #ffffff;
+    border: 1px solid #1e7e34;
+}
+
+QWidget#AppDark QPushButton[kind="success"]:hover {
+    background: #155724;
+    border-color: #155724;
+}
+
+/* Warning Colors */
+QWidget#AppDark QPushButton[kind="warning"] {
+    background: #e0a800;
+    color: #000000;
+    border: 1px solid #e0a800;
+}
+
+QWidget#AppDark QPushButton[kind="warning"]:hover {
+    background: #d39e00;
+    border-color: #d39e00;
+}
+
+/* Error Colors */
+QWidget#AppDark QPushButton[kind="error"] {
+    background: #c82333;
+    color: #ffffff;
+    border: 1px solid #c82333;
+}
+
+QWidget#AppDark QPushButton[kind="error"]:hover {
+    background: #a71e2a;
+    border-color: #a71e2a;
+}
+
+/* Input Fields */
+QWidget#AppDark QLineEdit, QWidget#AppDark QTextEdit, QWidget#AppDark QPlainTextEdit {
+    background: #343a40;
+    color: #ffffff;
+    border: 1px solid #495057;
+    selection-background-color: #007bff;
+}
+
+QWidget#AppDark QLineEdit:focus, QWidget#AppDark QTextEdit:focus, QWidget#AppDark QPlainTextEdit:focus {
+    border-color: #007bff;
+    border-width: 2px;
+}
+
+QWidget#AppDark QLineEdit:disabled, QWidget#AppDark QTextEdit:disabled, QWidget#AppDark QPlainTextEdit:disabled {
+    background: #212529;
+    color: #6c757d;
+    border-color: #343a40;
+}
+
+/* Labels and Text */
+QWidget#AppDark QLabel {
+    color: #ffffff;
+}
+
+QWidget#AppDark QLabel[kind="heading"] {
+    color: #ffffff;
+}
+
+QWidget#AppDark QLabel[kind="subheading"] {
+    color: #adb5bd;
+}
+
+QWidget#AppDark QLabel[kind="caption"] {
+    color: #6c757d;
+}
+
+/* Tables */
+QWidget#AppDark QTableView {
+    background: #212529;
+    alternate-background-color: #343a40;
+    gridline-color: #495057;
+    selection-background-color: #007bff;
+    selection-color: #ffffff;
+}
+
+QWidget#AppDark QHeaderView::section {
+    background: #343a40;
+    color: #ffffff;
+    border: 1px solid #495057;
+}
+
+/* Scrollbars */
+QWidget#AppDark QScrollBar:vertical {
+    background: #343a40;
+}
+
+QWidget#AppDark QScrollBar::handle:vertical {
+    background: #6c757d;
+}
+
+QWidget#AppDark QScrollBar::handle:vertical:hover {
+    background: #adb5bd;
+}
+
+/* Cards and Panels */
+QWidget#AppDark QFrame[kind="card"] {
+    background: #343a40;
+    border-color: #495057;
+}
+
+/* Tabs */
+QWidget#AppDark QTabWidget::pane {
+    border-color: #495057;
+}
+
+QWidget#AppDark QTabBar::tab {
+    background: #343a40;
+    color: #adb5bd;
+    border-color: #495057;
+    border-bottom: 0;
+}
+
+QWidget#AppDark QTabBar::tab:selected {
+    background: #212529;
+    color: #007bff;
+}
+
+QWidget#AppDark QTabBar::tab:hover {
+    background: #495057;
+}
+
+/* Menus */
+QWidget#AppDark QMenu {
+    background: #343a40;
+    color: #ffffff;
+    border-color: #495057;
+}
+
+QWidget#AppDark QMenu::item:selected {
+    background: #0056b3;
+}
+
+QWidget#AppDark QMenu::separator {
+    background: #495057;
+}
+
+/* ==========================================================================
+   Component Variants and States
+   ========================================================================== */
+
+/* Button Sizes */
+QWidget#AppDark QPushButton[size="small"] {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+QWidget#AppDark QPushButton[size="large"] {
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+/* Input Sizes */
+QWidget#AppDark QLineEdit[size="small"], QWidget#AppDark QTextEdit[size="small"], QWidget#AppDark QPlainTextEdit[size="small"] {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+QWidget#AppDark QLineEdit[size="large"], QWidget#AppDark QTextEdit[size="large"], QWidget#AppDark QPlainTextEdit[size="large"] {
+    padding: 12px 16px;
+    font-size: 16px;
+}
+
+/* Card Sizes */
+QWidget#AppDark QFrame[size="card-small"] {
+    padding: 12px;
+}
+
+QWidget#AppDark QFrame[size="card-large"] {
+    padding: 24px;
+}
+
+/* Table Variants */
+QWidget#AppDark QTableView[kind="compact"] {
+    gridline-color: #343a40;
+}
+
+QWidget#AppDark QTableView[kind="bordered"] {
+    border: 2px solid #495057;
+}
+
+/* ==========================================================================
+   Focus and Selection States
+   ========================================================================== */
+
+/* Focus States */
+QWidget#AppDark QLineEdit:focus, QWidget#AppDark QTextEdit:focus, QWidget#AppDark QPlainTextEdit:focus {
+    border-color: #007bff;
+    border-width: 2px;
+}
+
+QWidget#AppDark QPushButton:focus {
+    border-color: #007bff;
+    border-width: 2px;
+}
+
+/* Selection States */
+QWidget#AppDark QTableView::item:selected {
+    background: #007bff;
+    color: #ffffff;
+}
+
+QWidget#AppDark QTableView::item:selected:active {
+    background: #0056b3;
+}
+
+/* ==========================================================================
+   Disabled States
+   ========================================================================== */
+
+/* Disabled states use muted colors (no opacity) */
+QWidget#AppDark QPushButton:disabled, QWidget#AppDark QLineEdit:disabled, QWidget#AppDark QTextEdit:disabled, QWidget#AppDark QPlainTextEdit:disabled {
+    background: #212529;
+    color: #6c757d;
+    border-color: #343a40;
+}
+
+QWidget#AppDark QTableView:disabled {
+    selection-background-color: #495057;
+}
+
+/* ==========================================================================
+   Hover Effects
+   ========================================================================== */
+
+QWidget#AppDark QPushButton:hover, QWidget#AppDark QLineEdit:hover, QWidget#AppDark QTextEdit:hover, QWidget#AppDark QPlainTextEdit:hover {
+    border-color: #6c757d;
+}
+
+QWidget#AppDark QTableView::item:hover {
+    background: #495057;
+}
+
+QWidget#AppDark QHeaderView::section:hover {
+    background: #495057;
+}
