@@ -1,13 +1,6 @@
 """
 GUI 인터페이스 모듈
 
-컴포넌트 간 표준 인터페이스 정의
+이 모듈은 더 이상 사용되지 않습니다.
+새로운 아키텍처에서는 app/commands/ 및 app/services/의 인터페이스를 사용하세요.
 """
-
-from .i_command import ICommand
-from .i_controller import IController
-from .i_event_bus import IEventBus
-from .i_service import IService
-from .i_view_model import IViewModel
-
-__all__ = ["IEventBus", "IController", "IService", "IViewModel", "ICommand"]

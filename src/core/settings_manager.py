@@ -2,8 +2,10 @@
 설정 관리 모듈 - AnimeSorter
 
 애플리케이션 설정을 관리하고 저장/로드하는 기능을 제공합니다.
-기존 SettingsManager와 새로운 ConfigManager를 통합하여
-계층화된 설정 시스템을 제공합니다.
+통합 설정 시스템(UnifiedConfigManager)을 기반으로 호환성을 유지합니다.
+
+DEPRECATED: 새로운 코드에서는 UnifiedConfigManager를 직접 사용하는 것을 권장.
+이 클래스는 기존 코드의 호환성을 위해 유지됩니다.
 """
 
 import json
@@ -76,7 +78,12 @@ class AppSettings:
 
 
 class SettingsManager(QObject):
-    """설정 관리자"""
+    """
+    설정 관리자
+
+    DEPRECATED: UnifiedConfigManager를 직접 사용하세요.
+    이 클래스는 호환성을 위해 유지됩니다.
+    """
 
     settings_changed = pyqtSignal()
 

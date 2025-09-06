@@ -212,13 +212,8 @@ class MainWindowFileHandler:
             directory_path: 스캔할 디렉토리 경로
         """
         try:
-            # 비즈니스 로직은 ViewModel에서 처리
-            if hasattr(self.main_window, "view_model") and self.main_window.view_model:
-                print(
-                    f"📋 [MainWindowFileHandler] ViewModel을 통한 디렉토리 스캔: {directory_path}"
-                )
-                self.main_window.view_model.start_directory_scan(directory_path)
-            elif self.file_scan_service:
+            # 백그라운드 서비스를 통한 파일 스캔
+            if self.file_scan_service:
                 # 폴백: 직접 서비스 호출
                 print(
                     f"🚀 [MainWindowFileHandler] 백그라운드 서비스로 디렉토리 스캔: {directory_path}"
@@ -235,21 +230,23 @@ class MainWindowFileHandler:
                 # UI 상태 업데이트
                 self.main_window.update_status_bar("백그라운드에서 파일 스캔 중...", 0)
             else:
-                # 마지막 폴백: 기존 방식 사용
-                print(
-                    "⚠️ [MainWindowFileHandler] FileScanService를 사용할 수 없음, 기존 방식으로 스캔"
-                )
-                self._scan_directory_legacy(directory_path)
+                # FileScanService를 사용할 수 없는 경우
+                print("❌ [MainWindowFileHandler] FileScanService를 사용할 수 없습니다")
+                self.main_window.show_error_message("파일 스캔 서비스를 사용할 수 없습니다")
+                self.main_window.update_status_bar("파일 스캔 서비스를 사용할 수 없습니다", 0)
 
         except Exception as e:
             self.main_window.show_error_message(f"디렉토리 스캔 오류: {str(e)}")
             print(f"❌ [MainWindowFileHandler] 디렉토리 스캔 오류: {e}")
-            # 폴백: 기존 방식으로 재시도
-            self._scan_directory_legacy(directory_path)
+            # Service 실패 시 사용자에게 알림
+            self.main_window.update_status_bar("파일 스캔에 실패했습니다", 0)
 
-    def _scan_directory_legacy(self, directory_path: str) -> None:
+    def _scan_directory_legacy_deprecated(self, directory_path: str) -> None:
         """
-        기존 방식 디렉토리 스캔 (폴백용)
+        기존 방식 디렉토리 스캔 (더 이상 사용되지 않음)
+
+        DEPRECATED: FileScanService를 사용하세요.
+        이 메서드는 향후 제거될 예정입니다.
 
         Args:
             directory_path: 스캔할 디렉토리 경로

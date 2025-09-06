@@ -21,7 +21,12 @@ from .tmdb_rate_limiter import TMDBRateLimiter
 
 
 class TMDBClient:
-    """TMDB API 클라이언트 (리팩토링됨)"""
+    """
+    TMDB API 클라이언트 (리팩토링됨)
+
+    기본적인 TMDB API 통신 기능 제공.
+    고급 검색 기능이 필요한 경우 TMDBSearchService 사용 권장.
+    """
 
     def __init__(self, api_key: str | None = None, language: str = "ko-KR"):
         """TMDB 클라이언트 초기화"""

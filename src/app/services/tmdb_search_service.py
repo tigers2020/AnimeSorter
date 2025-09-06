@@ -80,12 +80,28 @@ class ITMDBSearchService(ABC):
 
 
 class TMDBSearchService(ITMDBSearchService):
-    """TMDB 검색 서비스 구현 (리팩토링됨)"""
+    """
+    TMDB 검색 서비스 구현 (리팩토링됨)
+
+    TMDBClient를 내부적으로 사용하여 고급 검색 기능 제공.
+    GUI에서는 TMDBClient를 직접 사용하는 대신 이 서비스를 사용하는 것을 권장.
+    """
 
     def __init__(self, event_bus: TypedEventBus, tmdb_client: Any | None = None):
         self.event_bus = event_bus
         self.tmdb_client = tmdb_client  # 실제 TMDB 클라이언트 (예: TMDBClient)
         self.logger = logging.getLogger(self.__class__.__name__)
+
+        # TMDBClient가 제공되지 않은 경우 자동 생성
+        if self.tmdb_client is None:
+            try:
+                from core.tmdb_client import TMDBClient
+
+                self.tmdb_client = TMDBClient()
+                self.logger.info("TMDBClient 자동 생성됨")
+            except Exception as e:
+                self.logger.error(f"TMDBClient 자동 생성 실패: {e}")
+                self.tmdb_client = None
 
         # 모듈화된 서비스들 초기화
         self.search_strategies = SearchStrategyFactory()
