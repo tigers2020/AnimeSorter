@@ -75,20 +75,15 @@ class FileOrganizationHandler(QObject):
                 )
                 return
 
-            # 사용자 확인 요청
+            # 간단한 확인
             reply = QMessageBox.question(
-                self.main_window,
-                "파일 정리 확인",
-                f"선택한 파일들을 '{self.main_window.destination_directory}' 폴더로 정리하시겠습니까?\n\n"
-                f"그룹 수: {len(grouped_items)}개",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
+                self.main_window, "확인",
+                f"{len(grouped_items)}개 그룹의 파일들을 정리하시겠습니까?",
+                QMessageBox.Yes | QMessageBox.No
             )
 
             if reply == QMessageBox.Yes:
                 self.on_organize_proceed()
-            else:
-                self.main_window.update_status_bar("파일 정리 실행이 취소되었습니다")
 
         except Exception as e:
             print(f"❌ 파일 정리 실행 시작 실패: {e}")
