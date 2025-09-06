@@ -46,13 +46,49 @@ class VideoMetadataExtractor:
     def _check_ffprobe_availability(self) -> bool:
         """ffprobe 사용 가능 여부 확인"""
         try:
-            result = subprocess.run(
-                ["ffprobe", "-version"], capture_output=True, text=True, timeout=5
-            )
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+            # 여러 가능한 ffprobe 경로 시도
+            possible_paths = [
+                "ffprobe",  # PATH에 있는 경우
+                "C:\\Users\\hyper\\AppData\\Local\\Microsoft\\WinGet\\Links\\ffprobe.exe",  # winget 설치 경로
+                "ffprobe.exe",  # Windows에서 .exe 확장자
+            ]
+
+            for ffprobe_path in possible_paths:
+                try:
+                    result = subprocess.run(
+                        [ffprobe_path, "-version"], capture_output=True, text=True, timeout=5
+                    )
+                    if result.returncode == 0:
+                        self.logger.info(f"ffprobe 발견: {ffprobe_path}")
+                        return True
+                except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+                    continue
+
             self.logger.warning("ffprobe를 찾을 수 없습니다. 비디오 메타데이터 추출이 제한됩니다.")
             return False
+        except Exception as e:
+            self.logger.warning(f"ffprobe 확인 중 오류: {e}")
+            return False
+
+    def _find_ffprobe_path(self) -> str | None:
+        """ffprobe 실행 파일 경로 찾기"""
+        possible_paths = [
+            "ffprobe",  # PATH에 있는 경우
+            "C:\\Users\\hyper\\AppData\\Local\\Microsoft\\WinGet\\Links\\ffprobe.exe",  # winget 설치 경로
+            "ffprobe.exe",  # Windows에서 .exe 확장자
+        ]
+
+        for ffprobe_path in possible_paths:
+            try:
+                result = subprocess.run(
+                    [ffprobe_path, "-version"], capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    return ffprobe_path
+            except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+                continue
+
+        return None
 
     def extract_resolution(self, file_path: str) -> str | None:
         """
@@ -74,9 +110,15 @@ class VideoMetadataExtractor:
             return None
 
         try:
+            # ffprobe 경로 찾기
+            ffprobe_path = self._find_ffprobe_path()
+            if not ffprobe_path:
+                self.logger.warning("ffprobe를 찾을 수 없습니다.")
+                return None
+
             # ffprobe 명령어 구성
             cmd = [
-                "ffprobe",
+                ffprobe_path,
                 "-v",
                 "quiet",
                 "-print_format",

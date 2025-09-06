@@ -150,10 +150,11 @@ class MainWindowCoordinator:
                         self.event_handler_manager.on_preview_requested
                     )
 
-                if hasattr(toolbar, "organize_action"):
-                    toolbar.organize_action.triggered.connect(
-                        self.event_handler_manager.on_organize_requested
-                    )
+                # organize_requested는 ui_initializer에서 이미 연결됨
+                # if hasattr(toolbar, "organize_requested"):
+                #     toolbar.organize_requested.connect(
+                #         self.main_window.on_organize_requested
+                #     )
 
                 if hasattr(toolbar, "settings_action"):
                     toolbar.settings_action.triggered.connect(

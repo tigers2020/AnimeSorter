@@ -111,7 +111,7 @@ class UIComponentManager:
             self.ui_initializer = UIInitializer(self.main_window)
             self.main_window.ui_initializer = self.ui_initializer
 
-            # UI 초기화 실행 (UI 패널 생성은 MainWindowInitializer에서 처리됨)
+            # UI 초기화는 MainWindowInitializer에서 처리됨 (중복 제거)
 
             print("✅ UI 초기화 설정 완료")
 

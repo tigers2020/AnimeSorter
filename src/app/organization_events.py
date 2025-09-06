@@ -71,6 +71,8 @@ class OrganizationResult:
     errors: list[str] = field(default_factory=list)
     operation_duration_seconds: float = 0.0
     created_directories: list[Path] = field(default_factory=list)
+    cleaned_directories: int = 0  # 정리된 빈 디렉토리 수
+    _processed_sources: set[str] = field(default_factory=set)  # 중복 처리 방지용
 
 
 @dataclass

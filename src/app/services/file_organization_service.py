@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from core import VideoMetadataExtractor  # type: ignore[import-untyped]
 from core.file_parser import FileParser
 
 from ..background_task import BaseTask, TaskResult, TaskStatus
@@ -89,7 +88,6 @@ class FileOrganizationTask(BaseTask):
         self.dry_run = dry_run
         self.logger = logging.getLogger(f"{self.__class__.__name__}_{organization_id}")
         self._cancelled = False
-        self.video_metadata_extractor = VideoMetadataExtractor()
         self.file_parser = FileParser()
 
     def execute(self) -> TaskResult:
@@ -117,93 +115,187 @@ class FileOrganizationTask(BaseTask):
             result.total_count = total_files
             processed_files = 0
 
-            # 각 그룹별로 파일 정리
+            # 디버깅: 초기 상태 로깅
+            self.logger.info(
+                f"🚀 파일 정리 작업 시작 - 총 파일: {total_files}개, 총 그룹: {total_groups}개"
+            )
+
+            # _processed_sources 초기화 (중요!)
+            if not hasattr(result, "_processed_sources"):
+                result._processed_sources = set()
+            else:
+                # 이전 실행의 잔재가 남아있을 수 있으므로 초기화
+                result._processed_sources.clear()
+
+            self.logger.info(
+                f"📊 초기화된 _processed_sources 상태: {len(result._processed_sources)}개"
+            )
+            print(f"🔍 DEBUG: 초기화된 _processed_sources 상태: {len(result._processed_sources)}개")
+            print("=" * 50)
+            print("🔍 DEBUG: 파일 정리 시작!")
+            print(f"🔍 DEBUG: 총 파일 수: {total_files}")
+            print(f"🔍 DEBUG: 총 그룹 수: {total_groups}")
+            print(f"🔍 DEBUG: _processed_sources 초기화됨: {len(result._processed_sources)}")
+            print("=" * 50)
+
+            # 디버깅: 그룹 간 파일 중복 검사
+            self._check_file_duplicates_across_groups()
+
+            # 각 그룹별로 파일 정리 (최적화된 처리)
             for _group_index, (group_name, group_data) in enumerate(self.grouped_items.items()):
                 if self._cancelled:
                     break
 
                 try:
-                    self.logger.info(f"그룹 처리 중: {group_name}")
+                    self.logger.info(f"📁 그룹 처리 중: {group_name}")
 
                     # 그룹 내 파일들 화질별 분류
                     files = group_data.get("files", [])
-                    if files:
-                        # 파일 경로 리스트 추출
-                        file_paths = [
-                            file_data.get("source_path", "")
-                            for file_data in files
-                            if file_data.get("source_path")
-                        ]
+                    if not files:
+                        continue
 
-                        # 화질별로 파일 분류
-                        (
-                            high_quality_files,
-                            low_quality_files,
-                        ) = self.video_metadata_extractor.classify_files_by_quality(file_paths)
+                    # 디버깅: 그룹 내 파일 목록 로깅
+                    self.logger.debug(f"📋 그룹 '{group_name}' 파일 목록:")
+                    for file_data in files:
+                        source_path = file_data.get("source_path", "")
+                        self.logger.debug(f"   - {source_path}")
 
-                        self.logger.info(
-                            f"그룹 '{group_name}' 화질별 분류: 고화질 {len(high_quality_files)}개, 저화질 {len(low_quality_files)}개"
+                    # 유효한 파일만 필터링 (이미 처리된 파일 제외)
+                    valid_files = []
+                    skipped_in_group = []
+                    for file_data in files:
+                        source_path = file_data.get("source_path", "")
+                        if not source_path:
+                            continue
+
+                        # 경로 정규화 (Windows 경로 문제 해결)
+                        normalized_path = str(Path(source_path))
+
+                        if normalized_path in result._processed_sources:
+                            self.logger.warning(
+                                f"⚠️ 그룹 '{group_name}'에서 이미 처리된 파일 건너뜀: {source_path}"
+                            )
+                            skipped_in_group.append(source_path)
+                        else:
+                            valid_files.append(file_data)
+
+                    # 디버깅: 필터링 결과 로깅
+                    self.logger.info(
+                        f"📊 그룹 '{group_name}' 필터링 결과: 원본 {len(files)}개 → 유효 {len(valid_files)}개 → 건너뜀 {len(skipped_in_group)}개"
+                    )
+                    if skipped_in_group:
+                        self.logger.info(f"⏭️ 건너뜀 파일들: {skipped_in_group}")
+
+                    if not valid_files:
+                        self.logger.info(f"⏭️ 그룹 '{group_name}'의 모든 파일이 이미 처리됨")
+                        continue
+
+                    # 디버깅: 그룹 처리 전 상태 상세 로깅
+                    self.logger.info(f"📊 그룹 '{group_name}' 처리 전 상태:")
+                    self.logger.info(f"   - _processed_sources: {len(result._processed_sources)}개")
+                    self.logger.info(f"   - valid_files: {len(valid_files)}개")
+                    print(
+                        f"🔍 DEBUG: 그룹 '{group_name}' 처리 전 - _processed_sources: {len(result._processed_sources)}개, valid_files: {len(valid_files)}개"
+                    )
+
+                    # 실제 파일 존재 여부 검증
+                    existing_files = 0
+                    missing_files = 0
+                    for file_data in valid_files:
+                        source_path = file_data.get("source_path", "")
+                        if Path(source_path).exists():
+                            existing_files += 1
+                        else:
+                            missing_files += 1
+                            self.logger.warning(
+                                f"⚠️ 그룹 '{group_name}' 파일 존재하지 않음: {source_path}"
+                            )
+                            print(f"🔍 DEBUG: 파일 존재하지 않음: {source_path}")
+
+                    self.logger.info(
+                        f"   - 실제 존재 파일: {existing_files}개, 누락 파일: {missing_files}개"
+                    )
+                    print(
+                        f"🔍 DEBUG: 그룹 '{group_name}' - 존재: {existing_files}개, 누락: {missing_files}개"
+                    )
+
+                    if missing_files > 0:
+                        self.logger.warning(
+                            f"🚨 그룹 '{group_name}'에 {missing_files}개 파일이 디스크에 존재하지 않음"
                         )
+                        print(f"🔍 DEBUG: 그룹 '{group_name}'에 {missing_files}개 파일 누락됨")
 
-                        # 고화질 파일들을 시즌별로 분류하여 배치
-                        if high_quality_files:
-                            # 시즌별로 파일 분류
-                            season_files = {}
-                            for file_data in files:
-                                if file_data.get("source_path") in high_quality_files:
-                                    # 파일명에서 시즌 정보를 다시 파싱
-                                    file_path = Path(file_data.get("source_path", ""))
-                                    parsed_metadata = self._parse_filename(file_path.name)
-                                    season = (
-                                        parsed_metadata.season
-                                        if parsed_metadata
-                                        else file_data.get("season", 1)
-                                    )
+                    # 화질별로 파일 분류 및 시즌별 정리 (직관적인 처리)
+                    high_quality_files = []
+                    low_quality_files = []
 
-                                    if season not in season_files:
-                                        season_files[season] = []
-                                    season_files[season].append(file_data)
+                    for file_data in valid_files:
+                        source_path = file_data.get("source_path", "")
+                        resolution = file_data.get("resolution", "").lower()
 
-                            # 각 시즌별로 디렉토리 생성 및 파일 처리
-                            for season, season_file_list in season_files.items():
-                                season_dir = (
-                                    self.destination_directory
-                                    / self._sanitize_filename(group_name)
-                                    / f"Season{season:02d}"
-                                )
-                                if not self.dry_run:
-                                    season_dir.mkdir(parents=True, exist_ok=True)
-                                    result.created_directories.append(season_dir)
+                        # 화질별 분류 및 시즌별 정리
+                        if resolution in ["1080p", "4k", "2k", "1440p"]:
+                            high_quality_files.append(file_data)
+                        elif resolution in ["720p", "480p"]:
+                            low_quality_files.append(file_data)
+                        else:
+                            # 해상도가 파싱되지 않은 경우 기본적으로 고화질로 취급
+                            high_quality_files.append(file_data)
 
-                                # 해당 시즌의 파일들 처리
-                                for file_data in season_file_list:
-                                    success = self._organize_single_file(
-                                        file_data, season_dir, result
-                                    )
-                                    if success:
-                                        result.success_count += 1
-                                    else:
-                                        result.error_count += 1
-                                    processed_files += 1
+                    self.logger.info(
+                        f"🔍 그룹 '{group_name}' 화질별 분류: 고화질 {len(high_quality_files)}개, 저화질 {len(low_quality_files)}개 (총 {len(valid_files)}개 유효)"
+                    )
+                    self.logger.debug(
+                        f"📊 _processed_sources 상태: {len(result._processed_sources)}개 파일 처리됨"
+                    )
 
-                        # 저화질 파일들을 시즌별로 분류하여 '_low res/' 서브디렉토리에 배치
-                        if low_quality_files:
-                            # 시즌별로 파일 분류
-                            season_files = {}
-                            for file_data in files:
-                                if file_data.get("source_path") in low_quality_files:
-                                    # 파일명에서 시즌 정보를 다시 파싱
-                                    file_path = Path(file_data.get("source_path", ""))
-                                    parsed_metadata = self._parse_filename(file_path.name)
-                                    season = (
-                                        parsed_metadata.season
-                                        if parsed_metadata
-                                        else file_data.get("season", 1)
-                                    )
+                    # 고화질 파일들을 시즌별로 분류하여 배치
+                    if high_quality_files:
+                        self.logger.info(f"🎯 고화질 파일들 처리 시작: {len(high_quality_files)}개")
+                        # 시즌별로 파일 분류 (직관적이고 효율적인 처리)
+                        season_files = {}
+                        for file_data in high_quality_files:
+                            season = file_data.get("season", 1)
 
-                                    if season not in season_files:
-                                        season_files[season] = []
-                                    season_files[season].append(file_data)
+                            if season not in season_files:
+                                season_files[season] = []
+                            season_files[season].append(file_data)
+
+                        # 각 시즌별로 디렉토리 생성 및 파일 처리
+                        for season, season_file_list in season_files.items():
+                            season_dir = (
+                                self.destination_directory
+                                / self._sanitize_filename(group_name)
+                                / f"Season{season:02d}"
+                            )
+                            if not self.dry_run:
+                                season_dir.mkdir(parents=True, exist_ok=True)
+                                result.created_directories.append(season_dir)
+
+                            # 해당 시즌의 파일들 처리
+                            for file_data in season_file_list:
+                                source_path = file_data.get("source_path", "")
+                                self.logger.debug(f"🔄 고화질 파일 처리 시도: {source_path}")
+                                success = self._organize_single_file(file_data, season_dir, result)
+                                if success:
+                                    result.success_count += 1
+                                    self.logger.info(f"✅ 고화질 파일 이동 완료: {source_path}")
+                                else:
+                                    result.error_count += 1
+                                    self.logger.warning(f"❌ 고화질 파일 이동 실패: {source_path}")
+                                processed_files += 1
+
+                    # 저화질 파일들을 시즌별로 분류하여 '_low res/' 서브디렉토리에 배치
+                    if low_quality_files:
+                        self.logger.info(f"🎯 저화질 파일들 처리 시작: {len(low_quality_files)}개")
+                        # 시즌별로 파일 분류 (직관적이고 효율적인 처리)
+                        season_files = {}
+                        for file_data in low_quality_files:
+                            season = file_data.get("season", 1)
+
+                            if season not in season_files:
+                                season_files[season] = []
+                            season_files[season].append(file_data)
 
                             # 각 시즌별로 디렉토리 생성 및 파일 처리
                             for season, season_file_list in season_files.items():
@@ -219,13 +311,19 @@ class FileOrganizationTask(BaseTask):
 
                                 # 해당 시즌의 파일들 처리
                                 for file_data in season_file_list:
+                                    source_path = file_data.get("source_path", "")
+                                    self.logger.debug(f"🔄 저화질 파일 처리 시도: {source_path}")
                                     success = self._organize_single_file(
                                         file_data, season_dir, result
                                     )
                                     if success:
                                         result.success_count += 1
+                                        self.logger.info(f"✅ 저화질 파일 이동 완료: {source_path}")
                                     else:
                                         result.error_count += 1
+                                        self.logger.warning(
+                                            f"❌ 저화질 파일 이동 실패: {source_path}"
+                                        )
                                     processed_files += 1
                     else:
                         # 파일이 없는 경우 기본 그룹 디렉토리만 생성
@@ -248,12 +346,43 @@ class FileOrganizationTask(BaseTask):
                         )
                     )
 
+                    # 디버깅: 그룹 처리 후 _processed_sources 상태
+                    self.logger.debug(
+                        f"📊 그룹 '{group_name}' 처리 후 _processed_sources: {len(result._processed_sources)}개"
+                    )
+
                 except Exception as e:
                     self.logger.error(f"그룹 처리 실패: {group_name}: {e}")
                     result.errors.append(f"그룹 '{group_name}' 처리 실패: {str(e)}")
 
             # 완료 처리
             result.operation_duration_seconds = time.time() - start_time
+
+            # 최종 결과 요약 로그
+            total_processed = result.success_count + result.error_count + result.skip_count
+            success_rate = (
+                (result.success_count / total_processed * 100) if total_processed > 0 else 0
+            )
+
+            self.logger.info("📊 파일 정리 최종 결과:")
+            self.logger.info(f"   ✅ 성공: {result.success_count}개")
+            self.logger.info(f"   ❌ 실패: {result.error_count}개")
+            self.logger.info(f"   ⏭️  건너뜀: {result.skip_count}개")
+            self.logger.info(f"   📈 성공률: {success_rate:.1f}% ({total_processed}개 처리)")
+            self.logger.info(f"   📁 생성된 디렉토리: {len(result.created_directories)}개")
+            self.logger.info(f"   ⏱️  소요시간: {result.operation_duration_seconds:.2f}초")
+            self.logger.info(
+                f"   📋 _processed_sources 최종 상태: {len(result._processed_sources)}개 파일"
+            )
+            self.logger.info(f"   📊 총 파일 수: {result.total_count}개")
+
+            # 디버깅: 결과 검증
+            if result.total_count != total_processed:
+                self.logger.warning(
+                    f"⚠️ 파일 수 불일치: 총 파일 {result.total_count}개 vs 처리된 파일 {total_processed}개"
+                )
+            else:
+                self.logger.info(f"✅ 파일 수 일치: 총 {total_processed}개 파일 처리 완료")
 
             if self._cancelled:
                 self.event_bus.publish(
@@ -316,16 +445,66 @@ class FileOrganizationTask(BaseTask):
             total += len(files)
         return total
 
+    def _check_file_duplicates_across_groups(self) -> None:
+        """그룹 간 파일 중복 검사"""
+        file_to_groups = {}
+        total_duplicates = 0
+
+        for group_name, group_data in self.grouped_items.items():
+            files = group_data.get("files", [])
+            for file_data in files:
+                source_path = file_data.get("source_path", "")
+                if source_path:
+                    if source_path not in file_to_groups:
+                        file_to_groups[source_path] = []
+                    file_to_groups[source_path].append(group_name)
+
+        # 중복 파일 찾기
+        for source_path, groups in file_to_groups.items():
+            if len(groups) > 1:
+                self.logger.warning(f"⚠️ 파일 중복 발견: {source_path}")
+                self.logger.warning(f"   속한 그룹들: {groups}")
+                total_duplicates += 1
+
+        if total_duplicates > 0:
+            self.logger.warning(f"🚨 총 {total_duplicates}개 파일이 여러 그룹에 중복으로 속함")
+        else:
+            self.logger.info("✅ 그룹 간 파일 중복 없음")
+
     def _organize_single_file(
         self, file_data: dict[str, Any], group_dir: Path, result: OrganizationResult
     ) -> bool:
         """단일 파일 정리"""
         try:
             source_path = Path(file_data.get("source_path", ""))
+            normalized_path = str(source_path)
+
+            # 이미 처리된 파일인지 확인 (중복 처리 방지)
+            if (
+                hasattr(result, "_processed_sources")
+                and normalized_path in result._processed_sources
+            ):
+                self.logger.warning(f"🛑 이미 처리된 파일 건너뜀: {source_path}")
+                self.logger.debug(
+                    f"📊 현재 _processed_sources 크기: {len(result._processed_sources)}"
+                )
+                result.skip_count += 1
+                result.skipped_files.append(str(source_path))
+                return True
+
+            # 파일 존재 여부 확인 (캐시된 결과 활용)
             if not source_path.exists():
-                result.errors.append(f"소스 파일이 존재하지 않음: {source_path}")
-                result.failed_files.append(source_path)
-                return False
+                # 파일이 이미 이동되었거나 존재하지 않는 경우
+                self.logger.debug(f"🛑 파일이 이미 이동되었거나 존재하지 않음: {source_path}")
+                print(f"🔍 DEBUG: 파일 존재하지 않음 - {source_path}")
+                result.skip_count += 1
+                result.skipped_files.append(str(source_path))
+                # 처리된 파일 목록에 추가하여 재처리 방지
+                if not hasattr(result, "_processed_sources"):
+                    result._processed_sources = set()
+                result._processed_sources.add(normalized_path)
+                print(f"🔍 DEBUG: _processed_sources에 추가됨: {normalized_path}")
+                return True
 
             # 대상 파일명 생성
             target_filename = self._generate_target_filename(file_data)
@@ -347,8 +526,18 @@ class FileOrganizationTask(BaseTask):
                     self.logger.debug(f"원본 파일 삭제 완료: {source_path}")
                 except Exception as e:
                     self.logger.warning(f"원본 파일 삭제 실패: {source_path} - {e}")
+
+                # 처리된 파일 목록에 추가 (중복 처리 방지)
+                if not hasattr(result, "_processed_sources"):
+                    result._processed_sources = set()
+                result._processed_sources.add(normalized_path)
+
             else:
                 result.processed_files.append(target_path)
+                # dry_run 모드에서도 처리된 파일 목록에 추가
+                if not hasattr(result, "_processed_sources"):
+                    result._processed_sources = set()
+                result._processed_sources.add(normalized_path)
 
             return True
 

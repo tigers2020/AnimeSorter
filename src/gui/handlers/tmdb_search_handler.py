@@ -28,8 +28,12 @@ class TMDBSearchHandler:
 
     def on_tmdb_search_requested(self, group_id: str):
         """TMDB 검색 요청 처리"""
+        print(f"🔍 on_tmdb_search_requested 호출됨: {group_id}")
         self.logger.info(f"🔍 on_tmdb_search_requested 호출됨: {group_id}")
+        self._perform_tmdb_search(group_id)
 
+    def _perform_tmdb_search(self, group_id: str):
+        """TMDB 검색 직접 수행"""
         try:
             # 그룹 정보 가져오기
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
@@ -44,40 +48,36 @@ class TMDBSearchHandler:
 
             # 그룹 제목 가져오기
             group_title = group_items[0].title or group_items[0].detectedTitle or "Unknown"
-
             self.logger.info(f"🔍 TMDB 검색 시작: {group_title} (그룹 {group_id})")
 
-            # 먼저 TMDB 검색을 실행하여 결과 개수 확인
-            try:
-                if not self.main_window.tmdb_client:
-                    self.logger.error("❌ TMDB 클라이언트가 초기화되지 않았습니다")
-                    return
+            # TMDB 검색 실행
+            if not self.main_window.tmdb_client:
+                self.logger.error("❌ TMDB 클라이언트가 초기화되지 않았습니다")
+                return
 
-                self.logger.info(f"🔍 TMDB API 호출 시작: {group_title}")
-                search_results = self.main_window.tmdb_client.search_anime(group_title)
-                self.logger.info(f"🔍 TMDB API 호출 완료: {len(search_results)}개 결과")
+            self.logger.info(f"🔍 TMDB API 호출 시작: {group_title}")
+            search_results = self.main_window.tmdb_client.search_anime(group_title)
+            self.logger.info(f"🔍 TMDB API 호출 완료: {len(search_results)}개 결과")
 
-                if len(search_results) == 1:
-                    # 결과가 1개면 자동 선택하고 다이얼로그를 띄우지 않음
-                    selected_anime = search_results[0]
-                    self.logger.info(f"✅ 검색 결과 1개 - 자동 선택: {selected_anime.name}")
+            if len(search_results) == 1:
+                # 결과가 1개면 자동 선택
+                selected_anime = search_results[0]
+                self.logger.info(f"✅ 검색 결과 1개 - 자동 선택: {selected_anime.name}")
+                try:
                     self.on_tmdb_anime_selected(group_id, selected_anime)
                     return
+                except Exception as e:
+                    self.logger.error(f"❌ 자동 선택 실패: {e}")
 
-                if len(search_results) == 0:
-                    # 결과가 없으면 다이얼로그를 띄워서 수동 검색 가능하게 함
-                    self.logger.warning("⚠️ 검색 결과 없음 - 다이얼로그 표시")
-                else:
-                    # 결과가 2개 이상이면 다이얼로그를 띄워서 선택하게 함
-                    self.logger.info(f"📋 검색 결과 {len(search_results)}개 - 다이얼로그 표시")
+            # 다이얼로그 표시
+            self._show_search_dialog(group_id, group_title, search_results)
 
-            except Exception as e:
-                self.logger.error(f"❌ TMDB 검색 실패: {e}")
-                # 검색 실패 시에도 다이얼로그를 띄워서 수동 검색 가능하게 함
+        except Exception as e:
+            self.logger.error(f"❌ TMDB 검색 실패: {e}")
 
-            # 다이얼로그가 필요한 경우에만 생성
-            self.logger.info(f"🔍 TMDB 검색 다이얼로그 생성: {group_title} (그룹 {group_id})")
-
+    def _show_search_dialog(self, group_id: str, group_title: str, search_results: list = None):
+        """검색 다이얼로그 표시"""
+        try:
             # 이미 열린 다이얼로그가 있으면 포커스
             if group_id in self.tmdb_search_dialogs:
                 dialog = self.tmdb_search_dialogs[group_id]
@@ -95,8 +95,14 @@ class TMDBSearchHandler:
             # 다이얼로그 저장
             self.tmdb_search_dialogs[group_id] = dialog
 
+            # 검색 결과가 있으면 미리 설정
+            if search_results:
+                dialog.set_search_results(search_results)
+
             # 다이얼로그 표시
             dialog.show()
+            dialog.raise_()  # 다이얼로그를 맨 앞으로 가져오기
+            dialog.activateWindow()  # 다이얼로그 활성화
 
             self.logger.info(f"✅ TMDB 검색 다이얼로그 표시됨: {group_title}")
 
@@ -188,6 +194,15 @@ class TMDBSearchHandler:
                 self.main_window.update_status_bar(
                     f"TMDB 검색 시작: {len(self.pending_tmdb_groups)}개 그룹 (순차적 처리)"
                 )
+                # TMDB 검색 중 파일 정리 버튼 및 메뉴 비활성화
+                if hasattr(self.main_window, "main_toolbar"):
+                    self.main_window.main_toolbar.set_organize_enabled(False)
+                # 메뉴 항목도 비활성화
+                if hasattr(self.main_window, "window_manager") and hasattr(
+                    self.main_window.window_manager, "menu_actions"
+                ):
+                    if "organize" in self.main_window.window_manager.menu_actions:
+                        self.main_window.window_manager.menu_actions["organize"].setEnabled(False)
                 # 첫 번째 그룹부터 시작
                 self.process_next_tmdb_group()
             else:
@@ -197,12 +212,30 @@ class TMDBSearchHandler:
         except Exception as e:
             self.logger.error(f"❌ TMDB 검색 시작 실패: {e}")
             self.main_window.update_status_bar(f"TMDB 검색 시작 실패: {str(e)}")
+            # TMDB 검색 실패 시 파일 정리 버튼 및 메뉴 다시 활성화
+            if hasattr(self.main_window, "main_toolbar"):
+                self.main_window.main_toolbar.set_organize_enabled(True)
+            # 메뉴 항목도 다시 활성화
+            if hasattr(self.main_window, "window_manager") and hasattr(
+                self.main_window.window_manager, "menu_actions"
+            ):
+                if "organize" in self.main_window.window_manager.menu_actions:
+                    self.main_window.window_manager.menu_actions["organize"].setEnabled(True)
 
     def process_next_tmdb_group(self):
         """다음 TMDB 그룹 처리"""
         if not self.pending_tmdb_groups:
             self.logger.info("✅ 모든 TMDB 검색이 완료되었습니다")
             self.main_window.update_status_bar("모든 TMDB 검색이 완료되었습니다")
+            # TMDB 검색 완료 후 파일 정리 버튼 및 메뉴 다시 활성화
+            if hasattr(self.main_window, "main_toolbar"):
+                self.main_window.main_toolbar.set_organize_enabled(True)
+            # 메뉴 항목도 다시 활성화
+            if hasattr(self.main_window, "window_manager") and hasattr(
+                self.main_window.window_manager, "menu_actions"
+            ):
+                if "organize" in self.main_window.window_manager.menu_actions:
+                    self.main_window.window_manager.menu_actions["organize"].setEnabled(True)
             return
 
         group_id, group_title = self.pending_tmdb_groups.pop(0)
@@ -213,8 +246,8 @@ class TMDBSearchHandler:
             f"TMDB 검색 중: {group_title} ({len(self.pending_tmdb_groups)}개 남음)"
         )
 
-        # 현재 그룹에 대해 TMDB 검색 시작
-        self.main_window.anime_data_manager.search_tmdb_for_group(group_id, group_title)
+        # 현재 그룹에 대해 TMDB 검색 시작 (직접 다이얼로그 표시)
+        self.main_window.show_tmdb_dialog_for_group(group_id)
 
     def close_all_dialogs(self):
         """모든 TMDB 검색 다이얼로그 닫기"""

@@ -184,7 +184,10 @@ class FileParser:
             ),
             # 패턴 4: Title - Episode화/話 형태 (한국어)
             (
-                re.compile(r"^(.+?)\s*(\d+)화?\s*(?:\([^)]*(\d+x\d+|\d+p)[^)]*\))?", re.IGNORECASE),
+                re.compile(
+                    r"^(.+?)\s*(\d+)화?\s*(?:[\[\(][^\]\)]*(1080p?|720p?|480p?|\d{3,4}x\d{3,4})[^\]\)]*[\]\)])?",
+                    re.IGNORECASE,
+                ),
                 "title_episode_korean",
                 0.85,
             ),
@@ -234,6 +237,7 @@ class FileParser:
 
     def parse_filename(self, filename: str) -> ParsedMetadata | None:
         """파일명에서 메타데이터 추출 (캐시됨)"""
+        print(f"🔍 파일명 파싱 시작: {filename}")
         if not filename:
             return None
 
@@ -278,20 +282,28 @@ class FileParser:
 
             if pattern_type == "title_season_episode_simple":
                 title, season, episode = groups
+                # 항상 해상도 추출 시도
+                full_filename = match.string  # 원본 파일명에서 해상도 추출
+                resolution = self._extract_resolution_cached(full_filename)
                 return ParsedMetadata(
                     title=self._clean_title_cached(title),
                     season=int(season),
                     episode=int(episode),
+                    resolution=resolution,
                     container=container,
                     confidence=base_confidence,
                 )
 
             if pattern_type == "title_episode_exx":
                 title, episode = groups
+                # 항상 해상도 추출 시도
+                full_filename = match.string  # 원본 파일명에서 해상도 추출
+                resolution = self._extract_resolution_cached(full_filename)
                 return ParsedMetadata(
                     title=self._clean_title_cached(title),
                     season=1,  # Exx 형태는 보통 시즌 1
                     episode=int(episode),
+                    resolution=resolution,
                     container=container,
                     confidence=base_confidence,
                 )
@@ -370,6 +382,10 @@ class FileParser:
 
             if pattern_type == "title_episode_korean":
                 title, episode, resolution = groups
+                # 해상도가 패턴에서 추출되지 않은 경우 전체 파일명에서 추출 시도
+                if not resolution:
+                    full_filename = match.string
+                    resolution = self._extract_resolution_cached(full_filename)
                 return ParsedMetadata(
                     title=self._clean_title_cached(title),
                     episode=int(episode),
@@ -537,6 +553,8 @@ class FileParser:
 
     def _extract_resolution_cached(self, text: str) -> str | None:
         """텍스트에서 해상도 추출 (캐시됨)"""
+        print(f"🔍 해상도 추출 시도: {text}")
+
         # 해상도 패턴들 (우선순위 순) - 수정됨
         resolution_patterns = [
             (r"(\d{3,4}x\d{3,4})", "exact"),  # 1920x1080 형태
@@ -555,16 +573,25 @@ class FileParser:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 resolution = match.group(1).upper()
+                print(f"  ✅ 패턴 매칭: {pattern} -> {resolution} ({res_type})")
 
                 # 해상도 정규화 - 수정됨
                 if res_type == "exact":
-                    # 1920x1080 형태를 1080p로 변환
-                    if "1920x1080" in resolution or "1080x1920" in resolution:
+                    # 대소문자 구분 없이 해상도 매칭
+                    resolution_lower = resolution.lower()
+                    if "1920x1080" in resolution_lower or "1080x1920" in resolution_lower:
+                        print(f"  🎯 정규화: {resolution} -> 1080p")
                         return "1080p"
-                    if "1280x720" in resolution or "720x1280" in resolution:
+                    if "1280x720" in resolution_lower or "720x1280" in resolution_lower:
+                        print(f"  🎯 정규화: {resolution} -> 720p")
                         return "720p"
-                    if "854x480" in resolution or "480x854" in resolution:
+                    if "854x480" in resolution_lower or "480x854" in resolution_lower:
+                        print(f"  🎯 정규화: {resolution} -> 480p")
                         return "480p"
+                    if "640x480" in resolution_lower:
+                        print(f"  🎯 정규화: {resolution} -> 480p")
+                        return "480p"
+                    print(f"  ⚠️ 정규화 없음: {resolution}")
                     return resolution
 
                 if res_type == "1080p":
@@ -592,6 +619,7 @@ class FileParser:
                     return resolution
                 return resolution
 
+        print("  ❌ 해상도 추출 실패")
         return None
 
     def _clean_title_cached(self, title: str) -> str:

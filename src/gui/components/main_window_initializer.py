@@ -259,20 +259,40 @@ class MainWindowInitializer:
                 hasattr(self.main_window, "anime_data_manager")
                 and self.main_window.anime_data_manager
             ):
-                self.main_window.anime_data_manager.tmdb_search_requested.connect(
-                    self.main_window.tmdb_search_handler.on_tmdb_search_requested
+                print(f"🔍 anime_data_manager 존재: {self.main_window.anime_data_manager}")
+                print(
+                    f"🔍 tmdb_search_handler 존재: {hasattr(self.main_window, 'tmdb_search_handler')}"
                 )
-                print("✅ TMDB 검색 시그널-슬롯 연결 완료")
+                if hasattr(self.main_window, "tmdb_search_handler"):
+                    self.main_window.anime_data_manager.tmdb_search_requested.connect(
+                        self.main_window.tmdb_search_handler.on_tmdb_search_requested
+                    )
+                    print("✅ TMDB 검색 시그널-슬롯 연결 완료")
+                else:
+                    print("❌ tmdb_search_handler가 없습니다")
+            else:
+                print("❌ anime_data_manager가 없습니다")
 
             print("✅ TMDB Search Handler 초기화 완료")
 
             # FileOrganizationHandler 초기화
-            from ..handlers.file_organization_handler import \
-                FileOrganizationHandler
+            try:
+                from ..handlers.file_organization_handler import \
+                    FileOrganizationHandler
 
-            self.main_window.file_organization_handler = FileOrganizationHandler(self.main_window)
-            self.main_window.file_organization_handler.init_preflight_system()
-            print("✅ File Organization Handler 초기화 완료")
+                self.main_window.file_organization_handler = FileOrganizationHandler(
+                    self.main_window
+                )
+                # Preflight System 초기화 시도 (실패해도 기본 기능은 작동)
+                try:
+                    self.main_window.file_organization_handler.init_preflight_system()
+                    print("✅ File Organization Handler 초기화 완료")
+                except Exception as e:
+                    print(f"⚠️ Preflight System 초기화 실패 (기본 기능은 사용 가능): {e}")
+                    print("✅ File Organization Handler 기본 초기화 완료")
+            except Exception as e:
+                print(f"❌ File Organization Handler 초기화 실패: {e}")
+                self.main_window.file_organization_handler = None
 
             # Status Bar Manager 초기화
             self.status_bar_manager = StatusBarManager(self.main_window)

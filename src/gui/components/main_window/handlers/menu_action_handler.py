@@ -44,7 +44,30 @@ class MainWindowMenuActionHandler:
     def on_organize_requested(self):
         """툴바에서 정리 요청 처리"""
         try:
+            import traceback
+
             print("🗂️ 툴바에서 정리 요청됨")
+            print("📍 호출 스택:")
+            for line in traceback.format_stack()[-3:-1]:  # 마지막 2개의 스택 프레임
+                print(f"   {line.strip()}")
+
+            # TMDB 검색 중인지 확인
+            if (
+                hasattr(self.main_window, "tmdb_search_handler")
+                and self.main_window.tmdb_search_handler
+            ):
+                if self.main_window.tmdb_search_handler.is_search_in_progress():
+                    from PyQt5.QtWidgets import QMessageBox
+
+                    QMessageBox.warning(
+                        self.main_window,
+                        "파일 정리 불가",
+                        "TMDB 검색 중에는 파일 정리를 할 수 없습니다.\n"
+                        "TMDB 검색이 완료된 후 다시 시도해주세요.",
+                    )
+                    print("⚠️ TMDB 검색 중에는 파일 정리를 할 수 없습니다")
+                    return
+
             # 기존 정리 로직 호출
             if hasattr(self.main_window, "file_organization_handler"):
                 self.main_window.file_organization_handler.start_file_organization()

@@ -8,14 +8,8 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (
-    QDialog,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QTextEdit,
-    QVBoxLayout,
-)
+from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
+                             QTextEdit, QVBoxLayout)
 
 
 class OrganizePreflightDialog(QDialog):
@@ -122,7 +116,7 @@ class OrganizePreflightDialog(QDialog):
             }
         """
         )
-        self.cancel_button.clicked.connect(self.reject)
+        self.cancel_button.clicked.connect(self.on_cancel_clicked)
 
         # 진행 버튼
         self.proceed_button = QPushButton("✅ 진행")
@@ -306,6 +300,10 @@ class OrganizePreflightDialog(QDialog):
         except Exception as e:
             print(f"⚠️ 샘플 경로 생성 실패: {e}")
             return None
+
+    def on_cancel_clicked(self):
+        """취소 버튼 클릭 처리"""
+        self.reject()
 
     def on_proceed_clicked(self):
         """진행 버튼 클릭 처리"""

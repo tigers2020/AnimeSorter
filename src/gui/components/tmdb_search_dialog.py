@@ -8,20 +8,10 @@ import contextlib
 import requests
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (
-    QDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QMessageBox,
-    QPushButton,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QDialog, QGroupBox, QHBoxLayout, QLabel,
+                             QLineEdit, QListWidget, QListWidgetItem,
+                             QMessageBox, QPushButton, QSizePolicy,
+                             QVBoxLayout, QWidget)
 
 from core.tmdb_client import TMDBAnimeInfo
 
@@ -70,7 +60,8 @@ class TMDBSearchDialog(QDialog):
         """UI 초기화"""
         self.setWindowTitle(f"TMDB 검색: {self.group_title}")
         self.setMinimumSize(600, 500)
-        self.setModal(True)
+        self.setModal(False)  # 모달을 False로 변경하여 다이얼로그가 숨겨지지 않도록 함
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)  # 항상 위에 표시
 
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
@@ -201,6 +192,11 @@ class TMDBSearchDialog(QDialog):
         query = self.txtSearch.text().strip()
         if query:
             self.perform_search(query)
+
+    def set_search_results(self, results: list[TMDBAnimeInfo]):
+        """검색 결과를 미리 설정"""
+        self.search_results = results
+        self.on_search_completed(results)
 
     def on_search_completed(self, results: list[TMDBAnimeInfo]):
         """검색 완료"""

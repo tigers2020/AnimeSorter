@@ -151,7 +151,7 @@ class ThemeManager(QObject):
         """시스템 테마 반환"""
         return self.system_theme
 
-    def apply_theme(self, theme: str):
+    def apply_theme(self, theme: str) -> bool:
         """테마 적용 (Phase 9.2)"""
         if theme not in self.get_available_themes():
             logger.error(f"지원하지 않는 테마: {theme}")
@@ -202,6 +202,10 @@ class ThemeManager(QObject):
 
         logger.error("QApplication 인스턴스를 찾을 수 없음")
         return False
+
+    def switch_theme(self, theme: str) -> bool:
+        """테마 전환 (apply_theme의 별칭)"""
+        return self.apply_theme(theme)
 
     def _apply_theme_stylesheet(self, theme: str):
         """테마별 스타일시트 적용 (Phase 9.2)"""

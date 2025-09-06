@@ -6,12 +6,32 @@ AnimeSorter 메인 실행 파일
 PyQt5 기반 GUI 애플리케이션을 초기화하고 실행합니다.
 """
 
+import os
 import sys
 from pathlib import Path
 
 # src 디렉토리를 Python 경로에 추가
 src_path = Path(__file__).parent
 sys.path.insert(0, str(src_path))
+
+# .env 파일에서 환경변수 로드
+env_file = Path(__file__).parent.parent / ".env"
+if env_file.exists():
+    try:
+        with open(env_file, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ[key] = value
+        print(f"✅ 환경변수 로드 완료: {env_file}")
+    except UnicodeDecodeError as e:
+        print(f"⚠️ .env 파일 인코딩 오류: {e}")
+        print(f"ℹ️ .env 파일을 찾을 수 없습니다: {env_file}")
+    except Exception as e:
+        print(f"❌ .env 파일 로드 실패: {e}")
+else:
+    print(f"ℹ️ .env 파일을 찾을 수 없습니다: {env_file}")
 
 from PyQt5.QtWidgets import QApplication
 

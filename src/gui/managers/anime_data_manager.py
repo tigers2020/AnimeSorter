@@ -4,14 +4,15 @@
 """
 
 import re
-# 상대 경로로 수정
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Optional
 
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import pyqtSignal
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
+from core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
 from core.unified_event_system import (EventCategory, EventPriority,
                                        get_unified_event_bus)
 
@@ -61,7 +62,7 @@ class ParsedItem:
             self.title = self.detectedTitle
 
 
-class AnimeDataManager(QObject):
+class AnimeDataManager(ManagerBase):
     """애니메이션 데이터 관리자"""
 
     # 시그널 정의
@@ -70,8 +71,17 @@ class AnimeDataManager(QObject):
         str, object
     )  # TMDB 애니메이션 선택됨 (group_id, TMDBAnimeInfo)
 
-    def __init__(self, tmdb_client=None):
-        super().__init__()
+    def __init__(self, tmdb_client=None, parent=None):
+        # Manager 설정 생성
+        config = ManagerConfig(
+            name="AnimeDataManager",
+            priority=ManagerPriority.NORMAL,
+            auto_start=True,
+            log_level="INFO",
+        )
+
+        super().__init__(config, parent)
+
         self.items: list[ParsedItem] = []
         self.tmdb_client = tmdb_client
         self.group_tmdb_matches = {}  # 그룹별 TMDB 매치 결과 저장
@@ -266,6 +276,66 @@ class AnimeDataManager(QObject):
         # 로그 출력 제거 - 반복 호출 시 중복 로그 방지
         # print(f"📊 그룹별 아이템 반환: {len(groups)}개 그룹")
         return groups
+
+    # ManagerBase 추상 메서드 구현
+    def _initialize_impl(self) -> bool:
+        """구현체별 초기화 로직"""
+        try:
+            # 기본 초기화 로직
+            self.logger.info("AnimeDataManager 초기화 완료")
+            return True
+        except Exception as e:
+            self.logger.error(f"초기화 실패: {e}")
+            return False
+
+    def _start_impl(self) -> bool:
+        """구현체별 시작 로직"""
+        try:
+            # 시작 시 필요한 로직
+            self.logger.info("AnimeDataManager 시작")
+            return True
+        except Exception as e:
+            self.logger.error(f"시작 실패: {e}")
+            return False
+
+    def _stop_impl(self) -> bool:
+        """구현체별 중지 로직"""
+        try:
+            # 중지 시 필요한 로직
+            self.logger.info("AnimeDataManager 중지")
+            return True
+        except Exception as e:
+            self.logger.error(f"중지 실패: {e}")
+            return False
+
+    def _pause_impl(self) -> bool:
+        """구현체별 일시정지 로직"""
+        try:
+            # 일시정지 시 필요한 로직
+            self.logger.info("AnimeDataManager 일시정지")
+            return True
+        except Exception as e:
+            self.logger.error(f"일시정지 실패: {e}")
+            return False
+
+    def _resume_impl(self) -> bool:
+        """구현체별 재개 로직"""
+        try:
+            # 재개 시 필요한 로직
+            self.logger.info("AnimeDataManager 재개")
+            return True
+        except Exception as e:
+            self.logger.error(f"재개 실패: {e}")
+            return False
+
+    def _get_custom_health_status(self) -> Optional[dict[str, Any]]:
+        """구현체별 건강 상태 반환"""
+        return {
+            "item_count": len(self.items),
+            "group_count": len(self.get_grouped_items()),
+            "tmdb_matches": len(self.group_tmdb_matches),
+            "tmdb_client_available": self.tmdb_client is not None,
+        }
 
     def search_tmdb_for_group(self, group_id: str, group_title: str):
         """그룹에 대한 TMDB 검색 실행"""

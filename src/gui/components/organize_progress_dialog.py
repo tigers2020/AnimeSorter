@@ -8,19 +8,10 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from PyQt5.QtCore import QMutex, Qt, QThread, pyqtSignal
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (
-    QDialog,
-    QHBoxLayout,
-    QLabel,
-    QProgressBar,
-    QPushButton,
-    QTextEdit,
-    QVBoxLayout,
-)
-
-from core.video_metadata_extractor import VideoMetadataExtractor
+from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QProgressBar,
+                             QPushButton, QTextEdit, QVBoxLayout)
 
 
 @dataclass
@@ -41,37 +32,11 @@ class OrganizeResult:
         if self.skipped_files is None:
             self.skipped_files = []
 
+        # FileOrganizeWorker 클래스는 더 이상 사용되지 않습니다.
+        # 고수준 FileOrganizationService로 대체되었습니다.
 
-class FileOrganizeWorker(QThread):
-    """파일 정리 백그라운드 Worker"""
-
-    # 시그널 정의
-    progress_updated = pyqtSignal(int, str)  # 진행률, 현재 파일
-    file_processed = pyqtSignal(str, str, bool)  # 파일명, 결과 메시지, 성공 여부
-    completed = pyqtSignal(object)  # OrganizeResult
-
-    def __init__(self, grouped_items: dict[str, list], destination_directory: str):
-        super().__init__()
-        self.grouped_items = grouped_items
-        self.destination_directory = destination_directory
-        self.cancelled = False
-        self.mutex = QMutex()
-        self.video_metadata_extractor = VideoMetadataExtractor()
-
-        # 자막 파일 확장자 정의
-        self.subtitle_extensions = {
-            ".srt",
-            ".ass",
-            ".ssa",
-            ".sub",
-            ".vtt",
-            ".idx",
-            ".smi",
-            ".sami",
-            ".txt",
-        }
-
-    def run(self):
+        # Worker 클래스의 run 메소드도 더 이상 사용되지 않습니다.
+        # def run(self):
         """Worker 실행"""
         try:
             result = OrganizeResult()
@@ -88,6 +53,16 @@ class FileOrganizeWorker(QThread):
             if total_files == 0:
                 self.completed.emit(result)
                 return
+
+            # 디버깅: 초기화 상태 로깅
+            print("=" * 50)
+            print("🔍 DEBUG: 파일 정리 시작!")
+            print(f"🔍 DEBUG: 총 파일 수: {total_files}")
+            print(
+                f"🔍 DEBUG: 총 그룹 수: {len([g for g in self.grouped_items.keys() if g != 'ungrouped'])}"
+            )
+            print(f"🔍 DEBUG: _processed_sources 초기화됨: {len(self._processed_sources)}")
+            print("=" * 50)
 
             # 각 그룹별로 파일 처리
             for group_id, group_items in self.grouped_items.items():
@@ -153,6 +128,13 @@ class FileOrganizeWorker(QThread):
                     for item in group_items
                     if hasattr(item, "sourcePath") and item.sourcePath
                 ]
+
+                # 디버깅: 그룹 처리 상세 정보
+                print(f"🔍 DEBUG: 그룹 '{group_id}' 처리 전:")
+                print(f"   - 그룹 내 파일 수: {len(group_items)}개")
+                print(f"   - 유효한 파일 경로: {len(file_paths)}개")
+                print(f"   - 현재 _processed_sources: {len(self._processed_sources)}개")
+
                 if file_paths:
                     try:
                         (
@@ -223,6 +205,18 @@ class FileOrganizeWorker(QThread):
                 cleaned_dirs = self._cleanup_empty_directories(source_directories)
                 result.cleaned_directories = cleaned_dirs
                 print(f"✅ 빈 디렉토리 정리 완료: {cleaned_dirs}개 디렉토리 삭제")
+
+            # 최종 결과 디버깅
+            print("=" * 50)
+            print("🔍 DEBUG: 파일 정리 최종 결과")
+            print(f"   ✅ 성공: {result.success_count}개")
+            print(f"   ❌ 실패: {result.error_count}개")
+            print(f"   ⏭️  건너뜀: {result.skip_count}개")
+            print(f"   📊 _processed_sources 최종 크기: {len(self._processed_sources)}개")
+            print(
+                f"   📊 총 처리된 파일 수: {result.success_count + result.error_count + result.skip_count}개"
+            )
+            print("=" * 50)
 
             # 완료 시그널 발생
             self.completed.emit(result)
@@ -370,12 +364,25 @@ class FileOrganizeWorker(QThread):
                 return False
 
             source_path = item.sourcePath
+            normalized_path = str(Path(source_path))
+
+            # 중복 처리 방지: 이미 처리된 파일인지 확인
+            if normalized_path in self._processed_sources:
+                print(f"🛑 이미 처리된 파일 건너뜀: {source_path}")
+                result.skip_count += 1
+                result.skipped_files.append(source_path)
+                skip_msg = f"중복 파일 (건너뜀): {Path(source_path).name}"
+                self.file_processed.emit(Path(source_path).name, skip_msg, True)
+                return True
+
             if not Path(source_path).exists():
-                error_msg = f"소스 파일이 존재하지 않음: {source_path}"
-                result.errors.append(error_msg)
-                result.error_count += 1
-                self.file_processed.emit(Path(source_path).name, error_msg, False)
-                return False
+                # 파일이 실제로 존재하지 않는 경우
+                print(f"🛑 파일이 존재하지 않음: {source_path}")
+                result.skip_count += 1
+                result.skipped_files.append(source_path)
+                skip_msg = f"파일 없음 (건너뜀): {Path(source_path).name}"
+                self.file_processed.emit(Path(source_path).name, skip_msg, True)
+                return True
 
             # 소스 디렉토리 추적
             source_dir = str(Path(source_path).parent)
@@ -388,6 +395,10 @@ class FileOrganizeWorker(QThread):
                 # 파일 이동
                 self._safe_move_file(source_path, target_path)
                 result.success_count += 1
+
+                # 중복 처리 방지: 처리된 파일 목록에 추가
+                self._processed_sources.add(normalized_path)
+
                 self.file_processed.emit(filename, f"이동 완료: {target_path}", True)
 
                 # 자막 파일 찾기 및 이동
@@ -404,6 +415,7 @@ class FileOrganizeWorker(QThread):
                         if len(subtitle_target_path) > 260:
                             error_msg = f"자막 파일 경로가 너무 깁니다: {subtitle_target_path}"
                             result.errors.append(error_msg)
+                            result.error_count += 1  # 경로 길이 오류도 실패로 계산
                             continue
 
                         # 자막 파일 이동
@@ -418,6 +430,8 @@ class FileOrganizeWorker(QThread):
                     except Exception as e:
                         error_msg = f"자막 파일 이동 실패: {subtitle_path} - {str(e)}"
                         result.errors.append(error_msg)
+                        result.error_count += 1
+                        print(f"❌ 자막 파일 이동 실패: {error_msg}")
                         self.file_processed.emit(Path(subtitle_path).name, error_msg, False)
 
                 return True
@@ -675,8 +689,17 @@ class OrganizeProgressDialog(QDialog):
         self.result = result
 
         # 완료 메시지 표시
+        total_processed = result.success_count + result.error_count + result.skip_count
+        success_rate = (result.success_count / total_processed * 100) if total_processed > 0 else 0
+
+        self.log_text.append("🎉 파일 정리 작업이 완료되었습니다!")
+        self.log_text.append(
+            f"📊 최종 결과: 성공 {result.success_count}, 실패 {result.error_count}, 건너뜀 {result.skip_count}"
+        )
+        self.log_text.append(f"📈 성공률: {success_rate:.1f}% (총 {total_processed}개 파일 처리)")
+
         if result.success_count > 0:
-            self.log_text.append(f"✅ 정리 완료: {result.success_count}개 파일 이동 성공")
+            self.log_text.append(f"✅ 파일 이동: {result.success_count}개 파일 이동 성공")
 
         if result.subtitle_count > 0:
             self.log_text.append(f"📝 자막 파일: {result.subtitle_count}개 자막 파일 이동 성공")
@@ -690,7 +713,9 @@ class OrganizeProgressDialog(QDialog):
             self.log_text.append(f"❌ 오류: {result.error_count}개 파일 처리 실패")
 
         if result.skip_count > 0:
-            self.log_text.append(f"⏭️ 건너뜀: {result.skip_count}개 파일")
+            self.log_text.append(
+                f"⏭️ 건너뜀: {result.skip_count}개 파일 (이미 처리됨 또는 파일 없음)"
+            )
 
         # 버튼 변경
         self.cancel_button.setText("확인")
@@ -698,9 +723,20 @@ class OrganizeProgressDialog(QDialog):
         self.cancel_button.clicked.disconnect()
         self.cancel_button.clicked.connect(self.accept)
 
-        # 진행률 100%로 설정
+        # 진행률 바 완료 표시
         self.progress_bar.setValue(100)
+        self.progress_bar.setFormat("완료 (100%)")
         self.current_file_label.setText("정리 작업이 완료되었습니다")
+
+        # 완료 시간 표시
+        import time
+
+        completion_time = time.strftime("%H:%M:%S")
+        self.log_text.append(f"⏰ 완료 시간: {completion_time}")
+
+        # 스크롤을 최하단으로
+        scrollbar = self.log_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def get_result(self) -> OrganizeResult | None:
         """결과 반환"""

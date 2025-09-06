@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QHeaderView  # Added for QHeaderView
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
+from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
 # New Architecture Components
 # UI Command Bridge
@@ -21,10 +21,14 @@ from core.unified_event_system import get_unified_event_bus
 # Phase 10.2: 국제화 관리 시스템
 # Phase 1: 메인 윈도우 분할 - 기능별 클래스 분리
 from .components.main_window_coordinator import MainWindowCoordinator
+from .components.message_log_controller import MessageLogController
 # UI Components
 from .components.settings_dialog import SettingsDialog
+# New Controllers for Refactoring
+from .components.theme_controller import ThemeController
 # Theme Engine Integration
 from .components.theme_manager import ThemeManager
+from .components.ui_state_controller import UIStateController
 # Phase 8: UI 상태 관리 및 마이그레이션
 # UI Components
 # Event Handler Manager
@@ -74,14 +78,16 @@ class MainWindow(QMainWindow):
         theme_dir = Path(__file__).parent / "theme"
         self.token_loader = TokenLoader(theme_dir)
 
+        # New Controllers Initialization
+        self._init_new_controllers()
+        self._setup_new_controllers()
+        self._connect_new_controller_signals()
+
         # 초기 테마 적용 (UI 컴포넌트 초기화 전에)
         self._apply_theme()
 
         # 모든 컴포넌트 초기화 (조율자를 통해)
         self.coordinator.initialize_all_components()
-
-        # UI 컴포넌트 초기화 완료 후 테마 재적용 (확실히 하기 위해)
-        self._apply_theme()
 
         # 데이터 매니저들 초기화 (핸들러 초기화 전에 먼저 실행)
         self.init_data_managers()
@@ -117,154 +123,15 @@ class MainWindow(QMainWindow):
             print(f"❌ 이벤트 발행 실패: {e}")
             return False
 
-        # UI Command 시스템 관련 초기화
-        self.undo_stack_bridge = None
-        self.staging_manager = None
-        self.journal_manager = None
-        self.ui_command_bridge = None
-
-        # Event Handler Manager 초기화
-        self.event_handler_manager = None
-
-        # Status Bar Manager 초기화
-        self.status_bar_manager = None
-
-        # TMDB 검색 다이얼로그 초기화
-        self.tmdb_search_dialogs = {}
-
-        # 그룹별 TMDB 검색 다이얼로그 저장
-        self.tmdb_search_dialogs = {}
-
-        # 파일 관리자 초기화
-        self.file_manager = None
-
     def _apply_theme(self):
-        """테마를 적용합니다"""
+        """테마를 적용합니다 (Theme Controller를 통해)"""
         try:
-            # 설정에서 저장된 테마 가져오기
-            saved_theme = self.settings_manager.get_setting("theme", "light")
-
-            # auto 테마인 경우 시스템 테마 감지
-            current_theme = self._detect_system_theme() if saved_theme == "auto" else saved_theme
-
-            print(f"🎨 자동 테마 적용: 설정={saved_theme}, 적용={current_theme}")
-
-            # 루트 위젯에 테마별 objectName 설정
-            self._set_theme_object_name(current_theme)
-
-            # 테마 전환 (저장된 테마 적용)
-            if self.theme_manager.switch_theme(current_theme):
-                print(f"✅ 테마 적용 완료: {current_theme}")
+            if hasattr(self, "theme_controller"):
+                self.theme_controller.apply_theme(main_window=self)
             else:
-                print(f"❌ 테마 적용 실패: {current_theme}")
-
+                print("⚠️ ThemeController가 초기화되지 않음")
         except Exception as e:
             print(f"❌ 테마 적용 중 오류 발생: {e}")
-            # 오류 발생 시 기본 라이트 테마 적용
-            try:
-                self.theme_manager.switch_theme("light")
-                self._set_theme_object_name("light")
-                print("🔄 기본 라이트 테마로 복구")
-            except Exception as fallback_error:
-                print(f"❌ 기본 테마 복구도 실패: {fallback_error}")
-
-    def _detect_system_theme(self) -> str:
-        """시스템 테마를 감지합니다"""
-        try:
-            from PyQt5.QtGui import QPalette
-            from PyQt5.QtWidgets import QApplication
-
-            app = QApplication.instance()
-            if app:
-                palette = app.palette()
-                background_color = palette.color(QPalette.Window)
-
-                # 배경색의 밝기를 기준으로 다크/라이트 테마 판단
-                brightness = (
-                    background_color.red() * 299
-                    + background_color.green() * 587
-                    + background_color.blue() * 114
-                ) / 1000
-
-                if brightness < 128:
-                    return "dark"
-                return "light"
-
-            return "light"  # 기본값
-
-        except Exception as e:
-            print(f"⚠️ 시스템 테마 감지 실패: {e}")
-            return "light"  # 기본값
-
-    def _set_theme_object_name(self, theme_name: str) -> None:
-        """테마별로 루트 위젯의 objectName을 설정합니다"""
-        try:
-            if theme_name == "dark":
-                self.setObjectName("AppDark")
-            elif theme_name == "high-contrast":
-                self.setObjectName("AppHighContrast")
-            else:
-                # Light theme (default)
-                self.setObjectName("")
-
-            print(f"🎨 테마 objectName 설정: {theme_name} → {self.objectName() or 'Light'}")
-
-            # 하위 위젯들도 테마 변경 알림
-            self._notify_theme_change_to_children(theme_name)
-
-        except Exception as e:
-            print(f"❌ 테마 objectName 설정 실패: {e}")
-
-    def _notify_theme_change_to_children(self, theme_name: str) -> None:
-        """하위 위젯들에게 테마 변경을 알립니다"""
-        try:
-            # 모든 하위 위젯을 찾아서 테마 변경 알림
-            for child in self.findChildren(QWidget):
-                if hasattr(child, "on_theme_changed"):
-                    child.on_theme_changed(theme_name)
-
-        except Exception as e:
-            print(f"❌ 하위 위젯 테마 변경 알림 실패: {e}")
-
-    def switch_theme(self, theme_name: str) -> bool:
-        """테마를 전환합니다"""
-        try:
-            print(f"🔄 테마 전환 시작: {self.theme_manager.get_current_theme()} → {theme_name}")
-
-            # 테마 전환
-            if self.theme_manager.switch_theme(theme_name):
-                # 루트 위젯 objectName 업데이트
-                self._set_theme_object_name(theme_name)
-
-                # 테마 변경 시그널 발생
-                self.theme_manager.theme_changed.emit(
-                    self.theme_manager.get_current_theme(), theme_name
-                )
-
-                print(f"✅ 테마 전환 완료: {theme_name}")
-                return True
-            print(f"❌ 테마 전환 실패: {theme_name}")
-            return False
-
-        except Exception as e:
-            print(f"❌ 테마 전환 중 오류: {e}")
-            return False
-
-    def get_available_themes(self) -> list[str]:
-        """사용 가능한 테마 목록을 반환합니다"""
-        try:
-            return ["light", "dark", "high-contrast"]
-        except Exception as e:
-            print(f"❌ 테마 목록 조회 실패: {e}")
-            return ["light"]
-
-    def get_current_theme(self) -> str:
-        """현재 테마를 반환합니다"""
-        try:
-            return self.theme_manager.get_current_theme()
-        except Exception as e:
-            print(f"❌ 현재 테마 조회 실패: {e}")
-            return "light"
 
     def _connect_theme_signals(self):
         """테마 변경 시그널을 연결합니다"""
@@ -287,6 +154,78 @@ class MainWindow(QMainWindow):
             print("✅ 통합 이벤트 시스템 연결 완료")
         except Exception as e:
             print(f"❌ 통합 이벤트 시스템 연결 실패: {e}")
+
+    def _init_new_controllers(self):
+        """새로운 컨트롤러들을 초기화합니다"""
+        try:
+            # Theme Controller 초기화
+            self.theme_controller = ThemeController(self.theme_manager, self.settings_manager)
+
+            # UI State Controller 초기화
+            self.ui_state_controller = UIStateController(self.settings_manager)
+
+            # Message Log Controller 초기화
+            self.message_log_controller = MessageLogController()
+
+            print("✅ 새로운 컨트롤러들 초기화 완료")
+        except Exception as e:
+            print(f"❌ 새로운 컨트롤러 초기화 실패: {e}")
+
+    def _setup_new_controllers(self):
+        """새로운 컨트롤러들을 설정합니다"""
+        try:
+            # Theme Controller 설정
+            self.theme_controller.setup()
+
+            # UI State Controller 설정
+            self.ui_state_controller.setup()
+
+            # Message Log Controller 설정
+            self.message_log_controller.setup()
+
+            print("✅ 새로운 컨트롤러들 설정 완료")
+        except Exception as e:
+            print(f"❌ 새로운 컨트롤러 설정 실패: {e}")
+
+    def _connect_new_controller_signals(self):
+        """새로운 컨트롤러들의 시그널을 연결합니다"""
+        try:
+            # Theme Controller 시그널 연결
+            self.theme_controller.theme_applied.connect(self._on_theme_controller_theme_applied)
+            self.theme_controller.theme_detection_failed.connect(
+                self._on_theme_controller_detection_failed
+            )
+            self.theme_controller.system_theme_changed.connect(
+                self._on_theme_controller_system_theme_changed
+            )
+
+            # UI State Controller 시그널 연결
+            self.ui_state_controller.state_saved.connect(self._on_ui_state_controller_state_saved)
+            self.ui_state_controller.state_restored.connect(
+                self._on_ui_state_controller_state_restored
+            )
+            self.ui_state_controller.accessibility_mode_changed.connect(
+                self._on_ui_state_controller_accessibility_changed
+            )
+            self.ui_state_controller.high_contrast_mode_changed.connect(
+                self._on_ui_state_controller_high_contrast_changed
+            )
+            self.ui_state_controller.language_changed.connect(
+                self._on_ui_state_controller_language_changed
+            )
+
+            # Message Log Controller 시그널 연결
+            self.message_log_controller.message_shown.connect(
+                self._on_message_log_controller_message_shown
+            )
+            self.message_log_controller.log_added.connect(self._on_message_log_controller_log_added)
+            self.message_log_controller.status_updated.connect(
+                self._on_message_log_controller_status_updated
+            )
+
+            print("✅ 새로운 컨트롤러 시그널 연결 완료")
+        except Exception as e:
+            print(f"❌ 새로운 컨트롤러 시그널 연결 실패: {e}")
 
     def _on_theme_changed(self, theme: str):
         """테마가 변경되었을 때 호출됩니다"""
@@ -330,28 +269,103 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"❌ 이벤트 처리 실패 처리 중 오류: {e}")
 
+    # New Controller Signal Handlers
+    def _on_theme_controller_theme_applied(self, theme: str):
+        """Theme Controller의 테마 적용 시그널을 처리합니다"""
+        try:
+            print(f"🎨 Theme Controller: 테마 적용됨 - {theme}")
+            # 여기에 테마 적용 후 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ Theme Controller 테마 적용 처리 중 오류: {e}")
+
+    def _on_theme_controller_detection_failed(self, error: str):
+        """Theme Controller의 테마 감지 실패 시그널을 처리합니다"""
+        try:
+            print(f"⚠️ Theme Controller: 테마 감지 실패 - {error}")
+            # 여기에 테마 감지 실패 시 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ Theme Controller 테마 감지 실패 처리 중 오류: {e}")
+
+    def _on_theme_controller_system_theme_changed(self, theme: str):
+        """Theme Controller의 시스템 테마 변경 시그널을 처리합니다"""
+        try:
+            print(f"🔄 Theme Controller: 시스템 테마 변경됨 - {theme}")
+            # 여기에 시스템 테마 변경 시 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ Theme Controller 시스템 테마 변경 처리 중 오류: {e}")
+
+    def _on_ui_state_controller_state_saved(self, state_type: str):
+        """UI State Controller의 상태 저장 시그널을 처리합니다"""
+        try:
+            print(f"💾 UI State Controller: 상태 저장됨 - {state_type}")
+            # 여기에 상태 저장 후 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ UI State Controller 상태 저장 처리 중 오류: {e}")
+
+    def _on_ui_state_controller_state_restored(self, state_type: str):
+        """UI State Controller의 상태 복원 시그널을 처리합니다"""
+        try:
+            print(f"📂 UI State Controller: 상태 복원됨 - {state_type}")
+            # 여기에 상태 복원 후 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ UI State Controller 상태 복원 처리 중 오류: {e}")
+
+    def _on_ui_state_controller_accessibility_changed(self, mode: str):
+        """UI State Controller의 접근성 모드 변경 시그널을 처리합니다"""
+        try:
+            print(f"♿ UI State Controller: 접근성 모드 변경됨 - {mode}")
+            # 여기에 접근성 모드 변경 시 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ UI State Controller 접근성 모드 변경 처리 중 오류: {e}")
+
+    def _on_ui_state_controller_high_contrast_changed(self, enabled: bool):
+        """UI State Controller의 고대비 모드 변경 시그널을 처리합니다"""
+        try:
+            print(f"🌓 UI State Controller: 고대비 모드 변경됨 - {enabled}")
+            # 여기에 고대비 모드 변경 시 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ UI State Controller 고대비 모드 변경 처리 중 오류: {e}")
+
+    def _on_ui_state_controller_language_changed(self, language: str):
+        """UI State Controller의 언어 변경 시그널을 처리합니다"""
+        try:
+            print(f"🌐 UI State Controller: 언어 변경됨 - {language}")
+            # 여기에 언어 변경 시 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ UI State Controller 언어 변경 처리 중 오류: {e}")
+
+    def _on_message_log_controller_message_shown(self, message_type: str, message: str):
+        """Message Log Controller의 메시지 표시 시그널을 처리합니다"""
+        try:
+            print(f"💬 Message Log Controller: 메시지 표시됨 - {message_type}: {message}")
+            # 여기에 메시지 표시 후 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ Message Log Controller 메시지 표시 처리 중 오류: {e}")
+
+    def _on_message_log_controller_log_added(self, log_type: str, content: str):
+        """Message Log Controller의 로그 추가 시그널을 처리합니다"""
+        try:
+            print(f"📝 Message Log Controller: 로그 추가됨 - {log_type}: {content}")
+            # 여기에 로그 추가 후 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ Message Log Controller 로그 추가 처리 중 오류: {e}")
+
+    def _on_message_log_controller_status_updated(self, status: str):
+        """Message Log Controller의 상태 업데이트 시그널을 처리합니다"""
+        try:
+            print(f"📊 Message Log Controller: 상태 업데이트됨 - {status}")
+            # 여기에 상태 업데이트 후 추가 로직을 구현할 수 있습니다
+        except Exception as e:
+            print(f"❌ Message Log Controller 상태 업데이트 처리 중 오류: {e}")
+
     def _initialize_handlers(self):
         """MainWindow 핸들러들을 초기화합니다."""
         try:
-            # Python 경로에 src 디렉토리 추가
-            import sys
-            from pathlib import Path
-
-            src_dir = Path(__file__).parent.parent.parent
-            if str(src_dir) not in sys.path:
-                sys.path.insert(0, str(src_dir))
-
-            from gui.components.main_window.handlers.file_handler import \
-                MainWindowFileHandler
-            from gui.components.main_window.handlers.layout_manager import \
-                MainWindowLayoutManager
-            from gui.components.main_window.handlers.menu_action_handler import \
-                MainWindowMenuActionHandler
-            from gui.components.main_window.handlers.session_manager import \
-                MainWindowSessionManager
-
-            # MainWindowFileHandler 초기화
+            # MainWindowFileHandler 초기화 (필수)
             if hasattr(self, "file_processing_manager") and hasattr(self, "anime_data_manager"):
+                from .components.main_window.handlers.file_handler import \
+                    MainWindowFileHandler
+
                 self.file_handler = MainWindowFileHandler(
                     main_window=self,
                     file_processing_manager=self.file_processing_manager,
@@ -362,46 +376,41 @@ class MainWindow(QMainWindow):
                 print("✅ MainWindowFileHandler 초기화 완료")
             else:
                 print("⚠️ MainWindowFileHandler 초기화 실패: 필요한 매니저들이 없습니다")
+                self.file_handler = None
+
+            # MainWindowLayoutManager 초기화
+            from .components.main_window.handlers.layout_manager import \
+                MainWindowLayoutManager
+
+            self.layout_manager = MainWindowLayoutManager(main_window=self)
+            print("✅ MainWindowLayoutManager 초기화 완료")
+
+            # MainWindowMenuActionHandler 초기화
+            from .components.main_window.handlers.menu_action_handler import \
+                MainWindowMenuActionHandler
+
+            self.menu_action_handler = MainWindowMenuActionHandler(main_window=self)
+            print("✅ MainWindowMenuActionHandler 초기화 완료")
 
             # MainWindowSessionManager 초기화
             if hasattr(self, "settings_manager"):
+                from .components.main_window.handlers.session_manager import \
+                    MainWindowSessionManager
+
                 self.session_manager = MainWindowSessionManager(
                     main_window=self, settings_manager=self.settings_manager
                 )
                 print("✅ MainWindowSessionManager 초기화 완료")
             else:
                 print("⚠️ MainWindowSessionManager 초기화 실패: SettingsManager가 없습니다")
+                self.session_manager = None
 
-            # MainWindowMenuActionHandler 초기화
-            self.menu_action_handler = MainWindowMenuActionHandler(main_window=self)
-            print("✅ MainWindowMenuActionHandler 초기화 완료")
-
-            # MainWindowLayoutManager 초기화
-            self.layout_manager = MainWindowLayoutManager(main_window=self)
-            print("✅ MainWindowLayoutManager 초기화 완료")
-
-            # TMDBSearchHandler 초기화
-            try:
-                from gui.handlers.tmdb_search_handler import TMDBSearchHandler
-
-                self.tmdb_search_handler = TMDBSearchHandler(main_window=self)
-                print("✅ TMDBSearchHandler 초기화 완료")
-
-                # TMDB 검색 시그널 연결
-                if hasattr(self, "anime_data_manager") and self.anime_data_manager:
-                    self.anime_data_manager.tmdb_search_requested.connect(
-                        self.tmdb_search_handler.on_tmdb_search_requested
-                    )
-                    print("✅ TMDB 검색 시그널-슬롯 연결 완료")
-                else:
-                    print("⚠️ anime_data_manager가 없어서 TMDB 검색 시그널 연결 실패")
-
-            except Exception as tmdb_error:
-                print(f"⚠️ TMDBSearchHandler 초기화 실패: {tmdb_error}")
-                self.tmdb_search_handler = None
+            print("✅ MainWindow 핸들러들 초기화 완료")
+            return True
 
         except Exception as e:
             print(f"❌ MainWindow 핸들러 초기화 중 오류: {e}")
+            return False
 
     def init_core_components(self):
         """핵심 컴포넌트 초기화 (조율자에 위임)"""
@@ -698,75 +707,35 @@ class MainWindow(QMainWindow):
         if self.file_handler:
             self.file_handler.process_selected_files(file_paths)
         else:
-            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다. 핸들러를 다시 초기화합니다.")
-            try:
-                self._initialize_handlers()
-                if self.file_handler:
-                    self.file_handler.process_selected_files(file_paths)
-                else:
-                    print("❌ MainWindowFileHandler 초기화 실패")
-            except Exception as e:
-                print(f"❌ MainWindowFileHandler 재초기화 실패: {e}")
+            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다")
 
     def start_scan(self):
         """스캔 시작 - MainWindowFileHandler로 위임"""
         if self.file_handler:
             self.file_handler.start_scan()
         else:
-            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다. 핸들러를 다시 초기화합니다.")
-            try:
-                self._initialize_handlers()
-                if self.file_handler:
-                    self.file_handler.start_scan()
-                else:
-                    print("❌ MainWindowFileHandler 초기화 실패")
-            except Exception as e:
-                print(f"❌ MainWindowFileHandler 재초기화 실패: {e}")
+            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다")
 
     def scan_directory(self, directory_path: str):
         """디렉토리 스캔 - MainWindowFileHandler로 위임"""
         if self.file_handler:
             self.file_handler.scan_directory(directory_path)
         else:
-            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다. 핸들러를 다시 초기화합니다.")
-            try:
-                self._initialize_handlers()
-                if self.file_handler:
-                    self.file_handler.scan_directory(directory_path)
-                else:
-                    print("❌ MainWindowFileHandler 초기화 실패")
-            except Exception as e:
-                print(f"❌ MainWindowFileHandler 재초기화 실패: {e}")
+            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다")
 
     def _scan_directory_legacy(self, directory_path: str):
         """기존 방식 디렉토리 스캔 (폴백용) - MainWindowFileHandler로 위임"""
         if self.file_handler:
             self.file_handler._scan_directory_legacy(directory_path)
         else:
-            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다. 핸들러를 다시 초기화합니다.")
-            try:
-                self._initialize_handlers()
-                if self.file_handler:
-                    self.file_handler._scan_directory_legacy(directory_path)
-                else:
-                    print("❌ MainWindowFileHandler 초기화 실패")
-            except Exception as e:
-                print(f"❌ MainWindowFileHandler 재초기화 실패: {e}")
+            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다")
 
     def stop_scan(self):
         """스캔 중지 - MainWindowFileHandler로 위임"""
         if self.file_handler:
             self.file_handler.stop_scan()
         else:
-            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다. 핸들러를 다시 초기화합니다.")
-            try:
-                self._initialize_handlers()
-                if self.file_handler:
-                    self.file_handler.stop_scan()
-                else:
-                    print("❌ MainWindowFileHandler 초기화 실패")
-            except Exception as e:
-                print(f"❌ MainWindowFileHandler 재초기화 실패: {e}")
+            print("⚠️ MainWindowFileHandler가 초기화되지 않았습니다")
 
     def clear_completed(self):
         """완료된 항목 정리"""
@@ -884,7 +853,7 @@ class MainWindow(QMainWindow):
             self.apply_settings_to_ui()
 
             # TMDB 클라이언트 재초기화 (API 키가 변경된 경우)
-            if self.settings_manager:
+            if hasattr(self, "tmdb_client"):
                 api_key = self.settings_manager.settings.tmdb_api_key
                 if api_key and (not self.tmdb_client or self.tmdb_client.api_key != api_key):
                     self.tmdb_client = TMDBClient(api_key=api_key)
@@ -1023,22 +992,6 @@ class MainWindow(QMainWindow):
             if progress is not None and hasattr(self, "status_progress"):
                 self.status_progress.setValue(progress)
 
-    def show_error_message(self, message: str, details: str = "", error_type: str = "error"):
-        """오류 메시지 표시 - StatusBarManager로 위임"""
-        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
-            self.status_bar_manager.show_error_message(message, details, error_type)
-        else:
-            # Fallback
-            self.update_status_bar(f"❌ {message}")
-
-    def show_success_message(self, message: str, details: str = "", auto_clear: bool = True):
-        """성공 메시지 표시 - StatusBarManager로 위임"""
-        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
-            self.status_bar_manager.show_success_message(message, details, auto_clear)
-        else:
-            # Fallback
-            self.update_status_bar(f"✅ {message}")
-
     def update_progress(self, current: int, total: int, message: str = ""):
         """진행률 업데이트 - StatusBarManager로 위임"""
         if hasattr(self, "status_bar_manager") and self.status_bar_manager:
@@ -1118,31 +1071,17 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """프로그램 종료 시 이벤트 처리"""
         try:
-            # Phase 8: UI 상태 저장
-            if hasattr(self, "ui_state_manager"):
-                self.ui_state_manager.save_ui_state()
+            # UI 상태 저장 (UIStateController에 위임)
+            if hasattr(self, "ui_state_controller") and self.ui_state_controller:
+                self.ui_state_controller.save_session_state()
                 print("✅ 프로그램 종료 시 UI 상태 저장 완료")
             else:
-                # 폴백: 기존 세션 상태 저장
-                self.save_session_state()
-                print("✅ 프로그램 종료 시 기존 세션 상태 저장 완료")
+                print("⚠️ UIStateController가 초기화되지 않았습니다")
         except Exception as e:
             print(f"⚠️ 프로그램 종료 시 상태 저장 실패: {e}")
 
         # 기본 종료 처리
         super().closeEvent(event)
-
-    # Safety System 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
-
-    # Command System 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
-
-    # Preflight System 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
-
-    # Journal System 및 Undo/Redo System 이벤트 핸들러들은 EventHandlerManager에서 처리됩니다
-
-    # Safety System 관련 메서드들은 SafetySystemManager에서 처리됩니다
-
-    # Command System 관련 메서드들은 CommandSystemManager에서 처리됩니다
 
     def setup_log_dock(self):
         """로그 Dock 설정 - MainWindowLayoutManager로 위임"""
@@ -1150,30 +1089,6 @@ class MainWindow(QMainWindow):
             self.layout_manager.setup_log_dock()
         else:
             print("⚠️ MainWindowLayoutManager가 초기화되지 않았습니다")
-
-    def add_activity_log(self, message: str):
-        """활동 로그 추가 (LogDock으로 리다이렉트)"""
-        if hasattr(self, "log_dock") and self.log_dock:
-            self.log_dock.add_activity_log(message)
-        else:
-            # 폴백: 콘솔에 출력
-            print(f"[활동] {message}")
-
-    def add_error_log(self, message: str):
-        """오류 로그 추가 (LogDock으로 리다이렉트)"""
-        if hasattr(self, "log_dock") and self.log_dock:
-            self.log_dock.add_error_log(message)
-        else:
-            # 폴백: 콘솔에 출력
-            print(f"[오류] {message}")
-
-    def clear_logs(self):
-        """로그 초기화 (LogDock으로 리다이렉트)"""
-        if hasattr(self, "log_dock") and self.log_dock:
-            self.log_dock.clear_logs()
-        else:
-            # 폴백: 콘솔에 출력
-            print("[로그] 로그 클리어 요청됨")
 
     def toggle_log_dock(self):
         """로그 Dock 가시성 토글 - MainWindowLayoutManager로 위임"""
@@ -1373,3 +1288,442 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"❌ 테마 모니터링 위젯 표시 실패: {e}")
             QMessageBox.critical(self, "오류", f"테마 모니터링 위젯을 열 수 없습니다:\n{e}")
+
+    # ===== 새로 추가된 컨트롤러 관리 메서드들 =====
+
+    def _init_new_controllers(self):
+        """새로 생성한 컨트롤러들을 초기화합니다"""
+        try:
+            # 테마 컨트롤러 초기화 (theme_manager가 초기화된 후에 호출됨)
+            self.theme_controller = None
+
+            # UI 상태 컨트롤러 초기화
+            self.ui_state_controller = None
+
+            # 메시지 로그 컨트롤러 초기화
+            self.message_log_controller = None
+
+            print("✅ 새 컨트롤러 초기화 준비 완료")
+
+        except Exception as e:
+            print(f"❌ 새 컨트롤러 초기화 실패: {e}")
+
+    def _setup_new_controllers(self):
+        """새 컨트롤러들을 설정합니다 (theme_manager 초기화 후 호출)"""
+        try:
+            # 테마 컨트롤러 설정
+            from .components.theme_controller import ThemeController
+
+            self.theme_controller = ThemeController(
+                theme_manager=self.theme_manager, settings_manager=self.settings_manager
+            )
+
+            # UI 상태 컨트롤러 설정
+            from .components.ui_state_controller import UIStateController
+
+            self.ui_state_controller = UIStateController(
+                main_window=self, settings_manager=self.settings_manager
+            )
+
+            # 메시지 로그 컨트롤러 설정
+            from .components.message_log_controller import MessageLogController
+
+            self.message_log_controller = MessageLogController(main_window=self)
+
+            print("✅ 새 컨트롤러 설정 완료")
+
+        except Exception as e:
+            print(f"❌ 새 컨트롤러 설정 실패: {e}")
+
+    def _connect_new_controller_signals(self):
+        """새 컨트롤러들의 시그널을 연결합니다"""
+        try:
+            if not hasattr(self, "theme_controller") or not self.theme_controller:
+                self._setup_new_controllers()
+
+            # 테마 컨트롤러 시그널 연결
+            if self.theme_controller:
+                self.theme_controller.theme_applied.connect(self._on_theme_applied)
+                self.theme_controller.theme_detection_failed.connect(
+                    self._on_theme_detection_failed
+                )
+                self.theme_controller.system_theme_changed.connect(self._on_system_theme_changed)
+
+            # UI 상태 컨트롤러 시그널 연결
+            if self.ui_state_controller:
+                self.ui_state_controller.state_saved.connect(self._on_state_saved)
+                self.ui_state_controller.state_restored.connect(self._on_state_restored)
+                self.ui_state_controller.accessibility_mode_changed.connect(
+                    self._on_accessibility_mode_changed
+                )
+                self.ui_state_controller.high_contrast_mode_changed.connect(
+                    self._on_high_contrast_mode_changed
+                )
+                self.ui_state_controller.language_changed.connect(self._on_language_changed)
+
+            # 메시지 로그 컨트롤러 시그널 연결
+            if self.message_log_controller:
+                self.message_log_controller.message_shown.connect(self._on_message_shown)
+                self.message_log_controller.log_added.connect(self._on_log_added)
+                self.message_log_controller.status_updated.connect(self._on_status_updated)
+
+            print("✅ 새 컨트롤러 시그널 연결 완료")
+
+        except Exception as e:
+            print(f"❌ 새 컨트롤러 시그널 연결 실패: {e}")
+
+    def _on_theme_applied(self, theme_name: str):
+        """테마 적용 완료 시 호출됩니다"""
+        try:
+            print(f"🎨 테마 적용 완료: {theme_name}")
+            # TODO: 테마 적용 후 추가 작업
+
+        except Exception as e:
+            print(f"❌ 테마 적용 완료 처리 실패: {e}")
+
+    def _on_theme_detection_failed(self, error: str):
+        """테마 감지 실패 시 호출됩니다"""
+        try:
+            print(f"⚠️ 테마 감지 실패: {error}")
+            if self.message_log_controller:
+                self.message_log_controller.show_error_message("테마 감지 실패", error)
+
+        except Exception as e:
+            print(f"❌ 테마 감지 실패 처리 실패: {e}")
+
+    def _on_system_theme_changed(self, theme_name: str):
+        """시스템 테마 변경 시 호출됩니다"""
+        try:
+            print(f"🔄 시스템 테마 변경: {theme_name}")
+            # TODO: 시스템 테마 변경 처리
+
+        except Exception as e:
+            print(f"❌ 시스템 테마 변경 처리 실패: {e}")
+
+    def _on_state_saved(self, state_type: str):
+        """상태 저장 완료 시 호출됩니다"""
+        try:
+            print(f"✅ 상태 저장 완료: {state_type}")
+            if self.message_log_controller:
+                self.message_log_controller.show_success_message(f"{state_type} 상태 저장 완료")
+
+        except Exception as e:
+            print(f"❌ 상태 저장 완료 처리 실패: {e}")
+
+    def _on_state_restored(self, state_type: str):
+        """상태 복원 완료 시 호출됩니다"""
+        try:
+            print(f"✅ 상태 복원 완료: {state_type}")
+            if self.message_log_controller:
+                self.message_log_controller.show_success_message(f"{state_type} 상태 복원 완료")
+
+        except Exception as e:
+            print(f"❌ 상태 복원 완료 처리 실패: {e}")
+
+    def _on_accessibility_mode_changed(self, enabled: bool):
+        """접근성 모드 변경 시 호출됩니다"""
+        try:
+            print(f"🔧 접근성 모드 변경: {'활성화' if enabled else '비활성화'}")
+            # TODO: 접근성 모드 변경 처리
+
+        except Exception as e:
+            print(f"❌ 접근성 모드 변경 처리 실패: {e}")
+
+    def _on_high_contrast_mode_changed(self, enabled: bool):
+        """고대비 모드 변경 시 호출됩니다"""
+        try:
+            print(f"🔧 고대비 모드 변경: {'활성화' if enabled else '비활성화'}")
+            # TODO: 고대비 모드 변경 처리
+
+        except Exception as e:
+            print(f"❌ 고대비 모드 변경 처리 실패: {e}")
+
+    def _on_language_changed(self, language_code: str):
+        """언어 변경 시 호출됩니다"""
+        try:
+            print(f"🌍 언어가 {language_code}로 변경되었습니다")
+            # TODO: 언어 변경 처리
+
+        except Exception as e:
+            print(f"❌ 언어 변경 처리 실패: {e}")
+
+    def _on_message_shown(self, message_type: str, message: str):
+        """메시지 표시 시 호출됩니다"""
+        try:
+            print(f"📢 메시지 표시: [{message_type}] {message}")
+            # TODO: 메시지 표시 후 처리
+
+        except Exception as e:
+            print(f"❌ 메시지 표시 처리 실패: {e}")
+
+    def _on_log_added(self, log_type: str, log_message: str):
+        """로그 추가 시 호출됩니다"""
+        try:
+            print(f"✅ 로그 추가: [{log_type}] {log_message}")
+            # TODO: 로그 추가 후 처리
+
+        except Exception as e:
+            print(f"❌ 로그 추가 처리 실패: {e}")
+
+    def start_tmdb_search_direct(self):
+        """TMDB 검색을 직접 시작"""
+        try:
+            if not hasattr(self, "tmdb_search_handler") or not self.tmdb_search_handler:
+                print("❌ TMDB 검색 핸들러가 초기화되지 않았습니다")
+                return
+
+            print("🔍 TMDB 검색 직접 시작")
+            self.tmdb_search_handler.start_tmdb_search_for_groups()
+
+        except Exception as e:
+            print(f"❌ TMDB 검색 직접 시작 실패: {e}")
+
+    def show_tmdb_dialog_for_group(self, group_id: str):
+        """특정 그룹에 대한 TMDB 검색 다이얼로그 표시"""
+        try:
+            if not hasattr(self, "anime_data_manager") or not self.anime_data_manager:
+                print("❌ 애니메이션 데이터 관리자가 초기화되지 않았습니다")
+                return
+
+            # 그룹 정보 가져오기
+            grouped_items = self.anime_data_manager.get_grouped_items()
+            if group_id not in grouped_items:
+                print(f"❌ 그룹 {group_id}를 찾을 수 없습니다")
+                return
+
+            group_items = grouped_items[group_id]
+            if not group_items:
+                print(f"❌ 그룹 {group_id}에 아이템이 없습니다")
+                return
+
+            # 그룹 제목 가져오기
+            group_title = group_items[0].title or group_items[0].detectedTitle or "Unknown"
+            print(f"🔍 TMDB 다이얼로그 표시: {group_title} (그룹 {group_id})")
+
+            # 먼저 TMDB 검색을 실행하여 결과 개수 확인
+            if not self.tmdb_client:
+                print("❌ TMDB 클라이언트가 초기화되지 않았습니다")
+                return
+
+            print(f"🔍 TMDB API 호출 시작: {group_title}")
+            search_results = self.tmdb_client.search_anime(group_title)
+            print(f"🔍 TMDB API 호출 완료: {len(search_results)}개 결과")
+
+            # 자동 선택 로직
+            if len(search_results) == 1:
+                # 결과가 1개면 자동 선택
+                selected_anime = search_results[0]
+                print(f"✅ 검색 결과 1개 - 자동 선택: {selected_anime.name}")
+                try:
+                    self._on_tmdb_anime_selected(group_id, selected_anime)
+                    # 자동 선택 후 다음 그룹 처리
+                    if hasattr(self, "tmdb_search_handler") and self.tmdb_search_handler:
+                        self.tmdb_search_handler.process_next_tmdb_group()
+                    return
+                except Exception as e:
+                    print(f"❌ 자동 선택 실패: {e}")
+                    # 자동 선택 실패 시 다이얼로그 표시
+                    print("🔄 자동 선택 실패 - 다이얼로그 표시로 전환")
+            elif len(search_results) == 0:
+                # 결과가 없으면 제목을 단어별로 줄여가며 재검색
+                print("🔍 검색 결과 없음 - 제목 단어별 재검색 시작")
+                self._try_progressive_search(group_id, group_title)
+                return
+
+            # TMDBSearchDialog 직접 생성
+            from .components.tmdb_search_dialog import TMDBSearchDialog
+
+            dialog = TMDBSearchDialog(group_title, self.tmdb_client, self)
+            dialog.anime_selected.connect(
+                lambda anime: self._on_tmdb_anime_selected(group_id, anime)
+            )
+
+            # 다이얼로그가 닫힐 때 다음 그룹을 처리하도록 연결
+            dialog.finished.connect(self._on_tmdb_dialog_finished)
+
+            # 검색 결과가 있으면 미리 설정
+            if search_results:
+                dialog.set_search_results(search_results)
+
+            # 다이얼로그 표시
+            dialog.show()
+            dialog.raise_()
+            dialog.activateWindow()
+
+            print(f"✅ TMDB 검색 다이얼로그 표시됨: {group_title}")
+
+        except Exception as e:
+            print(f"❌ TMDB 다이얼로그 표시 실패: {e}")
+
+    def _try_progressive_search(self, group_id: str, original_title: str):
+        """제목을 단어별로 줄여가며 재검색"""
+        try:
+            # 제목을 단어별로 분리
+            words = original_title.split()
+            if len(words) <= 1:
+                print("❌ 더 이상 줄일 단어가 없습니다")
+                # 최종적으로 다이얼로그 표시
+                self._show_final_dialog(group_id, original_title, [])
+                return
+
+            # 마지막 단어 제거
+            shortened_title = " ".join(words[:-1])
+            print(f"🔍 단축 제목으로 재검색: '{shortened_title}'")
+
+            # 재검색 실행
+            search_results = self.tmdb_client.search_anime(shortened_title)
+            print(f"🔍 재검색 완료: {len(search_results)}개 결과")
+
+            if len(search_results) == 1:
+                # 결과가 1개면 자동 선택
+                selected_anime = search_results[0]
+                print(f"✅ 재검색 결과 1개 - 자동 선택: {selected_anime.name}")
+                try:
+                    self._on_tmdb_anime_selected(group_id, selected_anime)
+                    # 자동 선택 후 다음 그룹 처리
+                    if hasattr(self, "tmdb_search_handler") and self.tmdb_search_handler:
+                        self.tmdb_search_handler.process_next_tmdb_group()
+                    return
+                except Exception as e:
+                    print(f"❌ 재검색 자동 선택 실패: {e}")
+                    # 자동 선택 실패 시 다이얼로그 표시
+                    self._show_final_dialog(group_id, shortened_title, search_results)
+                    return
+            elif len(search_results) == 0:
+                # 여전히 결과가 없으면 더 줄여서 재검색
+                self._try_progressive_search(group_id, shortened_title)
+                return
+            else:
+                # 여러 결과가 있으면 다이얼로그 표시
+                print(f"🔍 재검색 결과 {len(search_results)}개 - 다이얼로그 표시")
+                self._show_final_dialog(group_id, shortened_title, search_results)
+                return
+
+        except Exception as e:
+            print(f"❌ 단계적 검색 실패: {e}")
+            # 최종적으로 다이얼로그 표시
+            self._show_final_dialog(group_id, original_title, [])
+
+    def _show_final_dialog(self, group_id: str, title: str, search_results: list):
+        """최종 다이얼로그 표시"""
+        try:
+            from .components.tmdb_search_dialog import TMDBSearchDialog
+
+            dialog = TMDBSearchDialog(title, self.tmdb_client, self)
+            dialog.anime_selected.connect(
+                lambda anime: self._on_tmdb_anime_selected(group_id, anime)
+            )
+
+            # 다이얼로그가 닫힐 때 다음 그룹을 처리하도록 연결
+            dialog.finished.connect(self._on_tmdb_dialog_finished)
+
+            # 검색 결과가 있으면 미리 설정
+            if search_results:
+                dialog.set_search_results(search_results)
+
+            # 다이얼로그 표시
+            dialog.show()
+            dialog.raise_()
+            dialog.activateWindow()
+
+            print(f"✅ 최종 TMDB 검색 다이얼로그 표시됨: {title}")
+
+        except Exception as e:
+            print(f"❌ 최종 다이얼로그 표시 실패: {e}")
+
+    def _on_tmdb_anime_selected(self, group_id: str, tmdb_anime):
+        """TMDB 애니메이션 선택 처리"""
+        try:
+            # 데이터 관리자에 TMDB 매치 결과 설정
+            self.anime_data_manager.set_tmdb_match_for_group(group_id, tmdb_anime)
+
+            # 그룹 모델 업데이트
+            if hasattr(self, "grouped_model"):
+                grouped_items = self.anime_data_manager.get_grouped_items()
+                self.grouped_model.set_grouped_items(grouped_items)
+
+            # 상태바 업데이트
+            self.update_status_bar(f"✅ {tmdb_anime.name} 매치 완료")
+
+            print(f"✅ TMDB 매치 완료: 그룹 {group_id} → {tmdb_anime.name}")
+
+        except Exception as e:
+            print(f"❌ TMDB 애니메이션 선택 처리 실패: {e}")
+
+    def _on_tmdb_dialog_finished(self, result):
+        """TMDB 다이얼로그가 닫힐 때 호출"""
+        try:
+            print(f"🔍 TMDB 다이얼로그 닫힘: {result}")
+
+            # 다음 그룹 처리
+            if hasattr(self, "tmdb_search_handler") and self.tmdb_search_handler:
+                self.tmdb_search_handler.process_next_tmdb_group()
+
+        except Exception as e:
+            print(f"❌ TMDB 다이얼로그 완료 처리 실패: {e}")
+
+    def _on_status_updated(self, message: str, progress: int):
+        """상태 업데이트 시 호출됩니다"""
+        try:
+            print(f"🔄 상태 업데이트: {message} ({progress}%)")
+            # TODO: 상태 업데이트 후 처리
+
+        except Exception as e:
+            print(f"❌ 상태 업데이트 처리 실패: {e}")
+
+    # ===== 새 컨트롤러를 통한 기능 제공 메서드들 =====
+
+    def show_error_message(
+        self, message: str, details: str = "", error_type: str = "error"
+    ) -> bool:
+        """에러 메시지를 표시합니다 (새 컨트롤러 사용)"""
+        if self.message_log_controller:
+            return self.message_log_controller.show_error_message(message, details, error_type)
+        else:
+            # 기존 방식으로 폴백
+            print(f"❌ {message}")
+            if details:
+                print(f"   상세: {details}")
+            return True
+
+    def show_success_message(
+        self, message: str, details: str = "", auto_clear: bool = True
+    ) -> bool:
+        """성공 메시지를 표시합니다 (새 컨트롤러 사용)"""
+        if self.message_log_controller:
+            return self.message_log_controller.show_success_message(message, details, auto_clear)
+        else:
+            # 기존 방식으로 폴백
+            print(f"✅ {message}")
+            if details:
+                print(f"   상세: {details}")
+            return True
+
+    def show_info_message(self, message: str, details: str = "", auto_clear: bool = True) -> bool:
+        """정보 메시지를 표시합니다 (새 컨트롤러 사용)"""
+        if self.message_log_controller:
+            return self.message_log_controller.show_info_message(message, details, auto_clear)
+        else:
+            # 기존 방식으로 폴백
+            print(f"ℹ️ {message}")
+            if details:
+                print(f"   상세: {details}")
+            return True
+
+    def save_session_state(self) -> bool:
+        """현재 세션 상태를 저장합니다 (새 컨트롤러 사용)"""
+        if self.ui_state_controller:
+            return self.ui_state_controller.save_session_state()
+        else:
+            # 기존 방식으로 폴백
+            print("⚠️ 세션 상태 저장: UI 상태 컨트롤러가 초기화되지 않음")
+            return False
+
+    def restore_session_state(self) -> bool:
+        """저장된 세션 상태를 복원합니다 (새 컨트롤러 사용)"""
+        if self.ui_state_controller:
+            return self.ui_state_controller.restore_session_state()
+        else:
+            # 기존 방식으로 폴백
+            print("⚠️ 세션 상태 복원: UI 상태 컨트롤러가 초기화되지 않음")
+            return False

@@ -9,13 +9,8 @@ UI 컴포넌트 생성, 레이아웃 설정, 메뉴/툴바 생성을 담당합�
 import logging
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (
-    QLabel,
-    QMainWindow,
-    QSplitter,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QLabel, QMainWindow, QSplitter, QVBoxLayout,
+                             QWidget)
 
 from ..builders.menu_builder import MenuBuilder
 from ..builders.toolbar_builder import ToolbarBuilder
@@ -59,8 +54,7 @@ class UIInitializer:
             # 스플리터 설정
             self.setup_splitters()
 
-            # LeftPanel 초기화 (MainWindow 참조 설정 및 디렉토리 설정 복원)
-            self.initialize_left_panel()
+            # LeftPanel 초기화는 create_panels에서 처리됨 (중복 제거)
 
             self.logger.info("UI 초기화 완료")
 
@@ -68,19 +62,7 @@ class UIInitializer:
             self.logger.error(f"UI 초기화 실패: {e}")
             raise
 
-    def initialize_left_panel(self):
-        """LeftPanel 초기화 - MainWindow 참조 설정 및 디렉토리 설정 복원"""
-        try:
-            # LeftPanel에 MainWindow 참조 설정
-            self.main_window.left_panel.set_main_window(self.main_window)
-
-            # 저장된 디렉토리 설정 복원
-            self.main_window.left_panel.restore_directory_settings()
-
-            self.logger.debug("LeftPanel 초기화 완료")
-
-        except Exception as e:
-            self.logger.error(f"LeftPanel 초기화 실패: {e}")
+            # def initialize_left_panel(self):  # 중복 초기화 제거 - create_panels에서만 처리
             raise
 
     def setup_basic_window(self):
