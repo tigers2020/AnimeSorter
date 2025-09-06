@@ -2,6 +2,7 @@
 파일 정리 관련 로직을 담당하는 핸들러
 """
 
+import os
 from pathlib import Path
 
 from PyQt5.QtCore import QObject
@@ -77,9 +78,10 @@ class FileOrganizationHandler(QObject):
 
             # 간단한 확인
             reply = QMessageBox.question(
-                self.main_window, "확인",
+                self.main_window,
+                "확인",
                 f"{len(grouped_items)}개 그룹의 파일들을 정리하시겠습니까?",
-                QMessageBox.Yes | QMessageBox.No
+                QMessageBox.Yes | QMessageBox.No,
             )
 
             if reply == QMessageBox.Yes:
@@ -169,14 +171,14 @@ class FileOrganizationHandler(QObject):
                     # 그룹 수집 시 전역 dedup 강제
                     norm = self._norm(source_path)  # 위와 동일한 _norm 함수 재사용
                     if norm in result._processed_sources:
-                        print(f"⏭️ pre-collect skip: {norm}")
+                        print(f"⏭️ [중복파일] pre-collect skip: {norm}")
                         result.skip_count += 1
                         result.skipped_files.append(norm)
                         continue
 
                     # 파일 존재 확인
                     if not Path(source_path).exists():
-                        print(f"🛑 파일 존재하지 않음: {source_path}")
+                        print(f"🛑 [파일없음] 파일 존재하지 않음: {source_path}")
                         result.skip_count += 1
                         result.skipped_files.append(source_path)
                         result._processed_sources.add(norm)
@@ -217,7 +219,7 @@ class FileOrganizationHandler(QObject):
                         for fi in group_qualities.get(group_key, [])
                     }
                     if norm in seen_in_group:
-                        print(f"⏭️ group-dup skip: {norm}")
+                        print(f"⏭️ [그룹중복] group-dup skip: {norm}")
                         result.skip_count += 1
                         result.skipped_files.append(norm)
                         continue
@@ -264,6 +266,12 @@ class FileOrganizationHandler(QObject):
             cleaned_dirs = self._cleanup_empty_directories(source_directories)
             result.cleaned_directories = cleaned_dirs
             print(f"✅ 빈 디렉토리 정리 완료: {cleaned_dirs}개 디렉토리 삭제")
+
+        # 애니 폴더 전체 정리 (추가)
+        print("🗂️ 애니 폴더 전체 빈 디렉토리 정리를 시작합니다...")
+        anime_cleaned = self._cleanup_anime_directories()
+        print(f"🗑️ 애니 폴더 빈 디렉토리 정리 완료: {anime_cleaned}개 디렉토리 삭제")
+        result.cleaned_directories += anime_cleaned
 
         return result
 
@@ -396,14 +404,16 @@ class FileOrganizationHandler(QObject):
 
                         # 1) 이미 처리된 파일이면 즉시 스킵
                         if normalized_path in result._processed_sources:
-                            print(f"⏭️ skip-duplicate(before-move): {normalized_path}")
+                            print(f"⏭️ [중복처리] skip-duplicate(before-move): {normalized_path}")
                             result.skip_count += 1
                             result.skipped_files.append(normalized_path)
                             continue
 
                         # 2) 원본이 이미 사라졌으면(이전 move) 에러 대신 스킵
                         if not Path(source_path).exists():
-                            print(f"⏭️ skip-missing(post-move-ghost): {normalized_path}")
+                            print(
+                                f"⏭️ [이동후소실] skip-missing(post-move-ghost): {normalized_path}"
+                            )
                             result.skip_count += 1
                             result.skipped_files.append(normalized_path)
                             continue
@@ -461,10 +471,12 @@ class FileOrganizationHandler(QObject):
                         target_path = target_base_dir / filename
 
                         try:
-                            print(f"🧪 DEBUG 이동 시도: {source_path} -> {target_path}")
+                            print(f"🚚 [{quality_type}] 파일 이동 시도: {Path(source_path).name}")
                             shutil.move(source_path, target_path)
 
-                            print(f"✅ moved: {normalized_path} -> {target_path}")
+                            print(
+                                f"✅ [{quality_type}] 이동 성공: {Path(source_path).name} → {target_base_dir.name}/"
+                            )
                             result.success_count += 1
 
                             # 자막 파일 처리
@@ -475,7 +487,7 @@ class FileOrganizationHandler(QObject):
                             result._processed_sources.discard(normalized_path)
                             result.error_count += 1
                             result.errors.append(f"{source_path}: {e}")
-                            print(f"❌ move-failed: {source_path} - {e}")
+                            print(f"❌ [{quality_type}] 이동 실패: {Path(source_path).name} - {e}")
 
                     except Exception as e:
                         print(f"❌ 그룹 파일 이동 실패: {file_info['source_path']} - {e}")
@@ -568,6 +580,39 @@ class FileOrganizationHandler(QObject):
             except OSError as e:
                 print(f"⚠️ 상위 디렉토리 삭제 실패 ({current_dir}): {e}")
                 break
+
+        return cleaned_count
+
+    def _cleanup_anime_directories(self) -> int:
+        """애니 폴더 전체에서 빈 디렉토리들을 정리합니다"""
+        cleaned_count = 0
+
+        try:
+            source_root = Path(self.main_window.source_directory)
+            if not source_root.exists():
+                print("⚠️ 소스 디렉토리가 존재하지 않습니다")
+                return 0
+
+            print(f"🗂️ 애니 폴더 스캔 시작: {source_root}")
+
+            # 전체 폴더 트리를 재귀적으로 순회하며 빈 폴더 삭제
+            for root, dirs, files in os.walk(str(source_root), topdown=False):
+                # 하위 폴더부터 처리 (topdown=False)
+                for dir_name in dirs:
+                    dir_path = Path(root) / dir_name
+                    try:
+                        # 디렉토리가 비어있는지 확인
+                        if not any(dir_path.iterdir()):
+                            dir_path.rmdir()
+                            print(f"🗑️ 빈 폴더 삭제: {dir_path}")
+                            cleaned_count += 1
+                    except Exception as e:
+                        print(f"⚠️ 폴더 삭제 실패 ({dir_path}): {e}")
+
+            print(f"🗑️ 애니 폴더 정리 완료: {cleaned_count}개 빈 디렉토리 삭제")
+
+        except Exception as e:
+            print(f"❌ 애니 폴더 정리 중 오류: {e}")
 
         return cleaned_count
 
