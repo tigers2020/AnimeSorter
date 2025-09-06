@@ -243,6 +243,7 @@ info_*.log
 *.json.bak
 
 # 백업 파일
+_backup/
 backup/
 backups/
 *.backup
