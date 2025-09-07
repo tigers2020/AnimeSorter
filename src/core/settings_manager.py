@@ -165,10 +165,12 @@ class SettingsManager(QObject):
                     self.settings.language = theme_prefs.get("language", "ko")
 
                 # TMDB 설정
-                tmdb_config = unified_config_manager.get_section("services").tmdb_api
-                if tmdb_config:
-                    self.settings.tmdb_api_key = tmdb_config.get("api_key", "")
-                    self.settings.tmdb_language = tmdb_config.get("language", "ko-KR")
+                services_section = unified_config_manager.get_section("services")
+                if services_section:
+                    tmdb_config = getattr(services_section, "tmdb_api", None)
+                    if tmdb_config:
+                        self.settings.tmdb_api_key = tmdb_config.get("api_key", "")
+                        self.settings.tmdb_language = tmdb_config.get("language", "ko-KR")
 
                 print("✅ 통합 설정에서 설정 로드 완료")
                 return True
@@ -249,9 +251,9 @@ class SettingsManager(QObject):
                     print(f"📋 저장된 소스 디렉토리: {self.settings.last_source_directory}")
                     print(f"📋 저장된 대상 디렉토리: {self.settings.last_destination_directory}")
                     return True
-                else:
-                    print("❌ 통합 설정 저장 실패")
-                    return False
+
+                print("❌ 통합 설정 저장 실패")
+                return False
             else:
                 # 기존 방식으로 설정 저장
                 # 설정 디렉토리 생성

@@ -10,9 +10,10 @@
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -77,7 +78,7 @@ class UnifiedConfigManager(QObject):
     config_loaded = pyqtSignal()
     config_saved = pyqtSignal()
 
-    def __init__(self, config_dir: Optional[Path] = None):
+    def __init__(self, config_dir: Path | None = None):
         super().__init__()
         self.config_dir = config_dir or Path("config")
         self.config_dir.mkdir(exist_ok=True)
@@ -87,16 +88,16 @@ class UnifiedConfigManager(QObject):
         self.backup_dir = self.config_dir / "backups"
         self.backup_dir.mkdir(exist_ok=True)
 
-        self._change_callbacks: list[callable] = []
+        self._change_callbacks: list[Callable] = []
 
         self.load_config()
 
-    def add_change_callback(self, callback: callable):
+    def add_change_callback(self, callback: Callable):
         """설정 변경 콜백 등록"""
         if callback not in self._change_callbacks:
             self._change_callbacks.append(callback)
 
-    def remove_change_callback(self, callback: callable):
+    def remove_change_callback(self, callback: Callable):
         """설정 변경 콜백 제거"""
         if callback in self._change_callbacks:
             self._change_callbacks.remove(callback)
@@ -113,7 +114,7 @@ class UnifiedConfigManager(QObject):
         """통합 설정 파일 로드"""
         try:
             if self.config_file.exists():
-                with open(self.config_file, encoding="utf-8") as f:
+                with self.config_file.open(encoding="utf-8") as f:
                     data = json.load(f)
                     self._load_from_dict(data)
                     logger.info("통합 설정 파일 로드 완료")
@@ -152,7 +153,7 @@ class UnifiedConfigManager(QObject):
         manual_tasks_file = Path("manual_tasks.json")
         if manual_tasks_file.exists():
             try:
-                with open(manual_tasks_file, encoding="utf-8") as f:
+                with manual_tasks_file.open(encoding="utf-8") as f:
                     data = json.load(f)
                     self.config.development.ui_refactoring_tasks = data.get("tasks", [])
                     self.config.development.source_files.append(str(manual_tasks_file))
@@ -164,7 +165,7 @@ class UnifiedConfigManager(QObject):
         theme_tasks_file = Path("manual_theme_tasks.json")
         if theme_tasks_file.exists():
             try:
-                with open(theme_tasks_file, encoding="utf-8") as f:
+                with theme_tasks_file.open(encoding="utf-8") as f:
                     data = json.load(f)
                     self.config.development.theme_engine_tasks = data.get("tasks", [])
                     self.config.development.source_files.append(str(theme_tasks_file))
@@ -176,7 +177,7 @@ class UnifiedConfigManager(QObject):
         opencode_file = Path("opencode.json")
         if opencode_file.exists():
             try:
-                with open(opencode_file, encoding="utf-8") as f:
+                with opencode_file.open(encoding="utf-8") as f:
                     data = json.load(f)
                     self.config.services.mcp_server = data.get("mcp", {})
                     self.config.services.api_keys = (
@@ -191,7 +192,7 @@ class UnifiedConfigManager(QObject):
         app_config_file = Path("src/animesorter_config.json")
         if app_config_file.exists():
             try:
-                with open(app_config_file, encoding="utf-8") as f:
+                with app_config_file.open(encoding="utf-8") as f:
                     data = json.load(f)
 
                     # 파일 정리 설정
@@ -267,12 +268,12 @@ class UnifiedConfigManager(QObject):
                     self.backup_dir
                     / f"unified_config_backup_{Path().cwd().name}_{len(list(self.backup_dir.glob('*')))}.json"
                 )
-                with open(backup_file, "w", encoding="utf-8") as f:
+                with backup_file.open("w", encoding="utf-8") as f:
                     json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
                 logger.info(f"설정 백업 생성: {backup_file}")
 
             # 새 설정 저장
-            with open(self.config_file, "w", encoding="utf-8") as f:
+            with self.config_file.open("w", encoding="utf-8") as f:
                 json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
 
             logger.info("통합 설정 파일 저장 완료")
@@ -311,7 +312,7 @@ class UnifiedConfigManager(QObject):
             logger.error(f"설정값 설정 실패: {section}.{key} = {value} - {e}")
             return False
 
-    def get_section(self, section: str) -> Optional[Any]:
+    def get_section(self, section: str) -> Any | None:
         """섹션 전체 조회"""
         return getattr(self.config, section, None)
 
@@ -337,7 +338,7 @@ class UnifiedConfigManager(QObject):
         try:
             section_data = self.get_section(section)
             if section_data:
-                with open(file_path, "w", encoding="utf-8") as f:
+                with file_path.open("w", encoding="utf-8") as f:
                     json.dump(asdict(section_data), f, ensure_ascii=False, indent=2)
                 logger.info(f"섹션 내보내기 완료: {section} -> {file_path}")
                 return True
@@ -350,7 +351,7 @@ class UnifiedConfigManager(QObject):
         """별도 파일에서 특정 섹션 가져오기"""
         try:
             if file_path.exists():
-                with open(file_path, encoding="utf-8") as f:
+                with file_path.open(encoding="utf-8") as f:
                     data = json.load(f)
 
                 if self.set_section(section, data):
