@@ -722,3 +722,205 @@ filenames.txt
 # Task files
 # tasks.json
 # tasks/
+
+# ===== AnimeSorter 저널링 및 민감한 파일들 =====
+
+# 저널링 시스템 (민감한 작업 기록)
+.animesorter_journal/
+
+# 테스트용 미디어 파일들
+Unknown/
+
+# 개인 설정 파일들 (민감한 경로 및 API 키 포함)
+/config/
+/src/animesorter_config.json
+opencode.json
+
+# 추가적인 민감 파일들
+*.session
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.keyring
+*.wallet
+*.credentials
+*.auth
+*.token
+
+# 시스템 파일들
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+
+# 임시 파일들
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+.tmp/
+.temp/
+
+# 로그 파일들 (추가)
+*.log
+logs/
+*.log.*
+*.log.old
+*.log.backup
+
+# 빌드 및 배포 파일들 (추가)
+build/
+dist/
+*.spec
+*.exe
+*.msi
+*.app
+*.dmg
+*.deb
+*.rpm
+*.AppImage
+*.pkg
+*.ddeb
+
+# IDE 및 에디터 파일들 (추가)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.pydevproject
+.settings/
+*.swp
+*.swo
+*~
+
+# Python 캐시 (추가)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.cover
+*.py,cover
+
+# 가상 환경 (추가)
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 문서 생성 파일들
+docs/_build/
+docs/.doctrees/
+docs/api/
+
+# 성능 및 모니터링 파일들
+performance/
+monitoring/
+*.perf
+*.monitor
+*.profile
+*.prof
+*.stats
+
+# 디버그 파일들
+debug/
+debug_info/
+*.debug
+*.debug_info
+*.trace
+*.stack
+
+# 백업 파일들 (추가)
+*.bak
+*.backup
+*.old
+*.orig
+*.copy
+backup/
+backups/
+
+# 보안 파일들 (추가)
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cert
+secrets/
+*.secret
+.env.local
+.env.production
+.env.staging
+
+# API 및 네트워크 파일들 (추가)
+api_cache/
+response_cache/
+*.api
+*.response
+*.http
+*.curl
+
+# 압축 파일들 (추가)
+*.7z
+*.bz2
+*.gz
+*.tar.bz2
+*.webm
+
+# 메모 및 노트 파일들 (추가)
+*.note
+*.remark
+*.scratch
+
+# 프로젝트 특화 파일들 (추가)
+AnimeSorter_v*.zip
+demo_input_validation.py
+anime-offline-database.json
+총*.txt
+*.정제결과.txt
+*.cleaned.txt
+*.parsed.txt
+설치_및_사용법.txt
+README.txt
+*.txt.bak
+version.txt
+changelog.txt
+CHANGELOG.md
+RELEASE_NOTES.md
+
+# 추가 개발 도구 설정
+.pylint.d/
+.flake8
+.mypy.ini
+.ruff.toml
+pyproject.toml.bak
+
+# Windows 특정
+$RECYCLE.BIN/
+*.lnk
+
+# 추가 임시 스크립트
+scratch_*.py
+*.scratch

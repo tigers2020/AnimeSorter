@@ -79,6 +79,10 @@ class TMDBClient:
             cache_key = f"search_{query}_{year}_{include_adult}_{first_air_date_year}"
             cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
+                # 캐시된 데이터에서 tmdb_id를 id로 매핑 (호환성 유지)
+                for item in cached_result:
+                    if "tmdb_id" in item and "id" not in item:
+                        item["id"] = item["tmdb_id"]
                 return [TMDBAnimeInfo(**item) for item in cached_result]
 
             # TMDB 검색 실행
@@ -138,6 +142,9 @@ class TMDBClient:
             cache_key = f"details_{tv_id}_{language or self.language}"
             cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
+                # 캐시된 데이터에서 tmdb_id를 id로 매핑 (호환성 유지)
+                if "tmdb_id" in cached_result and "id" not in cached_result:
+                    cached_result["id"] = cached_result["tmdb_id"]
                 return TMDBAnimeInfo(**cached_result)
 
             # TMDB 상세 정보 조회
@@ -198,6 +205,10 @@ class TMDBClient:
             cache_key = f"optimized_search_{query}_{language}"
             cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
+                # 캐시된 데이터에서 tmdb_id를 id로 매핑 (호환성 유지)
+                for item in cached_result:
+                    if "tmdb_id" in item and "id" not in item:
+                        item["id"] = item["tmdb_id"]
                 return [TMDBAnimeInfo(**item) for item in cached_result]
 
             search = tmdb.Search()
