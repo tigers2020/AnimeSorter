@@ -10,7 +10,7 @@ from typing import Any
 
 from PyQt5.QtWidgets import QUndoCommand
 
-from ..commands import (BatchFileCommand, CommandResult, CopyFileCommand,
+from src.app.commands import (BatchFileCommand, CommandResult, CopyFileCommand,
                         CreateDirectoryCommand, DeleteFileCommand, ICommand,
                         MoveFileCommand)
 

@@ -13,8 +13,8 @@ from PyQt5.QtWidgets import (QApplication, QFileDialog, QGroupBox, QHBoxLayout,
                              QTableView, QTableWidget, QTableWidgetItem,
                              QTabWidget, QTextEdit, QVBoxLayout, QWidget)
 
-from .engine.theme_manager import ThemeManager
-from .theme_consistency_validator import ThemeConsistencyValidator
+from src.gui.theme.engine.theme_manager import ThemeManager
+from src.theme_consistency_validator import ThemeConsistencyValidator
 
 
 class ThemeMonitorWorker(QThread):

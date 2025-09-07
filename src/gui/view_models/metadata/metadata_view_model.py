@@ -8,7 +8,7 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from app import (
+from src.app import (
     ErrorMessageEvent,
     IMediaDataService,
     IUIUpdateService,
@@ -30,7 +30,7 @@ from app import (
     get_service,
 )
 
-from .metadata_state import MetadataCapabilities, MetadataState
+from src.metadata_state import MetadataCapabilities, MetadataState
 
 
 class MetadataViewModel(QObject):

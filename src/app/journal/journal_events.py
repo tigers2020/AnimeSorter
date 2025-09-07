@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from ..events import BaseEvent
-from .rollback_engine import RollbackResult
+from src.app.events import BaseEvent
+from src.app.journal.rollback_engine import RollbackResult
 
 
 @dataclass

@@ -15,8 +15,8 @@ from typing import Protocol
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoStack
 
-from .qt_command_wrapper import QtCommandWrapper
-from .undo_redo_events import (CommandPushedToStackEvent, RedoExecutedEvent,
+from src.app.undo_redo.qt_command_wrapper import QtCommandWrapper
+from src.app.undo_redo.undo_redo_events import (CommandPushedToStackEvent, RedoExecutedEvent,
                                UndoExecutedEvent, UndoRedoErrorEvent,
                                UndoRedoStackChangedEvent)
 
@@ -363,7 +363,7 @@ class UndoRedoManager(QObject):
     def _on_stack_changed_internal(self) -> None:
         """스택 변경 내부 핸들러"""
         # EventBus 이벤트 발생
-        from ..events import get_event_bus
+        from src.app.events import get_event_bus
 
         event_bus = get_event_bus()
 
@@ -381,7 +381,7 @@ class UndoRedoManager(QObject):
 
     def _on_command_executed_internal(self, command: QtCommandWrapper) -> None:
         """Command 실행 내부 핸들러"""
-        from ..events import get_event_bus
+        from src.app.events import get_event_bus
 
         event_bus = get_event_bus()
 
@@ -396,7 +396,7 @@ class UndoRedoManager(QObject):
 
     def _on_undo_executed_internal(self, command: QtCommandWrapper) -> None:
         """취소 실행 내부 핸들러"""
-        from ..events import get_event_bus
+        from src.app.events import get_event_bus
 
         event_bus = get_event_bus()
 
@@ -415,7 +415,7 @@ class UndoRedoManager(QObject):
 
     def _on_redo_executed_internal(self, command: QtCommandWrapper) -> None:
         """재실행 내부 핸들러"""
-        from ..events import get_event_bus
+        from src.app.events import get_event_bus
 
         event_bus = get_event_bus()
 
@@ -434,7 +434,7 @@ class UndoRedoManager(QObject):
 
     def _on_error_occurred_internal(self, error_message: str) -> None:
         """오류 발생 내부 핸들러"""
-        from ..events import get_event_bus
+        from src.app.events import get_event_bus
 
         event_bus = get_event_bus()
 

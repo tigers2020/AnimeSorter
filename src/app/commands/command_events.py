@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID
 
-from ..events import BaseEvent
-from .base_command import CommandResult
+from src.app.events import BaseEvent
+from src.app.commands.base_command import CommandResult
 
 
 @dataclass

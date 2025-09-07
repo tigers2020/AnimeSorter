@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from .domain import MediaFile, MediaGroup
-from .events import BaseEvent
+from src.app.domain import MediaFile, MediaGroup
+from src.app.events import BaseEvent
 
 
 class MediaDataStatus(Enum):

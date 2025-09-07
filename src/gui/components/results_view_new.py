@@ -6,9 +6,9 @@
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 
-from .tab_delegates import StatusDelegate, TextPreviewDelegate
-from .tab_models import BaseDetailModel, BaseGroupModel
-from .tab_views import (
+from src.tab_delegates import StatusDelegate, TextPreviewDelegate
+from src.tab_models import BaseDetailModel, BaseGroupModel
+from src.tab_views import (
     AllTabView,
     CompletedTabView,
     ConflictTabView,

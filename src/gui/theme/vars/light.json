@@ -1,0 +1,106 @@
+{
+  "theme": "light",
+  "colors": {
+    "primary": "#3b82f6",
+    "primary_hover": "#2563eb",
+    "primary_pressed": "#1d4ed8",
+    "secondary": "#64748b",
+    "secondary_hover": "#475569",
+    "text": "#111827",
+    "text_secondary": "#6b7280",
+    "text_muted": "#9ca3af",
+    "text_inverse": "#ffffff",
+    "background": "#ffffff",
+    "background_secondary": "#f9fafb",
+    "background_muted": "#f3f4f6",
+    "background_inverse": "#111827",
+    "surface": "#ffffff",
+    "surface_hover": "#f9fafb",
+    "border": "#d1d5db",
+    "border_secondary": "#e5e7eb",
+    "border_focus": "#3b82f6",
+    "divider": "#e5e7eb",
+    "focus": "#3b82f6",
+    "focus_ring": "rgba(59, 130, 246, 0.5)",
+    "selection": "#dbeafe",
+    "selection_text": "#1e40af",
+    "highlight": "#fef3c7",
+    "highlight_text": "#92400e",
+    "success": "#10b981",
+    "success_hover": "#059669",
+    "warning": "#f59e0b",
+    "warning_hover": "#d97706",
+    "error": "#ef4444",
+    "error_hover": "#dc2626",
+    "info": "#3b82f6",
+    "info_hover": "#2563eb"
+  },
+  "widgets": {
+    "button": {
+      "background": "#3b82f6",
+      "background_hover": "#2563eb",
+      "background_pressed": "#1d4ed8",
+      "background_disabled": "#9ca3af",
+      "text": "#ffffff",
+      "text_disabled": "#6b7280",
+      "border": "#3b82f6",
+      "border_hover": "#2563eb",
+      "border_disabled": "#d1d5db"
+    },
+    "input": {
+      "background": "#ffffff",
+      "background_focus": "#ffffff",
+      "background_disabled": "#f9fafb",
+      "text": "#111827",
+      "text_placeholder": "#9ca3af",
+      "text_disabled": "#6b7280",
+      "border": "#d1d5db",
+      "border_focus": "#3b82f6",
+      "border_error": "#ef4444"
+    },
+    "menu": {
+      "background": "#ffffff",
+      "background_hover": "#f9fafb",
+      "background_selected": "#dbeafe",
+      "text": "#111827",
+      "text_hover": "#111827",
+      "text_selected": "#1e40af",
+      "border": "#e5e7eb",
+      "separator": "#e5e7eb"
+    },
+    "toolbar": {
+      "background": "#f9fafb",
+      "background_hover": "#f3f4f6",
+      "text": "#374151",
+      "text_hover": "#111827",
+      "border": "#e5e7eb"
+    },
+    "tab": {
+      "background": "#ffffff",
+      "background_active": "#ffffff",
+      "background_hover": "#f9fafb",
+      "text": "#6b7280",
+      "text_active": "#111827",
+      "text_hover": "#374151",
+      "border": "#e5e7eb",
+      "border_active": "#3b82f6"
+    },
+    "table": {
+      "background": "#ffffff",
+      "background_alternate": "#f9fafb",
+      "background_hover": "#f3f4f6",
+      "background_selected": "#dbeafe",
+      "text": "#111827",
+      "text_alternate": "#6b7280",
+      "text_selected": "#1e40af",
+      "border": "#e5e7eb",
+      "grid": "#f3f4f6"
+    },
+    "scrollbar": {
+      "background": "#f1f5f9",
+      "handle": "#cbd5e1",
+      "handle_hover": "#94a3b8",
+      "handle_pressed": "#64748b"
+    }
+  }
+}

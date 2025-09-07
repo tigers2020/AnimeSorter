@@ -7,7 +7,7 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (QLabel, QSizePolicy, QTableView, QVBoxLayout,
                              QWidget)
 
-from ..advanced_splitter import AdvancedSplitter, SplitterControlPanel
+from src.advanced_splitter import AdvancedSplitter, SplitterControlPanel
 
 
 class BaseTabView(QWidget):
@@ -53,12 +53,8 @@ class BaseTabView(QWidget):
         self.detail_widget = self._create_detail_section()
         self.splitter.addWidget(self.detail_widget)
 
-        # 고급 스플리터 설정
-        self.splitter.set_minimum_sizes([200, 150])  # 최소 크기 보장
-        self.splitter.set_preferred_ratios([0.6, 0.4])  # 선호 비율 설정
-
-        # 스플리터 상태 로드
-        self.splitter.load_splitter_state()
+        # 스플리터 크기 설정
+        self.splitter.setSizes([400, 300])
 
         layout.addWidget(self.splitter)
 

@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .types import FileOperationResult
+from src.core.types import FileOperationResult
 
 
 class FileHandler:

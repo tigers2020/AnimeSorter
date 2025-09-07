@@ -12,10 +12,10 @@ from managers.anime_data_manager import ParsedItem
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from PyQt5.QtWidgets import QFileDialog
 
-from core.file_parser import FileParser
+from src.core.file_parser import FileParser
 
-from ..interfaces.i_controller import IController
-from ..interfaces.i_event_bus import Event, IEventBus
+from src.interfaces.i_controller import IController
+from src.interfaces.i_event_bus import Event, IEventBus
 
 
 class FileProcessingWorker(QThread):

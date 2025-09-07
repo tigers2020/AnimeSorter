@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
-from ..events import get_event_bus
-from ..safety_events import (BatchOperationWarningEvent,
+from src.app.events import get_event_bus
+from src.app.safety_events import (BatchOperationWarningEvent,
                              ConfirmationRequiredEvent,
                              ConfirmationResponseEvent)
 

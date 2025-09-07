@@ -4,7 +4,7 @@ UI 업데이트 관련 이벤트 정의
 
 from dataclasses import dataclass, field
 
-from .events import BaseEvent
+from src.app.events import BaseEvent
 
 
 @dataclass

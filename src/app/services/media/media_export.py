@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ...domain import MediaFile, MediaGroup
+from src.app.domain import MediaFile, MediaGroup
 
 
 class MediaExporter:

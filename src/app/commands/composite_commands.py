@@ -10,11 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..journal import JournalEntryType
-from .base_command import BaseCommand, CommandResult
-from .file_commands import (CopyFileCommand, CreateDirectoryCommand,
-                            DeleteFileCommand, MoveFileCommand,
-                            RenameFileCommand)
+from src.app.journal import JournalEntryType
+from src.app.commands.base_command import BaseCommand, CommandResult
+from src.app.commands.file_commands import (CopyFileCommand, CreateDirectoryCommand,
+                                         DeleteFileCommand, MoveFileCommand,
+                                         RenameFileCommand)
 
 
 @dataclass
@@ -91,7 +91,7 @@ class BatchFileOperationCommand(BaseCommand):
 
     def _get_journal_info(self) -> tuple[JournalEntryType, Any] | None:
         """저널 정보 (배치 작업용)"""
-        from ..journal import JournalEntryType
+        from src.app.journal import JournalEntryType
 
         # 배치 작업 요약 정보
         summary_details = {

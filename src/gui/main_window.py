@@ -13,31 +13,32 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox
 # New Architecture Components
 # UI Command Bridge
 # Local imports
-from core.settings_manager import SettingsManager
-from core.tmdb_client import TMDBClient
-from core.unified_event_system import get_unified_event_bus
+from src.core.settings_manager import SettingsManager
+from src.core.tmdb_client import TMDBClient
+from src.core.unified_config import unified_config_manager
+from src.core.unified_event_system import get_unified_event_bus
 
 # Phase 10.1: 접근성 관리 시스템
 # Phase 10.2: 국제화 관리 시스템
 # Phase 1: 메인 윈도우 분할 - 기능별 클래스 분리
-from .components.main_window_coordinator import MainWindowCoordinator
-from .components.message_log_controller import MessageLogController
+from src.gui.components.main_window_coordinator import MainWindowCoordinator
+from src.gui.components.message_log_controller import MessageLogController
 # UI Components
-from .components.settings_dialog import SettingsDialog
+from src.gui.components.settings_dialog import SettingsDialog
 # New Controllers for Refactoring
-from .components.theme_controller import ThemeController
+from src.gui.components.theme_controller import ThemeController
 # Theme Engine Integration
-from .components.theme_manager import ThemeManager
-from .components.ui_state_controller import UIStateController
+from src.gui.components.theme_manager import ThemeManager
+from src.gui.components.ui_state_controller import UIStateController
 # Phase 8: UI 상태 관리 및 마이그레이션
 # UI Components
 # Event Handler Manager
 # UI Initializer
 # Data Models
-from .managers.anime_data_manager import AnimeDataManager
-from .managers.file_processing_manager import FileProcessingManager
-from .managers.tmdb_manager import TMDBManager
-from .theme.engine.variable_loader import VariableLoader as TokenLoader
+from src.gui.managers.anime_data_manager import AnimeDataManager
+from src.gui.managers.file_processing_manager import FileProcessingManager
+from src.gui.managers.tmdb_manager import TMDBManager
+from src.gui.theme.engine.variable_loader import VariableLoader as TokenLoader
 
 # Table Models
 
@@ -51,6 +52,14 @@ class MainWindow(QMainWindow):
         # 기본 설정
         self.setWindowTitle("AnimeSorter")
         self.setGeometry(100, 100, 1600, 900)
+
+        # 중앙 위젯 및 레이아웃 설정
+        from PyQt5.QtWidgets import QWidget, QVBoxLayout
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.parent_layout = QVBoxLayout(self.central_widget)
+        self.parent_layout.setContentsMargins(0, 0, 0, 0)
+        self.parent_layout.setSpacing(0)
 
         # Phase 1: 메인 윈도우 분할 - 기능별 클래스 분리
         # 메인 윈도우 조율자 초기화
@@ -75,7 +84,7 @@ class MainWindow(QMainWindow):
         # 테마 엔진 초기화
         self.theme_manager = ThemeManager()
         # 테마 디렉토리 경로 설정
-        theme_dir = Path(__file__).parent / "theme"
+        theme_dir = Path(__file__).parent.parent.parent / "data" / "theme"
         self.token_loader = TokenLoader(theme_dir)
 
         # New Controllers Initialization
@@ -86,16 +95,7 @@ class MainWindow(QMainWindow):
         # 초기 테마 적용 (UI 컴포넌트 초기화 전에)
         self._apply_theme()
 
-        # 모든 컴포넌트 초기화 (조율자를 통해)
-        self.coordinator.initialize_all_components()
-
-        # 데이터 매니저들 초기화 (핸들러 초기화 전에 먼저 실행)
-        self.init_data_managers()
-
-        # MainWindow 핸들러들 초기화
-        self._initialize_handlers()
-
-        # 기본 연결 설정
+        # 기본 연결 설정 (초기화 완료 전에 먼저 실행)
         self.setup_connections()
 
         # 테마 변경 시그널 연결
@@ -104,9 +104,46 @@ class MainWindow(QMainWindow):
         # 통합 이벤트 시스템 연결
         self._connect_unified_event_system()
 
+        # 모든 컴포넌트 초기화 (조율자를 통해)
+        self.coordinator.initialize_all_components()
+
+        # MainWindow 핸들러들 초기화 (Coordinator 초기화 완료 후 실행)
+        print("🔧 MainWindow 핸들러들 초기화 시작...")
+        try:
+            self._initialize_handlers()
+            print("✅ MainWindow 핸들러들 초기화 완료")
+        except Exception as e:
+            print(f"❌ MainWindow 핸들러들 초기화 실패: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # 데이터 매니저들 초기화 (MainWindowCoordinator에서 이미 초기화되었을 수 있음)
+        if not hasattr(self, 'anime_data_manager') or not hasattr(self, 'file_processing_manager'):
+            self.init_data_managers()
+        else:
+            print("✅ 데이터 매니저들이 이미 MainWindowCoordinator에서 초기화됨")
+
+
         self.current_scan_id = None
         self.current_organization_id = None
         self.current_tmdb_search_id = None
+
+    def _schedule_handler_initialization(self):
+        """핸들러 초기화를 이벤트 루프 후에 예약합니다"""
+        from PyQt5.QtCore import QTimer
+
+        def delayed_handler_init():
+            print("🔧 MainWindow 핸들러들 지연 초기화 시작...")
+            try:
+                self._initialize_handlers()
+                print("✅ MainWindow 핸들러들 지연 초기화 완료")
+            except Exception as e:
+                print(f"❌ MainWindow 핸들러들 지연 초기화 실패: {e}")
+                import traceback
+                traceback.print_exc()
+
+        # 이벤트 루프 시작 후에 핸들러 초기화 실행
+        QTimer.singleShot(100, delayed_handler_init)
 
         # 테마 모니터링 위젯 초기화
         self.theme_monitor_widget = None
@@ -363,7 +400,7 @@ class MainWindow(QMainWindow):
         try:
             # MainWindowFileHandler 초기화 (필수)
             if hasattr(self, "file_processing_manager") and hasattr(self, "anime_data_manager"):
-                from .components.main_window.handlers.file_handler import \
+                from src.gui.components.main_window.handlers.file_handler import \
                     MainWindowFileHandler
 
                 self.file_handler = MainWindowFileHandler(
@@ -379,14 +416,14 @@ class MainWindow(QMainWindow):
                 self.file_handler = None
 
             # MainWindowLayoutManager 초기화
-            from .components.main_window.handlers.layout_manager import \
+            from src.gui.components.main_window.handlers.layout_manager import \
                 MainWindowLayoutManager
 
             self.layout_manager = MainWindowLayoutManager(main_window=self)
             print("✅ MainWindowLayoutManager 초기화 완료")
 
             # MainWindowMenuActionHandler 초기화
-            from .components.main_window.handlers.menu_action_handler import \
+            from src.gui.components.main_window.handlers.menu_action_handler import \
                 MainWindowMenuActionHandler
 
             self.menu_action_handler = MainWindowMenuActionHandler(main_window=self)
@@ -394,7 +431,7 @@ class MainWindow(QMainWindow):
 
             # MainWindowSessionManager 초기화
             if hasattr(self, "settings_manager"):
-                from .components.main_window.handlers.session_manager import \
+                from src.gui.components.main_window.handlers.session_manager import \
                     MainWindowSessionManager
 
                 self.session_manager = MainWindowSessionManager(
@@ -474,7 +511,7 @@ class MainWindow(QMainWindow):
             if str(src_dir) not in sys.path:
                 sys.path.insert(0, str(src_dir))
 
-            from gui.view_models.main_window_view_model_new import \
+            from src.gui.view_models.main_window_view_model_new import \
                 MainWindowViewModelNew
 
             print("📋 [MainWindow] ViewModel 초기화 시작...")
@@ -509,7 +546,7 @@ class MainWindow(QMainWindow):
         self.file_processing_manager = FileProcessingManager()
 
         # TMDBManager 초기화 시 API 키 전달
-        api_key = self.settings_manager.get_setting("tmdb_api_key") or os.getenv("TMDB_API_KEY")
+        api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
         self.tmdb_manager = TMDBManager(api_key=api_key)
 
     def apply_settings_to_ui(self):
@@ -582,7 +619,14 @@ class MainWindow(QMainWindow):
 
     def on_organize_requested(self):
         """툴바에서 정리 실행 요청 처리 - MainWindowMenuActionHandler로 위임"""
+        print("🗂️ 툴바에서 정리 요청됨")
+        print(f"📍 호출 스택:")
+        import traceback
+        for line in traceback.format_stack()[-3:-1]:  # 마지막 2줄만 표시
+            print(f"   {line.strip()}")
+
         if hasattr(self, "menu_action_handler") and self.menu_action_handler:
+            print("✅ MainWindowMenuActionHandler 존재함")
             self.menu_action_handler.on_organize_requested()
         else:
             print("⚠️ MainWindowMenuActionHandler가 초기화되지 않았습니다")
@@ -1273,7 +1317,7 @@ class MainWindow(QMainWindow):
         """테마 모니터링 위젯 표시"""
         try:
             if not self.theme_monitor_widget:
-                from .theme.theme_monitor_widget import ThemeMonitorWidget
+                from src.gui.theme.theme_monitor_widget import ThemeMonitorWidget
 
                 self.theme_monitor_widget = ThemeMonitorWidget(self.theme_manager, self)
 
@@ -1312,21 +1356,21 @@ class MainWindow(QMainWindow):
         """새 컨트롤러들을 설정합니다 (theme_manager 초기화 후 호출)"""
         try:
             # 테마 컨트롤러 설정
-            from .components.theme_controller import ThemeController
+            from src.gui.components.theme_controller import ThemeController
 
             self.theme_controller = ThemeController(
                 theme_manager=self.theme_manager, settings_manager=self.settings_manager
             )
 
             # UI 상태 컨트롤러 설정
-            from .components.ui_state_controller import UIStateController
+            from src.gui.components.ui_state_controller import UIStateController
 
             self.ui_state_controller = UIStateController(
                 main_window=self, settings_manager=self.settings_manager
             )
 
             # 메시지 로그 컨트롤러 설정
-            from .components.message_log_controller import MessageLogController
+            from src.gui.components.message_log_controller import MessageLogController
 
             self.message_log_controller = MessageLogController(main_window=self)
 
@@ -1531,7 +1575,7 @@ class MainWindow(QMainWindow):
                 return
 
             # TMDBSearchDialog 직접 생성
-            from .components.tmdb_search_dialog import TMDBSearchDialog
+            from src.gui.components.tmdb_search_dialog import TMDBSearchDialog
 
             dialog = TMDBSearchDialog(group_title, self.tmdb_client, self)
             dialog.anime_selected.connect(
@@ -1607,7 +1651,7 @@ class MainWindow(QMainWindow):
     def _show_final_dialog(self, group_id: str, title: str, search_results: list):
         """최종 다이얼로그 표시"""
         try:
-            from .components.tmdb_search_dialog import TMDBSearchDialog
+            from src.gui.components.tmdb_search_dialog import TMDBSearchDialog
 
             dialog = TMDBSearchDialog(title, self.tmdb_client, self)
             dialog.anime_selected.connect(

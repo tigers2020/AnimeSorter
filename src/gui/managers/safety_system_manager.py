@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
-from app import (
+from src.app import (
     IBackupManager,
     IConfirmationManager,
     IInterruptionManager,

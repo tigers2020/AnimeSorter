@@ -6,7 +6,7 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDockWidget
 
-from .left_panel import LeftPanel
+from src.gui.components.left_panel import LeftPanel
 
 
 class LeftPanelDock(QDockWidget):

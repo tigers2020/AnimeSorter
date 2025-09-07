@@ -10,10 +10,10 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-from ..application_events import FilesScannedEvent, ScanStatus
-from ..background_events import TaskPriority
-from ..background_task import BaseTask, TaskResult
-from ..events import TypedEventBus
+from src.app.application_events import FilesScannedEvent, ScanStatus
+from src.app.background_events import TaskPriority
+from src.app.background_task import BaseTask, TaskResult
+from src.app.events import TypedEventBus
 
 
 class FileScanTask(BaseTask):

@@ -10,11 +10,11 @@ import logging
 
 from PyQt5.QtWidgets import QMainWindow
 
-from app import ICommandInvoker, IUndoRedoManager, get_service
-from app.journal import JournalManager
-from app.staging import StagingManager
-from app.ui import UICommandBridge
-from app.undo_redo import QUndoStackBridge
+from src.app import ICommandInvoker, IUndoRedoManager, get_service
+from src.app.journal import JournalManager
+from src.app.staging import StagingManager
+from src.app.ui import UICommandBridge
+from src.app.undo_redo import QUndoStackBridge
 
 
 class CommandSystemManager:

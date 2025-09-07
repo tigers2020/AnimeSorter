@@ -11,8 +11,8 @@ from abc import ABC, abstractmethod
 from typing import Any
 from uuid import UUID, uuid4
 
-from ..events import TypedEventBus
-from ..tmdb_search_events import (TMDBBulkSearchCompletedEvent,
+from src.app.events import TypedEventBus
+from src.app.tmdb_search_events import (TMDBBulkSearchCompletedEvent,
                                   TMDBBulkSearchProgressEvent,
                                   TMDBBulkSearchStartedEvent,
                                   TMDBCacheUpdatedEvent,
@@ -26,9 +26,9 @@ from ..tmdb_search_events import (TMDBBulkSearchCompletedEvent,
                                   TMDBSearchResult, TMDBSearchResultsEvent,
                                   TMDBSearchStartedEvent, TMDBSearchStatistics,
                                   TMDBSearchStatus, TMDBSearchType)
-from .tmdb_search_matcher import SearchResultMatcher
-from .tmdb_search_statistics import SearchStatisticsCollector
-from .tmdb_search_strategies import SearchStrategyFactory
+from src.app.services.tmdb_search_matcher import SearchResultMatcher
+from src.app.services.tmdb_search_statistics import SearchStatisticsCollector
+from src.app.services.tmdb_search_strategies import SearchStrategyFactory
 
 
 class ITMDBSearchService(ABC):
@@ -95,7 +95,7 @@ class TMDBSearchService(ITMDBSearchService):
         # TMDBClient가 제공되지 않은 경우 자동 생성
         if self.tmdb_client is None:
             try:
-                from core.tmdb_client import TMDBClient
+                from src.core.tmdb_client import TMDBClient
 
                 self.tmdb_client = TMDBClient()
                 self.logger.info("TMDBClient 자동 생성됨")

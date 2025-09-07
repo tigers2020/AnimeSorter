@@ -8,10 +8,10 @@ from typing import Any
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow
 
-from .event_handler_manager_ui import EventHandlerManagerUI
-from .main_window_initializer import MainWindowInitializer
+from src.gui.components.event_handler_manager_ui import EventHandlerManagerUI
+from src.gui.components.main_window_initializer import MainWindowInitializer
 # from .menu_toolbar_manager import MenuToolbarManager  # 중복 메뉴 생성 방지
-from .ui_component_manager import UIComponentManager
+from src.gui.components.ui_component_manager import UIComponentManager
 
 
 class MainWindowCoordinator:
@@ -49,7 +49,10 @@ class MainWindowCoordinator:
             # 3. 이벤트 핸들러 관리자 생성 및 실행
             self._initialize_event_handler_manager()
 
-            # 4. 메뉴 및 툴바 관리자 생성 및 실행
+            # 4. TMDB 검색 핸들러 초기화
+            self._initialize_tmdb_search_handler()
+
+            # 5. 메뉴 및 툴바 관리자 생성 및 실행
             self._initialize_menu_toolbar_manager()
 
             # 5. 지연 초기화 설정
@@ -72,12 +75,33 @@ class MainWindowCoordinator:
         try:
             print("🔧 MainWindowCoordinator: 초기화 관리자 생성 중...")
 
+            print("🔧 MainWindowInitializer 생성 중...")
             self.initializer = MainWindowInitializer(self.main_window)
+            print("✅ MainWindowInitializer 생성 완료")
+
+            print("🔧 _init_core_components() 호출...")
             self.initializer._init_core_components()
+            print("✅ _init_core_components() 완료")
+
+            print("🔧 _init_data_managers() 호출...")
             self.initializer._init_data_managers()
+            print("✅ _init_data_managers() 완료")
+
+            print("🔧 _init_new_architecture() 호출...")
             self.initializer._init_new_architecture()
+            print("✅ _init_new_architecture() 완료")
+
+            print("🔧 _init_safety_system() 호출...")
+            self.initializer._init_safety_system()
+            print("✅ _init_safety_system() 완료")
+
+            print("🔧 _init_ui_state_management() 호출...")
             self.initializer._init_ui_state_management()
+            print("✅ _init_ui_state_management() 완료")
+
+            print("🔧 _init_accessibility_and_i18n() 호출...")
             self.initializer._init_accessibility_and_i18n()
+            print("✅ _init_accessibility_and_i18n() 완료")
 
             self.initialization_steps.append("✅ 초기화 관리자 완료")
             print("✅ MainWindowCoordinator: 초기화 관리자 생성 완료")
@@ -116,6 +140,36 @@ class MainWindowCoordinator:
 
         except Exception as e:
             print(f"❌ MainWindowCoordinator: 이벤트 핸들러 관리자 생성 실패: {e}")
+
+    def _initialize_tmdb_search_handler(self):
+        """TMDB 검색 핸들러 초기화"""
+        try:
+            print("🔧 MainWindowCoordinator: TMDB 검색 핸들러 초기화 중...")
+
+            # TMDB 클라이언트 확인
+            if not hasattr(self.main_window, 'tmdb_client') or not self.main_window.tmdb_client:
+                print("⚠️ TMDB 클라이언트가 초기화되지 않았습니다. TMDB 검색 핸들러를 건너뜁니다.")
+                return
+
+            # TMDB 검색 핸들러 초기화
+            from src.gui.handlers.tmdb_search_handler import TMDBSearchHandler
+            self.main_window.tmdb_search_handler = TMDBSearchHandler(self.main_window)
+
+            # TMDB 검색 핸들러와 관련 컴포넌트 연결
+            if hasattr(self.main_window, "anime_data_manager") and self.main_window.anime_data_manager:
+                self.main_window.anime_data_manager.tmdb_search_requested.connect(
+                    self.main_window.tmdb_search_handler.on_tmdb_search_requested
+                )
+                print("✅ TMDB 검색 시그널-슬롯 연결 완료")
+            else:
+                print("⚠️ AnimeDataManager가 없어 TMDB 검색 시그널 연결을 건너뜁니다.")
+
+            self.initialization_steps.append("✅ TMDB 검색 핸들러 초기화 완료")
+            print("✅ MainWindowCoordinator: TMDB 검색 핸들러 초기화 완료")
+
+        except Exception as e:
+            print(f"❌ MainWindowCoordinator: TMDB 검색 핸들러 초기화 실패: {e}")
+            # TMDB 검색이 필수 기능이 아니므로 예외를 발생시키지 않음
             raise
 
     def _initialize_menu_toolbar_manager(self):

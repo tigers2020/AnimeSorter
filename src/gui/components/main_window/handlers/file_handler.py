@@ -9,8 +9,8 @@ from pathlib import Path
 
 from PyQt5.QtWidgets import QMessageBox
 
-from gui.managers.anime_data_manager import AnimeDataManager, ParsedItem
-from gui.managers.file_processing_manager import FileProcessingManager
+from src.gui.managers.anime_data_manager import AnimeDataManager, ParsedItem
+from src.gui.managers.file_processing_manager import FileProcessingManager
 
 
 class MainWindowFileHandler:

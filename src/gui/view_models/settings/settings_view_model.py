@@ -8,7 +8,7 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from app import (
+from src.app import (
     ISettingsManager,
     IUIUpdateService,
     SettingsChangedEvent,
@@ -23,7 +23,7 @@ from app import (
     get_service,
 )
 
-from .settings_state import SettingsCapabilities, SettingsState
+from src.settings_state import SettingsCapabilities, SettingsState
 
 
 class SettingsViewModel(QObject):

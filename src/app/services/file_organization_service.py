@@ -13,11 +13,11 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from core.file_parser import FileParser
+from src.core.file_parser import FileParser
 
-from ..background_task import BaseTask, TaskResult, TaskStatus
-from ..events import TypedEventBus
-from ..organization_events import (OrganizationCancelledEvent,
+from src.app.background_task import BaseTask, TaskResult, TaskStatus
+from src.app.events import TypedEventBus
+from src.app.organization_events import (OrganizationCancelledEvent,
                                    OrganizationCompletedEvent,
                                    OrganizationErrorType,
                                    OrganizationFailedEvent,
@@ -32,7 +32,7 @@ from ..organization_events import (OrganizationCancelledEvent,
                                    OrganizationValidationFailedEvent,
                                    OrganizationValidationResult,
                                    OrganizationValidationStartedEvent)
-from .background_task_service import IBackgroundTaskService
+from src.app.services.background_task_service import IBackgroundTaskService
 
 
 class IFileOrganizationService(ABC):
@@ -225,22 +225,31 @@ class FileOrganizationTask(BaseTask):
                         )
                         print(f"🔍 DEBUG: 그룹 '{group_name}'에 {missing_files}개 파일 누락됨")
 
-                    # 화질별로 파일 분류 및 시즌별 정리 (직관적인 처리)
+                    # 화질별로 파일 분류 및 시즌별 정리 (스마트 분류)
                     high_quality_files = []
                     low_quality_files = []
 
-                    for file_data in valid_files:
-                        source_path = file_data.get("source_path", "")
-                        resolution = file_data.get("resolution", "").lower()
+                    # 파일명을 기준으로 그룹화하여 가장 높은 해상도를 고화질로 처리
+                    file_groups = self._group_files_by_name(valid_files)
 
-                        # 화질별 분류 및 시즌별 정리
-                        if resolution in ["1080p", "4k", "2k", "1440p"]:
-                            high_quality_files.append(file_data)
-                        elif resolution in ["720p", "480p"]:
-                            low_quality_files.append(file_data)
+                    for base_name, files_in_group in file_groups.items():
+                        if len(files_in_group) == 1:
+                            # 같은 이름의 파일이 하나만 있으면 고화질로 취급
+                            high_quality_files.append(files_in_group[0])
+                            self.logger.debug(f"단일 파일 고화질 처리: {base_name}")
                         else:
-                            # 해상도가 파싱되지 않은 경우 기본적으로 고화질로 취급
-                            high_quality_files.append(file_data)
+                            # 같은 이름의 파일이 여러 개 있으면 가장 높은 해상도를 고화질로, 나머지는 저화질로
+                            best_file = self._find_best_quality_file(files_in_group)
+                            high_quality_files.append(best_file)
+
+                            # 나머지 파일들은 저화질로
+                            for file_data in files_in_group:
+                                if file_data != best_file:
+                                    low_quality_files.append(file_data)
+
+                            self.logger.debug(
+                                f"다중 파일 분류 완료: {base_name} - 고화질: {Path(best_file['source_path']).name}, 저화질: {len(files_in_group) - 1}개"
+                            )
 
                     self.logger.info(
                         f"🔍 그룹 '{group_name}' 화질별 분류: 고화질 {len(high_quality_files)}개, 저화질 {len(low_quality_files)}개 (총 {len(valid_files)}개 유효)"
@@ -297,8 +306,8 @@ class FileOrganizationTask(BaseTask):
                                 season_files[season] = []
                             season_files[season].append(file_data)
 
-                            # 각 시즌별로 디렉토리 생성 및 파일 처리
-                            for season, season_file_list in season_files.items():
+                        # 각 시즌별로 디렉토리 생성 및 파일 처리
+                        for season, season_file_list in season_files.items():
                                 season_dir = (
                                     self.destination_directory
                                     / self._sanitize_filename(group_name)
@@ -822,6 +831,58 @@ class FileOrganizationService(IFileOrganizationService):
                 conflicts.append(f"그룹 디렉토리가 이미 존재하고 비어있지 않음: {group_name}")
 
         return conflicts
+
+    def _group_files_by_name(self, files: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        """파일명을 기준으로 파일들을 그룹화"""
+        file_groups = {}
+
+        for file_data in files:
+            source_path = file_data.get("source_path", "")
+            if not source_path:
+                continue
+
+            # 파일명에서 확장자를 제외한 기본 이름 추출
+            path_obj = Path(source_path)
+            base_name = path_obj.stem  # 확장자 제외한 파일명
+
+            # 그룹에 추가
+            if base_name not in file_groups:
+                file_groups[base_name] = []
+            file_groups[base_name].append(file_data)
+
+        return file_groups
+
+    def _find_best_quality_file(self, files: list[dict[str, Any]]) -> dict[str, Any]:
+        """그룹 내에서 가장 높은 해상도의 파일을 찾음"""
+        if not files:
+            return None
+
+        if len(files) == 1:
+            return files[0]
+
+        # 해상도 우선순위로 정렬 (높은 우선순위가 먼저)
+        sorted_files = sorted(
+            files,
+            key=lambda f: self._get_resolution_priority(f.get("resolution", "")),
+            reverse=True  # 내림차순 (높은 우선순위가 먼저)
+        )
+
+        return sorted_files[0]  # 가장 높은 우선순위의 파일 반환
+
+    def _get_resolution_priority(self, resolution: str) -> int:
+        """해상도의 우선순위를 반환 (높을수록 우선순위 높음)"""
+        resolution_priority = {
+            "4K": 100,
+            "1440p": 90,
+            "1080p": 80,
+            "2K": 70,
+            "720p": 60,
+            "480p": 50,
+        }
+
+        # 대소문자 무시하고 우선순위 반환
+        resolution_upper = resolution.upper() if resolution else ""
+        return resolution_priority.get(resolution_upper, 0)  # 기본값 0 (알 수 없는 해상도)
 
     def _sanitize_filename(self, filename: str) -> str:
         """파일명 정리 (금지 문자 제거)"""

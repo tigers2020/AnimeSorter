@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
-from .journal_entry import JournalEntry, JournalEntryStatus
+from src.app.journal.journal_entry import JournalEntry, JournalEntryStatus
 
 
 class TransactionStatus(Enum):

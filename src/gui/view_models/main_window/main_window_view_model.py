@@ -7,7 +7,7 @@ import logging
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from app import (
+from src.app import (
     ErrorMessageEvent,
     FileCountUpdateEvent,
     FilesScannedEvent,
@@ -30,7 +30,7 @@ from app import (
     get_service,
 )
 
-from .application_state import ApplicationState, UICapabilities
+from src.application_state import ApplicationState, UICapabilities
 
 
 class MainWindowViewModel(QObject):

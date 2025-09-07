@@ -12,8 +12,8 @@ from enum import Enum
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
-from .journal_entry import JournalEntry, JournalEntryType
-from .transaction import Transaction, TransactionStatus
+from src.app.journal.journal_entry import JournalEntry, JournalEntryType
+from src.app.journal.transaction import Transaction, TransactionStatus
 
 
 class RollbackStrategy(Enum):

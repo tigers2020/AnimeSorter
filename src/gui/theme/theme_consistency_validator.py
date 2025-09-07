@@ -12,8 +12,8 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QWidget
 
-from .engine.theme_manager import ThemeManager
-from .engine.token_loader import TokenLoader
+from src.gui.theme.engine.theme_manager import ThemeManager
+from src.gui.theme.engine.variable_loader import VariableLoader as TokenLoader
 
 
 class ThemeConsistencyValidator(QObject):
@@ -27,7 +27,10 @@ class ThemeConsistencyValidator(QObject):
     def __init__(self, theme_manager: ThemeManager, parent: QWidget = None):
         super().__init__(parent)
         self.theme_manager = theme_manager
-        self.token_loader = TokenLoader()
+
+        # 테마 디렉토리 경로 설정 (프로젝트 루트의 data/theme)
+        theme_dir = Path(__file__).parent.parent.parent.parent / "data" / "theme"
+        self.token_loader = TokenLoader(theme_dir)
         self.logger = logging.getLogger(__name__)
 
         # 검증할 테마 목록

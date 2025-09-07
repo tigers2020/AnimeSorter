@@ -9,11 +9,11 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, QTimer
 
-from core.tmdb_client import TMDBAnimeInfo, TMDBClient
+from src.core.tmdb_client import TMDBAnimeInfo, TMDBClient
 
-from ..components.tmdb_search_dialog import TMDBSearchDialog
-from ..interfaces.i_controller import IController
-from ..interfaces.i_event_bus import Event, IEventBus
+from src.components.tmdb_search_dialog import TMDBSearchDialog
+from src.interfaces.i_controller import IController
+from src.interfaces.i_event_bus import Event, IEventBus
 
 
 class TMDBController(IController):

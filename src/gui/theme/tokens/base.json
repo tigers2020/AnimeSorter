@@ -1,0 +1,589 @@
+{
+  "name": "Base Design Tokens",
+  "version": "1.0.0",
+  "description": "모든 테마에서 공통으로 사용하는 기본 디자인 토큰들",
+  "type": "base",
+  
+  "variables": {
+    "primary_color": "#007bff",
+    "secondary_color": "#6c757d",
+    "success_color": "#28a745",
+    "warning_color": "#ffc107",
+    "error_color": "#dc3545",
+    "info_color": "#17a2b8",
+    
+    "light_bg": "#ffffff",
+    "light_surface": "#f8f9fa",
+    "light_text": "#212529",
+    "light_border": "#dee2e6",
+    
+    "dark_bg": "#212529",
+    "dark_surface": "#343a40",
+    "dark_text": "#ffffff",
+    "dark_border": "#495057",
+    
+    "font_family_primary": "Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
+    "font_family_monospace": "Consolas, Monaco, 'Courier New', monospace",
+    
+    "base_spacing": 8,
+    "base_border_radius": 4,
+    "base_transition_duration": 300
+  },
+  
+  "colors": {
+    "semantic": {
+      "primary": {
+        "value": "$primary_color",
+        "description": "주요 브랜드 색상",
+        "category": "semantic"
+      },
+      "secondary": {
+        "value": "$secondary_color",
+        "description": "보조 브랜드 색상",
+        "category": "semantic"
+      },
+      "success": {
+        "value": "$success_color",
+        "description": "성공 상태 색상",
+        "category": "semantic"
+      },
+      "warning": {
+        "value": "$warning_color",
+        "description": "경고 상태 색상",
+        "category": "semantic"
+      },
+      "error": {
+        "value": "$error_color",
+        "description": "오류 상태 색상",
+        "category": "semantic"
+      },
+      "info": {
+        "value": "$info_color",
+        "description": "정보 상태 색상",
+        "category": "semantic"
+      }
+    },
+    
+    "neutral": {
+      "white": {
+        "value": "#ffffff",
+        "description": "순백색",
+        "category": "neutral"
+      },
+      "black": {
+        "value": "#000000",
+        "description": "순흑색",
+        "category": "neutral"
+      },
+      "gray": {
+        "50": {
+          "value": "#f8f9fa",
+          "description": "매우 밝은 회색",
+          "category": "neutral"
+        },
+        "100": {
+          "value": "#e9ecef",
+          "description": "밝은 회색",
+          "category": "neutral"
+        },
+        "200": {
+          "value": "#dee2e6",
+          "description": "중간 밝은 회색",
+          "category": "neutral"
+        },
+        "300": {
+          "value": "#ced4da",
+          "description": "중간 회색",
+          "category": "neutral"
+        },
+        "400": {
+          "value": "#adb5bd",
+          "description": "중간 어두운 회색",
+          "category": "neutral"
+        },
+        "500": {
+          "value": "#6c757d",
+          "description": "표준 회색",
+          "category": "neutral"
+        },
+        "600": {
+          "value": "#495057",
+          "description": "중간 어두운 회색",
+          "category": "neutral"
+        },
+        "700": {
+          "value": "#343a40",
+          "description": "어두운 회색",
+          "category": "neutral"
+        },
+        "800": {
+          "value": "#212529",
+          "description": "매우 어두운 회색",
+          "category": "neutral"
+        },
+        "900": {
+          "value": "#0d1117",
+          "description": "가장 어두운 회색",
+          "category": "neutral"
+        }
+      }
+    },
+    
+    "functional": {
+      "background": {
+        "value": "$light_bg",
+        "description": "기본 배경 색상",
+        "category": "functional"
+      },
+      "surface": {
+        "value": "$light_surface",
+        "description": "표면 색상",
+        "category": "functional"
+      },
+      "text": {
+        "value": "$light_text",
+        "description": "기본 텍스트 색상",
+        "category": "functional"
+      },
+      "text_secondary": {
+        "value": "$secondary_color",
+        "description": "보조 텍스트 색상",
+        "category": "functional"
+      },
+      "border": {
+        "value": "$light_border",
+        "description": "기본 테두리 색상",
+        "category": "functional"
+      },
+      "divider": {
+        "value": "$light_border",
+        "description": "구분선 색상",
+        "category": "functional"
+      }
+    }
+  },
+  
+  "fonts": {
+    "families": {
+      "primary": {
+        "value": "$font_family_primary",
+        "description": "주요 폰트 패밀리",
+        "category": "font"
+      },
+      "monospace": {
+        "value": "$font_family_monospace",
+        "description": "모노스페이스 폰트 패밀리",
+        "category": "font"
+      }
+    },
+    
+    "sizes": {
+      "xs": {
+        "value": 12,
+        "description": "매우 작은 폰트 크기",
+        "category": "font"
+      },
+      "sm": {
+        "value": 14,
+        "description": "작은 폰트 크기",
+        "category": "font"
+      },
+      "base": {
+        "value": 16,
+        "description": "기본 폰트 크기",
+        "category": "font"
+      },
+      "lg": {
+        "value": 18,
+        "description": "큰 폰트 크기",
+        "category": "font"
+      },
+      "xl": {
+        "value": 20,
+        "description": "매우 큰 폰트 크기",
+        "category": "font"
+      },
+      "2xl": {
+        "value": 24,
+        "description": "2배 큰 폰트 크기",
+        "category": "font"
+      },
+      "3xl": {
+        "value": 30,
+        "description": "3배 큰 폰트 크기",
+        "category": "font"
+      },
+      "4xl": {
+        "value": 36,
+        "description": "4배 큰 폰트 크기",
+        "category": "font"
+      }
+    },
+    
+    "weights": {
+      "light": {
+        "value": "300",
+        "description": "가벼운 폰트 굵기",
+        "category": "font"
+      },
+      "normal": {
+        "value": "400",
+        "description": "일반 폰트 굵기",
+        "category": "font"
+      },
+      "medium": {
+        "value": "500",
+        "description": "중간 폰트 굵기",
+        "category": "font"
+      },
+      "semibold": {
+        "value": "600",
+        "description": "반굵은 폰트 굵기",
+        "category": "font"
+      },
+      "bold": {
+        "value": "700",
+        "description": "굵은 폰트 굵기",
+        "category": "font"
+      }
+    },
+    
+    "line_heights": {
+      "tight": {
+        "value": 1.25,
+        "description": "좁은 줄 높이",
+        "category": "font"
+      },
+      "normal": {
+        "value": 1.5,
+        "description": "일반 줄 높이",
+        "category": "font"
+      },
+      "relaxed": {
+        "value": 1.75,
+        "description": "넓은 줄 높이",
+        "category": "font"
+      }
+    }
+  },
+  
+  "spacing": {
+    "scale": {
+      "0": {
+        "value": 0,
+        "description": "간격 없음",
+        "category": "spacing"
+      },
+      "xs": {
+        "value": "$base_spacing * 0.5",
+        "description": "매우 작은 간격",
+        "category": "spacing"
+      },
+      "sm": {
+        "value": "$base_spacing",
+        "description": "작은 간격",
+        "category": "spacing"
+      },
+      "md": {
+        "value": "$base_spacing * 2",
+        "description": "중간 간격",
+        "category": "spacing"
+      },
+      "lg": {
+        "value": "$base_spacing * 3",
+        "description": "큰 간격",
+        "category": "spacing"
+      },
+      "xl": {
+        "value": "$base_spacing * 4",
+        "description": "매우 큰 간격",
+        "category": "spacing"
+      },
+      "2xl": {
+        "value": "$base_spacing * 6",
+        "description": "2배 큰 간격",
+        "category": "spacing"
+      },
+      "3xl": {
+        "value": "$base_spacing * 8",
+        "description": "3배 큰 간격",
+        "category": "spacing"
+      }
+    },
+    
+    "specific": {
+      "button_padding_x": {
+        "value": "$base_spacing * 2",
+        "description": "버튼 가로 패딩",
+        "category": "spacing"
+      },
+      "button_padding_y": {
+        "value": "$base_spacing * 1.5",
+        "description": "버튼 세로 패딩",
+        "category": "spacing"
+      },
+      "input_padding": {
+        "value": "$base_spacing * 1.5",
+        "description": "입력 필드 패딩",
+        "category": "spacing"
+      },
+      "card_padding": {
+        "value": "$base_spacing * 2",
+        "description": "카드 패딩",
+        "category": "spacing"
+      },
+      "section_margin": {
+        "value": "$base_spacing * 3",
+        "description": "섹션 마진",
+        "category": "spacing"
+      }
+    }
+  },
+  
+  "borders": {
+    "widths": {
+      "none": {
+        "value": 0,
+        "description": "테두리 없음",
+        "category": "border"
+      },
+      "thin": {
+        "value": 1,
+        "description": "얇은 테두리",
+        "category": "border"
+      },
+      "normal": {
+        "value": 2,
+        "description": "일반 테두리",
+        "category": "border"
+      },
+      "thick": {
+        "value": 3,
+        "description": "굵은 테두리",
+        "category": "border"
+      }
+    },
+    
+    "radiuses": {
+      "none": {
+        "value": 0,
+        "description": "모서리 둥글게 없음",
+        "category": "border"
+      },
+      "sm": {
+        "value": "$base_border_radius * 0.5",
+        "description": "작은 모서리 둥글게",
+        "category": "border"
+      },
+      "normal": {
+        "value": "$base_border_radius",
+        "description": "일반 모서리 둥글게",
+        "category": "border"
+      },
+      "md": {
+        "value": "$base_border_radius * 1.5",
+        "description": "중간 모서리 둥글게",
+        "category": "border"
+      },
+      "lg": {
+        "value": "$base_border_radius * 2",
+        "description": "큰 모서리 둥글게",
+        "category": "border"
+      },
+      "xl": {
+        "value": "$base_border_radius * 3",
+        "description": "매우 큰 모서리 둥글게",
+        "category": "border"
+      },
+      "full": {
+        "value": "9999px",
+        "description": "완전한 원형",
+        "category": "border"
+      }
+    },
+    
+    "styles": {
+      "solid": {
+        "value": "solid",
+        "description": "실선 테두리",
+        "category": "border"
+      },
+      "dashed": {
+        "value": "dashed",
+        "description": "점선 테두리",
+        "category": "border"
+      },
+      "dotted": {
+        "value": "dotted",
+        "description": "점 테두리",
+        "category": "border"
+      }
+    }
+  },
+  
+  "shadows": {
+    "small": {
+      "offset_x": 0,
+      "offset_y": 1,
+      "blur": 2,
+      "spread": 0,
+      "color": "rgba(0, 0, 0, 0.1)",
+      "description": "작은 그림자",
+      "category": "shadow"
+    },
+    "medium": {
+      "offset_x": 0,
+      "offset_y": 4,
+      "blur": 6,
+      "spread": 0,
+      "color": "rgba(0, 0, 0, 0.15)",
+      "description": "중간 그림자",
+      "category": "shadow"
+    },
+    "large": {
+      "offset_x": 0,
+      "offset_y": 10,
+      "blur": 15,
+      "spread": 0,
+      "color": "rgba(0, 0, 0, 0.2)",
+      "description": "큰 그림자",
+      "category": "shadow"
+    }
+  },
+  
+  "transitions": {
+    "fast": {
+      "duration": 150,
+      "easing": "ease-out",
+      "delay": 0,
+      "properties": ["all"],
+      "description": "빠른 전환",
+      "category": "transition"
+    },
+    "normal": {
+      "duration": "$base_transition_duration",
+      "easing": "ease-in-out",
+      "delay": 0,
+      "properties": ["all"],
+      "description": "일반 전환",
+      "category": "transition"
+    },
+    "slow": {
+      "duration": 500,
+      "easing": "ease-in-out",
+      "delay": 0,
+      "properties": ["all"],
+      "description": "느린 전환",
+      "category": "transition"
+    }
+  },
+  
+  "z_index": {
+    "dropdown": {
+      "value": 1000,
+      "description": "드롭다운 레이어",
+      "category": "z_index"
+    },
+    "sticky": {
+      "value": 1020,
+      "description": "고정 요소 레이어",
+      "category": "z_index"
+    },
+    "fixed": {
+      "value": 1030,
+      "description": "고정 위치 요소 레이어",
+      "category": "z_index"
+    },
+    "modal_backdrop": {
+      "value": 1040,
+      "description": "모달 배경 레이어",
+      "category": "z_index"
+    },
+    "modal": {
+      "value": 1050,
+      "description": "모달 레이어",
+      "category": "z_index"
+    },
+    "popover": {
+      "value": 1060,
+      "description": "팝오버 레이어",
+      "category": "z_index"
+    },
+    "tooltip": {
+      "value": 1070,
+      "description": "툴팁 레이어",
+      "category": "z_index"
+    }
+  },
+  
+  "breakpoints": {
+    "xs": {
+      "value": 0,
+      "description": "초소형 화면",
+      "category": "breakpoint"
+    },
+    "sm": {
+      "value": 576,
+      "description": "소형 화면",
+      "category": "breakpoint"
+    },
+    "md": {
+      "value": 768,
+      "description": "중형 화면",
+      "category": "breakpoint"
+    },
+    "lg": {
+      "value": 992,
+      "description": "대형 화면",
+      "category": "breakpoint"
+    },
+    "xl": {
+      "value": 1200,
+      "description": "초대형 화면",
+      "category": "breakpoint"
+    },
+    "xxl": {
+      "value": 1400,
+      "description": "초초대형 화면",
+      "category": "breakpoint"
+    }
+  },
+  
+  "functions": {
+    "lighten": {
+      "description": "색상을 밝게 만듭니다",
+      "parameters": ["color", "amount"],
+      "category": "function"
+    },
+    "darken": {
+      "description": "색상을 어둡게 만듭니다",
+      "parameters": ["color", "amount"],
+      "category": "function"
+    },
+    "mix": {
+      "description": "두 색상을 혼합합니다",
+      "parameters": ["color1", "color2", "ratio"],
+      "category": "function"
+    },
+    "alpha": {
+      "description": "색상에 투명도를 추가합니다",
+      "parameters": ["color", "alpha"],
+      "category": "function"
+    },
+    "contrast": {
+      "description": "대비되는 색상을 반환합니다",
+      "parameters": ["color"],
+      "category": "function"
+    },
+    "scale": {
+      "description": "값을 스케일링합니다",
+      "parameters": ["value", "factor"],
+      "category": "function"
+    },
+    "math": {
+      "description": "수학 연산을 수행합니다",
+      "parameters": ["operation", "values..."],
+      "category": "function"
+    }
+  }
+}

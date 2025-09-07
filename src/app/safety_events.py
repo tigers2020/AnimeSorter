@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from .events import BaseEvent
+from src.app.events import BaseEvent
 
 # ===== 백업 시스템 이벤트 =====
 

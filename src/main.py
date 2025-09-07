@@ -14,30 +14,15 @@ from pathlib import Path
 src_path = Path(__file__).parent
 sys.path.insert(0, str(src_path))
 
-# .env 파일에서 환경변수 로드
-env_file = Path(__file__).parent.parent / ".env"
-if env_file.exists():
-    try:
-        with open(env_file, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, value = line.split("=", 1)
-                    os.environ[key] = value
-        print(f"✅ 환경변수 로드 완료: {env_file}")
-    except UnicodeDecodeError as e:
-        print(f"⚠️ .env 파일 인코딩 오류: {e}")
-        print(f"ℹ️ .env 파일을 찾을 수 없습니다: {env_file}")
-    except Exception as e:
-        print(f"❌ .env 파일 로드 실패: {e}")
-else:
-    print(f"ℹ️ .env 파일을 찾을 수 없습니다: {env_file}")
-
 from PyQt5.QtWidgets import QApplication
 
-from app.setup import (cleanup_application,  # type: ignore[import-untyped]
-                       initialize_application)
-from gui.main_window import MainWindow  # type: ignore[import-untyped]
+# 절대 import로 변경 (런타임에서 상대 import 문제 해결)
+import src.app.setup as setup_module
+import src.gui.main_window as main_window_module
+
+cleanup_application = setup_module.cleanup_application
+initialize_application = setup_module.initialize_application
+MainWindow = main_window_module.MainWindow
 
 
 def main():

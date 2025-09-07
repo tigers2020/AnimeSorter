@@ -8,21 +8,22 @@ from pathlib import Path
 
 from PyQt5.QtWidgets import QMainWindow
 
-from core.file_manager import FileManager
-from core.file_parser import FileParser
-from core.settings_manager import SettingsManager
-from core.tmdb_client import TMDBClient
+from src.core.file_manager import FileManager
+from src.core.file_parser import FileParser
+from src.core.settings_manager import SettingsManager
+from src.core.tmdb_client import TMDBClient
+from src.core.unified_config import unified_config_manager
 
-from ..handlers.event_handler_manager import EventHandlerManager
-from ..initializers.ui_initializer import UIInitializer
-from ..managers.anime_data_manager import AnimeDataManager
-from ..managers.file_processing_manager import FileProcessingManager
-from ..managers.status_bar_manager import StatusBarManager
-from ..managers.tmdb_manager import TMDBManager
-from .accessibility_manager import AccessibilityManager
-from .i18n_manager import I18nManager
-from .ui_migration_manager import UIMigrationManager
-from .ui_state_manager import UIStateManager
+from src.gui.handlers.event_handler_manager import EventHandlerManager
+from src.gui.initializers.ui_initializer import UIInitializer
+from src.gui.managers.anime_data_manager import AnimeDataManager
+from src.gui.managers.file_processing_manager import FileProcessingManager
+from src.gui.managers.status_bar_manager import StatusBarManager
+from src.gui.managers.tmdb_manager import TMDBManager
+from src.gui.components.accessibility_manager import AccessibilityManager
+from src.gui.components.i18n_manager import I18nManager
+from src.gui.components.ui_migration_manager import UIMigrationManager
+from src.gui.components.ui_state_manager import UIStateManager
 
 
 class MainWindowInitializer:
@@ -123,27 +124,30 @@ class MainWindowInitializer:
     def _init_core_components(self):
         """핵심 컴포넌트 초기화"""
         try:
-            # 설정 관리자 초기화 (루트 디렉터리의 설정 파일 사용)
-            config_path = Path(__file__).parent.parent.parent / "animesorter_config.json"
-            self.settings_manager = SettingsManager(str(config_path))
+            # 설정 관리자 초기화 (통합 설정 시스템 사용)
+            self.settings_manager = SettingsManager()
             self.main_window.settings_manager = self.settings_manager
 
             # FileParser 초기화
             self.file_parser = FileParser()
             self.main_window.file_parser = self.file_parser
 
-            # TMDBClient 초기화 (설정에서 API 키 가져오기)
-            api_key = self.settings_manager.get_setting("tmdb_api_key") or os.getenv("TMDB_API_KEY")
-            print(
-                f"🔍 TMDB API 키 확인: 설정={self.settings_manager.get_setting('tmdb_api_key')}, 환경변수={os.getenv('TMDB_API_KEY')}"
-            )
+            # TMDBClient 초기화 (통합 설정에서 API 키 가져오기)
+            services_section = unified_config_manager.get_section("services")
+            api_key = ""
+            if services_section:
+                tmdb_config = getattr(services_section, 'tmdb_api', {})
+                # 딕셔너리에서 API 키 가져오기
+                api_key = tmdb_config.get('api_key', '') if isinstance(tmdb_config, dict) else getattr(tmdb_config, 'api_key', '')
+
+            print(f"🔍 TMDB API 키 확인: 통합 설정={api_key[:8] if api_key else '없음'}")
             if api_key:
                 self.tmdb_client = TMDBClient(api_key=api_key)
                 self.main_window.tmdb_client = self.tmdb_client
                 print(f"✅ TMDBClient 초기화 성공 (API 키: {api_key[:8]}...)")
             else:
-                print("⚠️ TMDB_API_KEY가 설정되지 않았습니다.")
-                print("   설정에서 TMDB API 키를 입력하거나 환경 변수를 설정하세요.")
+                print("⚠️ TMDB API 키가 통합 설정에 없습니다.")
+                print("   통합 설정 파일에서 TMDB API 키를 설정하거나 환경 변수를 설정하세요.")
                 self.tmdb_client = None
                 self.main_window.tmdb_client = None
 
@@ -177,7 +181,7 @@ class MainWindowInitializer:
             self.main_window.file_processing_manager = self.file_processing_manager
 
             # TMDBManager 초기화 시 API 키 전달
-            api_key = self.settings_manager.get_setting("tmdb_api_key") or os.getenv("TMDB_API_KEY")
+            api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
             self.tmdb_manager = TMDBManager(api_key=api_key)
             self.main_window.tmdb_manager = self.tmdb_manager
 
@@ -189,10 +193,15 @@ class MainWindowInitializer:
     def _init_new_architecture(self):
         """새로운 아키텍처 컴포넌트 초기화"""
         try:
+            # 애플리케이션 서비스 설정
+            from src.app.setup import setup_application_services
+            setup_application_services()
+            print("✅ 애플리케이션 서비스 설정 완료")
+
             # EventBus 가져오기 (전역 인스턴스)
-            from app import (IFileOrganizationService, IFileScanService,
-                             IMediaDataService, ITMDBSearchService,
-                             IUIUpdateService, get_event_bus, get_service)
+            from src.app import (IFileOrganizationService, IFileScanService,
+                                IMediaDataService, ITMDBSearchService,
+                                IUIUpdateService, get_event_bus, get_service)
 
             self.event_bus = get_event_bus()
             self.main_window.event_bus = self.event_bus
@@ -244,13 +253,13 @@ class MainWindowInitializer:
             self.main_window.event_handler_manager = self.event_handler_manager
             self.event_handler_manager.setup_event_subscriptions()
 
-            # UI 초기화
-            self.ui_initializer = UIInitializer(self.main_window)
-            self.main_window.ui_initializer = self.ui_initializer
-            self.ui_initializer.init_ui()
+            # UI 초기화는 UIComponentManager에서 처리됨 (중복 제거)
+            # self.ui_initializer = UIInitializer(self.main_window)
+            # self.main_window.ui_initializer = self.ui_initializer
+            # self.ui_initializer.init_ui()
 
             # TMDBSearchHandler 초기화
-            from ..handlers.tmdb_search_handler import TMDBSearchHandler
+            from src.gui.handlers.tmdb_search_handler import TMDBSearchHandler
 
             self.main_window.tmdb_search_handler = TMDBSearchHandler(self.main_window)
 
@@ -277,21 +286,71 @@ class MainWindowInitializer:
 
             # FileOrganizationHandler 초기화
             try:
-                from ..handlers.file_organization_handler import \
-                    FileOrganizationHandler
+                print("🔧 FileOrganizationHandler 초기화 시작...")
+                # FileOrganizationHandler import - 여러 방법 시도
+                FileOrganizationHandler = None
+                import_errors = []
+
+                # 방법 1: 직접 import
+                try:
+                    from src.gui.handlers.file_organization_handler import FileOrganizationHandler
+                    print("✅ 방법 1: 직접 import 성공")
+                except ImportError as ie1:
+                    import_errors.append(f"직접 import 실패: {ie1}")
+
+                    # 방법 2: sys.path 추가 후 import
+                    try:
+                        import sys
+                        if 'src' not in sys.path:
+                            sys.path.insert(0, 'src')
+                        from gui.handlers.file_organization_handler import FileOrganizationHandler
+                        print("✅ 방법 2: sys.path 추가 후 import 성공")
+                    except ImportError as ie2:
+                        import_errors.append(f"sys.path 추가 후 import 실패: {ie2}")
+
+                        # 방법 3: 절대 경로 import
+                        try:
+                            import importlib.util
+                            spec = importlib.util.spec_from_file_location(
+                                "file_organization_handler",
+                                "src/gui/handlers/file_organization_handler.py"
+                            )
+                            module = importlib.util.module_from_spec(spec)
+                            spec.loader.exec_module(module)
+                            FileOrganizationHandler = module.FileOrganizationHandler
+                            print("✅ 방법 3: 절대 경로 import 성공")
+                        except Exception as ie3:
+                            import_errors.append(f"절대 경로 import 실패: {ie3}")
+
+                if FileOrganizationHandler is None:
+                    print("❌ 모든 import 방법 실패:")
+                    for error in import_errors:
+                        print(f"   {error}")
+                    raise ImportError("FileOrganizationHandler를 import할 수 없습니다")
 
                 self.main_window.file_organization_handler = FileOrganizationHandler(
                     self.main_window
                 )
+                print("✅ FileOrganizationHandler 인스턴스 생성 완료")
+
                 # Preflight System 초기화 시도 (실패해도 기본 기능은 작동)
                 try:
                     self.main_window.file_organization_handler.init_preflight_system()
-                    print("✅ File Organization Handler 초기화 완료")
+                    print("✅ FileOrganizationHandler 초기화 및 Preflight System 완료")
                 except Exception as e:
                     print(f"⚠️ Preflight System 초기화 실패 (기본 기능은 사용 가능): {e}")
-                    print("✅ File Organization Handler 기본 초기화 완료")
+                    print("✅ FileOrganizationHandler 기본 초기화 완료")
+
+                # 초기화 상태 확인
+                if hasattr(self.main_window, 'file_organization_handler'):
+                    print(f"✅ file_organization_handler 속성 설정됨: {type(self.main_window.file_organization_handler)}")
+                else:
+                    print("❌ file_organization_handler 속성 설정 실패")
+
             except Exception as e:
-                print(f"❌ File Organization Handler 초기화 실패: {e}")
+                print(f"❌ FileOrganizationHandler 초기화 실패: {e}")
+                import traceback
+                traceback.print_exc()
                 self.main_window.file_organization_handler = None
 
             # Status Bar Manager 초기화
@@ -314,7 +373,7 @@ class MainWindowInitializer:
     def _init_safety_system(self):
         """Safety System 초기화"""
         try:
-            from ..managers.safety_system_manager import SafetySystemManager
+            from src.gui.managers.safety_system_manager import SafetySystemManager
 
             self.main_window.safety_system_manager = SafetySystemManager(self.main_window)
             print("✅ Safety System Manager 초기화 완료")
@@ -325,7 +384,7 @@ class MainWindowInitializer:
     def _init_command_system(self):
         """Command System 초기화"""
         try:
-            from ..managers.command_system_manager import CommandSystemManager
+            from src.managers.command_system_manager import CommandSystemManager
 
             self.main_window.command_system_manager = CommandSystemManager(self.main_window)
             print("✅ Command System Manager 초기화 완료")

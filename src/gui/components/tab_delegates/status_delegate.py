@@ -9,7 +9,7 @@ from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QPainter
 from PyQt5.QtWidgets import QApplication, QStyle, QStyleOptionViewItem
 
-from .base_cell_delegate import BaseCellDelegate
+from src.base_cell_delegate import BaseCellDelegate
 
 
 class StatusDelegate(BaseCellDelegate):

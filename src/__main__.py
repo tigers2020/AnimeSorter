@@ -6,7 +6,7 @@ src 패키지 실행 진입점
 python -m src 명령으로 실행할 수 있습니다.
 """
 
-from .main import main
+from src.main import main
 
 if __name__ == "__main__":
     main()

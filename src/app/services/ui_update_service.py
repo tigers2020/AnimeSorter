@@ -10,8 +10,8 @@ from typing import Any, Protocol
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QMainWindow, QProgressBar, QStatusBar
 
-from ..events import TypedEventBus
-from ..ui_events import (
+from src.app.events import TypedEventBus
+from src.app.ui_events import (
     ErrorMessageEvent,
     FileCountUpdateEvent,
     MemoryUsageUpdateEvent,

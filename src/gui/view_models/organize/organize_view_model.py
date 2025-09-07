@@ -7,7 +7,7 @@ import logging
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from app import (
+from src.app import (
     DirectoryCreatedEvent,
     ErrorMessageEvent,
     FileDeletedEvent,
@@ -27,7 +27,7 @@ from app import (
     get_service,
 )
 
-from .organization_state import OrganizationCapabilities, OrganizationState
+from src.organization_state import OrganizationCapabilities, OrganizationState
 
 
 class OrganizeViewModel(QObject):

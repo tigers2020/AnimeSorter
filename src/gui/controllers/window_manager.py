@@ -20,8 +20,8 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from ..interfaces.i_controller import IController
-from ..interfaces.i_event_bus import Event, IEventBus
+from src.interfaces.i_controller import IController
+from src.interfaces.i_event_bus import Event, IEventBus
 
 
 class WindowManager(IController):

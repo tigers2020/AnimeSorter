@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from ..tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
+from src.app.tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
                                   TMDBSearchStatistics, TMDBSearchStatus,
                                   TMDBSearchType)
 

@@ -12,10 +12,10 @@ from typing import Any
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
-from ..components.organize_preflight_dialog import OrganizePreflightDialog
-from ..components.organize_progress_dialog import OrganizeProgressDialog, OrganizeResult
-from ..interfaces.i_controller import IController
-from ..interfaces.i_event_bus import Event, IEventBus
+from src.components.organize_preflight_dialog import OrganizePreflightDialog
+from src.components.organize_progress_dialog import OrganizeProgressDialog, OrganizeResult
+from src.interfaces.i_controller import IController
+from src.interfaces.i_event_bus import Event, IEventBus
 
 
 class OrganizeController(IController):

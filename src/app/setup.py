@@ -8,21 +8,21 @@ import logging
 import threading
 from typing import TypeVar
 
-from .commands import ICommandInvoker
-from .container import get_container
-from .events import TypedEventBus, set_event_bus
-from .journal import (IJournalManager, IRollbackEngine, JournalConfiguration,
+from src.app.commands import ICommandInvoker
+from src.app.container import get_container
+from src.app.events import TypedEventBus, set_event_bus
+from src.app.journal import (IJournalManager, IRollbackEngine, JournalConfiguration,
                       JournalManager)
-from .preflight import IPreflightCoordinator, PreflightCoordinator
-from .safety import (IBackupManager, IConfirmationManager,
+from src.app.preflight import IPreflightCoordinator, PreflightCoordinator
+from src.app.safety import (IBackupManager, IConfirmationManager,
                      IInterruptionManager, InterruptionManager, ISafetyManager,
                      SafetyConfiguration, SafetyManager)
-from .services import (BackgroundTaskService, FileOrganizationService,
+from src.app.services import (BackgroundTaskService, FileOrganizationService,
                        FileScanService, IBackgroundTaskService,
                        IFileOrganizationService, IFileScanService,
                        IMediaDataService, ITMDBSearchService, IUIUpdateService,
                        MediaDataService, TMDBSearchService, UIUpdateService)
-from .undo_redo import IUndoRedoManager
+from src.app.undo_redo import IUndoRedoManager
 
 
 def setup_application_services() -> None:

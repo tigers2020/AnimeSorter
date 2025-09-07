@@ -18,7 +18,6 @@ class AppConfig(BaseSettings):
     """애플리케이션 설정 - pydantic-settings 기반"""
 
     model_config = SettingsConfigDict(
-        env_file=".env",  # .env 파일 자동 로드 활성화
         env_nested_delimiter="__",
         case_sensitive=False,
         extra="ignore",
@@ -154,9 +153,6 @@ class ConfigManager:
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
         # 설정 파일 경로들
-        # 프로젝트 루트의 .env 파일을 우선 사용
-        project_root = Path.cwd()
-        self.env_file = project_root / ".env"
         self.yaml_file = config_dir / "config.yaml"
         self.json_file = config_dir / "config.json"
 
@@ -176,14 +172,6 @@ class ConfigManager:
     def _load_config(self) -> None:
         """설정 로드 (환경변수 > YAML > 기본값)"""
         try:
-            # 환경변수 파일이 있으면 로드 (안전하게)
-            if self.env_file.exists():
-                try:
-                    # .env 파일을 직접 읽어서 환경변수로 설정
-                    self._load_env_file_safely()
-                except Exception as e:
-                    print(f"⚠️ .env 파일 로드 실패 (무시됨): {e}")
-
             # 설정 로드
             self._config = AppConfig()
 
@@ -200,75 +188,6 @@ class ConfigManager:
             print(f"❌ 설정 로드 실패: {e}")
             # 기본값으로 폴백
             self._config = AppConfig()
-
-    def _load_env_file_safely(self) -> None:
-        """안전하게 .env 파일 로드"""
-        try:
-            with self.env_file.open(encoding="utf-8") as f:
-                for _line_num, line in enumerate(f, 1):
-                    line = line.strip()
-
-                    # 주석이나 빈 줄 무시
-                    if not line or line.startswith("#"):
-                        continue
-
-                    # KEY=VALUE 형식 파싱
-                    if "=" in line:
-                        key, value = line.split("=", 1)
-                        key = key.strip()
-                        value = value.strip()
-
-                        # 따옴표 제거
-                        if (
-                            value.startswith('"')
-                            and value.endswith('"')
-                            or value.startswith("'")
-                            and value.endswith("'")
-                        ):
-                            value = value[1:-1]
-
-                        # 환경변수로 설정
-                        if key and not key.startswith("#"):
-                            os.environ[key] = value
-                            print(f"  환경변수 설정: {key}={value}")
-
-        except UnicodeDecodeError:
-            # UTF-8로 읽을 수 없는 경우 다른 인코딩 시도
-            for encoding in ["cp1252", "latin-1", "iso-8859-1"]:
-                try:
-                    with self.env_file.open(encoding=encoding) as f:
-                        for _line_num, line in enumerate(f, 1):
-                            line = line.strip()
-
-                            if not line or line.startswith("#"):
-                                continue
-
-                            if "=" in line:
-                                key, value = line.split("=", 1)
-                                key = key.strip()
-                                value = value.strip()
-
-                                if (
-                                    value.startswith('"')
-                                    and value.endswith('"')
-                                    or value.startswith("'")
-                                    and value.endswith("'")
-                                ):
-                                    value = value[1:-1]
-
-                                if key and not key.startswith("#"):
-                                    os.environ[key] = value
-                                    print(f"  환경변수 설정 ({encoding}): {key}={value}")
-
-                    print(f"✅ .env 파일을 {encoding} 인코딩으로 로드 성공")
-                    return
-
-                except Exception:
-                    continue
-
-            print("⚠️ .env 파일을 어떤 인코딩으로도 읽을 수 없습니다")
-        except Exception as e:
-            print(f"⚠️ .env 파일 로드 중 오류: {e}")
 
     def _merge_yaml_config(self) -> None:
         """YAML 설정 파일 병합"""
@@ -398,7 +317,6 @@ class ConfigManager:
     def get_source_info(self) -> dict[str, Any]:
         """설정 소스 정보 반환"""
         return {
-            "env_file": str(self.env_file) if self.env_file.exists() else None,
             "yaml_file": str(self.yaml_file) if self.yaml_file.exists() else None,
             "json_file": str(self.json_file) if self.json_file.exists() else None,
             "env_vars": len([k for k in os.environ if k.startswith("ANIMESORTER_")]),

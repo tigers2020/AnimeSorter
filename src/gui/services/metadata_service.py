@@ -8,8 +8,8 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from core.tmdb_client import TMDBAnimeInfo, TMDBClient
-from gui.interfaces.i_service import IService
+from src.core.tmdb_client import TMDBAnimeInfo, TMDBClient
+from src.gui.interfaces.i_service import IService
 
 
 @dataclass

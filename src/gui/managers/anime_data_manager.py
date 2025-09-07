@@ -12,12 +12,12 @@ from typing import Any, Optional
 from PyQt5.QtCore import pyqtSignal
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
-from core.unified_event_system import (EventCategory, EventPriority,
+from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
+from src.core.unified_event_system import (EventCategory, EventPriority,
                                        get_unified_event_bus)
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from core.tmdb_client import TMDBAnimeInfo
+from src.core.tmdb_client import TMDBAnimeInfo
 
 
 @dataclass
@@ -95,7 +95,7 @@ class AnimeDataManager(ManagerBase):
 
         # 통합 이벤트 시스템을 통해 이벤트 발행
         if self.unified_event_bus:
-            from core.unified_event_system import BaseEvent
+            from src.core.unified_event_system import BaseEvent
 
             event = BaseEvent(
                 source="AnimeDataManager",

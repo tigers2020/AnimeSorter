@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "level": "aa",
+  "high_contrast_enabled": false,
+  "high_contrast_threshold": 7.0,
+  "font_size_level": "normal",
+  "font_size_multiplier": 1.0,
+  "min_font_size": 12,
+  "max_font_size": 24,
+  "color_contrast_enhancement": false,
+  "min_contrast_ratio": 4.5,
+  "target_contrast_ratio": 7.0,
+  "focus_indicators_enabled": true,
+  "focus_indicator_color": "#0078d4",
+  "focus_indicator_width": 2,
+  "screen_reader_support": true,
+  "accessible_names_enabled": true,
+  "theme_validation_enabled": true,
+  "auto_fix_contrast": false
+}

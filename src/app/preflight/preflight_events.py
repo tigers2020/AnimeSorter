@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID
 
-from ..events import BaseEvent
-from .base_checker import PreflightIssue
-from .preflight_coordinator import PreflightCheckResult
+from src.app.events import BaseEvent
+from src.app.preflight.base_checker import PreflightIssue
+from src.app.preflight.preflight_coordinator import PreflightCheckResult
 
 
 @dataclass

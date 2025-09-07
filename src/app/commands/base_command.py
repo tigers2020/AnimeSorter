@@ -14,10 +14,10 @@ from typing import TYPE_CHECKING, Any, Optional, Protocol
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
-    from ..journal import (FileOperationDetails, IJournalManager, JournalEntry,
+    from src.app.journal import (FileOperationDetails, IJournalManager, JournalEntry,
                            JournalEntryType)
-    from ..preflight import IPreflightCoordinator, PreflightCheckResult
-    from ..staging import IStagingManager, StagedFile
+    from src.preflight import IPreflightCoordinator, PreflightCheckResult
+    from src.staging import IStagingManager, StagedFile
 
 
 class CommandStatus(Enum):
@@ -207,7 +207,7 @@ class BaseCommand(ABC):
         if not self.enable_journaling or not self._journal_manager:
             return None
 
-        from ..journal import JournalEntry
+        from src.app.journal import JournalEntry
 
         # 하위 클래스에서 구현한 저널 정보 가져오기
         journal_info = self._get_journal_info()

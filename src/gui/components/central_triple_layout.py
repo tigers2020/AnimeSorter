@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
 )
 
 # 상세 패널 컴포넌트 import
-from .group_detail_panel import GroupDetailPanel
+from src.gui.components.group_detail_panel import GroupDetailPanel
 
 
 class CentralTripleLayout(QWidget):

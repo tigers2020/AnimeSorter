@@ -12,7 +12,7 @@ from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (QAction, QMainWindow, QMenu, QMenuBar, QShortcut,
                              QToolBar, QWidget)
 
-from .undo_redo_manager import UndoRedoManager
+from src.app.undo_redo.undo_redo_manager import UndoRedoManager
 
 
 class UndoRedoShortcutManager(QObject):

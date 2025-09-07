@@ -10,7 +10,7 @@ from typing import Any
 from PyQt5.QtCore import QAbstractListModel, QModelIndex, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
 
-from app import (
+from src.app import (
     # 이벤트
     FilesScannedEvent,
     # 도메인 모델

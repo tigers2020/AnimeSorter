@@ -17,7 +17,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 # 새로운 통합 설정 시스템 import
 try:
-    from .unified_config import unified_config_manager
+    from src.core.unified_config import unified_config_manager
 
     UNIFIED_CONFIG_AVAILABLE = True
 except ImportError:
@@ -87,7 +87,7 @@ class SettingsManager(QObject):
 
     settings_changed = pyqtSignal()
 
-    def __init__(self, config_file: str = "animesorter_config.json"):
+    def __init__(self, config_file: str = "data/config/unified_config.json"):
         """초기화"""
         super().__init__()
         self.config_file = Path(config_file)
@@ -240,9 +240,21 @@ class SettingsManager(QObject):
                     },
                 }
 
+                # TMDB 설정
+                services_settings = {
+                    "tmdb_api": {
+                        "api_key": getattr(self.settings, 'tmdb_api_key', ''),
+                        "language": getattr(self.settings, 'tmdb_language', 'ko-KR'),
+                    },
+                    "api_keys": {
+                        "tmdb": getattr(self.settings, 'tmdb_api_key', ''),
+                    }
+                }
+
                 # 통합 설정에 업데이트
                 unified_config_manager.set_section("application", app_settings)
                 unified_config_manager.set_section("user_preferences", user_prefs)
+                unified_config_manager.set_section("services", services_settings)
 
                 # 통합 설정 파일 저장
                 if unified_config_manager.save_config():
@@ -288,7 +300,8 @@ class SettingsManager(QObject):
     def set_setting(self, key: str, value: Any) -> bool:
         """설정 값 설정"""
         try:
-            if hasattr(self.settings, key):
+            # AppSettings에 정의된 키이거나 ui_session_state 같은 동적 키인 경우
+            if hasattr(self.settings, key) or key.startswith('ui_'):
                 setattr(self.settings, key, value)
                 self.settings_changed.emit()
                 return True

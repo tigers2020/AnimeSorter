@@ -9,10 +9,10 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from core.file_parser import ParsedMetadata as ParsedItem
-from core.tmdb_client import TMDBAnimeInfo
-from gui.interfaces.i_event_bus import IEventBus
-from gui.interfaces.i_view_model import IViewModel
+from src.core.file_parser import ParsedMetadata as ParsedItem
+from src.core.tmdb_client import TMDBAnimeInfo
+from src.gui.interfaces.i_event_bus import IEventBus
+from src.gui.interfaces.i_view_model import IViewModel
 
 
 @dataclass

@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
-from .events import BaseEvent
+from src.app.events import BaseEvent
 
 
 class TaskStatus(Enum):

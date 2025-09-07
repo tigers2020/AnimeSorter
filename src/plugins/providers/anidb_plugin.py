@@ -6,7 +6,7 @@ AniDB API를 사용하여 애니메이션 메타데이터를 제공합니다.
 
 from typing import Any
 
-from plugins.base import MetadataProvider, PluginInfo
+from src.plugins.base import MetadataProvider, PluginInfo
 
 
 class AniDBPlugin(MetadataProvider):

@@ -1,0 +1,132 @@
+{
+  "name": "high-contrast",
+  "version": "1.0.0",
+  "description": "고대비 모드를 위한 접근성 중심 테마",
+  "author": "AnimeSorter Team",
+  "created_date": "2024-01-01",
+  "modified_date": "2024-01-01",
+  "tags": ["accessibility", "high-contrast", "wcag-aaa"],
+  "type": "high_contrast",
+  "colors": {
+    "primary": "#ffffff",
+    "primary_dark": "#e0e0e0",
+    "secondary": "#000000",
+    "secondary_light": "#333333",
+    "accent": "#ffff00",
+    "accent_dark": "#cccc00",
+    "success": "#00ff00",
+    "success_dark": "#00cc00",
+    "warning": "#ff8800",
+    "warning_dark": "#cc6600",
+    "error": "#ff0000",
+    "error_dark": "#cc0000",
+    "background": "#000000",
+    "background_light": "#111111",
+    "background_dark": "#000000",
+    "surface": "#111111",
+    "surface_light": "#222222",
+    "surface_dark": "#000000",
+    "text": "#ffffff",
+    "text_secondary": "#e0e0e0",
+    "text_disabled": "#888888",
+    "border": "#ffffff",
+    "border_light": "#cccccc",
+    "border_dark": "#666666",
+    "shadow": "#ffffff",
+    "shadow_light": "#e0e0e0",
+    "shadow_dark": "#666666"
+  },
+  "fonts": {
+    "family": {
+      "primary": "Segoe UI, Arial, sans-serif",
+      "secondary": "Consolas, Monaco, monospace",
+      "display": "Segoe UI Display, Arial, sans-serif"
+    },
+    "size": {
+      "xs": "10px",
+      "sm": "12px",
+      "base": "14px",
+      "lg": "16px",
+      "xl": "18px",
+      "2xl": "20px",
+      "3xl": "24px",
+      "4xl": "32px"
+    },
+    "weight": {
+      "light": "300",
+      "normal": "400",
+      "medium": "500",
+      "semibold": "600",
+      "bold": "700",
+      "extrabold": "800"
+    }
+  },
+  "spacing": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "16px",
+    "lg": "24px",
+    "xl": "32px",
+    "2xl": "48px",
+    "3xl": "64px"
+  },
+  "borders": {
+    "radius": {
+      "none": "0px",
+      "sm": "2px",
+      "md": "4px",
+      "lg": "8px",
+      "xl": "12px",
+      "full": "9999px"
+    },
+    "width": {
+      "none": "0px",
+      "thin": "1px",
+      "thick": "2px",
+      "thicker": "4px"
+    }
+  },
+  "shadows": {
+    "sm": "0 1px 2px 0 rgba(255, 255, 255, 0.05)",
+    "md": "0 4px 6px -1px rgba(255, 255, 255, 0.1)",
+    "lg": "0 10px 15px -3px rgba(255, 255, 255, 0.1)",
+    "xl": "0 20px 25px -5px rgba(255, 255, 255, 0.1)"
+  },
+  "transitions": {
+    "duration": {
+      "fast": "150ms",
+      "normal": "300ms",
+      "slow": "500ms"
+    },
+    "easing": {
+      "linear": "linear",
+      "ease_in": "ease-in",
+      "ease_out": "ease-out",
+      "ease_in_out": "ease-in-out"
+    }
+  },
+  "z_index": {
+    "dropdown": "1000",
+    "sticky": "1020",
+    "fixed": "1030",
+    "modal_backdrop": "1040",
+    "modal": "1050",
+    "popover": "1060",
+    "tooltip": "1070"
+  },
+  "breakpoints": {
+    "xs": "0px",
+    "sm": "576px",
+    "md": "768px",
+    "lg": "992px",
+    "xl": "1200px",
+    "2xl": "1400px"
+  },
+  "accessibility": {
+    "wcag_level": "AAA",
+    "min_contrast_ratio": 7.0,
+    "high_contrast_enabled": true,
+    "focus_indicator_color": "#ffff00",
+    "focus_indicator_width": "3px"
+  }
+}

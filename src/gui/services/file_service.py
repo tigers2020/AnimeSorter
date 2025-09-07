@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..interfaces.i_event_bus import IEventBus
-from ..interfaces.i_service import IService
+from src.interfaces.i_event_bus import IEventBus
+from src.interfaces.i_service import IService
 
 
 @dataclass

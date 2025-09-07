@@ -10,11 +10,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .file_backup import FileBackupManager
-from .file_handler import FileHandler
-from .file_naming import FileNamingManager
-from .file_validation import FileValidator
-from .types import FileOperationResult
+from src.core.file_backup import FileBackupManager
+from src.core.file_handler import FileHandler
+from src.core.file_naming import FileNamingManager
+from src.core.file_validation import FileValidator
+from src.core.types import FileOperationResult
 
 
 class FileManager:

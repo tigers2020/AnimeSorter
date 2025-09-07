@@ -8,13 +8,13 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from app import (ErrorMessageEvent, FileCountUpdateEvent, FilesScannedEvent,
-                 IFileScanService, IUIUpdateService, ScanCompletedEvent,
-                 ScanFailedEvent, ScanProgressEvent, ScanStartedEvent,
-                 ScanStoppedEvent, StatusBarUpdateEvent, SuccessMessageEvent,
-                 TypedEventBus, get_event_bus, get_service)
+from src.app import (ErrorMessageEvent, FileCountUpdateEvent, FilesScannedEvent,
+                     IFileScanService, IUIUpdateService, ScanCompletedEvent,
+                     ScanFailedEvent, ScanProgressEvent, ScanStartedEvent,
+                     ScanStoppedEvent, StatusBarUpdateEvent, SuccessMessageEvent,
+                     TypedEventBus, get_event_bus, get_service)
 
-from .scan_state import ScanCapabilities, ScanState
+from src.scan_state import ScanCapabilities, ScanState
 
 
 class ScanViewModel(QObject):

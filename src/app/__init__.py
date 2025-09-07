@@ -6,9 +6,9 @@ AnimeSorter Application Core
 
 # 백그라운드 작업 이벤트
 # Core 모듈
-from core import (AppSettings, FileManager,  # type: ignore[import-untyped]
-                  FileOperationResult, FileParser, ParsedMetadata,
-                  SettingsManager, TMDBAnimeInfo, TMDBClient)
+from src.core import (AppSettings, FileManager,  # type: ignore[import-untyped]
+                     FileOperationResult, FileParser, ParsedMetadata,
+                     SettingsManager, TMDBAnimeInfo, TMDBClient)
 
 # 애플리케이션 이벤트
 from .application_events import (FileOperationAppliedEvent,

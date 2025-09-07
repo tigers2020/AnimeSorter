@@ -8,10 +8,10 @@ import logging
 import re
 from typing import Any
 
-from core import \
+from src.core import \
     TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
 
-from ..tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
+from src.app.tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
                                   TMDBMediaType, TMDBSearchResult)
 
 

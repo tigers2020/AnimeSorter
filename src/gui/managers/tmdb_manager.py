@@ -10,10 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from core.tmdb_client import TMDBAnimeInfo, TMDBClient
-from plugins.base import PluginManager
+from src.core.tmdb_client import TMDBAnimeInfo, TMDBClient
+from src.core.unified_config import unified_config_manager
+from src.plugins.base import PluginManager
 
-from .anime_data_manager import ParsedItem
+from src.gui.managers.anime_data_manager import ParsedItem
 
 
 @dataclass
@@ -39,7 +40,11 @@ class TMDBManager:
 
     def __init__(self, api_key: str = None):
         """초기화"""
-        self.api_key = api_key or os.getenv("TMDB_API_KEY")
+        if api_key:
+            self.api_key = api_key
+        else:
+            # 통합 설정에서 API 키 가져오기
+            self.api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
         self.tmdb_client = None
         self.poster_cache = {}  # 포스터 이미지 캐시
         self.search_cache = {}  # 검색 결과 캐시

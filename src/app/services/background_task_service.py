@@ -11,9 +11,9 @@ from typing import Protocol
 
 from PyQt5.QtCore import QObject, QThreadPool, QTimer
 
-from ..background_events import TaskQueueStatusEvent
-from ..background_task import BaseTask, TaskStatus
-from ..events import TypedEventBus
+from src.app.background_events import TaskQueueStatusEvent
+from src.app.background_task import BaseTask, TaskStatus
+from src.app.events import TypedEventBus
 
 
 class IBackgroundTaskService(Protocol):

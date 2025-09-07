@@ -7,7 +7,7 @@
 import logging
 from pathlib import Path
 
-from ...domain import (MediaFile, MediaMetadata, MediaQuality, MediaSource,
+from src.app.domain import (MediaFile, MediaMetadata, MediaQuality, MediaSource,
                        MediaType)
 
 

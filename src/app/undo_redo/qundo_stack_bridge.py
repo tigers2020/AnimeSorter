@@ -12,10 +12,10 @@ from uuid import UUID
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoStack
 
-from ..commands import ICommand
-from ..journal import IJournalManager
-from ..staging import IStagingManager, StagedFile
-from .qt_command_wrapper import QtCommandWrapper
+from src.app.commands import ICommand
+from src.app.journal import IJournalManager
+from src.app.staging import IStagingManager, StagedFile
+from src.app.undo_redo.qt_command_wrapper import QtCommandWrapper
 
 
 class QUndoStackBridge(QObject):

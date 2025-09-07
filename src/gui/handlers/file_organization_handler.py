@@ -8,7 +8,7 @@ from pathlib import Path
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
-from ..components.organize_preflight_dialog import OrganizePreflightDialog
+from src.gui.components.organize_preflight_dialog import OrganizePreflightDialog
 
 
 class FileOrganizationHandler(QObject):
@@ -21,7 +21,7 @@ class FileOrganizationHandler(QObject):
     def init_preflight_system(self):
         """Preflight System 초기화"""
         try:
-            from app import IPreflightCoordinator, get_service
+            from src.app import IPreflightCoordinator, get_service
 
             # Preflight Coordinator 가져오기
             self.preflight_coordinator = get_service(IPreflightCoordinator)
@@ -121,7 +121,7 @@ class FileOrganizationHandler(QObject):
         """FileOrganizationService의 로직을 간단하게 구현"""
         from pathlib import Path
 
-        from app.organization_events import OrganizationResult
+        from src.app.organization_events import OrganizationResult
 
         result = OrganizationResult()
         # 안전 가드: 누락 필드 초기화

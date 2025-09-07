@@ -15,7 +15,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QPalette
 from PyQt5.QtWidgets import QApplication
 
-from .theme_manager import ThemeManager
+from src.gui.components.theme_manager import ThemeManager
 
 logger = logging.getLogger(__name__)
 

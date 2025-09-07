@@ -10,7 +10,7 @@ import logging
 
 from PyQt5.QtWidgets import QWidget
 
-from app import (BackupCompletedEvent, BackupFailedEvent, BackupStartedEvent,
+from src.app import (BackupCompletedEvent, BackupFailedEvent, BackupStartedEvent,
                  CommandExecutedEvent, CommandFailedEvent, CommandRedoneEvent,
                  CommandUndoneEvent, ConfirmationRequiredEvent,
                  FilesScannedEvent, JournalEntryCreatedEvent,

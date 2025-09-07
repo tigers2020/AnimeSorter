@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QDialog, QGroupBox, QHBoxLayout, QLabel,
                              QMessageBox, QPushButton, QSizePolicy,
                              QVBoxLayout, QWidget)
 
-from core.tmdb_client import TMDBAnimeInfo
+from src.core.tmdb_client import TMDBAnimeInfo
 
 
 class TMDBSearchWorker(QThread):

@@ -7,19 +7,19 @@ from typing import TYPE_CHECKING
 
 from PyQt5.QtWidgets import QHeaderView, QMainWindow
 
-from ..handlers.event_handler_manager import EventHandlerManager
-from ..initializers.ui_initializer import UIInitializer
-from ..managers.status_bar_manager import StatusBarManager
-from .log_dock import LogDock
+from src.gui.handlers.event_handler_manager import EventHandlerManager
+from src.gui.initializers.ui_initializer import UIInitializer
+from src.gui.managers.status_bar_manager import StatusBarManager
+from src.gui.components.log_dock import LogDock
 
 if TYPE_CHECKING:
-    from ..managers.anime_data_manager import AnimeDataManager
-    from ..managers.file_processing_manager import FileProcessingManager
-    from ..managers.tmdb_manager import TMDBManager
-    from .accessibility_manager import AccessibilityManager
-    from .i18n_manager import I18nManager
-    from .ui_migration_manager import UIMigrationManager
-    from .ui_state_manager import UIStateManager
+    from src.gui.managers.anime_data_manager import AnimeDataManager
+    from src.gui.managers.file_processing_manager import FileProcessingManager
+    from src.gui.managers.tmdb_manager import TMDBManager
+    from src.gui.components.accessibility_manager import AccessibilityManager
+    from src.gui.components.i18n_manager import I18nManager
+    from src.gui.components.ui_migration_manager import UIMigrationManager
+    from src.gui.components.ui_state_manager import UIStateManager
 
 
 class UIComponentManager:
@@ -111,9 +111,10 @@ class UIComponentManager:
             self.ui_initializer = UIInitializer(self.main_window)
             self.main_window.ui_initializer = self.ui_initializer
 
-            # UI 초기화는 MainWindowInitializer에서 처리됨 (중복 제거)
+            # UI 초기화 실행 (MainWindowInitializer와 중복될 수 있지만 안전하게 실행)
+            self.ui_initializer.init_ui()
 
-            print("✅ UI 초기화 설정 완료")
+            print("✅ UI 초기화 설정 및 실행 완료")
 
         except Exception as e:
             print(f"❌ UI 초기화 설정 실패: {e}")

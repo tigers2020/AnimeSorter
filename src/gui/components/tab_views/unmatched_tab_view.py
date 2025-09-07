@@ -3,7 +3,7 @@
 미매칭 탭의 UI와 로직을 담당하는 독립적인 클래스입니다.
 """
 
-from .base_tab_view import BaseTabView
+from src.base_tab_view import BaseTabView
 
 
 class UnmatchedTabView(BaseTabView):

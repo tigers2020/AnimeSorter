@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from core.settings_manager import SettingsManager
+from src.core.settings_manager import SettingsManager
 
 
 class MainWindowSessionManager:

@@ -10,12 +10,11 @@ from typing import Any, Optional
 
 import psutil
 
-# 상대 경로로 수정
-sys.path.append(str(Path(__file__).parent.parent.parent))
-from app import (ErrorMessageEvent, FileCountUpdateEvent,
-                 MemoryUsageUpdateEvent, ProgressUpdateEvent,
-                 StatusBarUpdateEvent, SuccessMessageEvent)
-from core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
+# 이벤트 import 수정
+from src.app.ui_events import (ErrorMessageEvent, FileCountUpdateEvent,
+                              MemoryUsageUpdateEvent, ProgressUpdateEvent,
+                              StatusBarUpdateEvent, SuccessMessageEvent)
+from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
 
 
 class StatusBarManager(ManagerBase):

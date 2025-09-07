@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QHeaderView,
     QLabel,
     QSizePolicy,
+    QSplitter,
     QTableView,
     QTabWidget,
     QVBoxLayout,
@@ -17,7 +18,7 @@ from PyQt5.QtWidgets import (
 )
 
 # Phase 6: 셀 표현 Delegate 추가
-from .cell_delegates import (
+from src.gui.components.cell_delegates import (
     ProgressCellDelegate,
     StatusCellDelegate,
     TextPreviewCellDelegate,
@@ -125,7 +126,7 @@ class ResultsView(QTabWidget):
 
     def setup_filter_manager(self):
         """필터 관리자 설정"""
-        from .status_filter_proxy import TabFilterManager
+        from src.gui.components.status_filter_proxy import TabFilterManager
 
         self.filter_manager = TabFilterManager(self)
 
@@ -166,14 +167,9 @@ class ResultsView(QTabWidget):
         title_label.setFont(title_font)
         layout.addWidget(title_label)
 
-        # 고급 스플리터로 분할
-        from .advanced_splitter import AdvancedSplitter, SplitterControlPanel
-
-        splitter = AdvancedSplitter(Qt.Vertical)
-
-        # 스플리터 제어 패널 추가
-        control_panel = SplitterControlPanel(splitter)
-        layout.addWidget(control_panel)
+        # 기본 스플리터로 분할 (고급 스플리터 모듈이 없음)
+        splitter = QSplitter(Qt.Vertical)
+        splitter.setChildrenCollapsible(False)
 
         # 상단: 그룹 리스트
         group_widget = QWidget()
@@ -252,11 +248,8 @@ class ResultsView(QTabWidget):
         splitter.addWidget(detail_widget)
 
         # 고급 스플리터 설정
-        splitter.set_minimum_sizes([200, 150])  # 최소 크기 보장
-        splitter.set_preferred_ratios([0.6, 0.4])  # 선호 비율 설정
-
-        # 스플리터 상태 로드
-        splitter.load_splitter_state()
+        # 스플리터 크기 설정
+        splitter.setSizes([400, 300])  # 기본 크기 설정
 
         layout.addWidget(splitter)
 
@@ -265,27 +258,22 @@ class ResultsView(QTabWidget):
             self.all_group_table = group_table
             self.all_detail_table = detail_table
             self.all_splitter = splitter
-            self.all_control_panel = control_panel
         elif title == "⚠️ 미매칭":
             self.unmatched_group_table = group_table
             self.unmatched_detail_table = detail_table
             self.unmatched_splitter = splitter
-            self.unmatched_control_panel = control_panel
         elif title == "💥 충돌":
             self.conflict_group_table = group_table
             self.conflict_detail_table = detail_table
             self.conflict_splitter = splitter
-            self.conflict_control_panel = control_panel
         elif title == "🔄 중복":
             self.duplicate_group_table = group_table
             self.duplicate_detail_table = detail_table
             self.duplicate_splitter = splitter
-            self.duplicate_control_panel = control_panel
         elif title == "✅ 완료":
             self.completed_group_table = group_table
             self.completed_detail_table = detail_table
             self.completed_splitter = splitter
-            self.completed_control_panel = control_panel
 
         return tab_widget
 
@@ -824,7 +812,7 @@ class ResultsView(QTabWidget):
                 print(f"✅ 그룹 내 파일 수: {len(group_items)}")
 
                 # 새로운 파일 모델 생성
-                from ..table_models import DetailFileModel
+                from src.gui.table_models import DetailFileModel
 
                 file_model = DetailFileModel()
                 file_model.set_items(group_items)
@@ -855,7 +843,7 @@ class ResultsView(QTabWidget):
                             if group_info:
                                 group_items = group_info.get("items", [])
                                 if group_items:
-                                    from ..table_models import DetailFileModel
+                                    from src.gui.table_models import DetailFileModel
 
                                     file_model = DetailFileModel()
                                     file_model.set_items(group_items)

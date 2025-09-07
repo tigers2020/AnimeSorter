@@ -12,8 +12,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QLabel, QMainWindow, QSplitter, QVBoxLayout,
                              QWidget)
 
-from ..builders.menu_builder import MenuBuilder
-from ..builders.toolbar_builder import ToolbarBuilder
+from src.gui.builders.menu_builder import MenuBuilder
+from src.gui.builders.toolbar_builder import ToolbarBuilder
 
 
 class UIInitializer:
@@ -48,11 +48,8 @@ class UIInitializer:
             # 상태바 설정
             self.create_status_bar()
 
-            # 레이아웃 설정
+            # 레이아웃 설정 (스플리터 포함)
             self.setup_layout()
-
-            # 스플리터 설정
-            self.setup_splitters()
 
             # LeftPanel 초기화는 create_panels에서 처리됨 (중복 제거)
 
@@ -104,6 +101,11 @@ class UIInitializer:
     def create_menu_bar(self):
         """메뉴바 생성"""
         try:
+            # safety_system_manager가 존재하는지 확인
+            if not hasattr(self.main_window, 'safety_system_manager') or self.main_window.safety_system_manager is None:
+                self.logger.warning("safety_system_manager가 초기화되지 않았습니다. 메뉴바 생성을 건너뜁니다.")
+                return
+
             self.menu_builder.create_menu_bar()
             self.logger.debug("메뉴바 생성 완료")
 
@@ -115,7 +117,7 @@ class UIInitializer:
         """툴바 생성"""
         try:
             # MainToolbar 생성 (새로운 Phase 1 디자인)
-            from ..components import MainToolbar
+            from src.gui.components.main_toolbar import MainToolbar
 
             self.main_window.main_toolbar = MainToolbar()
 
@@ -204,6 +206,9 @@ class UIInitializer:
             if hasattr(self.main_window, "main_toolbar"):
                 parent_layout.addWidget(self.main_window.main_toolbar)
 
+            # 스플리터 설정 (패널 생성 포함)
+            self.setup_splitters()
+
             self.logger.debug("레이아웃 설정 완료")
 
         except Exception as e:
@@ -243,8 +248,9 @@ class UIInitializer:
         """패널들 생성"""
         try:
             # UI Components import 추가
-            from ..components import LeftPanelDock, ResultsView
-            from ..components.central_triple_layout import CentralTripleLayout
+            from src.gui.components.left_panel_dock import LeftPanelDock
+            from src.gui.components.results_view import ResultsView
+            from src.gui.components.central_triple_layout import CentralTripleLayout
 
             # 왼쪽 패널: 빠른 작업, 통계, 필터 (Dock으로 변경)
             self.main_window.left_panel_dock = LeftPanelDock()
@@ -467,7 +473,7 @@ class UIInitializer:
         """모델들 초기화"""
         try:
             # 모델 import
-            from ..table_models import DetailFileModel, GroupedListModel
+            from src.gui.table_models import DetailFileModel, GroupedListModel
 
             # 대상 폴더 정보 가져오기
             destination_directory = ""

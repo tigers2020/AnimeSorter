@@ -14,10 +14,11 @@ from typing import Any
 
 import tmdbsimple as tmdb
 
-from .tmdb_cache import TMDBCacheManager
-from .tmdb_image import TMDBImageManager
-from .tmdb_models import TMDBAnimeInfo
-from .tmdb_rate_limiter import TMDBRateLimiter
+from src.core.tmdb_cache import TMDBCacheManager
+from src.core.tmdb_image import TMDBImageManager
+from src.core.tmdb_models import TMDBAnimeInfo
+from src.core.tmdb_rate_limiter import TMDBRateLimiter
+from src.core.unified_config import unified_config_manager
 
 
 class TMDBClient:
@@ -34,19 +35,23 @@ class TMDBClient:
         self.cache_dir = Path(".animesorter_cache")
         self.cache_dir.mkdir(exist_ok=True)
 
+        # 로거 초기화 (가장 먼저)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
         # API 키 설정
         if api_key:
             self.api_key = api_key
             tmdb.API_KEY = api_key
         else:
-            # 환경 변수에서 API 키 가져오기
-            api_key = os.getenv("TMDB_API_KEY")
-            if api_key:
-                self.api_key = api_key
-                tmdb.API_KEY = api_key
+            # 통합 설정에서 API 키 가져오기
+            config_api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
+            if config_api_key:
+                self.api_key = config_api_key
+                tmdb.API_KEY = config_api_key
+                self.logger.info("통합 설정에서 TMDB API 키를 불러왔습니다")
             else:
                 raise ValueError(
-                    "TMDB API 키가 필요합니다. 환경 변수 TMDB_API_KEY를 설정하거나 생성자에 전달하세요."
+                    "TMDB API 키가 필요합니다. 통합 설정 파일에서 services.tmdb_api.api_key를 설정해주세요."
                 )
 
         # 요청 타임아웃 설정 (권장: 5초)
@@ -60,7 +65,6 @@ class TMDBClient:
         self.image_manager = TMDBImageManager(self.cache_dir / "posters")
         self.rate_limiter = TMDBRateLimiter(requests_per_second=4, burst_limit=8)
 
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("TMDB 클라이언트 초기화 완료 (모듈화된 구조)")
 
     def search_anime(
@@ -438,7 +442,14 @@ class TMDBClient:
         if new_api_key and new_api_key != self.api_key:
             self.api_key = new_api_key
             tmdb.API_KEY = new_api_key
-            self.logger.info("TMDB API 키가 업데이트되었습니다")
+
+            # 설정 파일에도 저장
+            tmdb_config = unified_config_manager.get("services", "tmdb_api", {})
+            tmdb_config["api_key"] = new_api_key
+            unified_config_manager.set("services", "tmdb_api", tmdb_config)
+            unified_config_manager.save_config()
+
+            self.logger.info("TMDB API 키가 업데이트되어 설정 파일에 저장되었습니다")
 
     def get_api_key(self) -> str:
         """현재 API 키 반환"""

@@ -19,7 +19,7 @@ from typing import Any, Optional, Protocol, runtime_checkable
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from .unified_event_system import (BaseEvent, EventCategory, EventPriority,
+from src.core.unified_event_system import (BaseEvent, EventCategory, EventPriority,
                                    get_unified_event_bus)
 
 

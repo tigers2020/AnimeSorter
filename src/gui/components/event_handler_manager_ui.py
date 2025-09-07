@@ -8,7 +8,7 @@ from pathlib import Path
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
-from .settings_dialog import SettingsDialog
+from src.gui.components.settings_dialog import SettingsDialog
 
 
 class EventHandlerManagerUI:
@@ -408,7 +408,7 @@ class EventHandlerManagerUI:
                     not self.main_window.tmdb_client
                     or self.main_window.tmdb_client.api_key != api_key
                 ):
-                    from core.tmdb_client import TMDBClient
+                    from src.core.tmdb_client import TMDBClient
 
                     self.main_window.tmdb_client = TMDBClient(api_key=api_key)
                     print("✅ TMDBClient 재초기화 완료")

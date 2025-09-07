@@ -15,11 +15,11 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from core.file_manager import FileManager
-from core.file_parser import FileParser
-from core.video_metadata_extractor import VideoMetadataExtractor
+from src.core.file_manager import FileManager
+from src.core.file_parser import FileParser
+from src.core.video_metadata_extractor import VideoMetadataExtractor
 
-from .anime_data_manager import ParsedItem
+from src.gui.managers.anime_data_manager import ParsedItem
 
 
 @dataclass

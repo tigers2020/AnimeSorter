@@ -69,12 +69,46 @@ class MainWindowMenuActionHandler:
                     return
 
             # 기존 정리 로직 호출
-            if hasattr(self.main_window, "file_organization_handler"):
-                self.main_window.file_organization_handler.start_file_organization()
+            if hasattr(self.main_window, "file_organization_handler") and self.main_window.file_organization_handler:
+                print("✅ file_organization_handler 발견 - 파일 정리 시작")
+                try:
+                    self.main_window.file_organization_handler.start_file_organization()
+                    print("✅ 파일 정리 기능 실행 완료")
+                except Exception as e:
+                    print(f"❌ 파일 정리 실행 중 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
             else:
-                print("⚠️ file_organization_handler가 초기화되지 않음")
+                print("⚠️ file_organization_handler가 아직 초기화되지 않았습니다")
+                print("   애플리케이션이 완전히 시작된 후 다시 시도해주세요")
+                print(f"   hasattr 체크: {hasattr(self.main_window, 'file_organization_handler')}")
+                if hasattr(self.main_window, 'file_organization_handler'):
+                    print(f"   핸들러 값: {self.main_window.file_organization_handler}")
+                # 사용자에게 메시지 표시
+                self._show_message_to_user("파일 정리 기능이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.")
         except Exception as e:
             print(f"❌ 정리 요청 처리 실패: {e}")
+
+    def _show_message_to_user(self, message: str, title: str = "알림", icon="information"):
+        """사용자에게 메시지를 표시합니다"""
+        try:
+            from PyQt5.QtWidgets import QMessageBox
+
+            msg_box = QMessageBox(self.main_window)
+            msg_box.setWindowTitle(title)
+            msg_box.setText(message)
+
+            if icon == "warning":
+                msg_box.setIcon(QMessageBox.Warning)
+            elif icon == "error":
+                msg_box.setIcon(QMessageBox.Critical)
+            else:
+                msg_box.setIcon(QMessageBox.Information)
+
+            msg_box.setStandardButtons(QMessageBox.Ok)
+            msg_box.exec_()
+        except Exception as e:
+            print(f"❌ 메시지 표시 실패: {e}")
 
     def on_settings_requested(self):
         """툴바에서 설정 요청 처리"""

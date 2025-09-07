@@ -8,7 +8,7 @@ import logging
 from collections import defaultdict
 from typing import Any
 
-from ...domain import (MediaFile, MediaGroup, MediaMetadata, MediaQuality,
+from src.app.domain import (MediaFile, MediaGroup, MediaMetadata, MediaQuality,
                        MediaSource)
 
 

@@ -1,0 +1,66 @@
+{
+  "theme": "dark",
+  "colors": {
+    "primary": {
+      "50": "#1e3a8a",
+      "100": "#1e40af",
+      "200": "#1d4ed8",
+      "300": "#2563eb",
+      "400": "#3b82f6",
+      "500": "#60a5fa",
+      "600": "#93c5fd",
+      "700": "#bfdbfe",
+      "800": "#dbeafe",
+      "900": "#eff6ff"
+    },
+    "text": {
+      "primary": "#f8fafc",
+      "secondary": "#cbd5e1",
+      "muted": "#94a3b8",
+      "inverse": "#0f172a"
+    },
+    "background": {
+      "default": "#0f172a",
+      "secondary": "#1e293b",
+      "muted": "#334155",
+      "inverse": "#f8fafc"
+    },
+    "border": {
+      "default": "#334155",
+      "secondary": "#475569",
+      "muted": "#64748b",
+      "focus": "#60a5fa"
+    },
+    "surface": {
+      "default": "#1e293b",
+      "secondary": "#334155",
+      "elevated": "#475569",
+      "depressed": "#0f172a"
+    },
+    "input": {
+      "background": "#1e293b",
+      "border": "#475569",
+      "focus": "#60a5fa",
+      "placeholder": "#94a3b8"
+    },
+    "button": {
+      "primary": "#60a5fa",
+      "primary_hover": "#93c5fd",
+      "secondary": "#64748b",
+      "secondary_hover": "#94a3b8",
+      "text": "#0f172a"
+    },
+    "menu": {
+      "background": "#1e293b",
+      "border": "#334155",
+      "text": "#f8fafc",
+      "hover": "#334155",
+      "selected": "#1e40af"
+    },
+    "scrollbar": {
+      "background": "#1e293b",
+      "handle": "#475569",
+      "handle_hover": "#64748b"
+    }
+  }
+}

@@ -11,7 +11,7 @@ import logging
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow
 
-from ..components.tmdb_search_dialog import TMDBSearchDialog
+from src.gui.components.tmdb_search_dialog import TMDBSearchDialog
 
 
 class TMDBSearchHandler:

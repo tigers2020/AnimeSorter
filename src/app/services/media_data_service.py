@@ -11,9 +11,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from ..domain import MediaFile, MediaGroup
-from ..events import TypedEventBus
-from ..media_data_events import (MediaDataClearedEvent, MediaDataErrorEvent,
+from src.app.domain import MediaFile, MediaGroup
+from src.app.events import TypedEventBus
+from src.app.media_data_events import (MediaDataClearedEvent, MediaDataErrorEvent,
                                  MediaDataExportCompletedEvent,
                                  MediaDataExportStartedEvent, MediaDataFilter,
                                  MediaDataFilteringCompletedEvent,
@@ -25,7 +25,7 @@ from ..media_data_events import (MediaDataClearedEvent, MediaDataErrorEvent,
                                  MediaDataParsingCompletedEvent,
                                  MediaDataReadyEvent, MediaDataStatistics,
                                  MediaDataStatus, MediaDataUpdatedEvent)
-from .media import MediaExporter, MediaExtractor, MediaFilter, MediaProcessor
+from src.app.services.media import MediaExporter, MediaExtractor, MediaFilter, MediaProcessor
 
 
 class IMediaDataService(ABC):

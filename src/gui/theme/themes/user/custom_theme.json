@@ -1,0 +1,22 @@
+{
+  "name": "custom_theme",
+  "version": "1.0.0",
+  "description": "사용자 정의 테마",
+  "author": "Test User",
+  "created_date": "2024-01-01",
+  "modified_date": "2024-01-01",
+  "tags": [
+    "custom",
+    "test"
+  ],
+  "colors": {
+    "primary": {
+      "value": "#ff0000",
+      "description": "빨간색"
+    },
+    "background": {
+      "value": "#ffffff",
+      "description": "흰색"
+    }
+  }
+}

@@ -7,7 +7,7 @@ from typing import Any
 
 from PyQt5.QtGui import QColor, QFont
 
-from .base_table_model import BaseTableModel
+from src.base_table_model import BaseTableModel
 
 
 class BaseDetailModel(BaseTableModel):

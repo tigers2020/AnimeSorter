@@ -2,8 +2,6 @@
 통합 설정 관리 시스템 - AnimeSorter
 
 기존의 여러 설정 파일들을 통합하여 관리하는 시스템입니다.
-- manual_tasks.json: 개발 작업 추적
-- manual_theme_tasks.json: 테마 엔진 작업 추적
 - opencode.json: MCP 서버 설정
 - animesorter_config.json: 애플리케이션 설정
 """
@@ -20,14 +18,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class DevelopmentTasks:
-    """개발 작업 추적 설정"""
-
-    ui_refactoring_tasks: list[dict[str, Any]] = field(default_factory=list)
-    theme_engine_tasks: list[dict[str, Any]] = field(default_factory=list)
-    last_updated: str = ""
-    source_files: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -64,7 +54,6 @@ class UnifiedConfig:
     """통합 설정 스키마"""
 
     version: str = "1.0.0"
-    development: DevelopmentTasks = field(default_factory=DevelopmentTasks)
     services: ServiceConfig = field(default_factory=ServiceConfig)
     application: ApplicationSettings = field(default_factory=ApplicationSettings)
     user_preferences: UserPreferences = field(default_factory=UserPreferences)
@@ -80,7 +69,8 @@ class UnifiedConfigManager(QObject):
 
     def __init__(self, config_dir: Path | None = None):
         super().__init__()
-        self.config_dir = config_dir or Path("config")
+        # data 디렉토리를 기준으로 config 디렉토리 찾기
+        self.config_dir = config_dir or Path(__file__).parent.parent.parent / "data" / "config"
         self.config_dir.mkdir(exist_ok=True)
 
         self.config = UnifiedConfig()
@@ -132,8 +122,6 @@ class UnifiedConfigManager(QObject):
     def _load_from_dict(self, data: dict[str, Any]):
         """딕셔너리에서 설정 로드"""
         try:
-            if "development" in data:
-                self.config.development = DevelopmentTasks(**data["development"])
             if "services" in data:
                 self.config.services = ServiceConfig(**data["services"])
             if "application" in data:
@@ -149,29 +137,6 @@ class UnifiedConfigManager(QObject):
         """기존 설정 파일들을 통합 설정으로 마이그레이션"""
         logger.info("기존 설정 파일들을 통합 설정으로 마이그레이션합니다.")
 
-        # manual_tasks.json 마이그레이션
-        manual_tasks_file = Path("manual_tasks.json")
-        if manual_tasks_file.exists():
-            try:
-                with manual_tasks_file.open(encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.config.development.ui_refactoring_tasks = data.get("tasks", [])
-                    self.config.development.source_files.append(str(manual_tasks_file))
-                    logger.info("manual_tasks.json 마이그레이션 완료")
-            except Exception as e:
-                logger.error(f"manual_tasks.json 마이그레이션 실패: {e}")
-
-        # manual_theme_tasks.json 마이그레이션
-        theme_tasks_file = Path("manual_theme_tasks.json")
-        if theme_tasks_file.exists():
-            try:
-                with theme_tasks_file.open(encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.config.development.theme_engine_tasks = data.get("tasks", [])
-                    self.config.development.source_files.append(str(theme_tasks_file))
-                    logger.info("manual_theme_tasks.json 마이그레이션 완료")
-            except Exception as e:
-                logger.error(f"manual_theme_tasks.json 마이그레이션 실패: {e}")
 
         # opencode.json 마이그레이션
         opencode_file = Path("opencode.json")
@@ -183,7 +148,6 @@ class UnifiedConfigManager(QObject):
                     self.config.services.api_keys = (
                         data.get("mcp", {}).get("task-master-ai", {}).get("environment", {})
                     )
-                    self.config.development.source_files.append(str(opencode_file))
                     logger.info("opencode.json 마이그레이션 완료")
             except Exception as e:
                 logger.error(f"opencode.json 마이그레이션 실패: {e}")
@@ -247,16 +211,21 @@ class UnifiedConfigManager(QObject):
                         "language": data.get("language", "ko"),
                     }
 
-                    self.config.development.source_files.append(str(app_config_file))
                     logger.info("animesorter_config.json 마이그레이션 완료")
             except Exception as e:
                 logger.error(f"animesorter_config.json 마이그레이션 실패: {e}")
 
         # 메타데이터 설정
+        source_files = []
+        if opencode_file.exists():
+            source_files.append(str(opencode_file))
+        if app_config_file.exists():
+            source_files.append(str(app_config_file))
+
         self.config.metadata = {
             "migrated_at": str(Path().cwd()),
             "migration_version": "1.0.0",
-            "source_files": self.config.development.source_files,
+            "source_files": source_files,
         }
 
     def save_config(self) -> bool:

@@ -7,7 +7,7 @@ Undo/Redo 작업과 관련된 모든 이벤트 정의
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..events import BaseEvent
+from src.app.events import BaseEvent
 
 
 @dataclass

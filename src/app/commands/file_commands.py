@@ -9,10 +9,10 @@ from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .base_command import BaseCommand, CompositeCommand, ICommand
+from src.app.commands.base_command import BaseCommand, CompositeCommand, ICommand
 
 if TYPE_CHECKING:
-    from ..journal import FileOperationDetails, JournalEntryType
+    from src.app.journal import FileOperationDetails, JournalEntryType
 
 
 class MoveFileCommand(BaseCommand):
@@ -68,7 +68,7 @@ class MoveFileCommand(BaseCommand):
 
     def _get_journal_info(self) -> tuple["JournalEntryType", "FileOperationDetails"] | None:
         """저널 정보 반환"""
-        from ..journal import FileOperationDetails, JournalEntryType
+        from src.app.journal import FileOperationDetails, JournalEntryType
 
         return (
             JournalEntryType.FILE_MOVE,
@@ -208,7 +208,7 @@ class DeleteFileCommand(BaseCommand):
 
     def _get_journal_info(self) -> tuple["JournalEntryType", "FileOperationDetails"] | None:
         """저널 정보 반환"""
-        from ..journal import FileOperationDetails, JournalEntryType
+        from src.app.journal import FileOperationDetails, JournalEntryType
 
         return (
             JournalEntryType.FILE_DELETE,

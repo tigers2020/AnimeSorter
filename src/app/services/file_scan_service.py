@@ -10,9 +10,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from ..events import TypedEventBus
-from .background_task_service import IBackgroundTaskService
-from .file_scan_task import FileScanTask
+from src.app.events import TypedEventBus
+from src.app.services.background_task_service import IBackgroundTaskService
+from src.app.services.file_scan_task import FileScanTask
 
 
 class IFileScanService(ABC):
