@@ -14,7 +14,8 @@ from src.app import (IUIUpdateService, SettingsChangedEvent,
                      StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
                      get_event_bus, get_service)
 from src.core.unified_config import unified_config_manager
-from src.settings_state import SettingsCapabilities, SettingsState
+
+from .settings_state import SettingsCapabilities, SettingsState
 
 
 class SettingsViewModel(QObject):

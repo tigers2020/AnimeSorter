@@ -8,29 +8,11 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (
-    ErrorMessageEvent,
-    IMediaDataService,
-    IUIUpdateService,
-    MetadataExportEvent,
-    MetadataImportEvent,
-    MetadataProcessingCompletedEvent,
-    MetadataProcessingFailedEvent,
-    MetadataProcessingProgressEvent,
-    MetadataProcessingStartedEvent,
-    MetadataSearchCompletedEvent,
-    MetadataSearchFailedEvent,
-    MetadataSearchProgressEvent,
-    MetadataSearchStartedEvent,
-    MetadataUpdatedEvent,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TypedEventBus,
-    get_event_bus,
-    get_service,
-)
+from src.app import (ErrorMessageEvent, IMediaDataService, IUIUpdateService,
+                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
+                     get_event_bus, get_service)
 
-from src.metadata_state import MetadataCapabilities, MetadataState
+from .metadata_state import MetadataCapabilities, MetadataState
 
 
 class MetadataViewModel(QObject):
@@ -65,28 +47,29 @@ class MetadataViewModel(QObject):
 
     def _connect_events(self):
         """이벤트 연결 설정"""
-        # 메타데이터 검색 이벤트
-        self.event_bus.subscribe(MetadataSearchStartedEvent, self._on_metadata_search_started)
-        self.event_bus.subscribe(MetadataSearchProgressEvent, self._on_metadata_search_progress)
-        self.event_bus.subscribe(MetadataSearchCompletedEvent, self._on_metadata_search_completed)
-        self.event_bus.subscribe(MetadataSearchFailedEvent, self._on_metadata_search_failed)
+        # TODO: Metadata events are not available in src.app
+        # # 메타데이터 검색 이벤트
+        # self.event_bus.subscribe(MetadataSearchStartedEvent, self._on_metadata_search_started)
+        # self.event_bus.subscribe(MetadataSearchProgressEvent, self._on_metadata_search_progress)
+        # self.event_bus.subscribe(MetadataSearchCompletedEvent, self._on_metadata_search_completed)
+        # self.event_bus.subscribe(MetadataSearchFailedEvent, self._on_metadata_search_failed)
 
-        # 메타데이터 처리 이벤트
-        self.event_bus.subscribe(
-            MetadataProcessingStartedEvent, self._on_metadata_processing_started
-        )
-        self.event_bus.subscribe(
-            MetadataProcessingProgressEvent, self._on_metadata_processing_progress
-        )
-        self.event_bus.subscribe(
-            MetadataProcessingCompletedEvent, self._on_metadata_processing_completed
-        )
-        self.event_bus.subscribe(MetadataProcessingFailedEvent, self._on_metadata_processing_failed)
+        # # 메타데이터 처리 이벤트
+        # self.event_bus.subscribe(
+        #     MetadataProcessingStartedEvent, self._on_metadata_processing_started
+        # )
+        # self.event_bus.subscribe(
+        #     MetadataProcessingProgressEvent, self._on_metadata_processing_progress
+        # )
+        # self.event_bus.subscribe(
+        #     MetadataProcessingCompletedEvent, self._on_metadata_processing_completed
+        # )
+        # self.event_bus.subscribe(MetadataProcessingFailedEvent, self._on_metadata_processing_failed)
 
-        # 메타데이터 업데이트 이벤트
-        self.event_bus.subscribe(MetadataUpdatedEvent, self._on_metadata_updated)
-        self.event_bus.subscribe(MetadataImportEvent, self._on_metadata_imported)
-        self.event_bus.subscribe(MetadataExportEvent, self._on_metadata_exported)
+        # # 메타데이터 업데이트 이벤트
+        # self.event_bus.subscribe(MetadataUpdatedEvent, self._on_metadata_updated)
+        # self.event_bus.subscribe(MetadataImportEvent, self._on_metadata_imported)
+        # self.event_bus.subscribe(MetadataExportEvent, self._on_metadata_exported)
 
         # UI 이벤트
         self.event_bus.subscribe(StatusBarUpdateEvent, self._on_status_bar_update)
@@ -210,112 +193,113 @@ class MetadataViewModel(QObject):
         return self._capabilities.can_bulk_edit_metadata
 
     # 이벤트 핸들러들
-    def _on_metadata_search_started(self, event: MetadataSearchStartedEvent):
-        """메타데이터 검색 시작 이벤트 처리"""
-        self._state.is_searching_metadata = True
-        self._state.current_search_id = event.search_id
-        self._state.search_query = event.query
-        self._state.metadata_search_progress = 0
-        self._state.current_operation = "메타데이터 검색 시작"
-        self._state.current_file = ""
+    # TODO: Metadata events are not available in src.app - commented out for now
+    # def _on_metadata_search_started(self, event: MetadataSearchStartedEvent):
+    #     """메타데이터 검색 시작 이벤트 처리"""
+    #     self._state.is_searching_metadata = True
+    #     self._state.current_search_id = event.search_id
+    #     self._state.search_query = event.query
+    #     self._state.metadata_search_progress = 0
+    #     self._state.current_operation = "메타데이터 검색 시작"
+    #     self._state.current_file = ""
 
-        self._update_capabilities()
-        self.state_changed.emit()
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
 
-    def _on_metadata_search_progress(self, event: MetadataSearchProgressEvent):
-        """메타데이터 검색 진행률 이벤트 처리"""
-        self._state.metadata_search_progress = event.progress
-        self._state.current_operation = event.operation
-        self._state.current_file = event.current_file
+    # def _on_metadata_search_progress(self, event: MetadataSearchProgressEvent):
+    #     """메타데이터 검색 진행률 이벤트 처리"""
+    #     self._state.metadata_search_progress = event.progress
+    #     self._state.current_operation = event.operation
+    #     self._state.current_file = event.current_file
 
-        self.search_progress_changed.emit(event.progress)
-        self.operation_changed.emit(event.operation)
-        self.file_changed.emit(event.current_file)
+    #     self.search_progress_changed.emit(event.progress)
+    #     self.operation_changed.emit(event.operation)
+    #     self.file_changed.emit(event.current_file)
 
-    def _on_metadata_search_completed(self, event: MetadataSearchCompletedEvent):
-        """메타데이터 검색 완료 이벤트 처리"""
-        self._state.is_searching_metadata = False
-        self._state.current_search_id = None
-        self._state.metadata_search_progress = 100
-        self._state.current_operation = "메타데이터 검색 완료"
-        self._state.current_file = ""
+    # def _on_metadata_search_completed(self, event: MetadataSearchCompletedEvent):
+    #     """메타데이터 검색 완료 이벤트 처리"""
+    #     self._state.is_searching_metadata = False
+    #     self._state.current_search_id = None
+    #     self._state.metadata_search_progress = 100
+    #     self._state.current_operation = "메타데이터 검색 완료"
+    #     self._state.current_file = ""
 
-        # 결과 통계 업데이트
-        self._state.successful_searches = event.successful_searches
-        self._state.failed_searches = event.failed_searches
-        self._state.partial_matches = event.partial_matches
-        self._state.exact_matches = event.exact_matches
+    #     # 결과 통계 업데이트
+    #     self._state.successful_searches = event.successful_searches
+    #     self._state.failed_searches = event.failed_searches
+    #     self._state.partial_matches = event.partial_matches
+    #     self._state.exact_matches = event.exact_matches
 
-        self._update_capabilities()
-        self.state_changed.emit()
-        self.success_occurred.emit("메타데이터 검색이 완료되었습니다")
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
+    #     self.success_occurred.emit("메타데이터 검색이 완료되었습니다")
 
-    def _on_metadata_search_failed(self, event: MetadataSearchFailedEvent):
-        """메타데이터 검색 실패 이벤트 처리"""
-        self._state.is_searching_metadata = False
-        self._state.current_search_id = None
-        self._state.last_error = event.error_message
-        self._state.error_count += 1
+    # def _on_metadata_search_failed(self, event: MetadataSearchFailedEvent):
+    #     """메타데이터 검색 실패 이벤트 처리"""
+    #     self._state.is_searching_metadata = False
+    #     self._state.current_search_id = None
+    #     self._state.last_error = event.error_message
+    #     self._state.error_count += 1
 
-        self._update_capabilities()
-        self.state_changed.emit()
-        self.error_occurred.emit(event.error_message)
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
+    #     self.error_occurred.emit(event.error_message)
 
-    def _on_metadata_processing_started(self, event: MetadataProcessingStartedEvent):
-        """메타데이터 처리 시작 이벤트 처리"""
-        self._state.is_processing_metadata = True
-        self._state.current_processing_id = event.processing_id
-        self._state.metadata_processing_progress = 0
-        self._state.current_operation = "메타데이터 처리 시작"
-        self._state.current_file = ""
+    # def _on_metadata_processing_started(self, event: MetadataProcessingStartedEvent):
+    #     """메타데이터 처리 시작 이벤트 처리"""
+    #     self._state.is_processing_metadata = True
+    #     self._state.current_processing_id = event.processing_id
+    #     self._state.metadata_processing_progress = 0
+    #     self._state.current_operation = "메타데이터 처리 시작"
+    #     self._state.current_file = ""
 
-        self._update_capabilities()
-        self.state_changed.emit()
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
 
-    def _on_metadata_processing_progress(self, event: MetadataProcessingProgressEvent):
-        """메타데이터 처리 진행률 이벤트 처리"""
-        self._state.metadata_processing_progress = event.progress
-        self._state.current_operation = event.operation
-        self._state.current_file = event.current_file
+    # def _on_metadata_processing_progress(self, event: MetadataProcessingProgressEvent):
+    #     """메타데이터 처리 진행률 이벤트 처리"""
+    #     self._state.metadata_processing_progress = event.progress
+    #     self._state.current_operation = event.operation
+    #     self._state.current_file = event.current_file
 
-        self.processing_progress_changed.emit(event.progress)
-        self.operation_changed.emit(event.operation)
-        self.file_changed.emit(event.current_file)
+    #     self.processing_progress_changed.emit(event.progress)
+    #     self.operation_changed.emit(event.operation)
+    #     self.file_changed.emit(event.current_file)
 
-    def _on_metadata_processing_completed(self, event: MetadataProcessingCompletedEvent):
-        """메타데이터 처리 완료 이벤트 처리"""
-        self._state.is_processing_metadata = False
-        self._state.current_processing_id = None
-        self._state.metadata_processing_progress = 100
-        self._state.current_operation = "메타데이터 처리 완료"
-        self._state.current_file = ""
+    # def _on_metadata_processing_completed(self, event: MetadataProcessingCompletedEvent):
+    #     """메타데이터 처리 완료 이벤트 처리"""
+    #     self._state.is_processing_metadata = False
+    #     self._state.current_processing_id = None
+    #     self._state.metadata_processing_progress = 100
+    #     self._state.current_operation = "메타데이터 처리 완료"
+    #     self._state.current_file = ""
 
-        self._update_capabilities()
-        self.state_changed.emit()
-        self.success_occurred.emit("메타데이터 처리가 완료되었습니다")
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
+    #     self.success_occurred.emit("메타데이터 처리가 완료되었습니다")
 
-    def _on_metadata_processing_failed(self, event: MetadataProcessingFailedEvent):
-        """메타데이터 처리 실패 이벤트 처리"""
-        self._state.is_processing_metadata = False
-        self._state.current_processing_id = None
-        self._state.last_error = event.error_message
-        self._state.error_count += 1
+    # def _on_metadata_processing_failed(self, event: MetadataProcessingFailedEvent):
+    #     """메타데이터 처리 실패 이벤트 처리"""
+    #     self._state.is_processing_metadata = False
+    #     self._state.current_processing_id = None
+    #     self._state.last_error = event.error_message
+    #     self._state.error_count += 1
 
-        self._update_capabilities()
-        self.state_changed.emit()
-        self.error_occurred.emit(event.error_message)
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
+    #     self.error_occurred.emit(event.error_message)
 
-    def _on_metadata_updated(self, event: MetadataUpdatedEvent):
-        """메타데이터 업데이트 이벤트 처리"""
-        self.metadata_updated.emit()
+    # def _on_metadata_updated(self, event: MetadataUpdatedEvent):
+    #     """메타데이터 업데이트 이벤트 처리"""
+    #     self.metadata_updated.emit()
 
-    def _on_metadata_imported(self, event: MetadataImportEvent):
-        """메타데이터 가져오기 이벤트 처리"""
-        self.success_occurred.emit("메타데이터가 가져와졌습니다")
+    # def _on_metadata_imported(self, event: MetadataImportEvent):
+    #     """메타데이터 가져오기 이벤트 처리"""
+    #     self.success_occurred.emit("메타데이터가 가져와졌습니다")
 
-    def _on_metadata_exported(self, event: MetadataExportEvent):
-        """메타데이터 내보내기 이벤트 처리"""
-        self.success_occurred.emit("메타데이터가 내보내졌습니다")
+    # def _on_metadata_exported(self, event: MetadataExportEvent):
+    #     """메타데이터 내보내기 이벤트 처리"""
+    #     self.success_occurred.emit("메타데이터가 내보내졌습니다")
 
     def _on_status_bar_update(self, event: StatusBarUpdateEvent):
         """상태바 업데이트 이벤트 처리"""

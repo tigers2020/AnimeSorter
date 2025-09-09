@@ -9,9 +9,8 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
+from src.app.events import ITypedEventBus
 from src.core.tmdb_client import TMDBAnimeInfo
-from src.gui.interfaces.i_event_bus import IEventBus
-from src.gui.interfaces.i_view_model import IViewModel
 from src.gui.managers.anime_data_manager import ParsedItem
 
 
@@ -28,7 +27,7 @@ class GroupInfo:
     final_path: str = ""
 
 
-class FileListViewModel(QObject, IViewModel):
+class FileListViewModel(QObject):
     """파일 리스트 뷰모델"""
 
     # 시그널 정의
@@ -36,7 +35,7 @@ class FileListViewModel(QObject, IViewModel):
     selection_changed = pyqtSignal()  # 선택 변경
     group_updated = pyqtSignal(str)  # 그룹 업데이트 (그룹 키)
 
-    def __init__(self, event_bus: IEventBus, parent=None):
+    def __init__(self, event_bus: ITypedEventBus, parent=None):
         super().__init__(parent)
         self.event_bus = event_bus
 
