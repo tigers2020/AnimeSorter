@@ -3,7 +3,6 @@
 컴포넌트 기반 아키텍처로 재구성되어 가독성과 유지보수성이 향상되었습니다.
 """
 
-import os
 from pathlib import Path
 
 from PyQt5.QtCore import Qt
@@ -17,7 +16,6 @@ from src.core.settings_manager import SettingsManager
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
 from src.core.unified_event_system import get_unified_event_bus
-
 # Phase 10.1: 접근성 관리 시스템
 # Phase 10.2: 국제화 관리 시스템
 # Phase 1: 메인 윈도우 분할 - 기능별 클래스 분리
@@ -54,7 +52,8 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 1600, 900)
 
         # 중앙 위젯 및 레이아웃 설정
-        from PyQt5.QtWidgets import QWidget, QVBoxLayout
+        from PyQt5.QtWidgets import QVBoxLayout, QWidget
+
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.parent_layout = QVBoxLayout(self.central_widget)
@@ -115,14 +114,14 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"❌ MainWindow 핸들러들 초기화 실패: {e}")
             import traceback
+
             traceback.print_exc()
 
         # 데이터 매니저들 초기화 (MainWindowCoordinator에서 이미 초기화되었을 수 있음)
-        if not hasattr(self, 'anime_data_manager') or not hasattr(self, 'file_processing_manager'):
+        if not hasattr(self, "anime_data_manager") or not hasattr(self, "file_processing_manager"):
             self.init_data_managers()
         else:
             print("✅ 데이터 매니저들이 이미 MainWindowCoordinator에서 초기화됨")
-
 
         self.current_scan_id = None
         self.current_organization_id = None
@@ -140,6 +139,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 print(f"❌ MainWindow 핸들러들 지연 초기화 실패: {e}")
                 import traceback
+
                 traceback.print_exc()
 
         # 이벤트 루프 시작 후에 핸들러 초기화 실행
@@ -620,8 +620,9 @@ class MainWindow(QMainWindow):
     def on_organize_requested(self):
         """툴바에서 정리 실행 요청 처리 - MainWindowMenuActionHandler로 위임"""
         print("🗂️ 툴바에서 정리 요청됨")
-        print(f"📍 호출 스택:")
+        print("📍 호출 스택:")
         import traceback
+
         for line in traceback.format_stack()[-3:-1]:  # 마지막 2줄만 표시
             print(f"   {line.strip()}")
 
@@ -1317,7 +1318,8 @@ class MainWindow(QMainWindow):
         """테마 모니터링 위젯 표시"""
         try:
             if not self.theme_monitor_widget:
-                from src.gui.theme.theme_monitor_widget import ThemeMonitorWidget
+                from src.gui.theme.theme_monitor_widget import \
+                    ThemeMonitorWidget
 
                 self.theme_monitor_widget = ThemeMonitorWidget(self.theme_manager, self)
 
@@ -1363,14 +1365,16 @@ class MainWindow(QMainWindow):
             )
 
             # UI 상태 컨트롤러 설정
-            from src.gui.components.ui_state_controller import UIStateController
+            from src.gui.components.ui_state_controller import \
+                UIStateController
 
             self.ui_state_controller = UIStateController(
                 main_window=self, settings_manager=self.settings_manager
             )
 
             # 메시지 로그 컨트롤러 설정
-            from src.gui.components.message_log_controller import MessageLogController
+            from src.gui.components.message_log_controller import \
+                MessageLogController
 
             self.message_log_controller = MessageLogController(main_window=self)
 
@@ -1522,6 +1526,28 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"❌ TMDB 검색 직접 시작 실패: {e}")
 
+    def _get_group_file_info(self, group_items):
+        """그룹의 파일 정보를 가져오는 함수"""
+        try:
+            file_names = []
+            for item in group_items:
+                if hasattr(item, "filename") and item.filename:
+                    file_names.append(item.filename)
+                elif hasattr(item, "sourcePath") and item.sourcePath:
+                    from pathlib import Path
+
+                    file_names.append(Path(item.sourcePath).name)
+
+            if file_names:
+                if len(file_names) == 1:
+                    return file_names[0]
+                else:
+                    return f"{file_names[0]} (+{len(file_names) - 1}개 파일)"
+            return "파일 정보 없음"
+        except Exception as e:
+            print(f"❌ 파일 정보 가져오기 실패: {e}")
+            return "파일 정보 없음"
+
     def show_tmdb_dialog_for_group(self, group_id: str):
         """특정 그룹에 대한 TMDB 검색 다이얼로그 표시"""
         try:
@@ -1542,6 +1568,8 @@ class MainWindow(QMainWindow):
 
             # 그룹 제목 가져오기
             group_title = group_items[0].title or group_items[0].detectedTitle or "Unknown"
+            # 파일 정보 가져오기
+            file_info = self._get_group_file_info(group_items)
             print(f"🔍 TMDB 다이얼로그 표시: {group_title} (그룹 {group_id})")
 
             # 먼저 TMDB 검색을 실행하여 결과 개수 확인
@@ -1577,17 +1605,15 @@ class MainWindow(QMainWindow):
             # TMDBSearchDialog 직접 생성
             from src.gui.components.tmdb_search_dialog import TMDBSearchDialog
 
-            dialog = TMDBSearchDialog(group_title, self.tmdb_client, self)
+            dialog = TMDBSearchDialog(
+                group_title, self.tmdb_client, self, file_info, group_title, search_results
+            )
             dialog.anime_selected.connect(
                 lambda anime: self._on_tmdb_anime_selected(group_id, anime)
             )
 
             # 다이얼로그가 닫힐 때 다음 그룹을 처리하도록 연결
             dialog.finished.connect(self._on_tmdb_dialog_finished)
-
-            # 검색 결과가 있으면 미리 설정
-            if search_results:
-                dialog.set_search_results(search_results)
 
             # 다이얼로그 표시
             dialog.show()
@@ -1653,17 +1679,25 @@ class MainWindow(QMainWindow):
         try:
             from src.gui.components.tmdb_search_dialog import TMDBSearchDialog
 
-            dialog = TMDBSearchDialog(title, self.tmdb_client, self)
+            # 파일 정보 가져오기
+            file_info = ""
+            try:
+                if hasattr(self, "anime_data_manager") and self.anime_data_manager:
+                    grouped_items = self.anime_data_manager.get_grouped_items()
+                    if group_id in grouped_items:
+                        file_info = self._get_group_file_info(grouped_items[group_id])
+            except Exception as e:
+                print(f"❌ 파일 정보 가져오기 실패: {e}")
+
+            dialog = TMDBSearchDialog(
+                title, self.tmdb_client, self, file_info, title, search_results
+            )
             dialog.anime_selected.connect(
                 lambda anime: self._on_tmdb_anime_selected(group_id, anime)
             )
 
             # 다이얼로그가 닫힐 때 다음 그룹을 처리하도록 연결
             dialog.finished.connect(self._on_tmdb_dialog_finished)
-
-            # 검색 결과가 있으면 미리 설정
-            if search_results:
-                dialog.set_search_results(search_results)
 
             # 다이얼로그 표시
             dialog.show()

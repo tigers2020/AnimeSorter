@@ -43,18 +43,32 @@ class TMDBSearchDialog(QDialog):
     anime_selected = pyqtSignal(TMDBAnimeInfo)  # 애니메이션 선택됨
     search_requested = pyqtSignal(str)  # 새로운 검색 요청
 
-    def __init__(self, group_title: str, tmdb_client, parent=None):
+    def __init__(
+        self,
+        group_title: str,
+        tmdb_client,
+        parent=None,
+        file_info: str = None,
+        failed_search_query: str = None,
+        initial_results: list = None,
+    ):
         super().__init__(parent)
         self.group_title = group_title
         self.tmdb_client = tmdb_client
         self.search_results = []
         self.selected_anime = None
+        self.file_info = file_info or ""
+        self.failed_search_query = failed_search_query or group_title
+        self.initial_results = initial_results or []
 
         self.init_ui()
         self.setup_connections()
 
-        # 초기 검색 실행
-        self.perform_search(group_title)
+        # 초기 검색 결과가 있으면 설정, 없으면 검색 실행
+        if self.initial_results:
+            self.set_search_results(self.initial_results)
+        else:
+            self.perform_search(self.failed_search_query)
 
     def init_ui(self):
         """UI 초기화"""
@@ -87,9 +101,17 @@ class TMDBSearchDialog(QDialog):
         group = QGroupBox("📋 검색 대상")
         layout = QVBoxLayout(group)
 
+        # 그룹 제목
         self.lblGroupTitle = QLabel(f"제목: {self.group_title}")
         self.lblGroupTitle.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(self.lblGroupTitle)
+
+        # 파일 정보 (파일 풀 네임)
+        if self.file_info:
+            self.lblFileInfo = QLabel(f"파일: {self.file_info}")
+            self.lblFileInfo.setStyleSheet("color: #666; font-size: 12px;")
+            self.lblFileInfo.setWordWrap(True)
+            layout.addWidget(self.lblFileInfo)
 
         return group
 
@@ -100,7 +122,8 @@ class TMDBSearchDialog(QDialog):
 
         self.txtSearch = QLineEdit()
         self.txtSearch.setPlaceholderText("검색어를 입력하세요...")
-        self.txtSearch.setText(self.group_title)
+        # 실패한 검색어를 입력란에 표시
+        self.txtSearch.setText(self.failed_search_query)
         self.txtSearch.returnPressed.connect(self.on_search_clicked)
 
         self.btnSearch = QPushButton("🔍 검색")

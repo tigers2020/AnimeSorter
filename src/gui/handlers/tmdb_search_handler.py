@@ -87,17 +87,33 @@ class TMDBSearchHandler:
                     return
 
             # 새 다이얼로그 생성
-            dialog = TMDBSearchDialog(group_title, self.main_window.tmdb_client, self.main_window)
+            # 파일 정보 가져오기
+            file_info = ""
+            try:
+                if (
+                    hasattr(self.main_window, "anime_data_manager")
+                    and self.main_window.anime_data_manager
+                ):
+                    grouped_items = self.main_window.anime_data_manager.get_grouped_items()
+                    if group_id in grouped_items:
+                        file_info = self.main_window._get_group_file_info(grouped_items[group_id])
+            except Exception as e:
+                print(f"❌ 파일 정보 가져오기 실패: {e}")
+
+            dialog = TMDBSearchDialog(
+                group_title,
+                self.main_window.tmdb_client,
+                self.main_window,
+                file_info,
+                group_title,
+                search_results,
+            )
             dialog.anime_selected.connect(
                 lambda anime: self.on_tmdb_anime_selected(group_id, anime)
             )
 
             # 다이얼로그 저장
             self.tmdb_search_dialogs[group_id] = dialog
-
-            # 검색 결과가 있으면 미리 설정
-            if search_results:
-                dialog.set_search_results(search_results)
 
             # 다이얼로그 표시
             dialog.show()

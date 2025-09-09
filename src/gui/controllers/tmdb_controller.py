@@ -9,11 +9,10 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, QTimer
 
+from src.app.interfaces.i_controller import IController
+from src.app.interfaces.i_event_bus import Event, IEventBus
 from src.core.tmdb_client import TMDBAnimeInfo, TMDBClient
-
-from src.components.tmdb_search_dialog import TMDBSearchDialog
-from src.interfaces.i_controller import IController
-from src.interfaces.i_event_bus import Event, IEventBus
+from src.gui.components.tmdb_search_dialog import TMDBSearchDialog
 
 
 class TMDBController(IController):
@@ -190,7 +189,10 @@ class TMDBController(IController):
                 return
 
             # 새 다이얼로그 생성
-            dialog = TMDBSearchDialog(title, self.tmdb_client, self.parent_widget)
+            # 파일 정보는 현재 컨트롤러에서는 접근하기 어려우므로 빈 문자열로 설정
+            dialog = TMDBSearchDialog(
+                title, self.tmdb_client, self.parent_widget, "", title, search_results
+            )
 
             # 시그널 연결
             dialog.anime_selected.connect(
@@ -203,10 +205,6 @@ class TMDBController(IController):
 
             # 다이얼로그 저장 및 표시
             self.search_dialogs[group_id] = dialog
-
-            # 검색 결과가 있으면 미리 설정
-            if search_results:
-                dialog.set_search_results(search_results)
 
             dialog.show()
 
