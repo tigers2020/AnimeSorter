@@ -8,13 +8,12 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (ErrorMessageEvent, FileCountUpdateEvent, FilesScannedEvent,
-                     IFileScanService, IUIUpdateService, ScanCompletedEvent,
-                     ScanFailedEvent, ScanProgressEvent, ScanStartedEvent,
-                     ScanStoppedEvent, StatusBarUpdateEvent, SuccessMessageEvent,
-                     TypedEventBus, get_event_bus, get_service)
+from src.app import (ErrorMessageEvent, FileCountUpdateEvent,
+                     FilesScannedEvent, IFileScanService, IUIUpdateService,
+                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
+                     get_event_bus, get_service)
 
-from src.scan_state import ScanCapabilities, ScanState
+from .scan_state import ScanCapabilities, ScanState
 
 
 class ScanViewModel(QObject):
@@ -49,12 +48,13 @@ class ScanViewModel(QObject):
 
     def _connect_events(self):
         """이벤트 연결 설정"""
-        # 스캔 관련 이벤트
-        self.event_bus.subscribe(ScanStartedEvent, self._on_scan_started)
-        self.event_bus.subscribe(ScanProgressEvent, self._on_scan_progress)
-        self.event_bus.subscribe(ScanCompletedEvent, self._on_scan_completed)
-        self.event_bus.subscribe(ScanFailedEvent, self._on_scan_failed)
-        self.event_bus.subscribe(ScanStoppedEvent, self._on_scan_stopped)
+        # TODO: Scan events are not available in src.app
+        # # 스캔 관련 이벤트
+        # self.event_bus.subscribe(ScanStartedEvent, self._on_scan_started)
+        # self.event_bus.subscribe(ScanProgressEvent, self._on_scan_progress)
+        # self.event_bus.subscribe(ScanCompletedEvent, self._on_scan_completed)
+        # self.event_bus.subscribe(ScanFailedEvent, self._on_scan_failed)
+        # self.event_bus.subscribe(ScanStoppedEvent, self._on_scan_stopped)
 
         # 파일 관련 이벤트
         self.event_bus.subscribe(FilesScannedEvent, self._on_files_scanned)
@@ -192,72 +192,73 @@ class ScanViewModel(QObject):
         return self._capabilities.can_load_scan_configuration
 
     # 이벤트 핸들러들
-    def _on_scan_started(self, event: ScanStartedEvent):
-        """스캔 시작 이벤트 처리"""
-        self._state.is_scanning = True
-        self._state.current_scan_id = event.scan_id
-        self._state.scanned_directory = str(event.directory_path)
-        self._state.scan_progress = 0
-        self._state.current_operation = "스캔 시작"
-        self._state.current_file = ""
-        self._state.current_directory = ""
+    # TODO: Scan events are not available in src.app - commented out for now
+    # def _on_scan_started(self, event: ScanStartedEvent):
+    #     """스캔 시작 이벤트 처리"""
+    #     self._state.is_scanning = True
+    #     self._state.current_scan_id = event.scan_id
+    #     self._state.scanned_directory = str(event.directory_path)
+    #     self._state.scan_progress = 0
+    #     self._state.current_operation = "스캔 시작"
+    #     self._state.current_file = ""
+    #     self._state.current_directory = ""
 
-        self._update_capabilities()
-        self.state_changed.emit()
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
 
-    def _on_scan_progress(self, event: ScanProgressEvent):
-        """스캔 진행률 이벤트 처리"""
-        self._state.scan_progress = event.progress
-        self._state.current_operation = event.operation
-        self._state.current_file = event.current_file
-        self._state.current_directory = event.current_directory
+    # def _on_scan_progress(self, event: ScanProgressEvent):
+    #     """스캔 진행률 이벤트 처리"""
+    #     self._state.scan_progress = event.progress
+    #     self._state.current_operation = event.operation
+    #     self._state.current_file = event.current_file
+    #     self._state.current_directory = event.current_directory
 
-        self.progress_changed.emit(event.progress)
-        self.operation_changed.emit(event.operation)
-        self.file_changed.emit(event.current_file)
-        self.directory_changed.emit(event.current_directory)
+    #     self.progress_changed.emit(event.progress)
+    #     self.operation_changed.emit(event.operation)
+    #     self.file_changed.emit(event.current_file)
+    #     self.directory_changed.emit(event.current_directory)
 
-    def _on_scan_completed(self, event: ScanCompletedEvent):
-        """스캔 완료 이벤트 처리"""
-        self._state.is_scanning = False
-        self._state.current_scan_id = None
-        self._state.scan_progress = 100
-        self._state.current_operation = "스캔 완료"
-        self._state.current_file = ""
-        self._state.current_directory = ""
+    # def _on_scan_completed(self, event: ScanCompletedEvent):
+    #     """스캔 완료 이벤트 처리"""
+    #     self._state.is_scanning = False
+    #     self._state.current_scan_id = None
+    #     self._state.scan_progress = 100
+    #     self._state.current_operation = "스캔 완료"
+    #     self._state.current_file = ""
+    #     self._state.current_directory = ""
 
-        # 결과 통계 업데이트
-        self._state.total_files_found = event.total_files
-        self._state.total_directories_scanned = event.total_directories
-        self._state.total_size_scanned = event.total_size
-        self._state.average_file_size = event.average_file_size
-        self._state.largest_file_size = event.largest_file_size
-        self._state.smallest_file_size = event.smallest_file_size
+    #     # 결과 통계 업데이트
+    #     self._state.total_files_found = event.total_files
+    #     self._state.total_directories_scanned = event.total_directories
+    #     self._state.total_size_scanned = event.total_size
+    #     self._state.average_file_size = event.average_file_size
+    #     self._state.largest_file_size = event.largest_file_size
+    #     self._state.smallest_file_size = event.smallest_file_size
 
-        self._update_capabilities()
-        self.state_changed.emit()
-        self.scan_completed.emit()
-        self.success_occurred.emit("파일 스캔이 완료되었습니다")
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
+    #     self.scan_completed.emit()
+    #     self.success_occurred.emit("파일 스캔이 완료되었습니다")
 
-    def _on_scan_failed(self, event: ScanFailedEvent):
-        """스캔 실패 이벤트 처리"""
-        self._state.is_scanning = False
-        self._state.current_scan_id = None
-        self._state.last_error = event.error_message
-        self._state.error_count += 1
+    # def _on_scan_failed(self, event: ScanFailedEvent):
+    #     """스캔 실패 이벤트 처리"""
+    #     self._state.is_scanning = False
+    #     self._state.current_scan_id = None
+    #     self._state.last_error = event.error_message
+    #     self._state.error_count += 1
 
-        self._update_capabilities()
-        self.state_changed.emit()
-        self.error_occurred.emit(event.error_message)
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
+    #     self.error_occurred.emit(event.error_message)
 
-    def _on_scan_stopped(self, event: ScanStoppedEvent):
-        """스캔 중지 이벤트 처리"""
-        self._state.is_scanning = False
-        self._state.current_scan_id = None
-        self._state.current_operation = "스캔 중지됨"
+    # def _on_scan_stopped(self, event: ScanStoppedEvent):
+    #     """스캔 중지 이벤트 처리"""
+    #     self._state.is_scanning = False
+    #     self._state.current_scan_id = None
+    #     self._state.current_operation = "스캔 중지됨"
 
-        self._update_capabilities()
-        self.state_changed.emit()
+    #     self._update_capabilities()
+    #     self.state_changed.emit()
 
     def _on_files_scanned(self, event: FilesScannedEvent):
         """파일 스캔 완료 이벤트 처리"""

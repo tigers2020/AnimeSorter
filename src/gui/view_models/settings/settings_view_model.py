@@ -8,22 +8,14 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (
-    ISettingsManager,
-    IUIUpdateService,
-    SettingsChangedEvent,
-    SettingsExportEvent,
-    SettingsImportEvent,
-    SettingsResetEvent,
-    SettingsSavedEvent,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TypedEventBus,
-    get_event_bus,
-    get_service,
-)
+from src.app import (IUIUpdateService, SettingsChangedEvent,
+                     SettingsExportEvent, SettingsImportEvent,
+                     SettingsResetEvent, SettingsSavedEvent,
+                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
+                     get_event_bus, get_service)
+from src.core.unified_config import unified_config_manager
 
-from src.settings_state import SettingsCapabilities, SettingsState
+from .settings_state import SettingsCapabilities, SettingsState
 
 
 class SettingsViewModel(QObject):
@@ -51,7 +43,7 @@ class SettingsViewModel(QObject):
 
         # 서비스 및 이벤트 버스
         self.event_bus: TypedEventBus = get_event_bus()
-        self.settings_manager: ISettingsManager = get_service(ISettingsManager)
+        self.settings_manager = unified_config_manager
         self.ui_update_service: IUIUpdateService = get_service(IUIUpdateService)
 
         # 이벤트 연결
@@ -414,7 +406,24 @@ class SettingsViewModel(QObject):
     def get_setting(self, key: str, default: Any = None) -> Any:
         """설정 값 가져오기"""
         try:
-            return self.settings_manager.get_setting(key, default)
+            # unified_config_manager 구조에 맞게 설정 값 가져오기
+            if hasattr(self.settings_manager, "config"):
+                # unified_config_manager 사용
+                config = self.settings_manager.config
+                if key == "destination_root":
+                    return getattr(config.application, "destination_root", default)
+                elif key == "theme":
+                    return getattr(config.user_preferences.theme_preferences, "theme", default)
+                elif key == "language":
+                    return getattr(config.user_preferences, "language", default)
+                elif key == "font_family":
+                    return getattr(config.user_preferences, "font_family", default)
+                elif key == "font_size":
+                    return getattr(config.user_preferences, "font_size", default)
+                elif key == "ui_style":
+                    return getattr(config.user_preferences, "ui_style", default)
+                else:
+                    return default
         except Exception as e:
             self.logger.error(f"설정 값 가져오기 실패: {e}")
             return default

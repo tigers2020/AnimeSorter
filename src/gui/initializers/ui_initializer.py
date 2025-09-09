@@ -102,8 +102,13 @@ class UIInitializer:
         """메뉴바 생성"""
         try:
             # safety_system_manager가 존재하는지 확인
-            if not hasattr(self.main_window, 'safety_system_manager') or self.main_window.safety_system_manager is None:
-                self.logger.warning("safety_system_manager가 초기화되지 않았습니다. 메뉴바 생성을 건너뜁니다.")
+            if (
+                not hasattr(self.main_window, "safety_system_manager")
+                or self.main_window.safety_system_manager is None
+            ):
+                self.logger.warning(
+                    "safety_system_manager가 초기화되지 않았습니다. 메뉴바 생성을 건너뜁니다."
+                )
                 return
 
             self.menu_builder.create_menu_bar()
@@ -248,9 +253,10 @@ class UIInitializer:
         """패널들 생성"""
         try:
             # UI Components import 추가
+            from src.gui.components.central_triple_layout import \
+                CentralTripleLayout
             from src.gui.components.left_panel_dock import LeftPanelDock
             from src.gui.components.results_view import ResultsView
-            from src.gui.components.central_triple_layout import CentralTripleLayout
 
             # 왼쪽 패널: 빠른 작업, 통계, 필터 (Dock으로 변경)
             self.main_window.left_panel_dock = LeftPanelDock()
@@ -478,9 +484,13 @@ class UIInitializer:
             # 대상 폴더 정보 가져오기
             destination_directory = ""
             if hasattr(self.main_window, "settings_manager"):
-                destination_directory = self.main_window.settings_manager.get_setting(
-                    "destination_root", "대상 폴더"
-                )
+                if hasattr(self.main_window.settings_manager, "config"):
+                    # unified_config_manager의 경우
+                    destination_directory = getattr(
+                        self.main_window.settings_manager.config.application,
+                        "destination_root",
+                        "대상 폴더",
+                    )
 
             # 모델들 생성
             tmdb_client = getattr(self.main_window, "tmdb_client", None)

@@ -4,23 +4,10 @@ AnimeSorter의 모든 설정을 편집할 수 있는 다이얼로그를 제공�
 """
 
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QDialogButtonBox,
-    QFileDialog,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    QSpinBox,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
+                             QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
+                             QLineEdit, QMessageBox, QPushButton, QSpinBox,
+                             QTabWidget, QVBoxLayout, QWidget)
 
 
 class SettingsDialog(QDialog):
@@ -31,7 +18,8 @@ class SettingsDialog(QDialog):
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
-        self.settings = settings_manager.settings
+        # unified_config_manager의 경우 config 속성을 사용
+        self.settings = settings_manager.config
 
         self.init_ui()
         self.load_current_settings()
@@ -316,97 +304,240 @@ class SettingsDialog(QDialog):
 
     def load_current_settings(self):
         """현재 설정을 UI에 로드"""
+        print("🔧 [SettingsDialog] 설정 로딩 시작")
         try:
-            # 일반 설정
-            self.destination_root_edit.setText(self.settings.destination_root or "")
-            self.organize_mode_combo.setCurrentText(self.settings.organize_mode)
-            self.naming_scheme_combo.setCurrentText(self.settings.naming_scheme)
-            self.remember_session_check.setChecked(self.settings.remember_last_session)
+            if hasattr(self.settings_manager, "config"):
+                print(f"🔧 [SettingsDialog] config: {self.settings_manager.config}")
+                print(f"🔧 [SettingsDialog] application: {self.settings.application}")
+                print(f"🔧 [SettingsDialog] services: {self.settings.services}")
+                print(f"🔧 [SettingsDialog] user_preferences: {self.settings.user_preferences}")
 
-            # 파싱 설정
-            self.prefer_anitopy_check.setChecked(self.settings.prefer_anitopy)
-            self.fallback_parser_combo.setCurrentText(self.settings.fallback_parser)
-            self.realtime_monitoring_check.setChecked(self.settings.realtime_monitoring)
-            self.auto_refresh_spin.setValue(self.settings.auto_refresh_interval)
+                # unified_config_manager의 경우
+                # 일반 설정
+                destination_root = self.settings.application.file_organization.get(
+                    "destination_root", ""
+                )
+                print(f"🔧 [SettingsDialog] destination_root: '{destination_root}'")
+                self.destination_root_edit.setText(destination_root)
 
-            # TMDB 설정
-            self.tmdb_api_key_edit.setText(self.settings.tmdb_api_key or "")
-            self.tmdb_language_combo.setCurrentText(self.settings.tmdb_language)
+                organize_mode = self.settings.application.file_organization.get(
+                    "organize_mode", "복사"
+                )
+                print(f"🔧 [SettingsDialog] organize_mode: '{organize_mode}'")
+                self.organize_mode_combo.setCurrentText(organize_mode)
 
-            # 고급 설정
-            self.show_advanced_check.setChecked(self.settings.show_advanced_options)
-            self.safe_mode_check.setChecked(self.settings.safe_mode)
-            self.log_level_combo.setCurrentText(self.settings.log_level)
-            self.log_to_file_check.setChecked(self.settings.log_to_file)
+                naming_scheme = self.settings.application.file_organization.get(
+                    "naming_scheme", "standard"
+                )
+                print(f"🔧 [SettingsDialog] naming_scheme: '{naming_scheme}'")
+                self.naming_scheme_combo.setCurrentText(naming_scheme)
 
-            # 백업 설정
-            self.backup_before_organize_check.setChecked(self.settings.backup_before_organize)
-            self.backup_location_edit.setText(self.settings.backup_location or "")
-            self.max_backup_count_spin.setValue(self.settings.max_backup_count)
+                remember_session = self.settings.user_preferences.remember_last_session
+                print(f"🔧 [SettingsDialog] remember_last_session: {remember_session}")
+                self.remember_session_check.setChecked(remember_session)
 
-            # 외관 설정
-            theme_map = {"auto": "자동", "light": "라이트", "dark": "다크"}
-            current_theme = getattr(self.settings, "theme", "auto")
-            self.theme_combo.setCurrentText(theme_map.get(current_theme, "자동"))
+                # 파싱 설정
+                prefer_anitopy = self.settings.application.file_organization.get(
+                    "prefer_anitopy", False
+                )
+                print(f"🔧 [SettingsDialog] prefer_anitopy: {prefer_anitopy}")
+                self.prefer_anitopy_check.setChecked(prefer_anitopy)
 
-            self.high_contrast_check.setChecked(getattr(self.settings, "high_contrast_mode", False))
-            self.keyboard_navigation_check.setChecked(
-                getattr(self.settings, "keyboard_navigation", True)
-            )
-            self.screen_reader_check.setChecked(
-                getattr(self.settings, "screen_reader_support", True)
-            )
+                fallback_parser = self.settings.application.file_organization.get(
+                    "fallback_parser", "FileParser"
+                )
+                print(f"🔧 [SettingsDialog] fallback_parser: '{fallback_parser}'")
+                self.fallback_parser_combo.setCurrentText(fallback_parser)
 
-            language_map = {"ko": "한국어", "en": "English"}
-            current_language = getattr(self.settings, "language", "ko")
-            self.language_combo.setCurrentText(language_map.get(current_language, "한국어"))
+                realtime_monitoring = self.settings.application.file_organization.get(
+                    "realtime_monitoring", False
+                )
+                print(f"🔧 [SettingsDialog] realtime_monitoring: {realtime_monitoring}")
+                self.realtime_monitoring_check.setChecked(realtime_monitoring)
+
+                auto_refresh_interval = self.settings.application.file_organization.get(
+                    "auto_refresh_interval", 30
+                )
+                print(f"🔧 [SettingsDialog] auto_refresh_interval: {auto_refresh_interval}")
+                self.auto_refresh_spin.setValue(auto_refresh_interval)
+
+                # TMDB 설정
+                tmdb_api_key = self.settings.services.tmdb_api.get("api_key", "")
+                print(f"🔧 [SettingsDialog] tmdb_api_key: '{tmdb_api_key}'")
+                self.tmdb_api_key_edit.setText(tmdb_api_key)
+
+                tmdb_language = self.settings.services.tmdb_api.get("language", "ko-KR")
+                print(f"🔧 [SettingsDialog] tmdb_language: '{tmdb_language}'")
+                self.tmdb_language_combo.setCurrentText(tmdb_language)
+
+                # 고급 설정
+                show_advanced = self.settings.application.file_organization.get(
+                    "show_advanced_options", False
+                )
+                print(f"🔧 [SettingsDialog] show_advanced: {show_advanced}")
+                self.show_advanced_check.setChecked(show_advanced)
+
+                safe_mode = self.settings.application.file_organization.get("safe_mode", True)
+                print(f"🔧 [SettingsDialog] safe_mode: {safe_mode}")
+                self.safe_mode_check.setChecked(safe_mode)
+
+                log_level = self.settings.application.logging_config.get("log_level", "INFO")
+                print(f"🔧 [SettingsDialog] log_level: '{log_level}'")
+                self.log_level_combo.setCurrentText(log_level)
+
+                log_to_file = self.settings.application.logging_config.get("log_to_file", False)
+                print(f"🔧 [SettingsDialog] log_to_file: {log_to_file}")
+                self.log_to_file_check.setChecked(log_to_file)
+
+                # 백업 설정
+                backup_before_organize = self.settings.application.file_organization.get(
+                    "backup_before_organize", False
+                )
+                print(f"🔧 [SettingsDialog] backup_before_organize: {backup_before_organize}")
+                self.backup_before_organize_check.setChecked(backup_before_organize)
+
+                backup_location = self.settings.application.backup_settings.get(
+                    "backup_location", ""
+                )
+                print(f"🔧 [SettingsDialog] backup_location: '{backup_location}'")
+                self.backup_location_edit.setText(backup_location)
+
+                max_backup_count = self.settings.application.backup_settings.get(
+                    "max_backup_count", 10
+                )
+                print(f"🔧 [SettingsDialog] max_backup_count: {max_backup_count}")
+                self.max_backup_count_spin.setValue(max_backup_count)
+
+                # 외관 설정
+                theme_map = {"auto": "자동", "light": "라이트", "dark": "다크"}
+                current_theme = self.settings.user_preferences.theme_preferences.get(
+                    "theme", "auto"
+                )
+                print(f"🔧 [SettingsDialog] current_theme: '{current_theme}'")
+                self.theme_combo.setCurrentText(theme_map.get(current_theme, "자동"))
+
+                high_contrast_mode = self.settings.user_preferences.accessibility.get(
+                    "high_contrast_mode", False
+                )
+                print(f"🔧 [SettingsDialog] high_contrast_mode: {high_contrast_mode}")
+                self.high_contrast_check.setChecked(high_contrast_mode)
+
+                keyboard_navigation = self.settings.user_preferences.accessibility.get(
+                    "keyboard_navigation", True
+                )
+                print(f"🔧 [SettingsDialog] keyboard_navigation: {keyboard_navigation}")
+                self.keyboard_navigation_check.setChecked(keyboard_navigation)
+
+                screen_reader_support = self.settings.user_preferences.accessibility.get(
+                    "screen_reader_support", True
+                )
+                print(f"🔧 [SettingsDialog] screen_reader_support: {screen_reader_support}")
+                self.screen_reader_check.setChecked(screen_reader_support)
+
+                language_map = {"ko": "한국어", "en": "English"}
+                current_language = self.settings.user_preferences.theme_preferences.get(
+                    "language", "ko"
+                )
+                print(f"🔧 [SettingsDialog] current_language: '{current_language}'")
+                self.language_combo.setCurrentText(language_map.get(current_language, "한국어"))
 
         except Exception as e:
             print(f"⚠️ 설정 로드 실패: {e}")
 
     def save_settings(self):
         """UI 설정을 저장"""
+        print("🔧 [SettingsDialog] 설정 저장 시작")
         try:
-            # 일반 설정
-            self.settings.destination_root = self.destination_root_edit.text().strip()
-            self.settings.organize_mode = self.organize_mode_combo.currentText()
-            self.settings.naming_scheme = self.naming_scheme_combo.currentText()
-            self.settings.remember_last_session = self.remember_session_check.isChecked()
+            if hasattr(self.settings_manager, "config"):
+                # unified_config_manager의 경우
+                print("🔧 [SettingsDialog] unified_config_manager 사용")
 
-            # 파싱 설정
-            self.settings.prefer_anitopy = self.prefer_anitopy_check.isChecked()
-            self.settings.fallback_parser = self.fallback_parser_combo.currentText()
-            self.settings.realtime_monitoring = self.realtime_monitoring_check.isChecked()
-            self.settings.auto_refresh_interval = self.auto_refresh_spin.value()
+                # Application 설정 - file_organization
+                self.settings.application.file_organization["destination_root"] = (
+                    self.destination_root_edit.text().strip()
+                )
+                self.settings.application.file_organization["organize_mode"] = (
+                    self.organize_mode_combo.currentText()
+                )
+                self.settings.application.file_organization["naming_scheme"] = (
+                    self.naming_scheme_combo.currentText()
+                )
 
-            # TMDB 설정
-            self.settings.tmdb_api_key = self.tmdb_api_key_edit.text().strip()
-            self.settings.tmdb_language = self.tmdb_language_combo.currentText()
+                # User preferences - remember_last_session
+                self.settings.user_preferences.gui_state["remember_last_session"] = (
+                    self.remember_session_check.isChecked()
+                )
 
-            # 고급 설정
-            self.settings.show_advanced_options = self.show_advanced_check.isChecked()
-            self.settings.safe_mode = self.safe_mode_check.isChecked()
-            self.settings.log_level = self.log_level_combo.currentText()
-            self.settings.log_to_file = self.log_to_file_check.isChecked()
+                # 파싱 설정 - file_organization
+                self.settings.application.file_organization["prefer_anitopy"] = (
+                    self.prefer_anitopy_check.isChecked()
+                )
+                self.settings.application.file_organization["fallback_parser"] = (
+                    self.fallback_parser_combo.currentText()
+                )
+                self.settings.application.file_organization["realtime_monitoring"] = (
+                    self.realtime_monitoring_check.isChecked()
+                )
+                self.settings.application.file_organization["auto_refresh_interval"] = (
+                    self.auto_refresh_spin.value()
+                )
 
-            # 백업 설정
-            self.settings.backup_before_organize = self.backup_before_organize_check.isChecked()
-            self.settings.backup_location = self.backup_location_edit.text().strip()
-            self.settings.max_backup_count = self.max_backup_count_spin.value()
+                # TMDB 설정 - services
+                self.settings.services.tmdb_api["api_key"] = self.tmdb_api_key_edit.text().strip()
+                self.settings.services.tmdb_api["language"] = self.tmdb_language_combo.currentText()
 
-            # 외관 설정
-            theme_map = {"자동": "auto", "라이트": "light", "다크": "dark"}
-            self.settings.theme = theme_map.get(self.theme_combo.currentText(), "auto")
+                # 고급 설정 - file_organization
+                self.settings.application.file_organization["show_advanced_options"] = (
+                    self.show_advanced_check.isChecked()
+                )
+                self.settings.application.file_organization["safe_mode"] = (
+                    self.safe_mode_check.isChecked()
+                )
 
-            self.settings.high_contrast_mode = self.high_contrast_check.isChecked()
-            self.settings.keyboard_navigation = self.keyboard_navigation_check.isChecked()
-            self.settings.screen_reader_support = self.screen_reader_check.isChecked()
+                # 로깅 설정
+                self.settings.application.logging_config["log_level"] = (
+                    self.log_level_combo.currentText()
+                )
+                self.settings.application.logging_config["log_to_file"] = (
+                    self.log_to_file_check.isChecked()
+                )
 
-            language_map = {"한국어": "ko", "English": "en"}
-            self.settings.language = language_map.get(self.language_combo.currentText(), "ko")
+                # 백업 설정
+                self.settings.application.file_organization["backup_before_organize"] = (
+                    self.backup_before_organize_check.isChecked()
+                )
+                self.settings.application.backup_settings["backup_location"] = (
+                    self.backup_location_edit.text().strip()
+                )
+                self.settings.application.backup_settings["max_backup_count"] = (
+                    self.max_backup_count_spin.value()
+                )
 
-            # 설정 파일에 저장
-            self.settings_manager.save_settings()
+                # 외관 설정 - user_preferences
+                theme_map = {"자동": "auto", "라이트": "light", "다크": "dark"}
+                self.settings.user_preferences.theme_preferences["theme"] = theme_map.get(
+                    self.theme_combo.currentText(), "auto"
+                )
+
+                self.settings.user_preferences.accessibility["high_contrast_mode"] = (
+                    self.high_contrast_check.isChecked()
+                )
+                self.settings.user_preferences.accessibility["keyboard_navigation"] = (
+                    self.keyboard_navigation_check.isChecked()
+                )
+                self.settings.user_preferences.accessibility["screen_reader_support"] = (
+                    self.screen_reader_check.isChecked()
+                )
+
+                language_map = {"한국어": "ko", "English": "en"}
+                self.settings.user_preferences.theme_preferences["language"] = language_map.get(
+                    self.language_combo.currentText(), "ko"
+                )
+
+                # 설정 파일에 저장
+                print("🔧 [SettingsDialog] 설정 저장 중...")
+                self.settings_manager.save_config()
+                print("✅ [SettingsDialog] 설정 저장 완료")
 
             print("✅ 설정 저장 완료")
 
@@ -426,7 +557,12 @@ class SettingsDialog(QDialog):
 
         if reply == QMessageBox.Yes:
             # 기본 설정으로 초기화
-            self.settings = self.settings_manager.get_default_settings()
+            if hasattr(self.settings_manager, "config"):
+                # unified_config_manager의 경우
+                from src.core.unified_config import UnifiedConfig
+
+                self.settings = UnifiedConfig()
+                self.settings_manager.config = self.settings
             self.load_current_settings()
             print("✅ 설정을 기본값으로 초기화했습니다")
 

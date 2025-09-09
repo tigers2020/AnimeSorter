@@ -4,17 +4,9 @@
 """
 
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (
-    QFormLayout,
-    QFrame,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QFormLayout, QFrame, QGroupBox, QHBoxLayout,
+                             QLabel, QPushButton, QSizePolicy, QVBoxLayout,
+                             QWidget)
 
 
 class LeftPanel(QWidget):
@@ -295,7 +287,11 @@ class LeftPanel(QWidget):
         # 이전에 선택한 폴더가 있으면 그곳에서 시작
         start_dir = ""
         if self.main_window and hasattr(self.main_window, "settings_manager"):
-            start_dir = self.main_window.settings_manager.get_setting("last_source_directory", "")
+            start_dir = getattr(
+                self.main_window.settings_manager.config.user_preferences.gui_state,
+                "last_source_directory",
+                "",
+            )
 
         folder = QFileDialog.getExistingDirectory(
             self, "애니메이션 파일이 있는 소스 폴더 선택", start_dir
@@ -313,7 +309,10 @@ class LeftPanel(QWidget):
             # 설정 관리자에 저장
             if self.main_window and hasattr(self.main_window, "settings_manager"):
                 self.main_window.settings_manager.set_setting("last_source_directory", folder)
-                self.main_window.settings_manager.save_settings()
+                if hasattr(self.main_window.settings_manager, "config"):
+                    self.main_window.settings_manager.save_config()
+                else:
+                    self.main_window.settings_manager.save_settings()
                 print(f"💾 소스 디렉토리 저장됨: {folder}")
 
     def choose_source_files(self):
@@ -323,7 +322,11 @@ class LeftPanel(QWidget):
         # 이전에 선택한 폴더가 있으면 그곳에서 시작
         start_dir = ""
         if self.main_window and hasattr(self.main_window, "settings_manager"):
-            start_dir = self.main_window.settings_manager.get_setting("last_source_directory", "")
+            start_dir = getattr(
+                self.main_window.settings_manager.config.user_preferences.gui_state,
+                "last_source_directory",
+                "",
+            )
 
         files, _ = QFileDialog.getOpenFileNames(
             self,
@@ -349,7 +352,10 @@ class LeftPanel(QWidget):
                 self.main_window.settings_manager.set_setting(
                     "last_source_directory", first_file_dir
                 )
-                self.main_window.settings_manager.save_settings()
+                if hasattr(self.main_window.settings_manager, "config"):
+                    self.main_window.settings_manager.save_config()
+                else:
+                    self.main_window.settings_manager.save_settings()
 
     def choose_dest_folder(self):
         """대상 폴더 선택"""
@@ -358,9 +364,13 @@ class LeftPanel(QWidget):
         # 이전에 선택한 폴더가 있으면 그곳에서 시작
         start_dir = ""
         if self.main_window and hasattr(self.main_window, "settings_manager"):
-            start_dir = self.main_window.settings_manager.get_setting(
-                "last_destination_directory", ""
-            )
+            if hasattr(self.main_window.settings_manager, "config"):
+                # unified_config_manager의 경우
+                start_dir = getattr(
+                    self.main_window.settings_manager.config.user_preferences,
+                    "last_destination_directory",
+                    "",
+                )
 
         folder = QFileDialog.getExistingDirectory(
             self, "정리된 파일을 저장할 대상 폴더 선택", start_dir
@@ -377,11 +387,20 @@ class LeftPanel(QWidget):
 
             # 설정 관리자에 저장
             if self.main_window and hasattr(self.main_window, "settings_manager"):
-                self.main_window.settings_manager.set_setting("last_destination_directory", folder)
-                self.main_window.settings_manager.set_setting(
-                    "destination_root", folder
-                )  # 메인 설정에도 저장
-                self.main_window.settings_manager.save_settings()
+                if hasattr(self.main_window.settings_manager, "config"):
+                    # unified_config_manager의 경우
+                    self.main_window.settings_manager.config.user_preferences.last_destination_directory = (
+                        folder
+                    )
+                    self.main_window.settings_manager.config.application.destination_root = folder
+                    self.main_window.settings_manager.save_config()
+                    self.main_window.settings_manager.set_setting(
+                        "destination_root", folder
+                    )  # 메인 설정에도 저장
+                    if hasattr(self.main_window.settings_manager, "config"):
+                        self.main_window.settings_manager.save_config()
+                    else:
+                        self.main_window.settings_manager.save_settings()
                 print(f"💾 대상 디렉토리 저장됨: {folder}")
 
     def start_scan(self):
@@ -398,24 +417,49 @@ class LeftPanel(QWidget):
 
     def restore_directory_settings(self):
         """설정에서 디렉토리 정보 복원"""
-        if self.main_window and hasattr(self.main_window, "settings_manager"):
+        print("🔧 [LeftPanel] 디렉토리 설정 복원 시작")
+
+        if not self.main_window:
+            print("⚠️ [LeftPanel] main_window가 없습니다")
+            return
+
+        if not hasattr(self.main_window, "settings_manager"):
+            print("⚠️ [LeftPanel] settings_manager가 없습니다")
+            return
+
+        try:
             # 소스 디렉토리 복원
-            source_dir = self.main_window.settings_manager.get_setting("last_source_directory", "")
+            gui_state = self.main_window.settings_manager.config.user_preferences.gui_state
+            print(f"🔧 [LeftPanel] gui_state: {gui_state}")
+
+            source_dir = gui_state.get("last_source_directory", "")
+            print(f"🔧 [LeftPanel] source_dir: '{source_dir}'")
+
             if source_dir:
                 self.update_source_directory_display(source_dir)
                 # MainWindow의 source_directory 변수도 업데이트
                 self.main_window.source_directory = source_dir
-                print(f"🔧 MainWindow.source_directory 복원됨: {source_dir}")
+                print(f"✅ [LeftPanel] MainWindow.source_directory 복원됨: {source_dir}")
+            else:
+                print("⚠️ [LeftPanel] source_dir이 비어있습니다")
 
             # 대상 디렉토리 복원
-            dest_dir = self.main_window.settings_manager.get_setting(
-                "last_destination_directory", ""
-            )
+            dest_dir = gui_state.get("last_destination_directory", "")
+            print(f"🔧 [LeftPanel] dest_dir: '{dest_dir}'")
+
             if dest_dir:
                 self.update_dest_directory_display(dest_dir)
                 # MainWindow의 destination_directory 변수도 업데이트
                 self.main_window.destination_directory = dest_dir
-                print(f"🔧 MainWindow.destination_directory 복원됨: {dest_dir}")
+                print(f"✅ [LeftPanel] MainWindow.destination_directory 복원됨: {dest_dir}")
+            else:
+                print("⚠️ [LeftPanel] dest_dir이 비어있습니다")
+
+        except Exception as e:
+            print(f"❌ [LeftPanel] 디렉토리 설정 복원 실패: {e}")
+            import traceback
+
+            traceback.print_exc()
 
     def update_source_directory_display(self, folder_path: str):
         """소스 디렉토리 표시 업데이트"""

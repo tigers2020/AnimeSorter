@@ -7,27 +7,15 @@ import logging
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (
-    DirectoryCreatedEvent,
-    ErrorMessageEvent,
-    FileDeletedEvent,
-    FileMovedEvent,
-    FileRenamedEvent,
-    IFileOrganizationService,
-    IUIUpdateService,
-    OrganizationCancelledEvent,
-    OrganizationCompletedEvent,
-    OrganizationFailedEvent,
-    OrganizationProgressEvent,
-    OrganizationStartedEvent,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TypedEventBus,
-    get_event_bus,
-    get_service,
-)
+from src.app import (ErrorMessageEvent, FileDeletedEvent, FileMovedEvent,
+                     FileRenamedEvent, IFileOrganizationService,
+                     IUIUpdateService, OrganizationCancelledEvent,
+                     OrganizationCompletedEvent, OrganizationFailedEvent,
+                     OrganizationProgressEvent, OrganizationStartedEvent,
+                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
+                     get_event_bus, get_service)
 
-from src.organization_state import OrganizationCapabilities, OrganizationState
+from .organization_state import OrganizationCapabilities, OrganizationState
 
 
 class OrganizeViewModel(QObject):
@@ -73,7 +61,8 @@ class OrganizeViewModel(QObject):
         self.event_bus.subscribe(FileMovedEvent, self._on_file_moved)
         self.event_bus.subscribe(FileRenamedEvent, self._on_file_renamed)
         self.event_bus.subscribe(FileDeletedEvent, self._on_file_deleted)
-        self.event_bus.subscribe(DirectoryCreatedEvent, self._on_directory_created)
+        # TODO: DirectoryCreatedEvent is not available in src.app
+        # self.event_bus.subscribe(DirectoryCreatedEvent, self._on_directory_created)
 
         # UI 이벤트
         self.event_bus.subscribe(StatusBarUpdateEvent, self._on_status_bar_update)
@@ -281,10 +270,11 @@ class OrganizeViewModel(QObject):
         self._state.files_deleted += 1
         self.state_changed.emit()
 
-    def _on_directory_created(self, event: DirectoryCreatedEvent):
-        """디렉토리 생성 이벤트 처리"""
-        self._state.directories_created += 1
-        self.state_changed.emit()
+    # TODO: DirectoryCreatedEvent is not available in src.app
+    # def _on_directory_created(self, event: DirectoryCreatedEvent):
+    #     """디렉토리 생성 이벤트 처리"""
+    #     self._state.directories_created += 1
+    #     self.state_changed.emit()
 
     def _on_status_bar_update(self, event: StatusBarUpdateEvent):
         """상태바 업데이트 이벤트 처리"""

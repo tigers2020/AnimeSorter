@@ -10,10 +10,10 @@ import logging
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QProgressDialog
 
-from src.commands import CommandResult, ICommand
+from src.app.commands import CommandResult, ICommand
 from src.app.journal import IJournalManager
-from src.staging import IStagingManager
-from src.undo_redo import QUndoStackBridge
+from src.app.staging import IStagingManager
+from src.app.undo_redo import QUndoStackBridge
 
 
 class UICommandBridge(QObject):

@@ -90,7 +90,9 @@ class UIStateController(QObject):
 
             # 설정 매니저에서도 로드 시도
             if self.settings_manager:
-                saved_state = self.settings_manager.get_setting("ui_session_state", {})
+                saved_state = getattr(
+                    self.settings_manager.config.user_preferences.gui_state, "ui_session_state", {}
+                )
                 if saved_state:
                     state_data.update(saved_state)
 
@@ -370,7 +372,9 @@ class UIStateController(QObject):
         """마지막 사용 디렉토리를 가져옵니다"""
         try:
             if self.settings_manager:
-                return self.settings_manager.get_setting("last_directory", "")
+                return getattr(
+                    self.settings_manager.config.user_preferences.gui_state, "last_directory", ""
+                )
             return ""
         except Exception:
             return ""

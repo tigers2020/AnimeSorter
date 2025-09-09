@@ -2,14 +2,14 @@
 MainWindowSessionManager
 
 MainWindow에서 세션 및 설정 관리 관련 로직을 담당하는 핸들러 클래스입니다.
-기존 컴포넌트들과의 중복을 방지하고, SettingsManager를 활용하여 세션 상태를 관리합니다.
+기존 컴포넌트들과의 중복을 방지하고, unified_config_manager를 활용하여 세션 상태를 관리합니다.
 """
 
 import json
 from pathlib import Path
 from typing import Any
 
-from src.core.settings_manager import SettingsManager
+# SettingsManager는 더 이상 사용하지 않음 - unified_config_manager 사용
 
 
 class MainWindowSessionManager:
@@ -20,14 +20,14 @@ class MainWindowSessionManager:
     - 세션 상태 저장/복원
     - 설정 UI 적용 및 변경 처리
     - 테이블 컬럼 관리
-    - 기존 SettingsManager와 연동
+    - unified_config_manager와 연동
 
     중복 방지:
     - 상태바 업데이트는 StatusBarManager가 담당
     - 이벤트 처리는 EventHandlerManager가 담당
     """
 
-    def __init__(self, main_window, settings_manager: SettingsManager):
+    def __init__(self, main_window, settings_manager):
         """
         MainWindowSessionManager 초기화
 
@@ -145,27 +145,39 @@ class MainWindowSessionManager:
         """
         설정을 UI 컴포넌트에 적용
 
-        SettingsManager의 설정값을 MainWindow의 UI 컴포넌트들에 적용합니다.
+        unified_config_manager의 설정값을 MainWindow의 UI 컴포넌트들에 적용합니다.
         """
         try:
             print("⚙️ [MainWindowSessionManager] 설정을 UI에 적용 시작")
 
-            # 테마 설정 적용
-            theme = self.settings_manager.get_setting("theme", "default")
-            self._apply_theme(theme)
+            # unified_config_manager의 경우 config 속성 사용
+            if hasattr(self.settings_manager, "config"):
+                config = self.settings_manager.config
+                user_prefs = config.user_preferences
 
-            # 언어 설정 적용
-            language = self.settings_manager.get_setting("language", "ko")
-            self._apply_language(language)
+                # 테마 설정 적용
+                theme_prefs = getattr(user_prefs, "theme_preferences", {})
+                if isinstance(theme_prefs, dict):
+                    theme = theme_prefs.get("theme", "light")
+                else:
+                    theme = getattr(theme_prefs, "theme", "light")
+                self._apply_theme(theme)
 
-            # 폰트 설정 적용
-            font_family = self.settings_manager.get_setting("font_family", "Segoe UI")
-            font_size = self.settings_manager.get_setting("font_size", 9)
-            self._apply_font(font_family, font_size)
+                # 언어 설정 적용
+                if isinstance(theme_prefs, dict):
+                    language = theme_prefs.get("language", "ko")
+                else:
+                    language = getattr(theme_prefs, "language", "ko")
+                self._apply_language(language)
 
-            # UI 스타일 설정 적용
-            ui_style = self.settings_manager.get_setting("ui_style", "default")
-            self._apply_ui_style(ui_style)
+                # 폰트 설정 적용
+                font_family = getattr(user_prefs, "font_family", "Segoe UI")
+                font_size = getattr(user_prefs, "font_size", 9)
+                self._apply_font(font_family, font_size)
+
+                # UI 스타일 설정 적용
+                ui_style = getattr(user_prefs, "ui_style", "default")
+                self._apply_ui_style(ui_style)
 
             print("✅ [MainWindowSessionManager] 설정을 UI에 적용 완료")
 
@@ -189,8 +201,10 @@ class MainWindowSessionManager:
             elif setting_name == "language":
                 self._apply_language(new_value)
             elif setting_name == "font_family" or setting_name == "font_size":
-                font_family = self.settings_manager.get_setting("font_family", "Segoe UI")
-                font_size = self.settings_manager.get_setting("font_size", 9)
+                font_family = getattr(
+                    self.settings_manager.config.user_preferences, "font_family", "Segoe UI"
+                )
+                font_size = getattr(self.settings_manager.config.user_preferences, "font_size", 9)
                 self._apply_font(font_family, font_size)
             elif setting_name == "ui_style":
                 self._apply_ui_style(new_value)

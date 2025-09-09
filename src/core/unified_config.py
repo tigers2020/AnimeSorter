@@ -18,8 +18,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 logger = logging.getLogger(__name__)
 
 
-
-
 @dataclass
 class ServiceConfig:
     """외부 서비스 설정"""
@@ -38,6 +36,95 @@ class ApplicationSettings:
     logging_config: dict[str, Any] = field(default_factory=dict)
     performance_settings: dict[str, Any] = field(default_factory=dict)
 
+    # 호환성을 위한 직접 속성들
+    @property
+    def destination_root(self) -> str:
+        return self.file_organization.get("destination_root", "")
+
+    @destination_root.setter
+    def destination_root(self, value: str):
+        self.file_organization["destination_root"] = value
+
+    @property
+    def organize_mode(self) -> str:
+        return self.file_organization.get("organize_mode", "복사")
+
+    @organize_mode.setter
+    def organize_mode(self, value: str):
+        self.file_organization["organize_mode"] = value
+
+    @property
+    def naming_scheme(self) -> str:
+        return self.file_organization.get("naming_scheme", "standard")
+
+    @naming_scheme.setter
+    def naming_scheme(self, value: str):
+        self.file_organization["naming_scheme"] = value
+
+    @property
+    def safe_mode(self) -> bool:
+        return self.file_organization.get("safe_mode", True)
+
+    @safe_mode.setter
+    def safe_mode(self, value: bool):
+        self.file_organization["safe_mode"] = value
+
+    @property
+    def backup_before_organize(self) -> bool:
+        return self.file_organization.get("backup_before_organize", False)
+
+    @backup_before_organize.setter
+    def backup_before_organize(self, value: bool):
+        self.file_organization["backup_before_organize"] = value
+
+    @property
+    def prefer_anitopy(self) -> bool:
+        return self.file_organization.get("prefer_anitopy", False)
+
+    @prefer_anitopy.setter
+    def prefer_anitopy(self, value: bool):
+        self.file_organization["prefer_anitopy"] = value
+
+    @property
+    def fallback_parser(self) -> str:
+        return self.file_organization.get("fallback_parser", "FileParser")
+
+    @fallback_parser.setter
+    def fallback_parser(self, value: str):
+        self.file_organization["fallback_parser"] = value
+
+    @property
+    def log_level(self) -> str:
+        return self.logging_config.get("log_level", "INFO")
+
+    @log_level.setter
+    def log_level(self, value: str):
+        self.logging_config["log_level"] = value
+
+    @property
+    def log_to_file(self) -> bool:
+        return self.logging_config.get("log_to_file", False)
+
+    @log_to_file.setter
+    def log_to_file(self, value: bool):
+        self.logging_config["log_to_file"] = value
+
+    @property
+    def backup_location(self) -> str:
+        return self.backup_settings.get("backup_location", "")
+
+    @backup_location.setter
+    def backup_location(self, value: str):
+        self.backup_settings["backup_location"] = value
+
+    @property
+    def max_backup_count(self) -> int:
+        return self.backup_settings.get("max_backup_count", 10)
+
+    @max_backup_count.setter
+    def max_backup_count(self, value: int):
+        self.backup_settings["max_backup_count"] = value
+
 
 @dataclass
 class UserPreferences:
@@ -47,6 +134,79 @@ class UserPreferences:
     accessibility: dict[str, Any] = field(default_factory=dict)
     theme_preferences: dict[str, Any] = field(default_factory=dict)
     language_settings: dict[str, Any] = field(default_factory=dict)
+
+    # 호환성을 위한 직접 속성들
+    @property
+    def theme(self) -> str:
+        return self.theme_preferences.get("theme", "light")
+
+    @theme.setter
+    def theme(self, value: str):
+        self.theme_preferences["theme"] = value
+
+    @property
+    def language(self) -> str:
+        return self.theme_preferences.get("language", "ko")
+
+    @language.setter
+    def language(self, value: str):
+        self.theme_preferences["language"] = value
+
+    @property
+    def font_family(self) -> str:
+        return getattr(self, "font_family", "Segoe UI")
+
+    @font_family.setter
+    def font_family(self, value: str):
+        self.font_family = value
+
+    @property
+    def font_size(self) -> int:
+        return getattr(self, "font_size", 9)
+
+    @font_size.setter
+    def font_size(self, value: int):
+        self.font_size = value
+
+    @property
+    def ui_style(self) -> str:
+        return getattr(self, "ui_style", "default")
+
+    @ui_style.setter
+    def ui_style(self, value: str):
+        self.ui_style = value
+
+    @property
+    def last_source_directory(self) -> str:
+        return self.gui_state.get("last_source_directory", "")
+
+    @last_source_directory.setter
+    def last_source_directory(self, value: str):
+        self.gui_state["last_source_directory"] = value
+
+    @property
+    def last_destination_directory(self) -> str:
+        return self.gui_state.get("last_destination_directory", "")
+
+    @last_destination_directory.setter
+    def last_destination_directory(self, value: str):
+        self.gui_state["last_destination_directory"] = value
+
+    @property
+    def window_geometry(self) -> Any:
+        return self.gui_state.get("window_geometry", None)
+
+    @window_geometry.setter
+    def window_geometry(self, value: Any):
+        self.gui_state["window_geometry"] = value
+
+    @property
+    def remember_last_session(self) -> bool:
+        return self.gui_state.get("remember_last_session", True)
+
+    @remember_last_session.setter
+    def remember_last_session(self, value: bool):
+        self.gui_state["remember_last_session"] = value
 
 
 @dataclass
@@ -123,20 +283,43 @@ class UnifiedConfigManager(QObject):
         """딕셔너리에서 설정 로드"""
         try:
             if "services" in data:
-                self.config.services = ServiceConfig(**data["services"])
+                services_data = data["services"]
+                self.config.services = ServiceConfig(
+                    mcp_server=services_data.get("mcp_server", {}),
+                    tmdb_api=services_data.get("tmdb_api", {}),
+                    api_keys=services_data.get("api_keys", {}),
+                )
+
             if "application" in data:
-                self.config.application = ApplicationSettings(**data["application"])
+                app_data = data["application"]
+                self.config.application = ApplicationSettings(
+                    file_organization=app_data.get("file_organization", {}),
+                    backup_settings=app_data.get("backup_settings", {}),
+                    logging_config=app_data.get("logging_config", {}),
+                    performance_settings=app_data.get("performance_settings", {}),
+                )
+
             if "user_preferences" in data:
-                self.config.user_preferences = UserPreferences(**data["user_preferences"])
+                user_data = data["user_preferences"]
+                self.config.user_preferences = UserPreferences(
+                    gui_state=user_data.get("gui_state", {}),
+                    accessibility=user_data.get("accessibility", {}),
+                    theme_preferences=user_data.get("theme_preferences", {}),
+                    language_settings=user_data.get("language_settings", {}),
+                )
+
             if "metadata" in data:
                 self.config.metadata = data["metadata"]
+
+            logger.info("설정 데이터 파싱 완료")
         except Exception as e:
             logger.error(f"설정 데이터 파싱 실패: {e}")
+            # 기본값으로 초기화
+            self.config = UnifiedConfig()
 
     def _migrate_existing_configs(self):
         """기존 설정 파일들을 통합 설정으로 마이그레이션"""
         logger.info("기존 설정 파일들을 통합 설정으로 마이그레이션합니다.")
-
 
         # opencode.json 마이그레이션
         opencode_file = Path("opencode.json")
@@ -279,6 +462,112 @@ class UnifiedConfigManager(QObject):
             return False
         except Exception as e:
             logger.error(f"설정값 설정 실패: {section}.{key} = {value} - {e}")
+            return False
+
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        """설정값 조회 (SettingsManager 호환성)"""
+        try:
+            if key == "destination_root":
+                return getattr(self.config.application, "destination_root", default)
+            elif key == "theme":
+                return self.config.user_preferences.theme_preferences.get("theme", default)
+            elif key == "language":
+                return self.config.user_preferences.theme_preferences.get("language", default)
+            elif key == "font_family":
+                return getattr(self.config.user_preferences, "font_family", default)
+            elif key == "font_size":
+                return getattr(self.config.user_preferences, "font_size", default)
+            elif key == "ui_style":
+                return getattr(self.config.user_preferences, "ui_style", default)
+            elif key == "last_source_directory":
+                return self.config.user_preferences.gui_state.get("last_source_directory", default)
+            elif key == "last_destination_directory":
+                return self.config.user_preferences.gui_state.get(
+                    "last_destination_directory", default
+                )
+            elif key == "organize_mode":
+                return self.config.application.file_organization.get("organize_mode", default)
+            elif key == "naming_scheme":
+                return self.config.application.file_organization.get("naming_scheme", default)
+            elif key == "safe_mode":
+                return self.config.application.file_organization.get("safe_mode", default)
+            elif key == "backup_before_organize":
+                return self.config.application.file_organization.get(
+                    "backup_before_organize", default
+                )
+            elif key == "prefer_anitopy":
+                return self.config.application.file_organization.get("prefer_anitopy", default)
+            elif key == "fallback_parser":
+                return self.config.application.file_organization.get("fallback_parser", default)
+            elif key == "log_level":
+                return self.config.application.logging_config.get("log_level", default)
+            elif key == "log_to_file":
+                return self.config.application.logging_config.get("log_to_file", default)
+            elif key == "backup_location":
+                return self.config.application.backup_settings.get("backup_location", default)
+            elif key == "max_backup_count":
+                return self.config.application.backup_settings.get("max_backup_count", default)
+            else:
+                return default
+        except Exception as e:
+            logger.error(f"설정값 조회 실패: {key} - {e}")
+            return default
+
+    def set_setting(self, key: str, value: Any) -> bool:
+        """설정값 설정 (SettingsManager 호환성)"""
+        try:
+            # key에 따라 적절한 섹션과 키로 변환
+            if key == "destination_root":
+                # file_organization 딕셔너리 안의 destination_root 설정
+                if hasattr(self.config.application, "file_organization"):
+                    self.config.application.file_organization["destination_root"] = value
+                    self._notify_change_callbacks("application", value)
+                    self.config_changed.emit("application", value)
+                    return True
+                return False
+            elif key == "theme":
+                # theme_preferences 딕셔너리 안의 theme 설정
+                if hasattr(self.config.user_preferences, "theme_preferences"):
+                    self.config.user_preferences.theme_preferences["theme"] = value
+                    self._notify_change_callbacks("user_preferences", value)
+                    self.config_changed.emit("user_preferences", value)
+                    return True
+                return False
+            elif key == "language":
+                # theme_preferences 딕셔너리 안의 language 설정
+                if hasattr(self.config.user_preferences, "theme_preferences"):
+                    self.config.user_preferences.theme_preferences["language"] = value
+                    self._notify_change_callbacks("user_preferences", value)
+                    self.config_changed.emit("user_preferences", value)
+                    return True
+                return False
+            elif key == "font_family":
+                return self.set("user_preferences", "font_family", value)
+            elif key == "font_size":
+                return self.set("user_preferences", "font_size", value)
+            elif key == "ui_style":
+                return self.set("user_preferences", "ui_style", value)
+            elif key == "last_source_directory":
+                # gui_state 딕셔너리 안의 last_source_directory 설정
+                if hasattr(self.config.user_preferences, "gui_state"):
+                    self.config.user_preferences.gui_state["last_source_directory"] = value
+                    self._notify_change_callbacks("user_preferences", value)
+                    self.config_changed.emit("user_preferences", value)
+                    return True
+                return False
+            elif key == "last_destination_directory":
+                # gui_state 딕셔너리 안의 last_destination_directory 설정
+                if hasattr(self.config.user_preferences, "gui_state"):
+                    self.config.user_preferences.gui_state["last_destination_directory"] = value
+                    self._notify_change_callbacks("user_preferences", value)
+                    self.config_changed.emit("user_preferences", value)
+                    return True
+                return False
+            else:
+                # 기본적으로 user_preferences에 설정
+                return self.set("user_preferences", key, value)
+        except Exception as e:
+            logger.error(f"설정값 설정 실패: {key} = {value} - {e}")
             return False
 
     def get_section(self, section: str) -> Any | None:

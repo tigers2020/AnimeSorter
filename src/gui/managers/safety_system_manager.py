@@ -11,13 +11,8 @@ from pathlib import Path
 
 from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
-from src.app import (
-    IBackupManager,
-    IConfirmationManager,
-    IInterruptionManager,
-    ISafetyManager,
-    get_service,
-)
+from src.app import (IBackupManager, IConfirmationManager,
+                     IInterruptionManager, ISafetyManager, get_service)
 
 
 class SafetySystemManager:
@@ -94,7 +89,11 @@ class SafetySystemManager:
                 return
 
             # 현재 작업 디렉토리 백업
-            current_dir = self.main_window.settings_manager.get_setting("source_directory", "")
+            current_dir = getattr(
+                self.main_window.settings_manager.config.user_preferences.gui_state,
+                "last_source_directory",
+                "",
+            )
             if not current_dir:
                 QMessageBox.information(
                     self.main_window, "백업", "백업할 작업 디렉토리가 설정되지 않았습니다."
