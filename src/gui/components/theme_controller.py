@@ -75,7 +75,15 @@ class ThemeController(QObject):
         """저장된 테마 설정을 가져옵니다"""
         try:
             if self.settings_manager:
-                return self.settings_manager.get_setting("theme", "light")
+                if hasattr(self.settings_manager, "config"):
+                    # unified_config_manager의 경우
+                    theme_prefs = getattr(
+                        self.settings_manager.config.user_preferences, "theme_preferences", {}
+                    )
+                    if isinstance(theme_prefs, dict):
+                        return theme_prefs.get("theme", "light")
+                    else:
+                        return getattr(theme_prefs, "theme", "light")
             return "light"
         except Exception as e:
             logger.warning(f"저장된 테마 설정 조회 실패: {e}")
@@ -195,7 +203,12 @@ class ThemeController(QObject):
         """자동 테마 모드인지 확인"""
         try:
             if self.settings_manager:
-                return self.settings_manager.get_setting("theme", "light") == "auto"
+                theme = getattr(
+                    self.settings_manager.config.user_preferences.theme_preferences,
+                    "theme",
+                    "light",
+                )
+                return theme == "auto"
             return False
         except Exception:
             return False

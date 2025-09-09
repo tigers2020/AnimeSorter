@@ -3,27 +3,22 @@
 MainWindow의 과도한 __init__ 메서드 로직을 분리하여 가독성과 유지보수성을 향상시킵니다.
 """
 
-import os
-from pathlib import Path
-
 from PyQt5.QtWidgets import QMainWindow
 
 from src.core.file_manager import FileManager
 from src.core.file_parser import FileParser
-from src.core.settings_manager import SettingsManager
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
-
+from src.gui.components.accessibility_manager import AccessibilityManager
+from src.gui.components.i18n_manager import I18nManager
+from src.gui.components.ui_migration_manager import UIMigrationManager
+from src.gui.components.ui_state_manager import UIStateManager
 from src.gui.handlers.event_handler_manager import EventHandlerManager
 from src.gui.initializers.ui_initializer import UIInitializer
 from src.gui.managers.anime_data_manager import AnimeDataManager
 from src.gui.managers.file_processing_manager import FileProcessingManager
 from src.gui.managers.status_bar_manager import StatusBarManager
 from src.gui.managers.tmdb_manager import TMDBManager
-from src.gui.components.accessibility_manager import AccessibilityManager
-from src.gui.components.i18n_manager import I18nManager
-from src.gui.components.ui_migration_manager import UIMigrationManager
-from src.gui.components.ui_state_manager import UIStateManager
 
 
 class MainWindowInitializer:
@@ -31,7 +26,7 @@ class MainWindowInitializer:
 
     def __init__(self, main_window: QMainWindow):
         self.main_window = main_window
-        self.settings_manager: SettingsManager | None = None
+        self.settings_manager = None
         self.file_parser: FileParser | None = None
         self.tmdb_client: TMDBClient | None = None
         self.file_manager: FileManager | None = None
@@ -125,7 +120,7 @@ class MainWindowInitializer:
         """핵심 컴포넌트 초기화"""
         try:
             # 설정 관리자 초기화 (통합 설정 시스템 사용)
-            self.settings_manager = SettingsManager()
+            self.settings_manager = unified_config_manager
             self.main_window.settings_manager = self.settings_manager
 
             # FileParser 초기화
@@ -136,9 +131,13 @@ class MainWindowInitializer:
             services_section = unified_config_manager.get_section("services")
             api_key = ""
             if services_section:
-                tmdb_config = getattr(services_section, 'tmdb_api', {})
+                tmdb_config = getattr(services_section, "tmdb_api", {})
                 # 딕셔너리에서 API 키 가져오기
-                api_key = tmdb_config.get('api_key', '') if isinstance(tmdb_config, dict) else getattr(tmdb_config, 'api_key', '')
+                api_key = (
+                    tmdb_config.get("api_key", "")
+                    if isinstance(tmdb_config, dict)
+                    else getattr(tmdb_config, "api_key", "")
+                )
 
             print(f"🔍 TMDB API 키 확인: 통합 설정={api_key[:8] if api_key else '없음'}")
             if api_key:
@@ -152,13 +151,15 @@ class MainWindowInitializer:
                 self.main_window.tmdb_client = None
 
             # FileManager 초기화
-            dest_root = self.settings_manager.get_setting("destination_root", "")
-            safe_mode = self.settings_manager.get_setting("safe_mode", True)
+            dest_root = getattr(self.settings_manager.config.application, "destination_root", "")
+            safe_mode = getattr(self.settings_manager.config.application, "safe_mode", True)
             self.file_manager = FileManager(destination_root=dest_root, safe_mode=safe_mode)
             self.main_window.file_manager = self.file_manager
 
             # FileManager 설정 적용
-            naming_scheme = self.settings_manager.get_setting("naming_scheme", "standard")
+            naming_scheme = getattr(
+                self.settings_manager.config.application, "naming_scheme", "standard"
+            )
             self.file_manager.set_naming_scheme(naming_scheme)
 
             print("✅ 핵심 컴포넌트 초기화 완료")
@@ -195,13 +196,14 @@ class MainWindowInitializer:
         try:
             # 애플리케이션 서비스 설정
             from src.app.setup import setup_application_services
+
             setup_application_services()
             print("✅ 애플리케이션 서비스 설정 완료")
 
             # EventBus 가져오기 (전역 인스턴스)
             from src.app import (IFileOrganizationService, IFileScanService,
-                                IMediaDataService, ITMDBSearchService,
-                                IUIUpdateService, get_event_bus, get_service)
+                                 IMediaDataService, ITMDBSearchService,
+                                 IUIUpdateService, get_event_bus, get_service)
 
             self.event_bus = get_event_bus()
             self.main_window.event_bus = self.event_bus
@@ -293,7 +295,9 @@ class MainWindowInitializer:
 
                 # 방법 1: 직접 import
                 try:
-                    from src.gui.handlers.file_organization_handler import FileOrganizationHandler
+                    from src.gui.handlers.file_organization_handler import \
+                        FileOrganizationHandler
+
                     print("✅ 방법 1: 직접 import 성공")
                 except ImportError as ie1:
                     import_errors.append(f"직접 import 실패: {ie1}")
@@ -301,9 +305,12 @@ class MainWindowInitializer:
                     # 방법 2: sys.path 추가 후 import
                     try:
                         import sys
-                        if 'src' not in sys.path:
-                            sys.path.insert(0, 'src')
-                        from gui.handlers.file_organization_handler import FileOrganizationHandler
+
+                        if "src" not in sys.path:
+                            sys.path.insert(0, "src")
+                        from gui.handlers.file_organization_handler import \
+                            FileOrganizationHandler
+
                         print("✅ 방법 2: sys.path 추가 후 import 성공")
                     except ImportError as ie2:
                         import_errors.append(f"sys.path 추가 후 import 실패: {ie2}")
@@ -311,9 +318,10 @@ class MainWindowInitializer:
                         # 방법 3: 절대 경로 import
                         try:
                             import importlib.util
+
                             spec = importlib.util.spec_from_file_location(
                                 "file_organization_handler",
-                                "src/gui/handlers/file_organization_handler.py"
+                                "src/gui/handlers/file_organization_handler.py",
                             )
                             module = importlib.util.module_from_spec(spec)
                             spec.loader.exec_module(module)
@@ -342,14 +350,17 @@ class MainWindowInitializer:
                     print("✅ FileOrganizationHandler 기본 초기화 완료")
 
                 # 초기화 상태 확인
-                if hasattr(self.main_window, 'file_organization_handler'):
-                    print(f"✅ file_organization_handler 속성 설정됨: {type(self.main_window.file_organization_handler)}")
+                if hasattr(self.main_window, "file_organization_handler"):
+                    print(
+                        f"✅ file_organization_handler 속성 설정됨: {type(self.main_window.file_organization_handler)}"
+                    )
                 else:
                     print("❌ file_organization_handler 속성 설정 실패")
 
             except Exception as e:
                 print(f"❌ FileOrganizationHandler 초기화 실패: {e}")
                 import traceback
+
                 traceback.print_exc()
                 self.main_window.file_organization_handler = None
 
@@ -373,7 +384,8 @@ class MainWindowInitializer:
     def _init_safety_system(self):
         """Safety System 초기화"""
         try:
-            from src.gui.managers.safety_system_manager import SafetySystemManager
+            from src.gui.managers.safety_system_manager import \
+                SafetySystemManager
 
             self.main_window.safety_system_manager = SafetySystemManager(self.main_window)
             print("✅ Safety System Manager 초기화 완료")
@@ -384,7 +396,8 @@ class MainWindowInitializer:
     def _init_command_system(self):
         """Command System 초기화"""
         try:
-            from src.managers.command_system_manager import CommandSystemManager
+            from src.gui.managers.command_system_manager import \
+                CommandSystemManager
 
             self.main_window.command_system_manager = CommandSystemManager(self.main_window)
             print("✅ Command System Manager 초기화 완료")
@@ -497,27 +510,52 @@ class MainWindowInitializer:
             if not self.settings_manager:
                 return
 
-            settings = self.settings_manager.settings
+            # unified_config_manager의 경우 config 속성 사용
+            if hasattr(self.settings_manager, "config"):
+                config = self.settings_manager.config
+                app_settings = config.application
+                user_prefs = config.user_preferences
 
-            # 기본 설정 적용
-            self.main_window.organize_mode = getattr(settings, "organize_mode", "이동")
-            self.main_window.naming_scheme = getattr(settings, "naming_scheme", "standard")
-            self.main_window.safe_mode = getattr(settings, "safe_mode", True)
-            self.main_window.backup_before_organize = getattr(
-                settings, "backup_before_organize", False
-            )
-            self.main_window.prefer_anitopy = getattr(settings, "prefer_anitopy", True)
-            self.main_window.fallback_parser = getattr(settings, "fallback_parser", "GuessIt")
-            self.main_window.realtime_monitoring = getattr(settings, "realtime_monitoring", False)
-            self.main_window.auto_refresh_interval = getattr(settings, "auto_refresh_interval", 30)
-            self.main_window.tmdb_language = getattr(settings, "tmdb_language", "ko-KR")
-            self.main_window.show_advanced_options = getattr(
-                settings, "show_advanced_options", False
-            )
-            self.main_window.log_level = getattr(settings, "log_level", "INFO")
-            self.main_window.log_to_file = getattr(settings, "log_to_file", False)
-            self.main_window.backup_location = getattr(settings, "backup_location", "")
-            self.main_window.max_backup_count = getattr(settings, "max_backup_count", 10)
+                # 기본 설정 적용
+                self.main_window.organize_mode = getattr(app_settings, "organize_mode", "이동")
+                self.main_window.naming_scheme = getattr(app_settings, "naming_scheme", "standard")
+                self.main_window.safe_mode = getattr(app_settings, "safe_mode", True)
+                self.main_window.backup_before_organize = getattr(
+                    app_settings, "backup_before_organize", False
+                )
+                self.main_window.prefer_anitopy = getattr(app_settings, "prefer_anitopy", True)
+                self.main_window.fallback_parser = getattr(
+                    app_settings, "fallback_parser", "GuessIt"
+                )
+                self.main_window.realtime_monitoring = getattr(
+                    app_settings, "realtime_monitoring", False
+                )
+                self.main_window.auto_refresh_interval = getattr(
+                    app_settings, "auto_refresh_interval", 30
+                )
+                self.main_window.tmdb_language = getattr(app_settings, "tmdb_language", "ko-KR")
+                self.main_window.show_advanced_options = getattr(
+                    app_settings, "show_advanced_options", False
+                )
+                self.main_window.log_level = getattr(app_settings, "log_level", "INFO")
+                self.main_window.log_to_file = getattr(app_settings, "log_to_file", False)
+                self.main_window.backup_location = getattr(app_settings, "backup_location", "")
+                self.main_window.max_backup_count = getattr(app_settings, "max_backup_count", 10)
+                # file_organization 설정
+                file_org = app_settings.file_organization
+                self.main_window.organize_mode = file_org.get("organize_mode", "이동")
+                self.main_window.naming_scheme = file_org.get("naming_scheme", "standard")
+                self.main_window.safe_mode = file_org.get("safe_mode", True)
+                self.main_window.backup_before_organize = file_org.get("backup_before_organize", False)
+                self.main_window.prefer_anitopy = file_org.get("prefer_anitopy", True)
+                self.main_window.fallback_parser = file_org.get("fallback_parser", "GuessIt")
+                self.main_window.realtime_monitoring = file_org.get("realtime_monitoring", False)
+                self.main_window.auto_refresh_interval = file_org.get("auto_refresh_interval", 30)
+                self.main_window.show_advanced_options = file_org.get("show_advanced_options", False)
+                
+                # TMDB 설정
+                tmdb_config = self.settings_manager.config.services.tmdb_api
+                self.main_window.tmdb_language = tmdb_config.get("language", "ko-KR")
 
             print("✅ UI 설정 적용 완료")
 

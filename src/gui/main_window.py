@@ -12,7 +12,6 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox
 # New Architecture Components
 # UI Command Bridge
 # Local imports
-from src.core.settings_manager import SettingsManager
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
 from src.core.unified_event_system import get_unified_event_bus
@@ -74,8 +73,8 @@ class MainWindow(QMainWindow):
         # UI 컴포넌트 속성 초기화
         self.status_progress = None  # 상태바 진행률 표시기
 
-        # 설정 관리자 초기화
-        self.settings_manager = SettingsManager()
+        # 설정 관리자 초기화 (unified_config_manager 사용)
+        self.settings_manager = unified_config_manager
 
         # 통합 이벤트 시스템 초기화
         self.unified_event_bus = get_unified_event_bus()
@@ -113,6 +112,17 @@ class MainWindow(QMainWindow):
             print("✅ MainWindow 핸들러들 초기화 완료")
         except Exception as e:
             print(f"❌ MainWindow 핸들러들 초기화 실패: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+        # 설정을 UI에 적용
+        print("🔧 설정을 UI에 적용 시작...")
+        try:
+            self.apply_settings_to_ui()
+            print("✅ 설정을 UI에 적용 완료")
+        except Exception as e:
+            print(f"❌ 설정을 UI에 적용 실패: {e}")
             import traceback
 
             traceback.print_exc()
@@ -439,7 +449,7 @@ class MainWindow(QMainWindow):
                 )
                 print("✅ MainWindowSessionManager 초기화 완료")
             else:
-                print("⚠️ MainWindowSessionManager 초기화 실패: SettingsManager가 없습니다")
+                print("⚠️ MainWindowSessionManager 초기화 실패: unified_config_manager가 없습니다")
                 self.session_manager = None
 
             print("✅ MainWindow 핸들러들 초기화 완료")
@@ -899,16 +909,16 @@ class MainWindow(QMainWindow):
 
             # TMDB 클라이언트 재초기화 (API 키가 변경된 경우)
             if hasattr(self, "tmdb_client"):
-                api_key = self.settings_manager.settings.tmdb_api_key
+                api_key = self.settings_manager.config.services.tmdb_api.api_key
                 if api_key and (not self.tmdb_client or self.tmdb_client.api_key != api_key):
                     self.tmdb_client = TMDBClient(api_key=api_key)
                     print("✅ TMDBClient 재초기화 완료")
 
             # FileManager 설정 업데이트
             if self.settings_manager and self.file_manager:
-                dest_root = self.settings_manager.settings.destination_root
-                safe_mode = self.settings_manager.settings.safe_mode
-                naming_scheme = self.settings_manager.settings.naming_scheme
+                dest_root = self.settings_manager.config.application.destination_root
+                safe_mode = self.settings_manager.config.application.safe_mode
+                naming_scheme = self.settings_manager.config.application.naming_scheme
 
                 if dest_root:
                     self.file_manager.destination_root = dest_root
@@ -1284,27 +1294,33 @@ class MainWindow(QMainWindow):
             dialog = SettingsDialog(self.settings_manager, self)
             if dialog.exec_() == SettingsDialog.Accepted:
                 # 설정이 변경되었을 때 처리
-                self.settings_manager.save_settings()
+                self.settings_manager.save_config()
 
                 # 접근성 설정 적용
                 if hasattr(self, "accessibility_manager"):
-                    high_contrast = self.settings_manager.settings.get("high_contrast_mode", False)
+                    high_contrast = getattr(
+                        self.settings_manager.config.user_preferences, "high_contrast_mode", False
+                    )
                     if high_contrast != self.accessibility_manager.high_contrast_mode:
                         if high_contrast:
                             self.accessibility_manager.toggle_high_contrast_mode()
                         print(f"✅ 고대비 모드: {'활성화' if high_contrast else '비활성화'}")
 
-                    keyboard_nav = self.settings_manager.settings.get("keyboard_navigation", True)
+                    keyboard_nav = getattr(
+                        self.settings_manager.config.user_preferences, "keyboard_navigation", True
+                    )
                     self.accessibility_manager.set_keyboard_navigation(keyboard_nav)
 
-                    screen_reader = self.settings_manager.settings.get(
-                        "screen_reader_support", True
+                    screen_reader = getattr(
+                        self.settings_manager.config.user_preferences, "screen_reader_support", True
                     )
                     self.accessibility_manager.set_screen_reader_support(screen_reader)
 
                 # 언어 설정 적용
                 if hasattr(self, "i18n_manager"):
-                    new_language = self.settings_manager.settings.get("language", "ko")
+                    new_language = getattr(
+                        self.settings_manager.config.user_preferences, "language", "ko"
+                    )
                     if new_language != self.i18n_manager.get_current_language():
                         self.i18n_manager.set_language(new_language)
                         print(f"✅ 언어가 '{new_language}'로 변경되었습니다.")
@@ -1788,20 +1804,3 @@ class MainWindow(QMainWindow):
                 print(f"   상세: {details}")
             return True
 
-    def save_session_state(self) -> bool:
-        """현재 세션 상태를 저장합니다 (새 컨트롤러 사용)"""
-        if self.ui_state_controller:
-            return self.ui_state_controller.save_session_state()
-        else:
-            # 기존 방식으로 폴백
-            print("⚠️ 세션 상태 저장: UI 상태 컨트롤러가 초기화되지 않음")
-            return False
-
-    def restore_session_state(self) -> bool:
-        """저장된 세션 상태를 복원합니다 (새 컨트롤러 사용)"""
-        if self.ui_state_controller:
-            return self.ui_state_controller.restore_session_state()
-        else:
-            # 기존 방식으로 폴백
-            print("⚠️ 세션 상태 복원: UI 상태 컨트롤러가 초기화되지 않음")
-            return False

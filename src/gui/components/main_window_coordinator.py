@@ -147,16 +147,20 @@ class MainWindowCoordinator:
             print("🔧 MainWindowCoordinator: TMDB 검색 핸들러 초기화 중...")
 
             # TMDB 클라이언트 확인
-            if not hasattr(self.main_window, 'tmdb_client') or not self.main_window.tmdb_client:
+            if not hasattr(self.main_window, "tmdb_client") or not self.main_window.tmdb_client:
                 print("⚠️ TMDB 클라이언트가 초기화되지 않았습니다. TMDB 검색 핸들러를 건너뜁니다.")
                 return
 
             # TMDB 검색 핸들러 초기화
             from src.gui.handlers.tmdb_search_handler import TMDBSearchHandler
+
             self.main_window.tmdb_search_handler = TMDBSearchHandler(self.main_window)
 
             # TMDB 검색 핸들러와 관련 컴포넌트 연결
-            if hasattr(self.main_window, "anime_data_manager") and self.main_window.anime_data_manager:
+            if (
+                hasattr(self.main_window, "anime_data_manager")
+                and self.main_window.anime_data_manager
+            ):
                 self.main_window.anime_data_manager.tmdb_search_requested.connect(
                     self.main_window.tmdb_search_handler.on_tmdb_search_requested
                 )
@@ -319,7 +323,35 @@ class MainWindowCoordinator:
         try:
             # 설정에서 읽은 값들을 UI에 적용
             if hasattr(self.main_window, "settings_manager"):
-                settings = self.main_window.settings_manager.settings
+                if hasattr(self.main_window.settings_manager, "config"):
+                    # unified_config_manager의 경우
+                    user_prefs = self.main_window.settings_manager.config.user_preferences
+                    # 테마 설정을 올바른 경로에서 가져오기
+                    theme_prefs = getattr(user_prefs, "theme_preferences", {})
+                    if isinstance(theme_prefs, dict):
+                        settings = type(
+                            "Settings",
+                            (),
+                            {
+                                "window_geometry": getattr(
+                                    user_prefs.gui_state, "window_geometry", None
+                                ),
+                                "theme": theme_prefs.get("theme", "light"),
+                                "language": theme_prefs.get("language", "ko"),
+                            },
+                        )()
+                    else:
+                        settings = type(
+                            "Settings",
+                            (),
+                            {
+                                "window_geometry": getattr(
+                                    user_prefs.gui_state, "window_geometry", None
+                                ),
+                                "theme": getattr(theme_prefs, "theme", "light"),
+                                "language": getattr(theme_prefs, "language", "ko"),
+                            },
+                        )()
 
                 # 윈도우 크기 및 위치 복원
                 if hasattr(settings, "window_geometry") and settings.window_geometry:
