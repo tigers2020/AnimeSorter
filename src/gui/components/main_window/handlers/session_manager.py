@@ -2,14 +2,14 @@
 MainWindowSessionManager
 
 MainWindow에서 세션 및 설정 관리 관련 로직을 담당하는 핸들러 클래스입니다.
-기존 컴포넌트들과의 중복을 방지하고, SettingsManager를 활용하여 세션 상태를 관리합니다.
+기존 컴포넌트들과의 중복을 방지하고, unified_config_manager를 활용하여 세션 상태를 관리합니다.
 """
 
 import json
 from pathlib import Path
 from typing import Any
 
-from src.core.settings_manager import SettingsManager
+from src.core.unified_config import unified_config_manager
 
 
 class MainWindowSessionManager:
@@ -20,23 +20,23 @@ class MainWindowSessionManager:
     - 세션 상태 저장/복원
     - 설정 UI 적용 및 변경 처리
     - 테이블 컬럼 관리
-    - 기존 SettingsManager와 연동
+    - unified_config_manager와 연동
 
     중복 방지:
     - 상태바 업데이트는 StatusBarManager가 담당
     - 이벤트 처리는 EventHandlerManager가 담당
     """
 
-    def __init__(self, main_window, settings_manager: SettingsManager):
+    def __init__(self, main_window, config_manager=unified_config_manager):
         """
         MainWindowSessionManager 초기화
 
         Args:
             main_window: MainWindow 인스턴스
-            settings_manager: 설정 관리자
+            config_manager: 설정 관리자
         """
         self.main_window = main_window
-        self.settings_manager = settings_manager
+        self.config_manager = config_manager
 
         # 세션 파일 경로
         self.session_file = Path.home() / ".animesorter" / "session.json"
@@ -54,7 +54,7 @@ class MainWindowSessionManager:
                 print("📋 [MainWindowSessionManager] 세션 파일이 없습니다. 새로 시작합니다.")
                 return True
 
-            with open(self.session_file, encoding="utf-8") as f:
+            with self.session_file.open(encoding="utf-8") as f:
                 session_data = json.load(f)
 
             print("📋 [MainWindowSessionManager] 세션 상태 복원 시작")
@@ -131,7 +131,7 @@ class MainWindowSessionManager:
             }
 
             # 세션 파일에 저장
-            with open(self.session_file, "w", encoding="utf-8") as f:
+            with self.session_file.open("w", encoding="utf-8") as f:
                 json.dump(session_data, f, ensure_ascii=False, indent=2)
 
             print("✅ [MainWindowSessionManager] 세션 상태 저장 완료")
@@ -145,26 +145,26 @@ class MainWindowSessionManager:
         """
         설정을 UI 컴포넌트에 적용
 
-        SettingsManager의 설정값을 MainWindow의 UI 컴포넌트들에 적용합니다.
+        unified_config_manager의 설정값을 MainWindow의 UI 컴포넌트들에 적용합니다.
         """
         try:
             print("⚙️ [MainWindowSessionManager] 설정을 UI에 적용 시작")
 
             # 테마 설정 적용
-            theme = self.settings_manager.get_setting("theme", "default")
+            theme = self.config_manager.get_setting("theme", "default")
             self._apply_theme(theme)
 
             # 언어 설정 적용
-            language = self.settings_manager.get_setting("language", "ko")
+            language = self.config_manager.get_setting("language", "ko")
             self._apply_language(language)
 
             # 폰트 설정 적용
-            font_family = self.settings_manager.get_setting("font_family", "Segoe UI")
-            font_size = self.settings_manager.get_setting("font_size", 9)
+            font_family = self.config_manager.get_setting("font_family", "Segoe UI")
+            font_size = self.config_manager.get_setting("font_size", 9)
             self._apply_font(font_family, font_size)
 
             # UI 스타일 설정 적용
-            ui_style = self.settings_manager.get_setting("ui_style", "default")
+            ui_style = self.config_manager.get_setting("ui_style", "default")
             self._apply_ui_style(ui_style)
 
             print("✅ [MainWindowSessionManager] 설정을 UI에 적용 완료")
@@ -189,8 +189,8 @@ class MainWindowSessionManager:
             elif setting_name == "language":
                 self._apply_language(new_value)
             elif setting_name == "font_family" or setting_name == "font_size":
-                font_family = self.settings_manager.get_setting("font_family", "Segoe UI")
-                font_size = self.settings_manager.get_setting("font_size", 9)
+                font_family = self.config_manager.get_setting("font_family", "Segoe UI")
+                font_size = self.config_manager.get_setting("font_size", 9)
                 self._apply_font(font_family, font_size)
             elif setting_name == "ui_style":
                 self._apply_ui_style(new_value)

@@ -12,7 +12,6 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox
 # New Architecture Components
 # UI Command Bridge
 # Local imports
-from src.core.settings_manager import SettingsManager
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
 from src.core.unified_event_system import get_unified_event_bus
@@ -74,8 +73,8 @@ class MainWindow(QMainWindow):
         # UI 컴포넌트 속성 초기화
         self.status_progress = None  # 상태바 진행률 표시기
 
-        # 설정 관리자 초기화
-        self.settings_manager = SettingsManager()
+        # 설정 관리자 설정
+        self.settings_manager = unified_config_manager
 
         # 통합 이벤트 시스템 초기화
         self.unified_event_bus = get_unified_event_bus()
@@ -439,7 +438,7 @@ class MainWindow(QMainWindow):
                 )
                 print("✅ MainWindowSessionManager 초기화 완료")
             else:
-                print("⚠️ MainWindowSessionManager 초기화 실패: SettingsManager가 없습니다")
+                print("⚠️ MainWindowSessionManager 초기화 실패: 설정 관리자가 없습니다")
                 self.session_manager = None
 
             print("✅ MainWindow 핸들러들 초기화 완료")
@@ -734,8 +733,7 @@ class MainWindow(QMainWindow):
         """테이블 컬럼 너비 복원 - MainWindowSessionManager로 위임"""
         if self.session_manager:
             # 기존 설정에서 컬럼 너비 가져오기
-            settings = self.settings_manager.settings
-            column_widths = getattr(settings, "table_column_widths", {})
+            column_widths = self.settings_manager.get_setting("table_column_widths", {})
             self.session_manager.restore_table_column_widths(column_widths)
         else:
             print("⚠️ MainWindowSessionManager가 초기화되지 않았습니다")
@@ -899,16 +897,16 @@ class MainWindow(QMainWindow):
 
             # TMDB 클라이언트 재초기화 (API 키가 변경된 경우)
             if hasattr(self, "tmdb_client"):
-                api_key = self.settings_manager.settings.tmdb_api_key
+                api_key = self.settings_manager.get_setting("tmdb_api_key", "")
                 if api_key and (not self.tmdb_client or self.tmdb_client.api_key != api_key):
                     self.tmdb_client = TMDBClient(api_key=api_key)
                     print("✅ TMDBClient 재초기화 완료")
 
             # FileManager 설정 업데이트
             if self.settings_manager and self.file_manager:
-                dest_root = self.settings_manager.settings.destination_root
-                safe_mode = self.settings_manager.settings.safe_mode
-                naming_scheme = self.settings_manager.settings.naming_scheme
+                dest_root = self.settings_manager.get_setting("destination_root", "")
+                safe_mode = self.settings_manager.get_setting("safe_mode", True)
+                naming_scheme = self.settings_manager.get_setting("naming_scheme", "standard")
 
                 if dest_root:
                     self.file_manager.destination_root = dest_root
@@ -1288,23 +1286,21 @@ class MainWindow(QMainWindow):
 
                 # 접근성 설정 적용
                 if hasattr(self, "accessibility_manager"):
-                    high_contrast = self.settings_manager.settings.get("high_contrast_mode", False)
+                    high_contrast = self.settings_manager.get_setting("high_contrast_mode", False)
                     if high_contrast != self.accessibility_manager.high_contrast_mode:
                         if high_contrast:
                             self.accessibility_manager.toggle_high_contrast_mode()
                         print(f"✅ 고대비 모드: {'활성화' if high_contrast else '비활성화'}")
 
-                    keyboard_nav = self.settings_manager.settings.get("keyboard_navigation", True)
+                    keyboard_nav = self.settings_manager.get_setting("keyboard_navigation", True)
                     self.accessibility_manager.set_keyboard_navigation(keyboard_nav)
 
-                    screen_reader = self.settings_manager.settings.get(
-                        "screen_reader_support", True
-                    )
+                    screen_reader = self.settings_manager.get_setting("screen_reader_support", True)
                     self.accessibility_manager.set_screen_reader_support(screen_reader)
 
                 # 언어 설정 적용
                 if hasattr(self, "i18n_manager"):
-                    new_language = self.settings_manager.settings.get("language", "ko")
+                    new_language = self.settings_manager.get_setting("language", "ko")
                     if new_language != self.i18n_manager.get_current_language():
                         self.i18n_manager.set_language(new_language)
                         print(f"✅ 언어가 '{new_language}'로 변경되었습니다.")

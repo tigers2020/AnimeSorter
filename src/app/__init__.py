@@ -6,9 +6,9 @@ AnimeSorter Application Core
 
 # 백그라운드 작업 이벤트
 # Core 모듈
-from src.core import (AppSettings, FileManager,  # type: ignore[import-untyped]
-                     FileOperationResult, FileParser, ParsedMetadata,
-                     SettingsManager, TMDBAnimeInfo, TMDBClient)
+from src.core import (FileManager,  # type: ignore[import-untyped]
+                      FileOperationResult, FileParser, ParsedMetadata,
+                      TMDBAnimeInfo, TMDBClient, unified_config_manager)
 
 # 애플리케이션 이벤트
 from .application_events import (FileOperationAppliedEvent,
@@ -173,8 +173,7 @@ __all__ = [
     "FileOperationResult",
     "FileParser",
     "ParsedMetadata",
-    "SettingsManager",
-    "AppSettings",
+    "unified_config_manager",
     "TMDBClient",
     "TMDBAnimeInfo",
     # 애플리케이션 이벤트
@@ -424,4 +423,3 @@ __all__ = [
 FileDeletedEvent = MediaFileDeletedEvent
 FileMovedEvent = MediaFileMovedEvent
 FileRenamedEvent = MediaFileRenamedEvent
-ISettingsManager = SettingsManager

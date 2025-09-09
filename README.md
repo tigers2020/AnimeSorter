@@ -88,7 +88,7 @@ AnimeSorter/
 │   │   ├── file_parser.py        # 파일명 파싱 엔진
 │   │   ├── file_manager.py       # 파일 관리 및 정리
 │   │   ├── tmdb_client.py        # TMDB API 클라이언트
-│   │   └── settings_manager.py   # 설정 관리
+│   │   └── unified_config.py     # 설정 관리
 │   ├── gui/               # GUI 컴포넌트
 │   │   ├── main_window.py        # 메인 윈도우
 │   │   ├── components/           # UI 컴포넌트

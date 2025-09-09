@@ -11,13 +11,12 @@ import logging
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
 logger = logging.getLogger(__name__)
-
-
 
 
 @dataclass
@@ -60,6 +59,11 @@ class UnifiedConfig:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+class SettingsProxy(SimpleNamespace):
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+
 class UnifiedConfigManager(QObject):
     """통합 설정 관리자"""
 
@@ -81,6 +85,22 @@ class UnifiedConfigManager(QObject):
         self._change_callbacks: list[Callable] = []
 
         self.load_config()
+
+    @property
+    def settings(self) -> SettingsProxy:
+        """SettingsManager와 유사한 플랫 설정 뷰를 제공합니다"""
+        data = self._to_dict()
+        flat: dict[str, Any] = {}
+        flat.update(data.get("application", {}).get("file_organization", {}))
+        flat.update(data.get("application", {}).get("backup_settings", {}))
+        flat.update(data.get("application", {}).get("logging_config", {}))
+        flat.update(data.get("user_preferences", {}).get("gui_state", {}))
+        flat.update(data.get("user_preferences", {}).get("accessibility", {}))
+        flat.update(data.get("user_preferences", {}).get("theme_preferences", {}))
+        flat.update(data.get("services", {}).get("tmdb_api", {}))
+        flat.update(data.get("services", {}).get("api_keys", {}))
+        flat.update(data.get("services", {}).get("mcp_server", {}))
+        return SettingsProxy(**flat)
 
     def add_change_callback(self, callback: Callable):
         """설정 변경 콜백 등록"""
@@ -136,7 +156,6 @@ class UnifiedConfigManager(QObject):
     def _migrate_existing_configs(self):
         """기존 설정 파일들을 통합 설정으로 마이그레이션"""
         logger.info("기존 설정 파일들을 통합 설정으로 마이그레이션합니다.")
-
 
         # opencode.json 마이그레이션
         opencode_file = Path("opencode.json")
@@ -330,6 +349,170 @@ class UnifiedConfigManager(QObject):
         except Exception as e:
             logger.error(f"섹션 가져오기 실패: {file_path} -> {section} - {e}")
             return False
+
+    # ------------------------------------------------------------------
+    # 기존 설정 관리자 호환 메서드
+    # ------------------------------------------------------------------
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        """기존 설정 관리자 호환용 설정 조회"""
+        try:
+            sections = [
+                ("application", "file_organization"),
+                ("application", "backup_settings"),
+                ("application", "logging_config"),
+                ("user_preferences", "gui_state"),
+                ("user_preferences", "accessibility"),
+                ("user_preferences", "theme_preferences"),
+                ("services", "tmdb_api"),
+                ("services", "api_keys"),
+                ("services", "mcp_server"),
+            ]
+            for section, sub in sections:
+                data = self.get(section, sub, {})
+                if isinstance(data, dict) and key in data:
+                    return data.get(key, default)
+            return default
+        except Exception as e:
+            logger.error(f"설정값 조회 실패: {key} - {e}")
+            return default
+
+    def set_setting(self, key: str, value: Any) -> bool:
+        """기존 설정 관리자 호환용 설정 저장"""
+        try:
+            sections = [
+                ("application", "file_organization"),
+                ("application", "backup_settings"),
+                ("application", "logging_config"),
+                ("user_preferences", "gui_state"),
+                ("user_preferences", "accessibility"),
+                ("user_preferences", "theme_preferences"),
+                ("services", "tmdb_api"),
+                ("services", "api_keys"),
+                ("services", "mcp_server"),
+            ]
+            for section, sub in sections:
+                data = self.get(section, sub, {})
+                if isinstance(data, dict) and key in data:
+                    data[key] = value
+                    return self.set(section, sub, data)
+            # 기본적으로 gui_state에 저장
+            gui_state = self.get("user_preferences", "gui_state", {})
+            gui_state[key] = value
+            return self.set("user_preferences", "gui_state", gui_state)
+        except Exception as e:
+            logger.error(f"설정값 저장 실패: {key} - {e}")
+            return False
+
+    def save_settings(self, file_path: str | None = None) -> bool:
+        """설정 저장 (호환 메서드)"""
+        if file_path:
+            try:
+                path = Path(file_path)
+                with path.open("w", encoding="utf-8") as f:
+                    json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
+                return True
+            except Exception as e:
+                logger.error(f"설정 저장 실패: {e}")
+                return False
+        return self.save_config()
+
+    def load_settings(self, file_path: str | None = None) -> bool:
+        """설정 로드 (호환 메서드)"""
+        if file_path:
+            try:
+                path = Path(file_path)
+                if path.exists():
+                    with path.open(encoding="utf-8") as f:
+                        data = json.load(f)
+                    self._load_from_dict(data)
+                    return True
+                return False
+            except Exception as e:
+                logger.error(f"설정 로드 실패: {e}")
+                return False
+        return self.load_config()
+
+    def get_all_settings(self) -> dict[str, Any]:
+        """모든 설정 반환 (호환 메서드)"""
+        return self._to_dict()
+
+    def reset_settings(self) -> bool:
+        """설정 초기화 (호환 메서드)"""
+        try:
+            self.config = UnifiedConfig()
+            return self.save_config()
+        except Exception as e:
+            logger.error(f"설정 초기화 실패: {e}")
+            return False
+
+    def get_default_settings(self) -> SettingsProxy:
+        """기본 설정값을 반환"""
+        default = UnifiedConfig()
+        data = asdict(default)
+        flat: dict[str, Any] = {}
+        flat.update(data.get("application", {}).get("file_organization", {}))
+        flat.update(data.get("application", {}).get("backup_settings", {}))
+        flat.update(data.get("application", {}).get("logging_config", {}))
+        flat.update(data.get("user_preferences", {}).get("gui_state", {}))
+        flat.update(data.get("user_preferences", {}).get("accessibility", {}))
+        flat.update(data.get("user_preferences", {}).get("theme_preferences", {}))
+        flat.update(data.get("services", {}).get("tmdb_api", {}))
+        flat.update(data.get("services", {}).get("api_keys", {}))
+        flat.update(data.get("services", {}).get("mcp_server", {}))
+        return SettingsProxy(**flat)
+
+    def export_settings(self, file_path: str) -> bool:
+        """설정 내보내기 (호환 메서드)"""
+        try:
+            path = Path(file_path)
+            with path.open("w", encoding="utf-8") as f:
+                json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            logger.error(f"설정 내보내기 실패: {e}")
+            return False
+
+    def import_settings(self, file_path: str) -> bool:
+        """설정 가져오기 (호환 메서드)"""
+        try:
+            path = Path(file_path)
+            if path.exists():
+                with path.open(encoding="utf-8") as f:
+                    data = json.load(f)
+                self._load_from_dict(data)
+                return self.save_config()
+            return False
+        except Exception as e:
+            logger.error(f"설정 가져오기 실패: {e}")
+            return False
+
+    def backup_settings(self) -> str:
+        """설정 백업 (호환 메서드)"""
+        backup_file = (
+            self.backup_dir
+            / f"manual_backup_{len(list(self.backup_dir.glob('manual_backup_*')))}.json"
+        )
+        with backup_file.open("w", encoding="utf-8") as f:
+            json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
+        return str(backup_file)
+
+    def restore_settings(self, backup_path: str) -> bool:
+        """설정 복원 (호환 메서드)"""
+        try:
+            path = Path(backup_path)
+            if path.exists():
+                with path.open(encoding="utf-8") as f:
+                    data = json.load(f)
+                self._load_from_dict(data)
+                return self.save_config()
+            return False
+        except Exception as e:
+            logger.error(f"설정 복원 실패: {e}")
+            return False
+
+    def validate_settings(self):
+        """설정 유효성 검사 (간단한 호환 메서드)"""
+        return SimpleNamespace(is_valid=True, errors=[])
 
 
 # 전역 인스턴스

@@ -8,21 +8,12 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (
-    ISettingsManager,
-    IUIUpdateService,
-    SettingsChangedEvent,
-    SettingsExportEvent,
-    SettingsImportEvent,
-    SettingsResetEvent,
-    SettingsSavedEvent,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TypedEventBus,
-    get_event_bus,
-    get_service,
-)
-
+from src.app import (IUIUpdateService, SettingsChangedEvent,
+                     SettingsExportEvent, SettingsImportEvent,
+                     SettingsResetEvent, SettingsSavedEvent,
+                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
+                     get_event_bus, get_service)
+from src.core.unified_config import unified_config_manager
 from src.settings_state import SettingsCapabilities, SettingsState
 
 
@@ -51,7 +42,7 @@ class SettingsViewModel(QObject):
 
         # 서비스 및 이벤트 버스
         self.event_bus: TypedEventBus = get_event_bus()
-        self.settings_manager: ISettingsManager = get_service(ISettingsManager)
+        self.settings_manager = unified_config_manager
         self.ui_update_service: IUIUpdateService = get_service(IUIUpdateService)
 
         # 이벤트 연결
