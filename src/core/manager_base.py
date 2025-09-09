@@ -19,8 +19,9 @@ from typing import Any, Optional, Protocol, runtime_checkable
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from src.core.unified_event_system import (BaseEvent, EventCategory, EventPriority,
-                                   get_unified_event_bus)
+from src.core.unified_event_system import (BaseEvent, EventCategory,
+                                           EventPriority,
+                                           get_unified_event_bus)
 
 
 class ManagerState(Enum):
@@ -115,7 +116,7 @@ class ManagerBase(QObject):
 
         # 상태 관리
         self._state = ManagerState.INITIALIZING
-        self._previous_state = None
+        self._previous_state: ManagerState | None = None
         self._state_lock = threading.RLock()
 
         # 로깅 설정
@@ -126,18 +127,18 @@ class ManagerBase(QObject):
         self.unified_event_bus = get_unified_event_bus()
 
         # 생명주기 관리
-        self._start_time = None
-        self._stop_time = None
-        self._last_health_check = None
+        self._start_time: datetime | None = None
+        self._stop_time: datetime | None = None
+        self._last_health_check: datetime | None = None
 
         # 에러 추적
         self._error_count = 0
-        self._last_error = None
+        self._last_error: dict[str, Any] | None = None
         self._error_history: list[dict[str, Any]] = []
 
         # 설정 관리
-        self._config_file = Path(config.config_file) if config.config_file else None
-        self._backup_dir = None
+        self._config_file: Path | None = Path(config.config_file) if config.config_file else None
+        self._backup_dir: Path | None = None
 
         # 백업 관리
         if config.backup_enabled:
