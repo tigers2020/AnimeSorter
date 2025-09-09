@@ -39,7 +39,7 @@ jobs:
     - name: Set up Qt environment for headless testing
       run: |
         sudo apt-get update
-        sudo apt-get install -y xvfb
+        sudo apt-get install -y xvfb libgl1-mesa-glx
         export QT_QPA_PLATFORM=offscreen
 
     - name: Run Ruff linting
@@ -101,7 +101,7 @@ jobs:
     - name: Set up Qt environment
       run: |
         sudo apt-get update
-        sudo apt-get install -y xvfb
+        sudo apt-get install -y xvfb libgl1-mesa-glx
         export QT_QPA_PLATFORM=offscreen
 
     - name: Run smoke tests
