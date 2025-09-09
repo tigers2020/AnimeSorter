@@ -488,6 +488,7 @@ temp/
 tmp/
 .tmp/
 .temp/
+.animesorter_cache/
 
 # 스캔 및 분석 결과
 scan_results/
@@ -547,6 +548,7 @@ response_cache/
 *.copy
 backup/
 backups/
+*_backup/
 
 # 보안 및 민감 정보
 *.key
@@ -691,6 +693,9 @@ test_script_*.py
 debug_*.py
 scratch_*.py
 *.scratch
+comprehensive_fix_*.py
+final_fix_*.py
+fix_*.py
 
 # 프로젝트 특화 (최종)
 AnimeSorter_v*.zip
