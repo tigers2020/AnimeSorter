@@ -128,28 +128,32 @@ class CommandSystemManager:
     def undo_last_operation(self):
         """마지막 작업 실행 취소 (기존 시스템)"""
         try:
-            if self.undo_redo_manager and self.undo_redo_manager.can_undo():
-                success = self.undo_redo_manager.undo()
-                if success:
-                    self.logger.info("✅ 실행 취소 완료 (기존 시스템)")
-                else:
-                    self.logger.error("❌ 실행 취소 실패 (기존 시스템)")
-            else:
+            if not (self.undo_redo_manager and self.undo_redo_manager.can_undo()):
                 self.logger.warning("⚠️ 실행 취소할 작업이 없습니다 (기존 시스템)")
+                return
+
+            success = self.undo_redo_manager.undo()
+            if not success:
+                self.logger.error("❌ 실행 취소 실패 (기존 시스템)")
+                return
+
+            self.logger.info("✅ 실행 취소 완료 (기존 시스템)")
         except Exception as e:
             self.logger.error(f"❌ 실행 취소 실패 (기존 시스템): {e}")
 
     def redo_last_operation(self):
         """마지막 작업 재실행 (기존 시스템)"""
         try:
-            if self.undo_redo_manager and self.undo_redo_manager.can_redo():
-                success = self.undo_redo_manager.redo()
-                if success:
-                    self.logger.info("✅ 재실행 완료 (기존 시스템)")
-                else:
-                    self.logger.error("❌ 재실행 실패 (기존 시스템)")
-            else:
+            if not (self.undo_redo_manager and self.undo_redo_manager.can_redo()):
                 self.logger.warning("⚠️ 재실행할 작업이 없습니다 (기존 시스템)")
+                return
+
+            success = self.undo_redo_manager.redo()
+            if not success:
+                self.logger.error("❌ 재실행 실패 (기존 시스템)")
+                return
+
+            self.logger.info("✅ 재실행 완료 (기존 시스템)")
         except Exception as e:
             self.logger.error(f"❌ 재실행 실패 (기존 시스템): {e}")
 

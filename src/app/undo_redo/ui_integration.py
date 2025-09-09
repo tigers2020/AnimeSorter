@@ -9,8 +9,7 @@ from typing import Any, cast
 
 from PyQt5.QtCore import QObject, QTimer
 from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import (QAction, QMainWindow, QMenu, QMenuBar, QShortcut,
-                             QToolBar, QWidget)
+from PyQt5.QtWidgets import QAction, QMainWindow, QMenu, QMenuBar, QShortcut, QToolBar, QWidget
 
 from src.app.undo_redo.undo_redo_manager import UndoRedoManager
 
@@ -130,7 +129,7 @@ class UndoRedoMenuManager(QObject):
                 return menu
 
         # 편집 메뉴가 없으면 생성
-        edit_menu = cast(QMenu, self.menu_bar.addMenu("편집(&E)"))
+        edit_menu = cast("QMenu", self.menu_bar.addMenu("편집(&E)"))
         self.logger.debug("새 편집 메뉴 생성")
         return edit_menu
 
@@ -194,13 +193,13 @@ class UndoRedoToolbarManager(QObject):
     def _setup_toolbar(self) -> None:
         """툴바 설정"""
         # 취소 버튼
-        self.undo_action = cast(QAction, self.toolbar.addAction("↶"))
+        self.undo_action = cast("QAction", self.toolbar.addAction("↶"))
         self.undo_action.setText("취소")
         self.undo_action.setToolTip("마지막 작업을 취소합니다 (Ctrl+Z)")
         self.undo_action.triggered.connect(lambda: self.undo_redo_manager.undo() or None)  # type: ignore[arg-type]
 
         # 재실행 버튼
-        self.redo_action = cast(QAction, self.toolbar.addAction("↷"))
+        self.redo_action = cast("QAction", self.toolbar.addAction("↷"))
         self.redo_action.setText("재실행")
         self.redo_action.setToolTip("취소한 작업을 다시 실행합니다 (Ctrl+Y)")
         self.redo_action.triggered.connect(lambda: self.undo_redo_manager.redo() or None)  # type: ignore[arg-type]
@@ -300,7 +299,7 @@ class UndoRedoUIIntegration(QObject):
             return toolbars[0]
 
         # 새 툴바 생성
-        toolbar = cast(QToolBar, self.main_window.addToolBar("편집"))
+        toolbar = cast("QToolBar", self.main_window.addToolBar("편집"))
         toolbar.setObjectName("editToolBar")
         self.logger.debug("새 편집 툴바 생성")
         return toolbar

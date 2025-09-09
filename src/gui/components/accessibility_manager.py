@@ -5,14 +5,7 @@
 
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QColor, QPalette
-from PyQt5.QtWidgets import (
-    QApplication,
-    QComboBox,
-    QLineEdit,
-    QPushButton,
-    QTableView,
-    QWidget,
-)
+from PyQt5.QtWidgets import QApplication, QComboBox, QLineEdit, QPushButton, QTableView, QWidget
 
 
 class AccessibilityManager(QObject):

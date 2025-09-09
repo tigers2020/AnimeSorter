@@ -13,7 +13,6 @@ from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from PyQt5.QtWidgets import QFileDialog
 
 from src.core.file_parser import FileParser
-
 from src.interfaces.i_controller import IController
 from src.interfaces.i_event_bus import Event, IEventBus
 

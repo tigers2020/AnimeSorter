@@ -54,7 +54,7 @@ class WeakValueDict(MutableMapping):
     """약한 참조 값을 가지는 딕셔너리"""
 
     def __init__(self):
-        self._data = {}
+        self._data: dict[Any, weakref.ref] = {}
         self._remove = self._data.__delitem__
 
     def __getitem__(self, key):
@@ -122,7 +122,7 @@ class TypedEventBus(QObject):
 
         # 구독자 저장소 (이벤트 타입 -> 핸들러 딕셔너리)
         # 약한 참조를 사용하여 메모리 누수 방지
-        self._subscribers: dict[type[BaseEvent], WeakValueDict] = defaultdict(WeakValueDict)
+        self._subscribers: defaultdict[type[BaseEvent], WeakValueDict] = defaultdict(WeakValueDict)
 
         # 강한 참조 구독자 저장소 (수동 정리 필요)
         self._strong_subscribers: dict[type[BaseEvent], dict[str, Callable]] = {}
@@ -135,7 +135,7 @@ class TypedEventBus(QObject):
         self._lock = threading.RLock()
 
         # 이벤트 통계 및 히스토리
-        self._event_stats: dict[str, int] = defaultdict(int)
+        self._event_stats: defaultdict[str, int] = defaultdict(int)
         self._event_history: list[BaseEvent] = []
         self._max_history_size = 1000
 

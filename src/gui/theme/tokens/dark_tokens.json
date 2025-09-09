@@ -4,12 +4,12 @@
     "primary-hover": "#005A9E",
     "primary-pressed": "#004578",
     "primary-disabled": "#2D4A5C",
-    
+
     "secondary": "#6C757D",
     "secondary-hover": "#5A6268",
     "secondary-pressed": "#495057",
     "secondary-disabled": "#4A4A4A",
-    
+
     "success": "#28A745",
     "success-hover": "#218838",
     "success-active": "#1E7E34",
@@ -23,27 +23,27 @@
     "info": "#17A2B8",
     "info-hover": "#138496",
     "info-active": "#117A8B",
-    
+
     "background": "#1E1E1E",
     "background-secondary": "#252526",
     "background-tertiary": "#2D2D30",
-    
+
     "surface": "#252526",
     "surface-hover": "#2D2D30",
     "surface-pressed": "#3C3C3C",
     "surface-depressed": "#3C3C3C",
     "surface-elevated": "#2D2D30",
-    
+
     "text": "#CCCCCC",
     "text-secondary": "#969696",
     "text-muted": "#6A6A6A",
     "text-disabled": "#4A4A4A",
     "text-inverse": "#1E1E1E",
-    
+
     "border": "#3C3C3C",
     "border-hover": "#4A4A4A",
     "border-focus": "#007ACC",
-    
+
     "shadow": "rgba(0, 0, 0, 0.3)",
     "shadow-hover": "rgba(0, 0, 0, 0.4)",
     "shadow-small": "rgba(0, 0, 0, 0.3)",
@@ -51,9 +51,9 @@
     "shadow-large": "rgba(0, 0, 0, 0.5)",
     "shadow-xs": "rgba(0, 0, 0, 0.2)",
     "shadow-xl": "rgba(0, 0, 0, 0.6)",
-    
+
     "overlay": "rgba(0, 0, 0, 0.7)",
-    
+
     "scrollbar-background": "#2D2D30",
     "scrollbar-handle": "#4A4A4A",
     "scrollbar-handle-hover": "#5A5A5A",
@@ -65,32 +65,32 @@
     "scrollbar-button-border-hover": "#3C3C3C",
     "scrollbar-button-border-pressed": "#4A4A4A",
     "scrollbar-page": "#252526",
-    
+
     "table-background": "#252526",
     "table-background-alternate": "#2D2D30",
     "table-header-background": "#3C3C3C",
     "table-border": "#3C3C3C",
     "table-selection": "#264F78",
     "table-hover": "#2D2D30",
-    
+
     "dialog-background": "#252526",
     "dialog-border": "#3C3C3C",
     "dialog-text": "#CCCCCC",
-    
+
     "settings-dialog-background": "#252526",
     "settings-dialog-border": "#3C3C3C",
     "settings-dialog-text": "#CCCCCC",
-    
+
     "toolbar-progressbar-background": "#3C3C3C",
     "toolbar-progressbar-border": "#4A4A4A",
     "toolbar-progressbar-text": "#CCCCCC",
     "toolbar-progressbar-fill": "#28A745",
-    
+
     "dialog-progressbar-background": "#3C3C3C",
     "dialog-progressbar-border": "#4A4A4A",
     "dialog-progressbar-text": "#CCCCCC",
     "dialog-progressbar-fill": "#007ACC",
-    
+
     "button-bg": "#252526",
     "button-text": "#CCCCCC",
     "button-border": "#3C3C3C",
@@ -101,14 +101,14 @@
     "button-disabled-bg": "#2D2D30",
     "button-disabled-text": "#4A4A4A",
     "button-disabled-border": "#3C3C3C",
-    
+
     "focus-outline": "#007ACC",
-    
+
     "divider": "#3C3C3C",
-    
+
     "white": "#FFFFFF",
     "black": "#000000",
-    
+
     "gray-50": "#2D2D30",
     "gray-100": "#252526",
     "gray-200": "#1E1E1E",
@@ -119,14 +119,14 @@
     "gray-700": "#7A7A7A",
     "gray-800": "#8A8A8A",
     "gray-900": "#9A9A9A",
-    
+
     "active": "#007ACC",
     "hover": "#2D2D30",
     "selected": "#264F78",
-    
+
     "z-index-floating": "1000"
   },
-  
+
   "spacing": {
     "xs": "4px",
     "sm": "8px",
@@ -137,12 +137,12 @@
     "0": "0px",
     "2xl": "48px",
     "3xl": "64px",
-    
+
     "scrollbar-margin": "2px",
     "scrollbar-handle-margin": "1px",
     "toolbar-progressbar-padding": "4px",
     "dialog-progressbar-padding": "8px",
-    
+
     "button-padding": "8px 16px",
     "button-padding-mobile": "6px 12px",
     "checkbox-margin": "4px",
@@ -238,13 +238,13 @@
     "toolbutton-padding": "6px",
     "tooltip-padding": "8px 12px"
   },
-  
+
   "sizes": {
     "scrollbar-width": "12px",
     "scrollbar-handle-min-height": "20px",
     "slider-handle-size": "16px",
     "progressbar-height": "20px",
-    
+
     "font-size": "14px",
     "font-size-2xl": "24px",
     "font-size-3xl": "30px",
@@ -260,11 +260,11 @@
     "font-size-small": "12px",
     "font-size-xl": "20px",
     "font-size-xs": "10px",
-    
+
     "line-height-normal": "1.5",
     "line-height-relaxed": "1.75",
     "line-height-tight": "1.25",
-    
+
     "button-height": "36px",
     "button-height-mobile": "32px",
     "button-min-width": "80px",
@@ -345,13 +345,13 @@
     "toolbutton-min-width": "32px",
     "tooltip-max-width": "300px"
   },
-  
+
   "radius": {
     "sm": "4px",
     "md": "8px",
     "lg": "12px",
     "xl": "16px",
-    
+
     "scrollbar": "6px",
     "scrollbar-handle": "6px",
     "slider": "8px",
@@ -359,7 +359,7 @@
     "dialog": "8px",
     "toolbar-progressbar": "12px",
     "dialog-progressbar": "8px",
-    
+
     "button": "6px",
     "checkbox": "4px",
     "combobox": "6px",
@@ -417,7 +417,7 @@
     "toolbar-progressbar-fill": "10px",
     "toolbutton": "4px",
     "tooltip": "6px",
-    
+
     "colordialog": "8px",
     "colordialog-preview": "4px",
     "colordialog-slider": "6px",
@@ -428,7 +428,7 @@
     "messagebox-text": "4px",
     "textedit": "6px"
   },
-  
+
   "fonts": {
     "family": "Segoe UI, -apple-system, BlinkMacSystemFont, sans-serif",
     "family-primary": "Segoe UI, -apple-system, BlinkMacSystemFont, sans-serif",
@@ -442,7 +442,7 @@
     "weight-medium": "500",
     "weight-semibold": "600",
     "weight-toolbar-progressbar": "500",
-    
+
     "weight-button": "500",
     "weight-dialog-button": "500",
     "weight-dialog-progressbar": "500",
@@ -460,7 +460,7 @@
     "weight-status-badge": "500",
     "weight-tab-selected": "600"
   },
-  
+
   "duration": {
     "transition": "0.2s",
     "animation": "0.3s",

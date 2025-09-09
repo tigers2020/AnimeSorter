@@ -7,8 +7,7 @@
 import logging
 from pathlib import Path
 
-from src.app.domain import (MediaFile, MediaMetadata, MediaQuality, MediaSource,
-                       MediaType)
+from src.app.domain import MediaFile, MediaMetadata, MediaQuality, MediaSource, MediaType
 
 
 class MediaExtractor:
@@ -131,10 +130,12 @@ class MediaExtractor:
 
             for part in parts:
                 # 시즌/에피소드 정보가 아닌 부분만 제목 후보로 추가
-                if not (part.startswith("S") and any(c.isdigit() for c in part[1:3])):
-                    if not (part.startswith("E") and any(c.isdigit() for c in part[1:4])):
-                        if not part.startswith("Episode"):
-                            title_candidates.append(part)
+                is_season_info = part.startswith("S") and any(c.isdigit() for c in part[1:3])
+                is_episode_info = part.startswith("E") and any(c.isdigit() for c in part[1:4])
+                is_episode_word = part.startswith("Episode")
+
+                if not (is_season_info or is_episode_info or is_episode_word):
+                    title_candidates.append(part)
 
             if title_candidates:
                 title = " ".join(title_candidates)

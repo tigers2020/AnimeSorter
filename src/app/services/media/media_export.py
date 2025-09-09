@@ -123,7 +123,7 @@ class MediaExporter:
             "title": media_group.title,
             "total_episodes": media_group.total_episodes,
             "episode_count": media_group.episode_count,
-            "files": [ep for ep in media_group.episode_numbers],  # 에피소드 번호만 반환
+            "files": list(media_group.episode_numbers),  # 에피소드 번호만 반환
         }
 
     def _calculate_statistics(

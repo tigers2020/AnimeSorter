@@ -9,10 +9,21 @@ from collections.abc import Callable
 from typing import Any
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
-from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QLabel,
-                             QLineEdit, QListWidget, QProgressBar, QPushButton,
-                             QSlider, QSpinBox, QTableWidget, QTreeWidget,
-                             QWidget)
+from PyQt5.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QProgressBar,
+    QPushButton,
+    QSlider,
+    QSpinBox,
+    QTableWidget,
+    QTreeWidget,
+    QWidget,
+)
 
 
 class BindingHelper(QObject):

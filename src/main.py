@@ -6,19 +6,18 @@ AnimeSorter 메인 실행 파일
 PyQt5 기반 GUI 애플리케이션을 초기화하고 실행합니다.
 """
 
-import os
 import sys
 from pathlib import Path
+
+# 절대 import로 변경 (런타임에서 상대 import 문제 해결)
+from PyQt5.QtWidgets import QApplication
+
+import src.app.setup as setup_module
+import src.gui.main_window as main_window_module
 
 # src 디렉토리를 Python 경로에 추가
 src_path = Path(__file__).parent
 sys.path.insert(0, str(src_path))
-
-from PyQt5.QtWidgets import QApplication
-
-# 절대 import로 변경 (런타임에서 상대 import 문제 해결)
-import src.app.setup as setup_module
-import src.gui.main_window as main_window_module
 
 cleanup_application = setup_module.cleanup_application
 initialize_application = setup_module.initialize_application

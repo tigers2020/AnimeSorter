@@ -10,21 +10,42 @@ import logging
 
 from PyQt5.QtWidgets import QWidget
 
-from src.app import (BackupCompletedEvent, BackupFailedEvent, BackupStartedEvent,
-                 CommandExecutedEvent, CommandFailedEvent, CommandRedoneEvent,
-                 CommandUndoneEvent, ConfirmationRequiredEvent,
-                 FilesScannedEvent, JournalEntryCreatedEvent,
-                 MediaDataGroupingCompletedEvent, MediaDataReadyEvent,
-                 OrganizationCompletedEvent, OrganizationProgressEvent,
-                 OrganizationStartedEvent, PreflightCompletedEvent,
-                 PreflightIssueFoundEvent, PreflightStartedEvent,
-                 RedoExecutedEvent, SafetyAlertEvent, SafetyStatusUpdateEvent,
-                 ScanStatus, TaskCancelledEvent, TaskCompletedEvent,
-                 TaskFailedEvent, TaskProgressEvent, TaskStartedEvent,
-                 TMDBMatchFoundEvent, TMDBSearchCompletedEvent,
-                 TMDBSearchStartedEvent, TransactionCommittedEvent,
-                 TransactionStartedEvent, UndoExecutedEvent,
-                 UndoRedoStackChangedEvent)
+from src.app import (
+    BackupCompletedEvent,
+    BackupFailedEvent,
+    BackupStartedEvent,
+    CommandExecutedEvent,
+    CommandFailedEvent,
+    CommandRedoneEvent,
+    CommandUndoneEvent,
+    ConfirmationRequiredEvent,
+    FilesScannedEvent,
+    JournalEntryCreatedEvent,
+    MediaDataGroupingCompletedEvent,
+    MediaDataReadyEvent,
+    OrganizationCompletedEvent,
+    OrganizationProgressEvent,
+    OrganizationStartedEvent,
+    PreflightCompletedEvent,
+    PreflightIssueFoundEvent,
+    PreflightStartedEvent,
+    RedoExecutedEvent,
+    SafetyAlertEvent,
+    SafetyStatusUpdateEvent,
+    ScanStatus,
+    TaskCancelledEvent,
+    TaskCompletedEvent,
+    TaskFailedEvent,
+    TaskProgressEvent,
+    TaskStartedEvent,
+    TMDBMatchFoundEvent,
+    TMDBSearchCompletedEvent,
+    TMDBSearchStartedEvent,
+    TransactionCommittedEvent,
+    TransactionStartedEvent,
+    UndoExecutedEvent,
+    UndoRedoStackChangedEvent,
+)
 
 
 class EventHandlerManager:
@@ -35,6 +56,21 @@ class EventHandlerManager:
         self.main_window = main_window
         self.event_bus = event_bus
         self.logger = logging.getLogger(__name__)
+
+    def _delegate_or_log(
+        self, handler_attr: str, handler_method: str, event, fallback_message: str
+    ):
+        """핸들러가 있으면 위임하고, 없으면 로그를 남기는 헬퍼 메서드"""
+        if not hasattr(self.main_window, handler_attr):
+            self.logger.info(fallback_message)
+            return
+
+        handler = getattr(self.main_window, handler_attr)
+        if not hasattr(handler, handler_method):
+            self.logger.info(fallback_message)
+            return
+
+        getattr(handler, handler_method)(event)
 
     def setup_event_subscriptions(self):
         """이벤트 구독 설정"""
@@ -167,10 +203,11 @@ class EventHandlerManager:
                 self.main_window.update_status_bar(f"스캔 완료: {files_count}개 파일 발견")
 
                 # 스캔 완료 후 파일 처리
-                if event.found_files:
-                    self.on_scan_completed(event.found_files)
-                else:
+                if not event.found_files:
                     self.main_window.update_status_bar("비디오 파일을 찾을 수 없습니다")
+                    return
+
+                self.on_scan_completed(event.found_files)
 
             elif event.status == ScanStatus.FAILED:
                 self.main_window.update_status_bar(f"스캔 실패: {event.error_message}")
@@ -238,30 +275,37 @@ class EventHandlerManager:
     # Organization 이벤트 핸들러들 (FileOrganizationHandler로 위임)
     def on_organization_started(self, event: OrganizationStartedEvent):
         """파일 정리 시작 이벤트 핸들러"""
-        if hasattr(self.main_window, "file_organization_handler"):
-            self.main_window.file_organization_handler.handle_organization_started(event)
-        else:
-            self.logger.info(f"🚀 [MainWindow] 파일 정리 시작: {event.organization_id}")
+        self._delegate_or_log(
+            "file_organization_handler",
+            "handle_organization_started",
+            event,
+            f"🚀 [MainWindow] 파일 정리 시작: {event.organization_id}",
+        )
+        if not hasattr(self.main_window, "file_organization_handler"):
             self.main_window.update_status_bar("파일 정리 시작됨", 0)
 
     def on_organization_progress(self, event: OrganizationProgressEvent):
         """파일 정리 진행률 이벤트 핸들러"""
-        if hasattr(self.main_window, "file_organization_handler"):
-            self.main_window.file_organization_handler.handle_organization_progress(event)
-        else:
-            self.logger.info(
-                f"📊 [MainWindow] 파일 정리 진행률: {event.progress_percent}% - {event.current_step}"
-            )
+        self._delegate_or_log(
+            "file_organization_handler",
+            "handle_organization_progress",
+            event,
+            f"📊 [MainWindow] 파일 정리 진행률: {event.progress_percent}% - {event.current_step}",
+        )
+        if not hasattr(self.main_window, "file_organization_handler"):
             self.main_window.update_status_bar(
                 f"파일 정리 중... {event.current_step}", event.progress_percent
             )
 
     def on_organization_completed(self, event: OrganizationCompletedEvent):
         """파일 정리 완료 이벤트 핸들러"""
-        if hasattr(self.main_window, "file_organization_handler"):
-            self.main_window.file_organization_handler.handle_organization_completed(event)
-        else:
-            self.logger.info(f"✅ [MainWindow] 파일 정리 완료: {event.organization_id}")
+        self._delegate_or_log(
+            "file_organization_handler",
+            "handle_organization_completed",
+            event,
+            f"✅ [MainWindow] 파일 정리 완료: {event.organization_id}",
+        )
+        if not hasattr(self.main_window, "file_organization_handler"):
             self.main_window.update_status_bar("파일 정리 완료됨", 100)
 
     # Media Data 이벤트 핸들러들
@@ -280,105 +324,123 @@ class EventHandlerManager:
     # TMDB Search 이벤트 핸들러들 (TMDBSearchHandler로 위임)
     def on_tmdb_search_started(self, event: TMDBSearchStartedEvent):
         """TMDB 검색 시작 이벤트 핸들러"""
-        if hasattr(self.main_window, "tmdb_search_handler"):
-            self.main_window.tmdb_search_handler.handle_search_started(event)
-        else:
-            self.logger.info(f"🔍 [MainWindow] TMDB 검색 시작: {event.search_id}")
+        self._delegate_or_log(
+            "tmdb_search_handler",
+            "handle_search_started",
+            event,
+            f"🔍 [MainWindow] TMDB 검색 시작: {event.search_id}",
+        )
 
     def on_tmdb_search_completed(self, event: TMDBSearchCompletedEvent):
         """TMDB 검색 완료 이벤트 핸들러"""
-        if hasattr(self.main_window, "tmdb_search_handler"):
-            self.main_window.tmdb_search_handler.handle_search_completed(event)
-        else:
-            self.logger.info(
-                f"✅ [MainWindow] TMDB 검색 완료: {event.search_id} - {len(event.results)}개 결과"
-            )
+        self._delegate_or_log(
+            "tmdb_search_handler",
+            "handle_search_completed",
+            event,
+            f"✅ [MainWindow] TMDB 검색 완료: {event.search_id} - {len(event.results)}개 결과",
+        )
 
     def on_tmdb_match_found(self, event: TMDBMatchFoundEvent):
         """TMDB 매치 발견 이벤트 핸들러"""
-        if hasattr(self.main_window, "tmdb_search_handler"):
-            self.main_window.tmdb_search_handler.handle_match_found(event)
-        else:
-            self.logger.info(
-                f"🎯 [MainWindow] TMDB 매치 발견: {event.anime_title} (ID: {event.tmdb_id})"
-            )
+        self._delegate_or_log(
+            "tmdb_search_handler",
+            "handle_match_found",
+            event,
+            f"🎯 [MainWindow] TMDB 매치 발견: {event.anime_title} (ID: {event.tmdb_id})",
+        )
 
     # Safety System 이벤트 핸들러들 (SafetySystemManager로 위임)
     def on_safety_status_update(self, event: SafetyStatusUpdateEvent):
         """안전 시스템 상태 업데이트 이벤트 핸들러"""
-        if hasattr(self.main_window, "safety_system_manager"):
-            self.main_window.safety_system_manager.handle_safety_status_update(event)
-        else:
-            self.logger.info(f"🛡️ [MainWindow] 안전 시스템 상태 업데이트: {event.status}")
+        self._delegate_or_log(
+            "safety_system_manager",
+            "handle_safety_status_update",
+            event,
+            f"🛡️ [MainWindow] 안전 시스템 상태 업데이트: {event.status}",
+        )
 
     def on_safety_alert(self, event: SafetyAlertEvent):
         """안전 시스템 경고 이벤트 핸들러"""
-        if hasattr(self.main_window, "safety_system_manager"):
-            self.main_window.safety_system_manager.handle_safety_alert(event)
-        else:
-            self.logger.warning(f"⚠️ [MainWindow] 안전 시스템 경고: {event.message}")
+        self._delegate_or_log(
+            "safety_system_manager",
+            "handle_safety_alert",
+            event,
+            f"⚠️ [MainWindow] 안전 시스템 경고: {event.message}",
+        )
 
     def on_confirmation_required(self, event: ConfirmationRequiredEvent):
         """확인 요청 이벤트 핸들러"""
-        if hasattr(self.main_window, "safety_system_manager"):
-            self.main_window.safety_system_manager.handle_confirmation_required(event)
-        else:
-            self.logger.info(f"❓ [MainWindow] 확인 요청: {event.message}")
+        self._delegate_or_log(
+            "safety_system_manager",
+            "handle_confirmation_required",
+            event,
+            f"❓ [MainWindow] 확인 요청: {event.message}",
+        )
 
     # Backup System 이벤트 핸들러들 (SafetySystemManager로 위임)
     def on_backup_started(self, event: BackupStartedEvent):
         """백업 시작 이벤트 핸들러"""
-        if hasattr(self.main_window, "safety_system_manager"):
-            self.main_window.safety_system_manager.handle_backup_started(event)
-        else:
-            self.logger.info(f"💾 [MainWindow] 백업 시작: {event.backup_id}")
+        self._delegate_or_log(
+            "safety_system_manager",
+            "handle_backup_started",
+            event,
+            f"💾 [MainWindow] 백업 시작: {event.backup_id}",
+        )
 
     def on_backup_completed(self, event: BackupCompletedEvent):
         """백업 완료 이벤트 핸들러"""
-        if hasattr(self.main_window, "safety_system_manager"):
-            self.main_window.safety_system_manager.handle_backup_completed(event)
-        else:
-            self.logger.info(f"✅ [MainWindow] 백업 완료: {event.backup_id}")
+        self._delegate_or_log(
+            "safety_system_manager",
+            "handle_backup_completed",
+            event,
+            f"✅ [MainWindow] 백업 완료: {event.backup_id}",
+        )
 
     def on_backup_failed(self, event: BackupFailedEvent):
         """백업 실패 이벤트 핸들러"""
-        if hasattr(self.main_window, "safety_system_manager"):
-            self.main_window.safety_system_manager.handle_backup_failed(event)
-        else:
-            self.logger.error(
-                f"❌ [MainWindow] 백업 실패: {event.backup_id} - {event.error_message}"
-            )
+        self._delegate_or_log(
+            "safety_system_manager",
+            "handle_backup_failed",
+            event,
+            f"❌ [MainWindow] 백업 실패: {event.backup_id} - {event.error_message}",
+        )
 
     # Command System 이벤트 핸들러들 (CommandSystemManager로 위임)
     def on_command_executed(self, event: CommandExecutedEvent):
         """명령 실행 이벤트 핸들러"""
-        if hasattr(self.main_window, "command_system_manager"):
-            self.main_window.command_system_manager.handle_command_executed(event)
-        else:
-            self.logger.info(f"▶️ [MainWindow] 명령 실행: {event.command_id}")
+        self._delegate_or_log(
+            "command_system_manager",
+            "handle_command_executed",
+            event,
+            f"▶️ [MainWindow] 명령 실행: {event.command_id}",
+        )
 
     def on_command_undone(self, event: CommandUndoneEvent):
         """명령 실행 취소 이벤트 핸들러"""
-        if hasattr(self.main_window, "command_system_manager"):
-            self.main_window.command_system_manager.handle_command_undone(event)
-        else:
-            self.logger.info(f"↩️ [MainWindow] 명령 실행 취소: {event.command_id}")
+        self._delegate_or_log(
+            "command_system_manager",
+            "handle_command_undone",
+            event,
+            f"↩️ [MainWindow] 명령 실행 취소: {event.command_id}",
+        )
 
     def on_command_redone(self, event: CommandRedoneEvent):
         """명령 재실행 이벤트 핸들러"""
-        if hasattr(self.main_window, "command_system_manager"):
-            self.main_window.command_system_manager.handle_command_redone(event)
-        else:
-            self.logger.info(f"↪️ [MainWindow] 명령 재실행: {event.command_id}")
+        self._delegate_or_log(
+            "command_system_manager",
+            "handle_command_redone",
+            event,
+            f"↪️ [MainWindow] 명령 재실행: {event.command_id}",
+        )
 
     def on_command_failed(self, event: CommandFailedEvent):
         """명령 실패 이벤트 핸들러"""
-        if hasattr(self.main_window, "command_system_manager"):
-            self.main_window.command_system_manager.handle_command_failed(event)
-        else:
-            self.logger.error(
-                f"❌ [MainWindow] 명령 실패: {event.command_id} - {event.error_message}"
-            )
+        self._delegate_or_log(
+            "command_system_manager",
+            "handle_command_failed",
+            event,
+            f"❌ [MainWindow] 명령 실패: {event.command_id} - {event.error_message}",
+        )
 
     # Preflight System 이벤트 핸들러들
     def on_preflight_started(self, event: PreflightStartedEvent):

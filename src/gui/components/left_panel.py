@@ -4,9 +4,17 @@
 """
 
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (QFormLayout, QFrame, QGroupBox, QHBoxLayout,
-                             QLabel, QPushButton, QSizePolicy, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import (
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class LeftPanel(QWidget):
@@ -363,14 +371,17 @@ class LeftPanel(QWidget):
 
         # 이전에 선택한 폴더가 있으면 그곳에서 시작
         start_dir = ""
-        if self.main_window and hasattr(self.main_window, "settings_manager"):
-            if hasattr(self.main_window.settings_manager, "config"):
-                # unified_config_manager의 경우
-                start_dir = getattr(
-                    self.main_window.settings_manager.config.user_preferences,
-                    "last_destination_directory",
-                    "",
-                )
+        if (
+            self.main_window
+            and hasattr(self.main_window, "settings_manager")
+            and hasattr(self.main_window.settings_manager, "config")
+        ):
+            # unified_config_manager의 경우
+            start_dir = getattr(
+                self.main_window.settings_manager.config.user_preferences,
+                "last_destination_directory",
+                "",
+            )
 
         folder = QFileDialog.getExistingDirectory(
             self, "정리된 파일을 저장할 대상 폴더 선택", start_dir

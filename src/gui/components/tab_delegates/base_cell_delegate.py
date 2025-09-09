@@ -7,8 +7,7 @@ from typing import Any
 
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QPainter
-from PyQt5.QtWidgets import (QApplication, QStyle, QStyledItemDelegate,
-                             QStyleOptionViewItem)
+from PyQt5.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 
 class BaseCellDelegate(QStyledItemDelegate):

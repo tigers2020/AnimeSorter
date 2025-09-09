@@ -11,7 +11,7 @@ MainWindow의 UI 상태 관리 책임을 담당하는 전용 클래스입니다.
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from PyQt5.QtCore import QObject, QSettings, pyqtSignal
 from PyQt5.QtWidgets import QDockWidget, QMainWindow, QStatusBar
@@ -86,7 +86,7 @@ class UIStateController(QObject):
             if isinstance(state_json, str):
                 state_data = json.loads(state_json)
             else:
-                state_data = {}
+                state_data: dict[str, Any] = {}
 
             # 설정 매니저에서도 로드 시도
             if self.settings_manager:
@@ -277,7 +277,7 @@ class UIStateController(QObject):
         except Exception as e:
             logger.warning(f"로그 도킹 위젯 숨김 실패: {e}")
 
-    def update_status_bar(self, message: str, progress: Optional[int] = None) -> bool:
+    def update_status_bar(self, message: str, progress: int | None = None) -> bool:
         """상태바를 업데이트합니다"""
         try:
             if hasattr(self.main_window, "statusBar"):
@@ -305,8 +305,7 @@ class UIStateController(QObject):
                 progress_percent = int((current / total) * 100)
                 progress_message = f"{message} ({current}/{total}, {progress_percent}%)"
                 return self.update_status_bar(progress_message, progress_percent)
-            else:
-                return self.update_status_bar(message)
+            return self.update_status_bar(message)
 
         except Exception as e:
             logger.error(f"진행률 업데이트 실패: {e}")
@@ -333,12 +332,11 @@ class UIStateController(QObject):
             # QByteArray를 base64 문자열로 변환
             if hasattr(state, "toBase64"):
                 return state.toBase64().data().decode("utf-8")
-            elif isinstance(state, bytes):
+            if isinstance(state, bytes):
                 import base64
 
                 return base64.b64encode(state).decode("utf-8")
-            else:
-                return ""
+            return ""
         except Exception:
             return ""
 

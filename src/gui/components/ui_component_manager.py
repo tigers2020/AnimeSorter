@@ -7,19 +7,19 @@ from typing import TYPE_CHECKING
 
 from PyQt5.QtWidgets import QHeaderView, QMainWindow
 
+from src.gui.components.log_dock import LogDock
 from src.gui.handlers.event_handler_manager import EventHandlerManager
 from src.gui.initializers.ui_initializer import UIInitializer
 from src.gui.managers.status_bar_manager import StatusBarManager
-from src.gui.components.log_dock import LogDock
 
 if TYPE_CHECKING:
-    from src.gui.managers.anime_data_manager import AnimeDataManager
-    from src.gui.managers.file_processing_manager import FileProcessingManager
-    from src.gui.managers.tmdb_manager import TMDBManager
     from src.gui.components.accessibility_manager import AccessibilityManager
     from src.gui.components.i18n_manager import I18nManager
     from src.gui.components.ui_migration_manager import UIMigrationManager
     from src.gui.components.ui_state_manager import UIStateManager
+    from src.gui.managers.anime_data_manager import AnimeDataManager
+    from src.gui.managers.file_processing_manager import FileProcessingManager
+    from src.gui.managers.tmdb_manager import TMDBManager
 
 
 class UIComponentManager:

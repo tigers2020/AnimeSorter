@@ -5,13 +5,27 @@
 """
 
 import json
+from pathlib import Path
 
 from PyQt5.QtCore import QDateTime, Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
-from PyQt5.QtWidgets import (QApplication, QFileDialog, QGroupBox, QHBoxLayout,
-                             QHeaderView, QLabel, QProgressBar, QPushButton,
-                             QTableView, QTableWidget, QTableWidgetItem,
-                             QTabWidget, QTextEdit, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QTableView,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.gui.theme.engine.theme_manager import ThemeManager
 from src.theme_consistency_validator import ThemeConsistencyValidator
@@ -521,7 +535,7 @@ class ThemeMonitorWidget(QWidget):
             )
 
             if file_path:
-                with open(file_path, "w", encoding="utf-8") as f:
+                with Path(file_path).open("w", encoding="utf-8") as f:
                     f.write(self.log_text.toPlainText())
 
                 self._add_log_entry(f"로그 저장 완료: {file_path}")

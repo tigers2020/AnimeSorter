@@ -8,6 +8,7 @@ QRunnable을 기반으로 하여 QThreadPool에서 실행될 수 있습니다.
 import logging
 import time
 import traceback
+
 # from abc import abstractmethod  # ABC 제거로 인해 불필요
 from dataclasses import dataclass, field
 from typing import Any
@@ -15,10 +16,15 @@ from uuid import uuid4
 
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
-from src.app.background_events import (TaskCancelledEvent, TaskCompletedEvent,
-                                       TaskFailedEvent, TaskPriority,
-                                       TaskProgressEvent, TaskStartedEvent,
-                                       TaskStatus)
+from src.app.background_events import (
+    TaskCancelledEvent,
+    TaskCompletedEvent,
+    TaskFailedEvent,
+    TaskPriority,
+    TaskProgressEvent,
+    TaskStartedEvent,
+    TaskStatus,
+)
 from src.app.events import TypedEventBus
 
 

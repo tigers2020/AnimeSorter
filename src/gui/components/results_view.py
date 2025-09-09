@@ -504,9 +504,11 @@ class ResultsView(QTabWidget):
                 stats[tab_name] = {
                     "filtered_count": data["filtered_count"],
                     "source_count": data["source_count"],
-                    "percentage": (data["filtered_count"] / data["source_count"] * 100)
-                    if data["source_count"] > 0
-                    else 0,
+                    "percentage": (
+                        (data["filtered_count"] / data["source_count"] * 100)
+                        if data["source_count"] > 0
+                        else 0
+                    ),
                 }
 
         return stats

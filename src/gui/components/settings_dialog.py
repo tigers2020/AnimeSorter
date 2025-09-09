@@ -4,10 +4,23 @@ AnimeSorter의 모든 설정을 편집할 수 있는 다이얼로그를 제공�
 """
 
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
-                             QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
-                             QLineEdit, QMessageBox, QPushButton, QSpinBox,
-                             QTabWidget, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class SettingsDialog(QDialog):

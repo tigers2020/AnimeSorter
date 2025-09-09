@@ -148,7 +148,7 @@ class ThemeConsistencyValidator(QObject):
 
         if result["exists"]:
             try:
-                with open(theme_file, encoding="utf-8") as f:
+                with theme_file.open(encoding="utf-8") as f:
                     theme_data = json.load(f)
 
                 result["is_valid_json"] = True
@@ -187,7 +187,7 @@ class ThemeConsistencyValidator(QObject):
 
         if result["exists"]:
             try:
-                with open(token_file, encoding="utf-8") as f:
+                with token_file.open(encoding="utf-8") as f:
                     token_data = json.load(f)
 
                 result["is_valid_json"] = True
@@ -283,7 +283,7 @@ class ThemeConsistencyValidator(QObject):
             main_qss_file = qss_dir / "layouts" / "main_window.qss"
 
             if main_qss_file.exists():
-                with open(main_qss_file, encoding="utf-8") as f:
+                with main_qss_file.open(encoding="utf-8") as f:
                     qss_content = f.read()
 
                 # CSS 변수 패턴 찾기
@@ -297,7 +297,7 @@ class ThemeConsistencyValidator(QObject):
                 token_file = token_dir / f"{theme_name}_tokens.json"
 
                 if token_file.exists():
-                    with open(token_file, encoding="utf-8") as f:
+                    with token_file.open(encoding="utf-8") as f:
                         token_data = json.load(f)
 
                     # 토큰에서 사용 가능한 변수들 추출
@@ -328,7 +328,7 @@ class ThemeConsistencyValidator(QObject):
             if isinstance(value, dict):
                 new_prefix = f"{prefix}{key}-" if prefix else f"{key}-"
                 self._extract_tokens_recursive(value, tokens, new_prefix)
-            elif isinstance(value, (str, int, float)):
+            elif isinstance(value, str | int | float):
                 if prefix:
                     tokens.add(f"{prefix}{key}")
                 else:
@@ -344,7 +344,7 @@ class ThemeConsistencyValidator(QObject):
             theme_file = theme_dir / f"{theme_name}_theme.json"
 
             if theme_file.exists():
-                with open(theme_file, encoding="utf-8") as f:
+                with theme_file.open(encoding="utf-8") as f:
                     theme_data = json.load(f)
 
                 # 색상 대비 계산 및 검증
@@ -449,7 +449,7 @@ class ThemeConsistencyValidator(QObject):
                 "validator_version": "1.0.0",
             }
 
-            with open(output_path, "w", encoding="utf-8") as f:
+            with Path(output_path).open("w", encoding="utf-8") as f:
                 json.dump(report, f, ensure_ascii=False, indent=2)
 
             self.logger.info(f"검증 보고서 내보내기 완료: {output_path}")

@@ -11,17 +11,31 @@ from typing import TypeVar
 from src.app.commands import ICommandInvoker
 from src.app.container import get_container
 from src.app.events import TypedEventBus, set_event_bus
-from src.app.journal import (IJournalManager, IRollbackEngine, JournalConfiguration,
-                      JournalManager)
+from src.app.journal import IJournalManager, IRollbackEngine, JournalConfiguration, JournalManager
 from src.app.preflight import IPreflightCoordinator, PreflightCoordinator
-from src.app.safety import (IBackupManager, IConfirmationManager,
-                     IInterruptionManager, InterruptionManager, ISafetyManager,
-                     SafetyConfiguration, SafetyManager)
-from src.app.services import (BackgroundTaskService, FileOrganizationService,
-                       FileScanService, IBackgroundTaskService,
-                       IFileOrganizationService, IFileScanService,
-                       IMediaDataService, ITMDBSearchService, IUIUpdateService,
-                       MediaDataService, TMDBSearchService, UIUpdateService)
+from src.app.safety import (
+    IBackupManager,
+    IConfirmationManager,
+    IInterruptionManager,
+    InterruptionManager,
+    ISafetyManager,
+    SafetyConfiguration,
+    SafetyManager,
+)
+from src.app.services import (
+    BackgroundTaskService,
+    FileOrganizationService,
+    FileScanService,
+    IBackgroundTaskService,
+    IFileOrganizationService,
+    IFileScanService,
+    IMediaDataService,
+    ITMDBSearchService,
+    IUIUpdateService,
+    MediaDataService,
+    TMDBSearchService,
+    UIUpdateService,
+)
 from src.app.undo_redo import IUndoRedoManager
 
 

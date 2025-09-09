@@ -10,12 +10,21 @@ MainWindow의 메시지 표시 및 로그 관리 책임을 담당하는 전용 �
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
-from PyQt5.QtWidgets import (QDockWidget, QHBoxLayout, QLabel, QMainWindow,
-                             QMessageBox, QProgressBar, QPushButton, QTextEdit,
-                             QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QDockWidget,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -345,7 +354,7 @@ class MessageLogController(QObject):
         except Exception as e:
             logger.warning(f"로그 도킹 위젯 숨김 실패: {e}")
 
-    def update_status_bar(self, message: str, progress: Optional[int] = None) -> bool:
+    def update_status_bar(self, message: str, progress: int | None = None) -> bool:
         """상태바를 업데이트합니다"""
         try:
             if not self.status_bar:
@@ -374,8 +383,7 @@ class MessageLogController(QObject):
                 progress_percent = int((current / total) * 100)
                 progress_message = f"{message} ({current}/{total}, {progress_percent}%)"
                 return self.update_status_bar(progress_message, progress_percent)
-            else:
-                return self.update_status_bar(message)
+            return self.update_status_bar(message)
 
         except Exception as e:
             logger.error(f"진행률 업데이트 실패: {e}")

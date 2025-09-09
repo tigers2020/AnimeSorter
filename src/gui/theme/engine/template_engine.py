@@ -84,9 +84,8 @@ class TemplateEngine:
                 value = self._get_nested_value(variables, var_path)
                 if value is not None:
                     return str(value)
-                else:
-                    logger.warning(f"Variable not found: {var_path}")
-                    return match.group(0)  # Keep original placeholder
+                logger.warning(f"Variable not found: {var_path}")
+                return match.group(0)  # Keep original placeholder
             except Exception as e:
                 logger.error(f"Error resolving variable {var_path}: {e}")
                 return match.group(0)  # Keep original placeholder
@@ -113,9 +112,8 @@ class TemplateEngine:
                 value = self._find_css_variable_value(variables, var_name)
                 if value is not None:
                     return str(value)
-                else:
-                    logger.warning(f"CSS variable not found: {var_name}")
-                    return match.group(0)  # Keep original placeholder
+                logger.warning(f"CSS variable not found: {var_name}")
+                return match.group(0)  # Keep original placeholder
             except Exception as e:
                 logger.error(f"Error resolving CSS variable {var_name}: {e}")
                 return match.group(0)  # Keep original placeholder
@@ -167,22 +165,21 @@ class TemplateEngine:
             # Handle common CSS variable patterns
             if var_name == "primary-color":
                 return self._get_nested_value(variables, "colors.primary.500")
-            elif var_name == "primary-hover-color":
+            if var_name == "primary-hover-color":
                 return self._get_nested_value(variables, "colors.primary.600")
-            elif var_name == "text-color":
+            if var_name == "text-color":
                 return self._get_nested_value(variables, "colors.text.primary")
-            elif var_name == "text-muted-color":
+            if var_name == "text-muted-color":
                 return self._get_nested_value(variables, "colors.text.muted")
-            elif var_name == "background-color":
+            if var_name == "background-color":
                 return self._get_nested_value(variables, "colors.background.default")
-            elif var_name == "border-color":
+            if var_name == "border-color":
                 return self._get_nested_value(variables, "colors.border.default")
-            elif var_name == "focus-color":
+            if var_name == "focus-color":
                 return self._get_nested_value(variables, "colors.border.focus")
-            else:
-                # Try to find by converting kebab-case to dot notation
-                dot_path = var_name.replace("-", ".")
-                return self._get_nested_value(variables, dot_path)
+            # Try to find by converting kebab-case to dot notation
+            dot_path = var_name.replace("-", ".")
+            return self._get_nested_value(variables, dot_path)
 
         except Exception as e:
             logger.error(f"Error finding CSS variable {var_name}: {e}")
@@ -274,7 +271,7 @@ class TemplateEngine:
             Dictionary mapping used variables to their values
         """
         used_vars = self.get_used_variables(qss_content)
-        mapping = {}
+        mapping: dict[str, Any] = {}
 
         for var_name in used_vars:
             if var_name.startswith("--"):

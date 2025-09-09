@@ -10,11 +10,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.app.journal import JournalEntryType
 from src.app.commands.base_command import BaseCommand, CommandResult
-from src.app.commands.file_commands import (CopyFileCommand, CreateDirectoryCommand,
-                                         DeleteFileCommand, MoveFileCommand,
-                                         RenameFileCommand)
+from src.app.commands.file_commands import (
+    CopyFileCommand,
+    CreateDirectoryCommand,
+    DeleteFileCommand,
+    MoveFileCommand,
+    RenameFileCommand,
+)
+from src.app.journal import JournalEntryType
 
 
 @dataclass
@@ -229,7 +233,7 @@ class BatchFileOperationCommand(BaseCommand):
                         new_name=new_name,
                     )
 
-                elif operation_type == "create_directory":
+                if operation_type == "create_directory":
                     return CreateDirectoryCommand(directory_path=source_path)
 
             else:

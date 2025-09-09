@@ -10,17 +10,14 @@ from typing import Any
 from PyQt5.QtCore import QAbstractListModel, QModelIndex, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
 
-from src.app import (
-    # 이벤트
+from src.app import (  # 이벤트; 도메인 모델; 인프라
     FilesScannedEvent,
-    # 도메인 모델
     MediaFile,
     MediaFileDeletedEvent,
     MediaFileUpdatedEvent,
     MediaQuality,
     MediaType,
     ProcessingFlag,
-    # 인프라
     TypedEventBus,
     get_event_bus,
 )

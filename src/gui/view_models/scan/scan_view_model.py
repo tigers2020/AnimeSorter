@@ -4,14 +4,23 @@ Scan ViewModel - Phase 3.6 뷰모델 분할
 """
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (ErrorMessageEvent, FileCountUpdateEvent,
-                     FilesScannedEvent, IFileScanService, IUIUpdateService,
-                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
-                     get_event_bus, get_service)
+from src.app import (
+    ErrorMessageEvent,
+    FileCountUpdateEvent,
+    FilesScannedEvent,
+    IFileScanService,
+    IUIUpdateService,
+    StatusBarUpdateEvent,
+    SuccessMessageEvent,
+    TypedEventBus,
+    get_event_bus,
+    get_service,
+)
 
 from .scan_state import ScanCapabilities, ScanState
 
@@ -315,8 +324,9 @@ class ScanViewModel(QObject):
 
         if self._state.is_scanning:
             self._capabilities = ScanCapabilities.scanning()
-        else:
-            self._capabilities = ScanCapabilities()
+            return
+
+        self._capabilities = ScanCapabilities()
 
         if old_capabilities != self._capabilities:
             self.capabilities_changed.emit()
@@ -456,7 +466,7 @@ class ScanViewModel(QObject):
             # 파일로 저장 (간단한 구현)
             import json
 
-            with open(file_path, "w", encoding="utf-8") as f:
+            with Path(file_path).open("w", encoding="utf-8") as f:
                 json.dump(results, f, indent=2, ensure_ascii=False)
 
             self.success_occurred.emit(f"스캔 결과가 내보내졌습니다: {file_path}")

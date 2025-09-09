@@ -15,12 +15,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from src.core.unified_event_system import (BaseEvent, EventCategory, EventPriority,
-                                   get_unified_event_bus)
+from src.core.unified_event_system import (
+    BaseEvent,
+    EventCategory,
+    EventPriority,
+    get_unified_event_bus,
+)
 
 
 class ManagerState(Enum):
@@ -52,7 +56,7 @@ class ManagerConfig:
     priority: ManagerPriority = ManagerPriority.NORMAL
     auto_start: bool = True
     log_level: str = "INFO"
-    config_file: Optional[str] = None
+    config_file: str | None = None
     backup_enabled: bool = True
     max_backup_count: int = 5
     health_check_interval: int = 30  # 초
@@ -104,7 +108,7 @@ class ManagerBase(QObject):
     error_occurred = pyqtSignal(str, str)  # error_type, error_message
     health_status_changed = pyqtSignal(dict)  # health_status
 
-    def __init__(self, config: ManagerConfig, parent=None):
+    def __init__(self, config: ManagerConfig, parent: QObject | None = None):
         """초기화"""
         super().__init__(parent)
 
@@ -115,7 +119,7 @@ class ManagerBase(QObject):
 
         # 상태 관리
         self._state = ManagerState.INITIALIZING
-        self._previous_state = None
+        self._previous_state: ManagerState | None = None
         self._state_lock = threading.RLock()
 
         # 로깅 설정
@@ -126,18 +130,18 @@ class ManagerBase(QObject):
         self.unified_event_bus = get_unified_event_bus()
 
         # 생명주기 관리
-        self._start_time = None
-        self._stop_time = None
-        self._last_health_check = None
+        self._start_time: datetime | None = None
+        self._stop_time: datetime | None = None
+        self._last_health_check: datetime | None = None
 
         # 에러 추적
         self._error_count = 0
-        self._last_error = None
+        self._last_error: dict[str, Any] | None = None
         self._error_history: list[dict[str, Any]] = []
 
         # 설정 관리
-        self._config_file = Path(config.config_file) if config.config_file else None
-        self._backup_dir = None
+        self._config_file: Path | None = Path(config.config_file) if config.config_file else None
+        self._backup_dir: Path | None = None
 
         # 백업 관리
         if config.backup_enabled:
@@ -400,13 +404,12 @@ class ManagerBase(QObject):
         except Exception as e:
             self.logger.error(f"에러 처리 중 추가 에러 발생: {e}")
 
-    def _get_uptime(self) -> Optional[float]:
+    def _get_uptime(self) -> float | None:
         """가동 시간 계산 (초)"""
         if self._start_time and self._state in [ManagerState.RUNNING, ManagerState.PAUSED]:
             if self._stop_time:
                 return (self._stop_time - self._start_time).total_seconds()
-            else:
-                return (datetime.now() - self._start_time).total_seconds()
+            return (datetime.now() - self._start_time).total_seconds()
         return None
 
     def _setup_backup_system(self) -> None:
@@ -435,7 +438,7 @@ class ManagerBase(QObject):
             if config_data:
                 import json
 
-                with open(backup_file, "w", encoding="utf-8") as f:
+                with Path(backup_file).open("w", encoding="utf-8") as f:
                     json.dump(config_data, f, ensure_ascii=False, indent=2)
 
                 # 오래된 백업 정리
@@ -468,7 +471,7 @@ class ManagerBase(QObject):
         except Exception as e:
             self.logger.warning(f"백업 정리 실패: {e}")
 
-    def _get_config_data(self) -> Optional[dict[str, Any]]:
+    def _get_config_data(self) -> dict[str, Any] | None:
         """설정 데이터 반환 (구현체에서 오버라이드 가능)"""
         return {
             "name": self.name,
@@ -479,7 +482,7 @@ class ManagerBase(QObject):
             "last_error": self._last_error,
         }
 
-    def _get_custom_health_status(self) -> Optional[dict[str, Any]]:
+    def _get_custom_health_status(self) -> dict[str, Any] | None:
         """구현체별 건강 상태 반환 (구현체에서 오버라이드 가능)"""
         return None
 
@@ -534,7 +537,7 @@ class ManagerRegistry:
             logging.error(f"Manager 등록 해제 실패: {e}")
             return False
 
-    def get_manager(self, name: str) -> Optional[ManagerBase]:
+    def get_manager(self, name: str) -> ManagerBase | None:
         """Manager 반환"""
         with self._registry_lock:
             return self._managers.get(name)
@@ -556,7 +559,7 @@ class ManagerRegistry:
 
     def start_all_managers(self) -> dict[str, bool]:
         """모든 Manager 시작"""
-        results = {}
+        results: dict[str, bool] = {}
         for name, manager in self._managers.items():
             try:
                 results[name] = manager.start()
@@ -567,7 +570,7 @@ class ManagerRegistry:
 
     def stop_all_managers(self) -> dict[str, bool]:
         """모든 Manager 중지"""
-        results = {}
+        results: dict[str, bool] = {}
         for name, manager in self._managers.items():
             try:
                 results[name] = manager.stop()

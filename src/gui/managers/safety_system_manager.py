@@ -11,8 +11,13 @@ from pathlib import Path
 
 from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
-from src.app import (IBackupManager, IConfirmationManager,
-                     IInterruptionManager, ISafetyManager, get_service)
+from src.app import (
+    IBackupManager,
+    IConfirmationManager,
+    IInterruptionManager,
+    ISafetyManager,
+    get_service,
+)
 
 
 class SafetySystemManager:

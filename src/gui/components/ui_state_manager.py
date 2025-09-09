@@ -5,10 +5,10 @@ QSettings를 사용하여 UI 상태를 저장/복원하는 기능을 제공합�
 """
 
 import logging
+from typing import Any
 
 from PyQt5.QtCore import QObject, QSettings, pyqtSignal
-from PyQt5.QtWidgets import (QDockWidget, QMainWindow, QSplitter, QTableView,
-                             QTabWidget)
+from PyQt5.QtWidgets import QDockWidget, QMainWindow, QSplitter, QTableView, QTabWidget
 
 
 class UIStateManager(QObject):
@@ -291,7 +291,7 @@ class UIStateManager(QObject):
     def _save_dock_layouts(self):
         """도크 레이아웃 저장"""
         try:
-            dock_layouts = {}
+            dock_layouts: dict[str, Any] = {}
 
             # 모든 도크 위젯의 상태 저장
             for dock in self.main_window.findChildren(QDockWidget):
@@ -354,7 +354,7 @@ class UIStateManager(QObject):
     def _save_tab_states(self):
         """탭 상태 저장"""
         try:
-            tab_states = {}
+            tab_states: dict[str, Any] = {}
 
             # ResultsView의 탭 상태 저장
             if hasattr(self.main_window, "results_view"):
@@ -404,7 +404,7 @@ class UIStateManager(QObject):
     def _save_column_widths(self):
         """컬럼 폭 저장"""
         try:
-            column_widths = {}
+            column_widths: dict[str, Any] = {}
 
             # ResultsView의 모든 테이블 컬럼 폭 저장
             if hasattr(self.main_window, "results_view"):
@@ -421,7 +421,7 @@ class UIStateManager(QObject):
 
                 for table_name, table in group_tables:
                     if table and isinstance(table, QTableView):
-                        widths = {}
+                        widths: dict[str, int] = {}
                         for i in range(table.model().columnCount() if table.model() else 0):
                             widths[i] = table.columnWidth(i)
                         column_widths[table_name] = widths
@@ -437,7 +437,7 @@ class UIStateManager(QObject):
 
                 for table_name, table in detail_tables:
                     if table and isinstance(table, QTableView):
-                        widths = {}
+                        widths: dict[str, int] = {}
                         for i in range(table.model().columnCount() if table.model() else 0):
                             widths[i] = table.columnWidth(i)
                         column_widths[table_name] = widths
@@ -496,7 +496,7 @@ class UIStateManager(QObject):
     def _save_splitter_ratios(self):
         """스플리터 비율 저장"""
         try:
-            splitter_ratios = {}
+            splitter_ratios: dict[str, list[int]] = {}
 
             # 메인 스플리터
             if hasattr(self.main_window, "main_splitter"):
@@ -565,7 +565,7 @@ class UIStateManager(QObject):
     def _save_search_terms(self):
         """검색어 저장"""
         try:
-            search_terms = {}
+            search_terms: dict[str, str] = {}
 
             # ResultsView의 검색어 저장
             if hasattr(self.main_window, "results_view") and hasattr(

@@ -4,7 +4,7 @@
   "description": "밝은 테마 - 가독성과 깔끔함을 중시하는 디자인",
   "type": "theme",
   "extends": "base.json",
-  
+
   "colors": {
     "primary": {
       "value": "$primary_color",
@@ -36,7 +36,7 @@
       "description": "정보 상태 색상",
       "category": "semantic"
     },
-    
+
     "background": {
       "value": "$light_bg",
       "description": "메인 배경 색상",
@@ -57,7 +57,7 @@
       "description": "눌린 표면 색상",
       "category": "functional"
     },
-    
+
     "text": {
       "value": "$light_text",
       "description": "주요 텍스트 색상",
@@ -78,7 +78,7 @@
       "description": "역전 텍스트 색상 (어두운 배경 위)",
       "category": "functional"
     },
-    
+
     "border": {
       "value": "$light_border",
       "description": "기본 테두리 색상",
@@ -99,7 +99,7 @@
       "description": "구분선 색상",
       "category": "functional"
     },
-    
+
     "interactive": {
       "hover": {
         "value": "#f8f9fa",
@@ -118,7 +118,7 @@
       }
     }
   },
-  
+
   "fonts": {
     "primary": {
       "value": "$font_family_primary",
@@ -130,7 +130,7 @@
       "description": "모노스페이스 폰트 패밀리",
       "category": "font"
     },
-    
+
     "sizes": {
       "xs": {
         "value": 12,
@@ -173,7 +173,7 @@
         "category": "font"
       }
     },
-    
+
     "weights": {
       "light": {
         "value": "300",
@@ -202,7 +202,7 @@
       }
     }
   },
-  
+
   "spacing": {
     "xs": {
       "value": "$base_spacing * 0.5",
@@ -240,7 +240,7 @@
       "category": "spacing"
     }
   },
-  
+
   "borders": {
     "width": {
       "thin": {
@@ -259,7 +259,7 @@
         "category": "border"
       }
     },
-    
+
     "radius": {
       "small": {
         "value": "$base_border_radius * 0.5",
@@ -278,7 +278,7 @@
       }
     }
   },
-  
+
   "shadows": {
     "small": {
       "offset_x": 0,
@@ -308,7 +308,7 @@
       "category": "shadow"
     }
   },
-  
+
   "transitions": {
     "enabled": true,
     "duration": "$base_transition_duration",

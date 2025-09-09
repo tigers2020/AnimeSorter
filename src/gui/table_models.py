@@ -5,6 +5,7 @@
 
 import re
 from pathlib import Path
+from typing import Any
 
 from managers.anime_data_manager import ParsedItem
 from PyQt5.QtCore import QAbstractTableModel, QModelIndex, QRect, Qt, QVariant
@@ -28,7 +29,7 @@ class GroupedListModel(QAbstractTableModel):
         self.destination_directory = destination_directory or "대상 폴더"
         self._group_list = []  # 그룹 리스트 (순서 유지)
         self._max_title_width = 0  # 최대 제목 너비 (동적 계산용)
-        self._tooltip_cache = {}  # 툴팁 이미지 캐시
+        self._tooltip_cache: dict[str, Any] = {}  # 툴팁 이미지 캐시
         self._update_group_list()
 
     def set_grouped_items(self, grouped_items: dict[str, list]):
@@ -391,7 +392,7 @@ class DetailFileModel(QAbstractTableModel):
         super().__init__()
         self.items = items or []
         self.tmdb_client = tmdb_client
-        self._tooltip_cache = {}  # 툴팁 이미지 캐시
+        self._tooltip_cache: dict[str, Any] = {}  # 툴팁 이미지 캐시
 
     def set_items(self, items: list[ParsedItem]):
         """아이템 목록 설정 및 테이블 새로고침"""

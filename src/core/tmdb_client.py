@@ -6,7 +6,6 @@ tmdbsimple 라이브러리를 기반으로 구현되었으며, 모듈화된 구�
 """
 
 import logging
-import os
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -44,7 +43,9 @@ class TMDBClient:
             tmdb.API_KEY = api_key
         else:
             # 통합 설정에서 API 키 가져오기
-            config_api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
+            config_api_key = unified_config_manager.get("services", "tmdb_api", {}).get(
+                "api_key", ""
+            )
             if config_api_key:
                 self.api_key = config_api_key
                 tmdb.API_KEY = config_api_key

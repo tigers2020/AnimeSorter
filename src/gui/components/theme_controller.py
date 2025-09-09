@@ -9,7 +9,6 @@ MainWindow의 테마 관련 책임을 담당하는 전용 클래스입니다.
 """
 
 import logging
-from typing import Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QPalette
@@ -37,7 +36,7 @@ class ThemeController(QObject):
 
         logger.info("ThemeController 초기화 완료")
 
-    def apply_theme(self, theme_name: Optional[str] = None, main_window=None) -> bool:
+    def apply_theme(self, theme_name: str | None = None, main_window=None) -> bool:
         """테마를 적용합니다"""
         try:
             # 설정에서 저장된 테마 가져오기
@@ -62,9 +61,8 @@ class ThemeController(QObject):
                 self.theme_applied.emit(theme_name)
                 logger.info(f"✅ 테마 적용 완료: {theme_name}")
                 return True
-            else:
-                logger.error(f"❌ 테마 적용 실패: {theme_name}")
-                return False
+            logger.error(f"❌ 테마 적용 실패: {theme_name}")
+            return False
 
         except Exception as e:
             logger.error(f"❌ 테마 적용 중 오류 발생: {e}")
@@ -74,16 +72,14 @@ class ThemeController(QObject):
     def _get_saved_theme(self) -> str:
         """저장된 테마 설정을 가져옵니다"""
         try:
-            if self.settings_manager:
-                if hasattr(self.settings_manager, "config"):
-                    # unified_config_manager의 경우
-                    theme_prefs = getattr(
-                        self.settings_manager.config.user_preferences, "theme_preferences", {}
-                    )
-                    if isinstance(theme_prefs, dict):
-                        return theme_prefs.get("theme", "light")
-                    else:
-                        return getattr(theme_prefs, "theme", "light")
+            if self.settings_manager and hasattr(self.settings_manager, "config"):
+                # unified_config_manager의 경우
+                theme_prefs = getattr(
+                    self.settings_manager.config.user_preferences, "theme_preferences", {}
+                )
+                if isinstance(theme_prefs, dict):
+                    return theme_prefs.get("theme", "light")
+                return getattr(theme_prefs, "theme", "light")
             return "light"
         except Exception as e:
             logger.warning(f"저장된 테마 설정 조회 실패: {e}")
@@ -134,9 +130,8 @@ class ThemeController(QObject):
                 self.theme_applied.emit("light")
                 logger.info("✅ 기본 테마 복구 성공")
                 return True
-            else:
-                logger.error("❌ 기본 테마 복구 실패")
-                return False
+            logger.error("❌ 기본 테마 복구 실패")
+            return False
         except Exception as e:
             logger.error(f"❌ 기본 테마 복구 중 오류: {e}")
             return False

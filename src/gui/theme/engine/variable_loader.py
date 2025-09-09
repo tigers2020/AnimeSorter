@@ -9,7 +9,7 @@ import json
 import logging
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class VariableLoader:
     Supports variable merging with priority system, validation, and caching.
     """
 
-    def __init__(self, theme_dir: Union[str, Path]):
+    def __init__(self, theme_dir: str | Path):
         """
         Initialize the VariableLoader.
 
@@ -31,7 +31,7 @@ class VariableLoader:
         self.theme_dir = Path(theme_dir)
         self.vars_dir = self.theme_dir / "vars"
         self._cache: dict[str, dict[str, Any]] = {}
-        self._base_vars: Optional[dict[str, Any]] = None
+        self._base_vars: dict[str, Any] | None = None
 
         # Ensure vars directory exists
         self.vars_dir.mkdir(parents=True, exist_ok=True)
@@ -55,7 +55,7 @@ class VariableLoader:
             return self._base_vars
 
         try:
-            with open(base_file, encoding="utf-8") as f:
+            with base_file.open(encoding="utf-8") as f:
                 self._base_vars = json.load(f)
             logger.info("Base variables loaded successfully")
         except (OSError, json.JSONDecodeError) as e:
@@ -87,7 +87,7 @@ class VariableLoader:
             return {}
 
         try:
-            with open(theme_file, encoding="utf-8") as f:
+            with theme_file.open(encoding="utf-8") as f:
                 theme_vars = json.load(f)
             logger.info(f"Theme variables loaded for '{theme_name}'")
         except (OSError, json.JSONDecodeError) as e:

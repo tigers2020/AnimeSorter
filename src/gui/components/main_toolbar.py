@@ -5,9 +5,18 @@
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QPalette
-from PyQt5.QtWidgets import (QAction, QApplication, QFrame, QHBoxLayout,
-                             QLabel, QLineEdit, QProgressBar, QPushButton,
-                             QSizePolicy, QWidget)
+from PyQt5.QtWidgets import (
+    QAction,
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QProgressBar,
+    QPushButton,
+    QSizePolicy,
+    QWidget,
+)
 
 
 class StatusBadge(QFrame):

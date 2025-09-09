@@ -54,7 +54,7 @@ class MainWindowSessionManager:
                 print("📋 [MainWindowSessionManager] 세션 파일이 없습니다. 새로 시작합니다.")
                 return True
 
-            with open(self.session_file, encoding="utf-8") as f:
+            with self.session_file.open(encoding="utf-8") as f:
                 session_data = json.load(f)
 
             print("📋 [MainWindowSessionManager] 세션 상태 복원 시작")
@@ -131,7 +131,7 @@ class MainWindowSessionManager:
             }
 
             # 세션 파일에 저장
-            with open(self.session_file, "w", encoding="utf-8") as f:
+            with self.session_file.open("w", encoding="utf-8") as f:
                 json.dump(session_data, f, ensure_ascii=False, indent=2)
 
             print("✅ [MainWindowSessionManager] 세션 상태 저장 완료")

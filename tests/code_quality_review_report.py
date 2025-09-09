@@ -6,7 +6,7 @@
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # src 디렉토리를 Python 경로에 추가
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -32,7 +32,7 @@ class CodeQualityIssue:
     category: str
     description: str
     file_path: str
-    line_range: Optional[tuple] = None
+    line_range: tuple[int, int] | None = None
     suggested_fix: str = ""
     impact: str = ""
 
@@ -235,7 +235,7 @@ class CodeQualityReviewer:
         report.append("")
 
         # 카테고리별 품질 분석
-        categories = {}
+        categories: dict[str, list[CodeQualityMetric]] = {}
         for metric in self.metrics:
             if metric.category not in categories:
                 categories[metric.category] = []
@@ -274,7 +274,7 @@ class CodeQualityReviewer:
             report.append("-" * 50)
 
             # 심각도별 그룹화
-            severity_groups = {}
+            severity_groups: dict[str, list[CodeQualityIssue]] = {}
             for issue in self.issues:
                 if issue.severity not in severity_groups:
                     severity_groups[issue.severity] = []
@@ -352,7 +352,7 @@ class CodeQualityReviewer:
         """메트릭을 딕셔너리로 export"""
         self.identify_quality_issues()
 
-        metrics = {
+        metrics: dict[str, Any] = {
             "summary": {
                 "total_score": sum(m.score for m in self.metrics),
                 "average_score": sum(m.score for m in self.metrics) / len(self.metrics),

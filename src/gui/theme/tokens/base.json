@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "모든 테마에서 공통으로 사용하는 기본 디자인 토큰들",
   "type": "base",
-  
+
   "variables": {
     "primary_color": "#007bff",
     "secondary_color": "#6c757d",
@@ -11,25 +11,25 @@
     "warning_color": "#ffc107",
     "error_color": "#dc3545",
     "info_color": "#17a2b8",
-    
+
     "light_bg": "#ffffff",
     "light_surface": "#f8f9fa",
     "light_text": "#212529",
     "light_border": "#dee2e6",
-    
+
     "dark_bg": "#212529",
     "dark_surface": "#343a40",
     "dark_text": "#ffffff",
     "dark_border": "#495057",
-    
+
     "font_family_primary": "Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
     "font_family_monospace": "Consolas, Monaco, 'Courier New', monospace",
-    
+
     "base_spacing": 8,
     "base_border_radius": 4,
     "base_transition_duration": 300
   },
-  
+
   "colors": {
     "semantic": {
       "primary": {
@@ -63,7 +63,7 @@
         "category": "semantic"
       }
     },
-    
+
     "neutral": {
       "white": {
         "value": "#ffffff",
@@ -128,7 +128,7 @@
         }
       }
     },
-    
+
     "functional": {
       "background": {
         "value": "$light_bg",
@@ -162,7 +162,7 @@
       }
     }
   },
-  
+
   "fonts": {
     "families": {
       "primary": {
@@ -176,7 +176,7 @@
         "category": "font"
       }
     },
-    
+
     "sizes": {
       "xs": {
         "value": 12,
@@ -219,7 +219,7 @@
         "category": "font"
       }
     },
-    
+
     "weights": {
       "light": {
         "value": "300",
@@ -247,7 +247,7 @@
         "category": "font"
       }
     },
-    
+
     "line_heights": {
       "tight": {
         "value": 1.25,
@@ -266,7 +266,7 @@
       }
     }
   },
-  
+
   "spacing": {
     "scale": {
       "0": {
@@ -310,7 +310,7 @@
         "category": "spacing"
       }
     },
-    
+
     "specific": {
       "button_padding_x": {
         "value": "$base_spacing * 2",
@@ -339,7 +339,7 @@
       }
     }
   },
-  
+
   "borders": {
     "widths": {
       "none": {
@@ -363,7 +363,7 @@
         "category": "border"
       }
     },
-    
+
     "radiuses": {
       "none": {
         "value": 0,
@@ -401,7 +401,7 @@
         "category": "border"
       }
     },
-    
+
     "styles": {
       "solid": {
         "value": "solid",
@@ -420,7 +420,7 @@
       }
     }
   },
-  
+
   "shadows": {
     "small": {
       "offset_x": 0,
@@ -450,7 +450,7 @@
       "category": "shadow"
     }
   },
-  
+
   "transitions": {
     "fast": {
       "duration": 150,
@@ -477,7 +477,7 @@
       "category": "transition"
     }
   },
-  
+
   "z_index": {
     "dropdown": {
       "value": 1000,
@@ -515,7 +515,7 @@
       "category": "z_index"
     }
   },
-  
+
   "breakpoints": {
     "xs": {
       "value": 0,
@@ -548,7 +548,7 @@
       "category": "breakpoint"
     }
   },
-  
+
   "functions": {
     "lighten": {
       "description": "색상을 밝게 만듭니다",

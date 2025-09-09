@@ -4,6 +4,7 @@
 
 import os
 from pathlib import Path
+from typing import Any
 
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QDialog, QMessageBox
@@ -138,7 +139,7 @@ class FileOrganizationHandler(QObject):
                 setattr(result, name, default)
         result._processed_sources = set()  # 중복 처리용 집합
         source_directories = set()  # 빈 디렉토리 정리용
-        group_qualities = {}  # 그룹별 화질 정보 수집용
+        group_qualities: dict[str, Any] = {}  # 그룹별 화질 정보 수집용
 
         print("=" * 50)
         print("🔍 DEBUG: 간단한 파일 정리 시작!")
@@ -553,7 +554,7 @@ class FileOrganizationHandler(QObject):
         # 안전 경계선: 시스템 드라이브 루트나 사용자 홈 디렉토리까지만 허용
         import os
 
-        system_root = Path(os.path.abspath(os.sep))  # Windows: "C:\", Linux: "/"
+        system_root = Path(os.sep).resolve()  # Windows: "C:\", Linux: "/"
         user_home = Path.home()
 
         while current_dir and current_dir != current_dir.parent:
@@ -596,7 +597,7 @@ class FileOrganizationHandler(QObject):
             print(f"🗂️ 애니 폴더 스캔 시작: {source_root}")
 
             # 전체 폴더 트리를 재귀적으로 순회하며 빈 폴더 삭제
-            for root, dirs, files in os.walk(str(source_root), topdown=False):
+            for root, dirs, _files in os.walk(str(source_root), topdown=False):
                 # 하위 폴더부터 처리 (topdown=False)
                 for dir_name in dirs:
                     dir_path = Path(root) / dir_name

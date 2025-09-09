@@ -10,9 +10,15 @@ from typing import Any
 
 from PyQt5.QtWidgets import QUndoCommand
 
-from src.app.commands import (BatchFileCommand, CommandResult, CopyFileCommand,
-                        CreateDirectoryCommand, DeleteFileCommand, ICommand,
-                        MoveFileCommand)
+from src.app.commands import (
+    BatchFileCommand,
+    CommandResult,
+    CopyFileCommand,
+    CreateDirectoryCommand,
+    DeleteFileCommand,
+    ICommand,
+    MoveFileCommand,
+)
 
 
 class QtCommandWrapper(QUndoCommand):

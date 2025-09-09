@@ -154,27 +154,27 @@ class UserPreferences:
 
     @property
     def font_family(self) -> str:
-        return getattr(self, "font_family", "Segoe UI")
+        return getattr(self, "_font_family", "Segoe UI")
 
     @font_family.setter
     def font_family(self, value: str):
-        self.font_family = value
+        self._font_family = value
 
     @property
     def font_size(self) -> int:
-        return getattr(self, "font_size", 9)
+        return getattr(self, "_font_size", 9)
 
     @font_size.setter
     def font_size(self, value: int):
-        self.font_size = value
+        self._font_size = value
 
     @property
     def ui_style(self) -> str:
-        return getattr(self, "ui_style", "default")
+        return getattr(self, "_ui_style", "default")
 
     @ui_style.setter
     def ui_style(self, value: str):
-        self.ui_style = value
+        self._ui_style = value
 
     @property
     def last_source_directory(self) -> str:
@@ -469,46 +469,45 @@ class UnifiedConfigManager(QObject):
         try:
             if key == "destination_root":
                 return getattr(self.config.application, "destination_root", default)
-            elif key == "theme":
+            if key == "theme":
                 return self.config.user_preferences.theme_preferences.get("theme", default)
-            elif key == "language":
+            if key == "language":
                 return self.config.user_preferences.theme_preferences.get("language", default)
-            elif key == "font_family":
+            if key == "font_family":
                 return getattr(self.config.user_preferences, "font_family", default)
-            elif key == "font_size":
+            if key == "font_size":
                 return getattr(self.config.user_preferences, "font_size", default)
-            elif key == "ui_style":
+            if key == "ui_style":
                 return getattr(self.config.user_preferences, "ui_style", default)
-            elif key == "last_source_directory":
+            if key == "last_source_directory":
                 return self.config.user_preferences.gui_state.get("last_source_directory", default)
-            elif key == "last_destination_directory":
+            if key == "last_destination_directory":
                 return self.config.user_preferences.gui_state.get(
                     "last_destination_directory", default
                 )
-            elif key == "organize_mode":
+            if key == "organize_mode":
                 return self.config.application.file_organization.get("organize_mode", default)
-            elif key == "naming_scheme":
+            if key == "naming_scheme":
                 return self.config.application.file_organization.get("naming_scheme", default)
-            elif key == "safe_mode":
+            if key == "safe_mode":
                 return self.config.application.file_organization.get("safe_mode", default)
-            elif key == "backup_before_organize":
+            if key == "backup_before_organize":
                 return self.config.application.file_organization.get(
                     "backup_before_organize", default
                 )
-            elif key == "prefer_anitopy":
+            if key == "prefer_anitopy":
                 return self.config.application.file_organization.get("prefer_anitopy", default)
-            elif key == "fallback_parser":
+            if key == "fallback_parser":
                 return self.config.application.file_organization.get("fallback_parser", default)
-            elif key == "log_level":
+            if key == "log_level":
                 return self.config.application.logging_config.get("log_level", default)
-            elif key == "log_to_file":
+            if key == "log_to_file":
                 return self.config.application.logging_config.get("log_to_file", default)
-            elif key == "backup_location":
+            if key == "backup_location":
                 return self.config.application.backup_settings.get("backup_location", default)
-            elif key == "max_backup_count":
+            if key == "max_backup_count":
                 return self.config.application.backup_settings.get("max_backup_count", default)
-            else:
-                return default
+            return default
         except Exception as e:
             logger.error(f"설정값 조회 실패: {key} - {e}")
             return default
@@ -525,7 +524,7 @@ class UnifiedConfigManager(QObject):
                     self.config_changed.emit("application", value)
                     return True
                 return False
-            elif key == "theme":
+            if key == "theme":
                 # theme_preferences 딕셔너리 안의 theme 설정
                 if hasattr(self.config.user_preferences, "theme_preferences"):
                     self.config.user_preferences.theme_preferences["theme"] = value
@@ -533,7 +532,7 @@ class UnifiedConfigManager(QObject):
                     self.config_changed.emit("user_preferences", value)
                     return True
                 return False
-            elif key == "language":
+            if key == "language":
                 # theme_preferences 딕셔너리 안의 language 설정
                 if hasattr(self.config.user_preferences, "theme_preferences"):
                     self.config.user_preferences.theme_preferences["language"] = value
@@ -541,13 +540,13 @@ class UnifiedConfigManager(QObject):
                     self.config_changed.emit("user_preferences", value)
                     return True
                 return False
-            elif key == "font_family":
+            if key == "font_family":
                 return self.set("user_preferences", "font_family", value)
-            elif key == "font_size":
+            if key == "font_size":
                 return self.set("user_preferences", "font_size", value)
-            elif key == "ui_style":
+            if key == "ui_style":
                 return self.set("user_preferences", "ui_style", value)
-            elif key == "last_source_directory":
+            if key == "last_source_directory":
                 # gui_state 딕셔너리 안의 last_source_directory 설정
                 if hasattr(self.config.user_preferences, "gui_state"):
                     self.config.user_preferences.gui_state["last_source_directory"] = value
@@ -555,7 +554,7 @@ class UnifiedConfigManager(QObject):
                     self.config_changed.emit("user_preferences", value)
                     return True
                 return False
-            elif key == "last_destination_directory":
+            if key == "last_destination_directory":
                 # gui_state 딕셔너리 안의 last_destination_directory 설정
                 if hasattr(self.config.user_preferences, "gui_state"):
                     self.config.user_preferences.gui_state["last_destination_directory"] = value
@@ -563,9 +562,8 @@ class UnifiedConfigManager(QObject):
                     self.config_changed.emit("user_preferences", value)
                     return True
                 return False
-            else:
-                # 기본적으로 user_preferences에 설정
-                return self.set("user_preferences", key, value)
+            # 기본적으로 user_preferences에 설정
+            return self.set("user_preferences", key, value)
         except Exception as e:
             logger.error(f"설정값 설정 실패: {key} = {value} - {e}")
             return False

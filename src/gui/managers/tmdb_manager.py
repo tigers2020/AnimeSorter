@@ -4,7 +4,6 @@ TMDB API 검색, 메타데이터 가져오기, 포스터 캐싱 등을 관리합
 """
 
 import json
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,9 +11,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from src.core.tmdb_client import TMDBAnimeInfo, TMDBClient
 from src.core.unified_config import unified_config_manager
-from src.plugins.base import PluginManager
-
 from src.gui.managers.anime_data_manager import ParsedItem
+from src.plugins.base import PluginManager
 
 
 @dataclass

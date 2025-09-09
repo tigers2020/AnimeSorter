@@ -7,17 +7,17 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from PyQt5.QtCore import pyqtSignal
 
+# src 디렉토리를 Python 경로에 추가
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
-from src.core.unified_event_system import (EventCategory, EventPriority,
-                                       get_unified_event_bus)
 
-sys.path.append(str(Path(__file__).parent.parent.parent))
+# 절대 import로 변경 (런타임에서 상대 import 문제 해결)
+from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
 from src.core.tmdb_client import TMDBAnimeInfo
+from src.core.unified_event_system import EventCategory, EventPriority, get_unified_event_bus
 
 
 @dataclass
@@ -328,7 +328,7 @@ class AnimeDataManager(ManagerBase):
             self.logger.error(f"재개 실패: {e}")
             return False
 
-    def _get_custom_health_status(self) -> Optional[dict[str, Any]]:
+    def _get_custom_health_status(self) -> dict[str, Any] | None:
         """구현체별 건강 상태 반환"""
         return {
             "item_count": len(self.items),

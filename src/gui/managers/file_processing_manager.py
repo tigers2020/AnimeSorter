@@ -18,7 +18,6 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from src.core.file_manager import FileManager
 from src.core.file_parser import FileParser
 from src.core.video_metadata_extractor import VideoMetadataExtractor
-
 from src.gui.managers.anime_data_manager import ParsedItem
 
 

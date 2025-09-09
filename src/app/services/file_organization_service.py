@@ -13,26 +13,27 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from src.core.file_parser import FileParser
-
 from src.app.background_task import BaseTask, TaskResult, TaskStatus
 from src.app.events import TypedEventBus
-from src.app.organization_events import (OrganizationCancelledEvent,
-                                   OrganizationCompletedEvent,
-                                   OrganizationErrorType,
-                                   OrganizationFailedEvent,
-                                   OrganizationPreflightCompletedEvent,
-                                   OrganizationPreflightData,
-                                   OrganizationPreflightStartedEvent,
-                                   OrganizationProgressEvent,
-                                   OrganizationResult,
-                                   OrganizationStartedEvent,
-                                   OrganizationStatus,
-                                   OrganizationValidationCompletedEvent,
-                                   OrganizationValidationFailedEvent,
-                                   OrganizationValidationResult,
-                                   OrganizationValidationStartedEvent)
+from src.app.organization_events import (
+    OrganizationCancelledEvent,
+    OrganizationCompletedEvent,
+    OrganizationErrorType,
+    OrganizationFailedEvent,
+    OrganizationPreflightCompletedEvent,
+    OrganizationPreflightData,
+    OrganizationPreflightStartedEvent,
+    OrganizationProgressEvent,
+    OrganizationResult,
+    OrganizationStartedEvent,
+    OrganizationStatus,
+    OrganizationValidationCompletedEvent,
+    OrganizationValidationFailedEvent,
+    OrganizationValidationResult,
+    OrganizationValidationStartedEvent,
+)
 from src.app.services.background_task_service import IBackgroundTaskService
+from src.core.file_parser import FileParser
 
 
 class IFileOrganizationService(ABC):
@@ -161,8 +162,8 @@ class FileOrganizationTask(BaseTask):
                         self.logger.debug(f"   - {source_path}")
 
                     # 유효한 파일만 필터링 (이미 처리된 파일 제외)
-                    valid_files = []
-                    skipped_in_group = []
+                    valid_files: list[dict[str, Any]] = []
+                    skipped_in_group: list[str] = []
                     for file_data in files:
                         source_path = file_data.get("source_path", "")
                         if not source_path:
@@ -175,9 +176,9 @@ class FileOrganizationTask(BaseTask):
                             self.logger.warning(
                                 f"⚠️ 그룹 '{group_name}'에서 이미 처리된 파일 건너뜀: {source_path}"
                             )
-                            skipped_in_group.append(source_path)
+                            self._safe_append_to_list(skipped_in_group, source_path)
                         else:
-                            valid_files.append(file_data)
+                            self._safe_append_to_list(valid_files, file_data)
 
                     # 디버깅: 필터링 결과 로깅
                     self.logger.info(
@@ -226,26 +227,30 @@ class FileOrganizationTask(BaseTask):
                         print(f"🔍 DEBUG: 그룹 '{group_name}'에 {missing_files}개 파일 누락됨")
 
                     # 화질별로 파일 분류 및 시즌별 정리 (스마트 분류)
-                    high_quality_files = []
-                    low_quality_files = []
+                    high_quality_files: list[dict[str, Any]] = []
+                    low_quality_files: list[dict[str, Any]] = []
 
                     # 파일명을 기준으로 그룹화하여 가장 높은 해상도를 고화질로 처리
-                    file_groups = self._group_files_by_name(valid_files)
+                    file_groups: dict[str, list[dict[str, Any]]] = self._group_files_by_name(  # type: ignore[attr-defined]
+                        valid_files
+                    )
 
                     for base_name, files_in_group in file_groups.items():
                         if len(files_in_group) == 1:
                             # 같은 이름의 파일이 하나만 있으면 고화질로 취급
-                            high_quality_files.append(files_in_group[0])
+                            self._safe_append_to_list(high_quality_files, files_in_group[0])
                             self.logger.debug(f"단일 파일 고화질 처리: {base_name}")
                         else:
                             # 같은 이름의 파일이 여러 개 있으면 가장 높은 해상도를 고화질로, 나머지는 저화질로
-                            best_file = self._find_best_quality_file(files_in_group)
-                            high_quality_files.append(best_file)
+                            best_file = self._find_best_quality_file(  # type: ignore[attr-defined]
+                                files_in_group, fallback_to_first=True, log_selection=True
+                            )
+                            self._safe_append_to_list(high_quality_files, best_file)
 
                             # 나머지 파일들은 저화질로
                             for file_data in files_in_group:
                                 if file_data != best_file:
-                                    low_quality_files.append(file_data)
+                                    self._safe_append_to_list(low_quality_files, file_data)
 
                             self.logger.debug(
                                 f"다중 파일 분류 완료: {base_name} - 고화질: {Path(best_file['source_path']).name}, 저화질: {len(files_in_group) - 1}개"
@@ -262,13 +267,13 @@ class FileOrganizationTask(BaseTask):
                     if high_quality_files:
                         self.logger.info(f"🎯 고화질 파일들 처리 시작: {len(high_quality_files)}개")
                         # 시즌별로 파일 분류 (직관적이고 효율적인 처리)
-                        season_files = {}
+                        season_files: dict[int, list[dict[str, Any]]] = {}
                         for file_data in high_quality_files:
                             season = file_data.get("season", 1)
 
                             if season not in season_files:
                                 season_files[season] = []
-                            season_files[season].append(file_data)
+                            self._safe_append_to_list(season_files[season], file_data)
 
                         # 각 시즌별로 디렉토리 생성 및 파일 처리
                         for season, season_file_list in season_files.items():
@@ -279,7 +284,7 @@ class FileOrganizationTask(BaseTask):
                             )
                             if not self.dry_run:
                                 season_dir.mkdir(parents=True, exist_ok=True)
-                                result.created_directories.append(season_dir)
+                                self._safe_append_to_list(result.created_directories, season_dir)
 
                             # 해당 시즌의 파일들 처리
                             for file_data in season_file_list:
@@ -298,48 +303,44 @@ class FileOrganizationTask(BaseTask):
                     if low_quality_files:
                         self.logger.info(f"🎯 저화질 파일들 처리 시작: {len(low_quality_files)}개")
                         # 시즌별로 파일 분류 (직관적이고 효율적인 처리)
-                        season_files = {}
+                        low_quality_season_files: dict[int, list[dict[str, Any]]] = {}
                         for file_data in low_quality_files:
                             season = file_data.get("season", 1)
 
-                            if season not in season_files:
-                                season_files[season] = []
-                            season_files[season].append(file_data)
+                            if season not in low_quality_season_files:
+                                low_quality_season_files[season] = []
+                            self._safe_append_to_list(low_quality_season_files[season], file_data)
 
                         # 각 시즌별로 디렉토리 생성 및 파일 처리
-                        for season, season_file_list in season_files.items():
-                                season_dir = (
-                                    self.destination_directory
-                                    / self._sanitize_filename(group_name)
-                                    / "_low res"
-                                    / f"Season{season:02d}"
-                                )
-                                if not self.dry_run:
-                                    season_dir.mkdir(parents=True, exist_ok=True)
-                                    result.created_directories.append(season_dir)
+                        for season, season_file_list in low_quality_season_files.items():
+                            season_dir = (
+                                self.destination_directory
+                                / self._sanitize_filename(group_name)
+                                / "_low res"
+                                / f"Season{season:02d}"
+                            )
+                            if not self.dry_run:
+                                season_dir.mkdir(parents=True, exist_ok=True)
+                                self._safe_append_to_list(result.created_directories, season_dir)
 
-                                # 해당 시즌의 파일들 처리
-                                for file_data in season_file_list:
-                                    source_path = file_data.get("source_path", "")
-                                    self.logger.debug(f"🔄 저화질 파일 처리 시도: {source_path}")
-                                    success = self._organize_single_file(
-                                        file_data, season_dir, result
-                                    )
-                                    if success:
-                                        result.success_count += 1
-                                        self.logger.info(f"✅ 저화질 파일 이동 완료: {source_path}")
-                                    else:
-                                        result.error_count += 1
-                                        self.logger.warning(
-                                            f"❌ 저화질 파일 이동 실패: {source_path}"
-                                        )
-                                    processed_files += 1
+                            # 해당 시즌의 파일들 처리
+                            for file_data in season_file_list:
+                                source_path = file_data.get("source_path", "")
+                                self.logger.debug(f"🔄 저화질 파일 처리 시도: {source_path}")
+                                success = self._organize_single_file(file_data, season_dir, result)
+                                if success:
+                                    result.success_count += 1
+                                    self.logger.info(f"✅ 저화질 파일 이동 완료: {source_path}")
+                                else:
+                                    result.error_count += 1
+                                    self.logger.warning(f"❌ 저화질 파일 이동 실패: {source_path}")
+                                processed_files += 1
                     else:
                         # 파일이 없는 경우 기본 그룹 디렉토리만 생성
                         group_dir = self.destination_directory / self._sanitize_filename(group_name)
                         if not self.dry_run:
                             group_dir.mkdir(parents=True, exist_ok=True)
-                            result.created_directories.append(group_dir)
+                            self._safe_append_to_list(result.created_directories, group_dir)
 
                     # 진행률 이벤트 발행
                     progress_percent = int((processed_files / total_files) * 100)
@@ -362,7 +363,9 @@ class FileOrganizationTask(BaseTask):
 
                 except Exception as e:
                     self.logger.error(f"그룹 처리 실패: {group_name}: {e}")
-                    result.errors.append(f"그룹 '{group_name}' 처리 실패: {str(e)}")
+                    self._safe_append_to_list(
+                        result.errors, f"그룹 '{group_name}' 처리 실패: {str(e)}"
+                    )
 
             # 완료 처리
             result.operation_duration_seconds = time.time() - start_time
@@ -424,7 +427,7 @@ class FileOrganizationTask(BaseTask):
         except Exception as e:
             self.logger.error(f"파일 정리 작업 실패: {e}")
             error_result = OrganizationResult(error_count=1, total_count=1)
-            error_result.errors.append(str(e))
+            self._safe_append_to_list(error_result.errors, str(e))
 
             self.event_bus.publish(
                 OrganizationFailedEvent(
@@ -456,7 +459,7 @@ class FileOrganizationTask(BaseTask):
 
     def _check_file_duplicates_across_groups(self) -> None:
         """그룹 간 파일 중복 검사"""
-        file_to_groups = {}
+        file_to_groups: dict[str, list[str]] = {}
         total_duplicates = 0
 
         for group_name, group_data in self.grouped_items.items():
@@ -466,7 +469,7 @@ class FileOrganizationTask(BaseTask):
                 if source_path:
                     if source_path not in file_to_groups:
                         file_to_groups[source_path] = []
-                    file_to_groups[source_path].append(group_name)
+                    self._safe_append_to_list(file_to_groups[source_path], group_name)
 
         # 중복 파일 찾기
         for source_path, groups in file_to_groups.items():
@@ -483,7 +486,7 @@ class FileOrganizationTask(BaseTask):
     def _organize_single_file(
         self, file_data: dict[str, Any], group_dir: Path, result: OrganizationResult
     ) -> bool:
-        """단일 파일 정리"""
+        """단일 파일 정리 - 개선된 append 작업"""
         try:
             source_path = Path(file_data.get("source_path", ""))
             normalized_path = str(source_path)
@@ -498,7 +501,8 @@ class FileOrganizationTask(BaseTask):
                     f"📊 현재 _processed_sources 크기: {len(result._processed_sources)}"
                 )
                 result.skip_count += 1
-                result.skipped_files.append(str(source_path))
+                # 안전한 append 작업 - 중복 방지
+                self._safe_append_to_list(result.skipped_files, source_path)
                 return True
 
             # 파일 존재 여부 확인 (캐시된 결과 활용)
@@ -507,7 +511,8 @@ class FileOrganizationTask(BaseTask):
                 self.logger.debug(f"🛑 파일이 이미 이동되었거나 존재하지 않음: {source_path}")
                 print(f"🔍 DEBUG: 파일 존재하지 않음 - {source_path}")
                 result.skip_count += 1
-                result.skipped_files.append(str(source_path))
+                # 안전한 append 작업 - 중복 방지
+                self._safe_append_to_list(result.skipped_files, source_path)
                 # 처리된 파일 목록에 추가하여 재처리 방지
                 if not hasattr(result, "_processed_sources"):
                     result._processed_sources = set()
@@ -527,7 +532,8 @@ class FileOrganizationTask(BaseTask):
 
                 # 파일 복사
                 shutil.copy2(source_path, target_path)
-                result.processed_files.append(target_path)
+                # 안전한 append 작업 - 중복 방지
+                self._safe_append_to_list(result.processed_files, target_path)
 
                 # 원본 파일 삭제 (복사 성공 후)
                 try:
@@ -542,7 +548,8 @@ class FileOrganizationTask(BaseTask):
                 result._processed_sources.add(normalized_path)
 
             else:
-                result.processed_files.append(target_path)
+                # dry_run 모드에서도 안전한 append 작업
+                self._safe_append_to_list(result.processed_files, target_path)
                 # dry_run 모드에서도 처리된 파일 목록에 추가
                 if not hasattr(result, "_processed_sources"):
                     result._processed_sources = set()
@@ -552,7 +559,8 @@ class FileOrganizationTask(BaseTask):
 
         except Exception as e:
             self.logger.error(f"단일 파일 정리 실패: {file_data}: {e}")
-            result.errors.append(f"파일 정리 실패: {str(e)}")
+            # 안전한 append 작업 - 에러 메시지 중복 방지
+            self._safe_append_to_list(result.errors, f"파일 정리 실패: {str(e)}")
             return False
 
     def _generate_target_filename(self, file_data: dict[str, Any]) -> str:
@@ -591,6 +599,38 @@ class FileOrganizationTask(BaseTask):
             filename = filename.replace(char, "_")
         return filename.strip()
 
+    def _safe_append_to_list(self, target_list: list, item: Any) -> None:
+        """안전한 append 작업 - 중복 방지 및 예외 처리"""
+        if target_list is None:
+            self.logger.error("target_list가 None입니다")
+            return
+
+        try:
+            # 중복 체크 (Path 객체의 경우 문자열로 변환하여 비교)
+            if isinstance(item, Path):
+                item_str = str(item)
+                # 성능 최적화: set을 사용한 빠른 중복 체크
+                existing_paths = {
+                    str(existing_item)
+                    for existing_item in target_list
+                    if isinstance(existing_item, Path)
+                }
+                if item_str in existing_paths:
+                    self.logger.debug(f"중복 항목 건너뜀: {item}")
+                    return
+            else:
+                if item in target_list:
+                    self.logger.debug(f"중복 항목 건너뜀: {item}")
+                    return
+
+            # 안전하게 append
+            target_list.append(item)
+            self.logger.debug(f"항목 추가됨: {item}")
+
+        except Exception as e:
+            self.logger.error(f"append 작업 실패: {item} - {e}")
+            # append 실패해도 전체 작업을 중단하지 않음
+
 
 class FileOrganizationService(IFileOrganizationService):
     """파일 정리 서비스 구현"""
@@ -620,7 +660,7 @@ class FileOrganizationService(IFileOrganizationService):
         try:
             # 그룹 데이터 검증
             if not grouped_items:
-                result.validation_errors.append("정리할 그룹이 없습니다")
+                self._safe_append_to_list(result.validation_errors, "정리할 그룹이 없습니다")
             else:
                 result.has_grouped_items = True
                 result.total_groups = len(grouped_items)
@@ -634,12 +674,16 @@ class FileOrganizationService(IFileOrganizationService):
                 or str(destination_directory) == "."
                 or str(destination_directory) == ""
             ):
-                result.validation_errors.append("대상 디렉토리가 설정되지 않았습니다")
+                self._safe_append_to_list(
+                    result.validation_errors, "대상 디렉토리가 설정되지 않았습니다"
+                )
             else:
                 result.has_destination = True
 
                 if not destination_directory.exists():
-                    result.validation_errors.append("대상 디렉토리가 존재하지 않습니다")
+                    self._safe_append_to_list(
+                        result.validation_errors, "대상 디렉토리가 존재하지 않습니다"
+                    )
                 else:
                     result.destination_exists = True
 
@@ -650,7 +694,9 @@ class FileOrganizationService(IFileOrganizationService):
                         test_file.unlink()
                         result.destination_writable = True
                     except Exception:
-                        result.validation_errors.append("대상 디렉토리에 쓰기 권한이 없습니다")
+                        self._safe_append_to_list(
+                            result.validation_errors, "대상 디렉토리에 쓰기 권한이 없습니다"
+                        )
 
             # 파일 크기 추정
             result.estimated_size_mb = self._estimate_total_size(grouped_items)
@@ -677,7 +723,7 @@ class FileOrganizationService(IFileOrganizationService):
                 )
             )
 
-            result.validation_errors.append(str(e))
+            self._safe_append_to_list(result.validation_errors, str(e))
             return result
 
     def create_preflight_data(
@@ -786,6 +832,38 @@ class FileOrganizationService(IFileOrganizationService):
             return OrganizationStatus.ORGANIZATION_PROGRESS
         return None
 
+    def _safe_append_to_list(self, target_list: list, item: Any) -> None:
+        """안전한 append 작업 - 중복 방지 및 예외 처리"""
+        if target_list is None:
+            self.logger.error("target_list가 None입니다")
+            return
+
+        try:
+            # 중복 체크 (Path 객체의 경우 문자열로 변환하여 비교)
+            if isinstance(item, Path):
+                item_str = str(item)
+                # 성능 최적화: set을 사용한 빠른 중복 체크
+                existing_paths = {
+                    str(existing_item)
+                    for existing_item in target_list
+                    if isinstance(existing_item, Path)
+                }
+                if item_str in existing_paths:
+                    self.logger.debug(f"중복 항목 건너뜀: {item}")
+                    return
+            else:
+                if item in target_list:
+                    self.logger.debug(f"중복 항목 건너뜀: {item}")
+                    return
+
+            # 안전하게 append
+            target_list.append(item)
+            self.logger.debug(f"항목 추가됨: {item}")
+
+        except Exception as e:
+            self.logger.error(f"append 작업 실패: {item} - {e}")
+            # append 실패해도 전체 작업을 중단하지 않음
+
     def dispose(self) -> None:
         """서비스 정리"""
         # 모든 활성 정리 작업 취소
@@ -823,18 +901,20 @@ class FileOrganizationService(IFileOrganizationService):
         self, grouped_items: dict[str, Any], destination_directory: Path
     ) -> list[str]:
         """잠재적 충돌 검사"""
-        conflicts = []
+        conflicts: list[str] = []
 
         for group_name in grouped_items:
             group_dir = destination_directory / self._sanitize_filename(group_name)
             if group_dir.exists() and any(group_dir.iterdir()):
-                conflicts.append(f"그룹 디렉토리가 이미 존재하고 비어있지 않음: {group_name}")
+                self._safe_append_to_list(
+                    conflicts, f"그룹 디렉토리가 이미 존재하고 비어있지 않음: {group_name}"
+                )
 
         return conflicts
 
     def _group_files_by_name(self, files: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
         """파일명을 기준으로 파일들을 그룹화"""
-        file_groups = {}
+        file_groups: dict[str, list[dict[str, Any]]] = {}
 
         for file_data in files:
             source_path = file_data.get("source_path", "")
@@ -848,26 +928,66 @@ class FileOrganizationService(IFileOrganizationService):
             # 그룹에 추가
             if base_name not in file_groups:
                 file_groups[base_name] = []
-            file_groups[base_name].append(file_data)
+            self._safe_append_to_list(file_groups[base_name], file_data)
 
         return file_groups
 
-    def _find_best_quality_file(self, files: list[dict[str, Any]]) -> dict[str, Any]:
-        """그룹 내에서 가장 높은 해상도의 파일을 찾음"""
+    def _find_best_quality_file(
+        self,
+        files: list[dict[str, Any]],
+        fallback_to_first: bool = True,
+        log_selection: bool = False,
+    ) -> dict[str, Any] | None:
+        """그룹 내에서 가장 높은 해상도의 파일을 찾음
+
+        Args:
+            files: 파일 정보 딕셔너리 리스트
+            fallback_to_first: 해상도를 찾을 수 없을 때 첫 번째 파일을 반환할지 여부
+            log_selection: 선택 과정을 로그로 출력할지 여부
+
+        Returns:
+            가장 높은 해상도의 파일 딕셔너리 또는 None
+        """
         if not files:
+            if log_selection:
+                self.logger.debug("파일 목록이 비어있음")
             return None
 
         if len(files) == 1:
+            if log_selection:
+                self.logger.debug(f"단일 파일 선택: {files[0].get('source_path', 'Unknown')}")
             return files[0]
 
         # 해상도 우선순위로 정렬 (높은 우선순위가 먼저)
-        sorted_files = sorted(
-            files,
-            key=lambda f: self._get_resolution_priority(f.get("resolution", "")),
-            reverse=True  # 내림차순 (높은 우선순위가 먼저)
-        )
+        try:
+            sorted_files = sorted(
+                files,
+                key=lambda f: self._get_resolution_priority(f.get("resolution", "")),
+                reverse=True,  # 내림차순 (높은 우선순위가 먼저)
+            )
 
-        return sorted_files[0]  # 가장 높은 우선순위의 파일 반환
+            best_file = sorted_files[0]
+
+            if log_selection:
+                best_resolution = best_file.get("resolution", "Unknown")
+                best_path = best_file.get("source_path", "Unknown")
+                self.logger.debug(f"최고 화질 파일 선택: {best_path} (해상도: {best_resolution})")
+
+                # 선택된 파일과 다른 파일들의 해상도 비교 로그
+                for i, file_data in enumerate(sorted_files[1:], 1):
+                    other_resolution = file_data.get("resolution", "Unknown")
+                    other_path = file_data.get("source_path", "Unknown")
+                    self.logger.debug(f"  대안 {i}: {other_path} (해상도: {other_resolution})")
+
+            return best_file
+
+        except Exception as e:
+            self.logger.error(f"파일 화질 비교 중 오류 발생: {e}")
+            if fallback_to_first:
+                if log_selection:
+                    self.logger.debug("오류 발생으로 첫 번째 파일을 반환")
+                return files[0]
+            return None
 
     def _get_resolution_priority(self, resolution: str) -> int:
         """해상도의 우선순위를 반환 (높을수록 우선순위 높음)"""

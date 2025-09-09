@@ -10,8 +10,15 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QProgressBar,
-                             QPushButton, QTextEdit, QVBoxLayout)
+from PyQt5.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+)
 
 
 @dataclass
@@ -59,7 +66,7 @@ class OrganizeResult:
             print("🔍 DEBUG: 파일 정리 시작!")
             print(f"🔍 DEBUG: 총 파일 수: {total_files}")
             print(
-                f"🔍 DEBUG: 총 그룹 수: {len([g for g in self.grouped_items.keys() if g != 'ungrouped'])}"
+                f"🔍 DEBUG: 총 그룹 수: {len([g for g in self.grouped_items if g != 'ungrouped'])}"
             )
             print(f"🔍 DEBUG: _processed_sources 초기화됨: {len(self._processed_sources)}")
             print("=" * 50)
@@ -645,18 +652,10 @@ class OrganizeProgressDialog(QDialog):
 
     def start_organization(self):
         """파일 정리 시작"""
-        try:
-            # Worker 생성 및 시작
-            self.worker = FileOrganizeWorker(self.grouped_items, self.destination_directory)
-            self.worker.progress_updated.connect(self.update_progress)
-            self.worker.file_processed.connect(self.log_file_processed)
-            self.worker.completed.connect(self.on_organization_completed)
-
-            self.worker.start()
-
-        except Exception as e:
-            self.log_text.append(f"❌ 오류: {str(e)}")
-            self.cancel_button.setText("닫기")
+        # TODO: FileOrganizeWorker는 더 이상 사용되지 않음
+        # 고수준 FileOrganizationService로 대체 필요
+        self.log_text.append("❌ 파일 정리 기능이 아직 구현되지 않았습니다.")
+        self.cancel_button.setText("닫기")
 
     def update_progress(self, progress: int, current_file: str):
         """진행률 업데이트"""

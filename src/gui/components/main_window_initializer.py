@@ -3,6 +3,8 @@
 MainWindow의 과도한 __init__ 메서드 로직을 분리하여 가독성과 유지보수성을 향상시킵니다.
 """
 
+from typing import TYPE_CHECKING, Any
+
 from PyQt5.QtWidgets import QMainWindow
 
 from src.core.file_manager import FileManager
@@ -14,19 +16,21 @@ from src.gui.components.i18n_manager import I18nManager
 from src.gui.components.ui_migration_manager import UIMigrationManager
 from src.gui.components.ui_state_manager import UIStateManager
 from src.gui.handlers.event_handler_manager import EventHandlerManager
-from src.gui.initializers.ui_initializer import UIInitializer
 from src.gui.managers.anime_data_manager import AnimeDataManager
 from src.gui.managers.file_processing_manager import FileProcessingManager
 from src.gui.managers.status_bar_manager import StatusBarManager
 from src.gui.managers.tmdb_manager import TMDBManager
 
+if TYPE_CHECKING:
+    from src.gui.initializers.ui_initializer import UIInitializer
+
 
 class MainWindowInitializer:
     """메인 윈도우 초기화를 담당하는 클래스"""
 
-    def __init__(self, main_window: QMainWindow):
+    def __init__(self, main_window: QMainWindow) -> None:
         self.main_window = main_window
-        self.settings_manager = None
+        self.settings_manager: Any | None = None
         self.file_parser: FileParser | None = None
         self.tmdb_client: TMDBClient | None = None
         self.file_manager: FileManager | None = None
@@ -42,32 +46,32 @@ class MainWindowInitializer:
         self.ui_initializer: UIInitializer | None = None
 
         # 새로운 아키텍처 관련 속성들
-        self.event_bus = None
-        self.file_scan_service = None
-        self.file_organization_service = None
-        self.media_data_service = None
-        self.tmdb_search_service = None
-        self.ui_update_service = None
-        self.current_scan_id = None
-        self.current_organization_id = None
-        self.current_tmdb_search_id = None
+        self.event_bus: Any | None = None
+        self.file_scan_service: Any | None = None
+        self.file_organization_service: Any | None = None
+        self.media_data_service: Any | None = None
+        self.tmdb_search_service: Any | None = None
+        self.ui_update_service: Any | None = None
+        self.current_scan_id: str | None = None
+        self.current_organization_id: str | None = None
+        self.current_tmdb_search_id: str | None = None
 
         # UI Command 시스템 관련 속성들
-        self.undo_stack_bridge = None
-        self.staging_manager = None
-        self.journal_manager = None
-        self.ui_command_bridge = None
+        self.undo_stack_bridge: Any | None = None
+        self.staging_manager: Any | None = None
+        self.journal_manager: Any | None = None
+        self.ui_command_bridge: Any | None = None
 
         # TMDB 검색 다이얼로그 저장
-        self.tmdb_search_dialogs = {}
+        self.tmdb_search_dialogs: dict[str, Any] = {}
 
         # 포스터 캐시
-        self.poster_cache = {}
+        self.poster_cache: dict[str, Any] = {}
 
         # TMDB 검색 플래그
-        self._tmdb_search_started = False
+        self._tmdb_search_started: bool = False
 
-    def _init_core_components(self):
+    def _init_core_components(self) -> None:
         """핵심 컴포넌트 초기화"""
         try:
             # 설정 관리자 초기화 (통합 설정 시스템 사용)
@@ -91,15 +95,16 @@ class MainWindowInitializer:
                 )
 
             print(f"🔍 TMDB API 키 확인: 통합 설정={api_key[:8] if api_key else '없음'}")
-            if api_key:
-                self.tmdb_client = TMDBClient(api_key=api_key)
-                self.main_window.tmdb_client = self.tmdb_client
-                print(f"✅ TMDBClient 초기화 성공 (API 키: {api_key[:8]}...)")
-            else:
+            if not api_key:
                 print("⚠️ TMDB API 키가 통합 설정에 없습니다.")
                 print("   통합 설정 파일에서 TMDB API 키를 설정하거나 환경 변수를 설정하세요.")
                 self.tmdb_client = None
                 self.main_window.tmdb_client = None
+                return
+
+            self.tmdb_client = TMDBClient(api_key=api_key)
+            self.main_window.tmdb_client = self.tmdb_client
+            print(f"✅ TMDBClient 초기화 성공 (API 키: {api_key[:8]}...)")
 
             # FileManager 초기화
             dest_root = getattr(self.settings_manager.config.application, "destination_root", "")
@@ -121,7 +126,7 @@ class MainWindowInitializer:
             self.tmdb_client = None
             self.file_manager = None
 
-    def _init_data_managers(self):
+    def _init_data_managers(self) -> None:
         """데이터 관리자 초기화"""
         try:
             # 애니메 데이터 관리자 초기화
@@ -142,7 +147,7 @@ class MainWindowInitializer:
         except Exception as e:
             print(f"❌ 데이터 관리자 초기화 실패: {e}")
 
-    def _init_new_architecture(self):
+    def _init_new_architecture(self) -> None:
         """새로운 아키텍처 컴포넌트 초기화"""
         try:
             # 애플리케이션 서비스 설정
@@ -152,9 +157,15 @@ class MainWindowInitializer:
             print("✅ 애플리케이션 서비스 설정 완료")
 
             # EventBus 가져오기 (전역 인스턴스)
-            from src.app import (IFileOrganizationService, IFileScanService,
-                                 IMediaDataService, ITMDBSearchService,
-                                 IUIUpdateService, get_event_bus, get_service)
+            from src.app import (
+                IFileOrganizationService,
+                IFileScanService,
+                IMediaDataService,
+                ITMDBSearchService,
+                IUIUpdateService,
+                get_event_bus,
+                get_service,
+            )
 
             self.event_bus = get_event_bus()
             self.main_window.event_bus = self.event_bus
@@ -217,23 +228,25 @@ class MainWindowInitializer:
             self.main_window.tmdb_search_handler = TMDBSearchHandler(self.main_window)
 
             # TMDB 검색 시그널-슬롯 연결
-            if (
+            if not (
                 hasattr(self.main_window, "anime_data_manager")
                 and self.main_window.anime_data_manager
             ):
-                print(f"🔍 anime_data_manager 존재: {self.main_window.anime_data_manager}")
-                print(
-                    f"🔍 tmdb_search_handler 존재: {hasattr(self.main_window, 'tmdb_search_handler')}"
-                )
-                if hasattr(self.main_window, "tmdb_search_handler"):
-                    self.main_window.anime_data_manager.tmdb_search_requested.connect(
-                        self.main_window.tmdb_search_handler.on_tmdb_search_requested
-                    )
-                    print("✅ TMDB 검색 시그널-슬롯 연결 완료")
-                else:
-                    print("❌ tmdb_search_handler가 없습니다")
-            else:
                 print("❌ anime_data_manager가 없습니다")
+                return
+
+            print(f"🔍 anime_data_manager 존재: {self.main_window.anime_data_manager}")
+            print(
+                f"🔍 tmdb_search_handler 존재: {hasattr(self.main_window, 'tmdb_search_handler')}"
+            )
+            if not hasattr(self.main_window, "tmdb_search_handler"):
+                print("❌ tmdb_search_handler가 없습니다")
+                return
+
+            self.main_window.anime_data_manager.tmdb_search_requested.connect(
+                self.main_window.tmdb_search_handler.on_tmdb_search_requested
+            )
+            print("✅ TMDB 검색 시그널-슬롯 연결 완료")
 
             print("✅ TMDB Search Handler 초기화 완료")
 
@@ -246,8 +259,7 @@ class MainWindowInitializer:
 
                 # 방법 1: 직접 import
                 try:
-                    from src.gui.handlers.file_organization_handler import \
-                        FileOrganizationHandler
+                    from src.gui.handlers.file_organization_handler import FileOrganizationHandler
 
                     print("✅ 방법 1: 직접 import 성공")
                 except ImportError as ie1:
@@ -259,8 +271,7 @@ class MainWindowInitializer:
 
                         if "src" not in sys.path:
                             sys.path.insert(0, "src")
-                        from gui.handlers.file_organization_handler import \
-                            FileOrganizationHandler
+                        from gui.handlers.file_organization_handler import FileOrganizationHandler
 
                         print("✅ 방법 2: sys.path 추가 후 import 성공")
                     except ImportError as ie2:
@@ -301,12 +312,13 @@ class MainWindowInitializer:
                     print("✅ FileOrganizationHandler 기본 초기화 완료")
 
                 # 초기화 상태 확인
-                if hasattr(self.main_window, "file_organization_handler"):
-                    print(
-                        f"✅ file_organization_handler 속성 설정됨: {type(self.main_window.file_organization_handler)}"
-                    )
-                else:
+                if not hasattr(self.main_window, "file_organization_handler"):
                     print("❌ file_organization_handler 속성 설정 실패")
+                    return
+
+                print(
+                    f"✅ file_organization_handler 속성 설정됨: {type(self.main_window.file_organization_handler)}"
+                )
 
             except Exception as e:
                 print(f"❌ FileOrganizationHandler 초기화 실패: {e}")
@@ -332,11 +344,10 @@ class MainWindowInitializer:
             self.tmdb_search_service = None
             self.ui_update_service = None
 
-    def _init_safety_system(self):
+    def _init_safety_system(self) -> None:
         """Safety System 초기화"""
         try:
-            from src.gui.managers.safety_system_manager import \
-                SafetySystemManager
+            from src.gui.managers.safety_system_manager import SafetySystemManager
 
             self.main_window.safety_system_manager = SafetySystemManager(self.main_window)
             print("✅ Safety System Manager 초기화 완료")
@@ -344,11 +355,10 @@ class MainWindowInitializer:
             print(f"⚠️ Safety System 초기화 실패: {e}")
             self.main_window.safety_system_manager = None
 
-    def _init_command_system(self):
+    def _init_command_system(self) -> None:
         """Command System 초기화"""
         try:
-            from src.gui.managers.command_system_manager import \
-                CommandSystemManager
+            from src.gui.managers.command_system_manager import CommandSystemManager
 
             self.main_window.command_system_manager = CommandSystemManager(self.main_window)
             print("✅ Command System Manager 초기화 완료")
@@ -356,7 +366,7 @@ class MainWindowInitializer:
             print(f"⚠️ Command System 초기화 실패: {e}")
             self.main_window.command_system_manager = None
 
-    def _init_journal_system(self):
+    def _init_journal_system(self) -> None:
         """Journal System 초기화"""
         try:
             from app import IJournalManager, IRollbackEngine, get_service
@@ -376,7 +386,7 @@ class MainWindowInitializer:
             self.main_window.journal_manager = None
             self.main_window.rollback_engine = None
 
-    def _init_undo_redo_system(self):
+    def _init_undo_redo_system(self) -> None:
         """Undo/Redo System 초기화"""
         try:
             # CommandSystemManager에서 이미 처리됨
@@ -384,7 +394,7 @@ class MainWindowInitializer:
         except Exception as e:
             print(f"⚠️ Undo/Redo System 초기화 실패: {e}")
 
-    def _init_ui_state_management(self):
+    def _init_ui_state_management(self) -> None:
         """UI 상태 관리 및 마이그레이션 초기화"""
         try:
             # UI 상태 관리자 초기화
@@ -407,7 +417,7 @@ class MainWindowInitializer:
         except Exception as e:
             print(f"❌ UI 상태 관리 초기화 실패: {e}")
 
-    def _handle_ui_migration(self):
+    def _handle_ui_migration(self) -> None:
         """UI 마이그레이션 상태 확인 및 처리"""
         try:
             migration_info = self.ui_migration_manager.get_migration_info()
@@ -417,26 +427,32 @@ class MainWindowInitializer:
 
             if current_version == "1.0":
                 # v1에서 v2로 마이그레이션 가능한지 확인
-                if self.ui_migration_manager.is_migration_available():
-                    print("🔄 UI v2 마이그레이션이 가능합니다.")
-                    # 자동 마이그레이션은 사용자 확인 후 진행
-                    # self.ui_migration_manager.start_migration_to_v2()
-                else:
+                if not self.ui_migration_manager.is_migration_available():
                     print("⚠️ UI v2 마이그레이션이 불가능합니다.")
-            elif current_version == "2.0":
-                print("✅ UI v2가 이미 활성화되어 있습니다.")
+                    return
 
-                # v2 레이아웃 유효성 검증
-                is_valid, errors = self.ui_migration_manager.validate_v2_layout()
-                if not is_valid:
-                    print(f"⚠️ UI v2 레이아웃 검증 실패: {errors}")
-                else:
-                    print("✅ UI v2 레이아웃 검증 완료")
+                print("🔄 UI v2 마이그레이션이 가능합니다.")
+                # 자동 마이그레이션은 사용자 확인 후 진행
+                # self.ui_migration_manager.start_migration_to_v2()
+                return
+
+            if current_version != "2.0":
+                return
+
+            print("✅ UI v2가 이미 활성화되어 있습니다.")
+
+            # v2 레이아웃 유효성 검증
+            is_valid, errors = self.ui_migration_manager.validate_v2_layout()
+            if not is_valid:
+                print(f"⚠️ UI v2 레이아웃 검증 실패: {errors}")
+                return
+
+            print("✅ UI v2 레이아웃 검증 완료")
 
         except Exception as e:
             print(f"❌ UI 마이그레이션 처리 실패: {e}")
 
-    def _init_accessibility_and_i18n(self):
+    def _init_accessibility_and_i18n(self) -> None:
         """접근성 및 국제화 관리자 초기화"""
         try:
             # 접근성 관리자 초기화
@@ -455,7 +471,7 @@ class MainWindowInitializer:
         except Exception as e:
             print(f"❌ 접근성 및 국제화 관리자 초기화 실패: {e}")
 
-    def apply_settings_to_ui(self):
+    def apply_settings_to_ui(self) -> None:
         """설정을 UI 컴포넌트에 적용"""
         try:
             if not self.settings_manager:
@@ -465,7 +481,6 @@ class MainWindowInitializer:
             if hasattr(self.settings_manager, "config"):
                 config = self.settings_manager.config
                 app_settings = config.application
-                user_prefs = config.user_preferences
 
                 # 기본 설정 적용
                 self.main_window.organize_mode = getattr(app_settings, "organize_mode", "이동")

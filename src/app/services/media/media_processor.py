@@ -8,8 +8,7 @@ import logging
 from collections import defaultdict
 from typing import Any
 
-from src.app.domain import (MediaFile, MediaGroup, MediaMetadata, MediaQuality,
-                       MediaSource)
+from src.app.domain import MediaFile, MediaGroup, MediaMetadata, MediaQuality, MediaSource
 
 
 class MediaProcessor:
@@ -98,9 +97,7 @@ class MediaProcessor:
         grouped = defaultdict(list)
 
         for file in files:
-            if strategy == "by_title":
-                key = file.parsed_title or "Unknown"
-            elif strategy == "by_series":
+            if strategy == "by_title" or strategy == "by_series":
                 key = file.parsed_title or "Unknown"
             elif strategy == "by_quality":
                 key = file.metadata.quality.value if file.metadata else "Unknown"
@@ -161,7 +158,7 @@ class MediaProcessor:
             "title": media_group.title,
             "total_episodes": media_group.total_episodes,
             "episode_count": media_group.episode_count,
-            "files": [ep for ep in media_group.episode_numbers],  # 에피소드 번호만 반환
+            "files": list(media_group.episode_numbers),  # 에피소드 번호만 반환
         }
 
     def calculate_statistics(

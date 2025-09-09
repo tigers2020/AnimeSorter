@@ -8,11 +8,19 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (IUIUpdateService, SettingsChangedEvent,
-                     SettingsExportEvent, SettingsImportEvent,
-                     SettingsResetEvent, SettingsSavedEvent,
-                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
-                     get_event_bus, get_service)
+from src.app import (
+    IUIUpdateService,
+    SettingsChangedEvent,
+    SettingsExportEvent,
+    SettingsImportEvent,
+    SettingsResetEvent,
+    SettingsSavedEvent,
+    StatusBarUpdateEvent,
+    SuccessMessageEvent,
+    TypedEventBus,
+    get_event_bus,
+    get_service,
+)
 from src.core.unified_config import unified_config_manager
 
 from .settings_state import SettingsCapabilities, SettingsState
@@ -412,18 +420,17 @@ class SettingsViewModel(QObject):
                 config = self.settings_manager.config
                 if key == "destination_root":
                     return getattr(config.application, "destination_root", default)
-                elif key == "theme":
+                if key == "theme":
                     return getattr(config.user_preferences.theme_preferences, "theme", default)
-                elif key == "language":
+                if key == "language":
                     return getattr(config.user_preferences, "language", default)
-                elif key == "font_family":
+                if key == "font_family":
                     return getattr(config.user_preferences, "font_family", default)
-                elif key == "font_size":
+                if key == "font_size":
                     return getattr(config.user_preferences, "font_size", default)
-                elif key == "ui_style":
+                if key == "ui_style":
                     return getattr(config.user_preferences, "ui_style", default)
-                else:
-                    return default
+                return default
         except Exception as e:
             self.logger.error(f"설정 값 가져오기 실패: {e}")
             return default

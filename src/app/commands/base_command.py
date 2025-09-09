@@ -14,10 +14,14 @@ from typing import TYPE_CHECKING, Any, Optional, Protocol
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
-    from src.app.journal import (FileOperationDetails, IJournalManager,
-                                 JournalEntry, JournalEntryType)
+    from src.app.journal import (
+        FileOperationDetails,
+        IJournalManager,
+        JournalEntry,
+        JournalEntryType,
+    )
+    from src.app.preflight import IPreflightCoordinator, PreflightCheckResult
     from src.app.staging import IStagingManager, StagedFile
-    from src.preflight import IPreflightCoordinator, PreflightCheckResult
 
 
 class CommandStatus(Enum):

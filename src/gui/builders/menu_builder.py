@@ -83,9 +83,11 @@ class MenuBuilder:
         self.main_window.undo_action.setStatusTip("마지막 작업을 실행 취소합니다")
         self.main_window.undo_action.setEnabled(False)  # 초기에는 비활성화
         self.main_window.undo_action.triggered.connect(
-            lambda: self.main_window.command_system_manager.undo_last_operation()
-            if self.main_window.command_system_manager
-            else None
+            lambda: (
+                self.main_window.command_system_manager.undo_last_operation()
+                if self.main_window.command_system_manager
+                else None
+            )
         )
 
         self.main_window.redo_action = edit_menu.addAction("재실행(&R)")
@@ -93,9 +95,11 @@ class MenuBuilder:
         self.main_window.redo_action.setStatusTip("실행 취소된 작업을 재실행합니다")
         self.main_window.redo_action.setEnabled(False)  # 초기에는 비활성화
         self.main_window.redo_action.triggered.connect(
-            lambda: self.main_window.command_system_manager.redo_last_operation()
-            if self.main_window.command_system_manager
-            else None
+            lambda: (
+                self.main_window.command_system_manager.redo_last_operation()
+                if self.main_window.command_system_manager
+                else None
+            )
         )
 
         edit_menu.addSeparator()
@@ -144,9 +148,11 @@ class MenuBuilder:
         commit_action.setShortcut("F7")
         commit_action.setStatusTip("파일 정리를 실행합니다")
         commit_action.triggered.connect(
-            lambda: self.main_window.file_organization_handler.commit_organization()
-            if hasattr(self.main_window, "file_organization_handler")
-            else None
+            lambda: (
+                self.main_window.file_organization_handler.commit_organization()
+                if hasattr(self.main_window, "file_organization_handler")
+                else None
+            )
         )
 
         # 시뮬레이션 액션
@@ -154,9 +160,11 @@ class MenuBuilder:
         simulate_action.setShortcut("F8")
         simulate_action.setStatusTip("파일 정리를 시뮬레이션합니다")
         simulate_action.triggered.connect(
-            lambda: self.main_window.file_organization_handler.simulate_organization()
-            if hasattr(self.main_window, "file_organization_handler")
-            else None
+            lambda: (
+                self.main_window.file_organization_handler.simulate_organization()
+                if hasattr(self.main_window, "file_organization_handler")
+                else None
+            )
         )
 
         tools_menu.addSeparator()

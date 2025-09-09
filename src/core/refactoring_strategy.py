@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +195,7 @@ class RefactoringStrategy:
         self.plans = [phase1_plan, phase2_plan, phase3_plan]
         return self.plans
 
-    def get_next_target(self) -> Optional[RefactoringTarget]:
+    def get_next_target(self) -> RefactoringTarget | None:
         """다음 리팩토링 대상 반환"""
         for target in self.targets:
             if target.file_path.name not in self.completed_targets:
@@ -228,7 +228,7 @@ class RefactoringStrategy:
     def _count_lines(self, file_path: Path) -> int:
         """파일의 라인 수 계산"""
         try:
-            with open(file_path, encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 return len(f.readlines())
         except Exception:
             return 0
@@ -237,12 +237,11 @@ class RefactoringStrategy:
         """우선순위 결정"""
         if size_kb > 50 or line_count > 1000:
             return RefactoringPriority.CRITICAL
-        elif size_kb > 30 or line_count > 500:
+        if size_kb > 30 or line_count > 500:
             return RefactoringPriority.HIGH
-        elif size_kb > 20 or line_count > 300:
+        if size_kb > 20 or line_count > 300:
             return RefactoringPriority.MEDIUM
-        else:
-            return RefactoringPriority.LOW
+        return RefactoringPriority.LOW
 
     def _determine_refactoring_types(
         self, file_path: Path, size_kb: int, line_count: int

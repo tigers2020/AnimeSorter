@@ -172,8 +172,8 @@ class ConfigManager:
     def _load_config(self) -> None:
         """설정 로드 (환경변수 > YAML > 기본값)"""
         try:
-            # 설정 로드
-            self._config = AppConfig()
+            # 설정 로드 (모든 필드에 기본값이 있으므로 인수 없이 호출 가능)
+            self._config = AppConfig()  # type: ignore[call-arg]  # type: ignore[call-arg]
 
             # YAML 파일이 있으면 병합
             if self.yaml_file.exists():
@@ -187,7 +187,7 @@ class ConfigManager:
         except Exception as e:
             print(f"❌ 설정 로드 실패: {e}")
             # 기본값으로 폴백
-            self._config = AppConfig()
+            self._config = AppConfig()  # type: ignore[call-arg]
 
     def _merge_yaml_config(self) -> None:
         """YAML 설정 파일 병합"""
@@ -296,7 +296,7 @@ class ConfigManager:
     def reset_to_defaults(self) -> bool:
         """기본값으로 설정 초기화"""
         try:
-            self._config = AppConfig()
+            self._config = AppConfig()  # type: ignore[call-arg]
             self._notify_change("__all__", None)
             return True
         except Exception as e:

@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QMainWindow
 
 from src.gui.components.event_handler_manager_ui import EventHandlerManagerUI
 from src.gui.components.main_window_initializer import MainWindowInitializer
+
 # from .menu_toolbar_manager import MenuToolbarManager  # 중복 메뉴 생성 방지
 from src.gui.components.ui_component_manager import UIComponentManager
 
@@ -321,71 +322,89 @@ class MainWindowCoordinator:
     def _apply_initial_settings(self):
         """초기 설정 적용"""
         try:
+            # 기본 설정 초기화
+            settings = type(
+                "Settings",
+                (),
+                {
+                    "window_geometry": None,
+                    "theme": "light",
+                    "language": "ko",
+                    "window_state": None,
+                    "dock_widget_states": {},
+                },
+            )()
+
             # 설정에서 읽은 값들을 UI에 적용
-            if hasattr(self.main_window, "settings_manager"):
-                if hasattr(self.main_window.settings_manager, "config"):
-                    # unified_config_manager의 경우
-                    user_prefs = self.main_window.settings_manager.config.user_preferences
-                    # 테마 설정을 올바른 경로에서 가져오기
-                    theme_prefs = getattr(user_prefs, "theme_preferences", {})
-                    if isinstance(theme_prefs, dict):
-                        settings = type(
-                            "Settings",
-                            (),
-                            {
-                                "window_geometry": getattr(
-                                    user_prefs.gui_state, "window_geometry", None
-                                ),
-                                "theme": theme_prefs.get("theme", "light"),
-                                "language": theme_prefs.get("language", "ko"),
-                            },
-                        )()
+            if hasattr(self.main_window, "settings_manager") and hasattr(
+                self.main_window.settings_manager, "config"
+            ):
+                # unified_config_manager의 경우
+                user_prefs = self.main_window.settings_manager.config.user_preferences
+                # 테마 설정을 올바른 경로에서 가져오기
+                theme_prefs = getattr(user_prefs, "theme_preferences", {})
+                if isinstance(theme_prefs, dict):
+                    settings = type(
+                        "Settings",
+                        (),
+                        {
+                            "window_geometry": user_prefs.gui_state.get("window_geometry", None),
+                            "theme": theme_prefs.get("theme", "light"),
+                            "language": theme_prefs.get("language", "ko"),
+                            "window_state": user_prefs.gui_state.get("window_state", None),
+                            "dock_widget_states": user_prefs.gui_state.get(
+                                "dock_widget_states", {}
+                            ),
+                        },
+                    )()
+                else:
+                    settings = type(
+                        "Settings",
+                        (),
+                        {
+                            "window_geometry": user_prefs.gui_state.get("window_geometry", None),
+                            "theme": getattr(theme_prefs, "theme", "light"),
+                            "language": getattr(theme_prefs, "language", "ko"),
+                            "window_state": user_prefs.gui_state.get("window_state", None),
+                            "dock_widget_states": user_prefs.gui_state.get(
+                                "dock_widget_states", {}
+                            ),
+                        },
+                    )()
+
+            # 윈도우 크기 및 위치 복원
+            if hasattr(settings, "window_geometry") and settings.window_geometry:
+                try:
+                    # 문자열을 QByteArray로 변환
+                    from PyQt5.QtCore import QByteArray
+
+                    if isinstance(settings.window_geometry, str):
+                        geometry_bytes = settings.window_geometry.encode("utf-8")
+                        geometry_bytearray = QByteArray(geometry_bytes)
+                        self.main_window.restoreGeometry(geometry_bytearray)
                     else:
-                        settings = type(
-                            "Settings",
-                            (),
-                            {
-                                "window_geometry": getattr(
-                                    user_prefs.gui_state, "window_geometry", None
-                                ),
-                                "theme": getattr(theme_prefs, "theme", "light"),
-                                "language": getattr(theme_prefs, "language", "ko"),
-                            },
-                        )()
+                        self.main_window.restoreGeometry(settings.window_geometry)
+                except Exception as e:
+                    print(f"⚠️ 윈도우 geometry 복원 실패: {e}")
 
-                # 윈도우 크기 및 위치 복원
-                if hasattr(settings, "window_geometry") and settings.window_geometry:
-                    try:
-                        # 문자열을 QByteArray로 변환
-                        from PyQt5.QtCore import QByteArray
+            # 윈도우 상태 복원
+            if hasattr(settings, "window_state") and settings.window_state:
+                try:
+                    # 문자열을 QByteArray로 변환
+                    from PyQt5.QtCore import QByteArray
 
-                        if isinstance(settings.window_geometry, str):
-                            geometry_bytes = settings.window_geometry.encode("utf-8")
-                            geometry_bytearray = QByteArray(geometry_bytes)
-                            self.main_window.restoreGeometry(geometry_bytearray)
-                        else:
-                            self.main_window.restoreGeometry(settings.window_geometry)
-                    except Exception as e:
-                        print(f"⚠️ 윈도우 geometry 복원 실패: {e}")
+                    if isinstance(settings.window_state, str):
+                        state_bytes = settings.window_state.encode("utf-8")
+                        state_bytearray = QByteArray(state_bytes)
+                        self.main_window.restoreState(state_bytearray)
+                    else:
+                        self.main_window.restoreState(settings.window_state)
+                except Exception as e:
+                    print(f"⚠️ 윈도우 state 복원 실패: {e}")
 
-                # 윈도우 상태 복원
-                if hasattr(settings, "window_state") and settings.window_state:
-                    try:
-                        # 문자열을 QByteArray로 변환
-                        from PyQt5.QtCore import QByteArray
-
-                        if isinstance(settings.window_state, str):
-                            state_bytes = settings.window_state.encode("utf-8")
-                            state_bytearray = QByteArray(state_bytes)
-                            self.main_window.restoreState(state_bytearray)
-                        else:
-                            self.main_window.restoreState(settings.window_state)
-                    except Exception as e:
-                        print(f"⚠️ 윈도우 state 복원 실패: {e}")
-
-                # Dock 위젯 상태 복원
-                if hasattr(settings, "dock_widget_states"):
-                    self._restore_dock_widget_states(settings.dock_widget_states)
+            # Dock 위젯 상태 복원
+            if hasattr(settings, "dock_widget_states"):
+                self._restore_dock_widget_states(settings.dock_widget_states)
 
             print("✅ MainWindowCoordinator: 초기 설정 적용 완료")
 

@@ -10,7 +10,10 @@ from typing import Any
 from PyQt5.QtCore import QObject, QThreadPool, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QMessageBox
 
+# src 디렉토리를 Python 경로에 추가
 sys.path.append(str(Path(__file__).parent.parent))
+
+# 절대 import로 변경 (런타임에서 상대 import 문제 해결)
 from managers.anime_data_manager import AnimeDataManager, ParsedItem
 from managers.file_processing_manager import FileProcessingManager
 from managers.tmdb_manager import TMDBManager

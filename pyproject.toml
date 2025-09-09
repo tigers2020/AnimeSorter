@@ -98,6 +98,7 @@ ignore = [
     "E501",   # Line too long (handled by black)
     "B008",   # Do not perform function calls in argument defaults (common in PyQt5)
     "N806",   # Variable in function should be lowercase (Qt naming convention)
+    "E402",   # Module level import not at top of file (needed for sys.path manipulation)
 ]
 
 
@@ -169,6 +170,7 @@ warn_unused_ignores = false
 warn_no_return = false
 warn_unreachable = false
 strict_equality = false
+# plugins = ["pydantic"]  # pydantic 2.x에서는 별도 플러그인 불필요
 
 
 # Ignore missing imports for external libraries

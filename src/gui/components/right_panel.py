@@ -4,13 +4,7 @@
 로그 기능은 LogDock으로 이동되었습니다.
 """
 
-from PyQt5.QtWidgets import (
-    QHBoxLayout,
-    QLabel,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 
 class RightPanel(QWidget):

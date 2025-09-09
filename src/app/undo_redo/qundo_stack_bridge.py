@@ -381,10 +381,14 @@ class QUndoStackBridge(QObject):
                     "description": command.description,
                     "has_result": hasattr(command, "result") and command.result is not None,
                     "is_success": (
-                        hasattr(command, "result") and command.result and command.result.is_success
-                    )
-                    if hasattr(command, "result")
-                    else False,
+                        (
+                            hasattr(command, "result")
+                            and command.result
+                            and command.result.is_success
+                        )
+                        if hasattr(command, "result")
+                        else False
+                    ),
                     "staged_files_count": len(self._staging_map.get(command_id, [])),
                 }
 
@@ -392,17 +396,17 @@ class QUndoStackBridge(QObject):
                     result = command.result
                     history_item.update(
                         {
-                            "executed_at": result.executed_at.isoformat()
-                            if result.executed_at
-                            else None,
-                            "completed_at": result.completed_at.isoformat()
-                            if result.completed_at
-                            else None,
+                            "executed_at": (
+                                result.executed_at.isoformat() if result.executed_at else None
+                            ),
+                            "completed_at": (
+                                result.completed_at.isoformat() if result.completed_at else None
+                            ),
                             "execution_time_ms": result.execution_time_ms,
                             "affected_files_count": len(result.affected_files),
-                            "journal_entry_id": str(result.journal_entry_id)
-                            if result.journal_entry_id
-                            else None,
+                            "journal_entry_id": (
+                                str(result.journal_entry_id) if result.journal_entry_id else None
+                            ),
                         }
                     )
 

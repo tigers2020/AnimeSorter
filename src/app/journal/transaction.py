@@ -262,9 +262,9 @@ class Transaction:
         """딕셔너리로 변환"""
         return {
             "transaction_id": str(self.transaction_id),
-            "parent_transaction_id": str(self.parent_transaction_id)
-            if self.parent_transaction_id
-            else None,
+            "parent_transaction_id": (
+                str(self.parent_transaction_id) if self.parent_transaction_id else None
+            ),
             "name": self.name,
             "description": self.description,
             "status": self.status.value,

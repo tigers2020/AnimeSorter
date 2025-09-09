@@ -8,11 +8,13 @@ import logging
 import re
 from typing import Any
 
-from src.core import \
-    TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
-
-from src.app.tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
-                                  TMDBMediaType, TMDBSearchResult)
+from src.app.tmdb_search_events import (
+    TMDBMatch,
+    TMDBMatchConfidence,
+    TMDBMediaType,
+    TMDBSearchResult,
+)
+from src.core import TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
 
 
 class SearchResultMatcher:
@@ -304,9 +306,7 @@ class SearchResultMatcher:
 
                 if match.confidence_score < 0.3:
                     score_dist["0.0-0.3"] += 1
-                elif match.confidence_score < 0.5:
-                    score_dist["0.5-0.7"] += 1
-                elif match.confidence_score < 0.7:
+                elif match.confidence_score < 0.5 or match.confidence_score < 0.7:
                     score_dist["0.5-0.7"] += 1
                 elif match.confidence_score < 0.9:
                     score_dist["0.7-0.9"] += 1

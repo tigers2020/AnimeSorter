@@ -8,10 +8,20 @@ import contextlib
 import requests
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QDialog, QGroupBox, QHBoxLayout, QLabel,
-                             QLineEdit, QListWidget, QListWidgetItem,
-                             QMessageBox, QPushButton, QSizePolicy,
-                             QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.core.tmdb_client import TMDBAnimeInfo
 

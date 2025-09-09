@@ -214,11 +214,12 @@ class TMDBSearchHandler:
                 if hasattr(self.main_window, "main_toolbar"):
                     self.main_window.main_toolbar.set_organize_enabled(False)
                 # 메뉴 항목도 비활성화
-                if hasattr(self.main_window, "window_manager") and hasattr(
-                    self.main_window.window_manager, "menu_actions"
+                if (
+                    hasattr(self.main_window, "window_manager")
+                    and hasattr(self.main_window.window_manager, "menu_actions")
+                    and "organize" in self.main_window.window_manager.menu_actions
                 ):
-                    if "organize" in self.main_window.window_manager.menu_actions:
-                        self.main_window.window_manager.menu_actions["organize"].setEnabled(False)
+                    self.main_window.window_manager.menu_actions["organize"].setEnabled(False)
                 # 첫 번째 그룹부터 시작
                 self.process_next_tmdb_group()
             else:
@@ -232,11 +233,12 @@ class TMDBSearchHandler:
             if hasattr(self.main_window, "main_toolbar"):
                 self.main_window.main_toolbar.set_organize_enabled(True)
             # 메뉴 항목도 다시 활성화
-            if hasattr(self.main_window, "window_manager") and hasattr(
-                self.main_window.window_manager, "menu_actions"
+            if (
+                hasattr(self.main_window, "window_manager")
+                and hasattr(self.main_window.window_manager, "menu_actions")
+                and "organize" in self.main_window.window_manager.menu_actions
             ):
-                if "organize" in self.main_window.window_manager.menu_actions:
-                    self.main_window.window_manager.menu_actions["organize"].setEnabled(True)
+                self.main_window.window_manager.menu_actions["organize"].setEnabled(True)
 
     def process_next_tmdb_group(self):
         """다음 TMDB 그룹 처리"""
@@ -247,11 +249,12 @@ class TMDBSearchHandler:
             if hasattr(self.main_window, "main_toolbar"):
                 self.main_window.main_toolbar.set_organize_enabled(True)
             # 메뉴 항목도 다시 활성화
-            if hasattr(self.main_window, "window_manager") and hasattr(
-                self.main_window.window_manager, "menu_actions"
+            if (
+                hasattr(self.main_window, "window_manager")
+                and hasattr(self.main_window.window_manager, "menu_actions")
+                and "organize" in self.main_window.window_manager.menu_actions
             ):
-                if "organize" in self.main_window.window_manager.menu_actions:
-                    self.main_window.window_manager.menu_actions["organize"].setEnabled(True)
+                self.main_window.window_manager.menu_actions["organize"].setEnabled(True)
             return
 
         group_id, group_title = self.pending_tmdb_groups.pop(0)

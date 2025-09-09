@@ -7,9 +7,13 @@ AnimeSorter 애플리케이션의 전역 로깅 시스템을 설정하고 관리
 import logging
 from pathlib import Path
 
-from src.core.structured_logging import (LogCategory, LogLevel,
-                                         StructuredLogger, get_logger,
-                                         initialize_logging)
+from src.core.structured_logging import (
+    LogCategory,
+    LogLevel,
+    StructuredLogger,
+    get_logger,
+    initialize_logging,
+)
 
 # 전역 로거 인스턴스
 _global_logger: StructuredLogger | None = None
@@ -74,14 +78,13 @@ class LoggingConfig:
         content_lower = content.lower()
         if any(keyword in content_lower for keyword in ["error", "failed", "실패", "오류", "에러"]):
             return LogLevel.ERROR
-        elif any(keyword in content_lower for keyword in ["warning", "경고", "주의"]):
+        if any(keyword in content_lower for keyword in ["warning", "경고", "주의"]):
             return LogLevel.WARNING
-        elif any(keyword in content_lower for keyword in ["debug", "디버그", "초기화", "설정"]):
+        if any(keyword in content_lower for keyword in ["debug", "디버그", "초기화", "설정"]):
             return LogLevel.DEBUG
-        elif any(keyword in content_lower for keyword in ["success", "완료", "성공"]):
+        if any(keyword in content_lower for keyword in ["success", "완료", "성공"]):
             return LogLevel.INFO
-        else:
-            return LogLevel.INFO  # 기본값
+        return LogLevel.INFO  # 기본값
 
     @classmethod
     def get_category_from_file_path(cls, file_path: str) -> str:
@@ -161,16 +164,10 @@ def get_application_logger() -> StructuredLogger:
 
 def setup_logging_for_module(module_name: str) -> StructuredLogger:
     """모듈별 로거 설정"""
-    logger = get_logger(f"AnimeSorter.{module_name}")
+    # 모듈별 카테고리 자동 설정 (현재 사용되지 않음)
+    # category = LoggingConfig.get_category_from_file_path(module_name)
 
-    # 모듈별 카테고리 자동 설정
-    category = LoggingConfig.get_category_from_file_path(module_name)
-
-    return logger
-
-
-# 전역 로거 인스턴스
-_global_logger: StructuredLogger | None = None
+    return get_logger(f"AnimeSorter.{module_name}")
 
 
 def initialize_global_logging(**kwargs) -> StructuredLogger:

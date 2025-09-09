@@ -60,9 +60,12 @@ class BaseTableModel(QAbstractTableModel):
         self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole
     ) -> Any:
         """헤더 데이터 반환"""
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            if 0 <= section < len(self.COLUMNS):
-                return self.COLUMNS[section]
+        if (
+            orientation == Qt.Horizontal
+            and role == Qt.DisplayRole
+            and 0 <= section < len(self.COLUMNS)
+        ):
+            return self.COLUMNS[section]
         if orientation == Qt.Vertical and role == Qt.DisplayRole:
             return str(section + 1)
         return None

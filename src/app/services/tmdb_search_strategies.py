@@ -9,9 +9,10 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from src.core import \
-    TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
-from src.core import TMDBClient  # type: ignore[import-untyped]
+from src.core import (
+    TMDBAnimeInfoModel as TMDBAnimeInfo,  # type: ignore[import-untyped]
+    TMDBClient,  # type: ignore[import-untyped]
+)
 
 
 class SearchStrategy(ABC):
@@ -241,9 +242,12 @@ class SeasonBasedStrategy(SearchStrategy):
 
         # 시즌 정보 매칭
         season_info = self._extract_season_info(query)
-        if season_info and result.number_of_seasons:
-            if result.number_of_seasons >= season_info["number"]:
-                score += 0.2
+        if (
+            season_info
+            and result.number_of_seasons
+            and result.number_of_seasons >= season_info["number"]
+        ):
+            score += 0.2
 
         return score
 

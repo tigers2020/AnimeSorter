@@ -4,16 +4,19 @@
 MainWindow의 상태바 관련 기능을 담당하는 매니저 클래스입니다.
 """
 
-import sys
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import psutil
 
 # 이벤트 import 수정
-from src.app.ui_events import (ErrorMessageEvent, FileCountUpdateEvent,
-                              MemoryUsageUpdateEvent, ProgressUpdateEvent,
-                              StatusBarUpdateEvent, SuccessMessageEvent)
+from src.app.ui_events import (
+    ErrorMessageEvent,
+    FileCountUpdateEvent,
+    MemoryUsageUpdateEvent,
+    ProgressUpdateEvent,
+    StatusBarUpdateEvent,
+    SuccessMessageEvent,
+)
 from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
 
 
@@ -134,7 +137,7 @@ class StatusBarManager(ManagerBase):
             self.logger.error(f"재개 실패: {e}")
             return False
 
-    def _get_custom_health_status(self) -> Optional[dict[str, Any]]:
+    def _get_custom_health_status(self) -> dict[str, Any] | None:
         """구현체별 건강 상태 반환"""
         return {
             "main_window_available": self.main_window is not None,

@@ -7,8 +7,7 @@
 import logging
 from uuid import UUID
 
-from src.app.domain import (MediaFile, MediaGroup, MediaQuality, MediaSource,
-                       MediaType)
+from src.app.domain import MediaFile, MediaGroup, MediaQuality, MediaSource, MediaType
 from src.app.media_data_events import MediaDataFilter
 
 

@@ -18,14 +18,14 @@ class QualityDashboard:
 
     def __init__(self, metrics_file: str = ".taskmaster/quality_metrics.json"):
         self.metrics_file = Path(metrics_file)
-        self.metrics_data = {}
+        self.metrics_data: dict[str, Any] = {}
         self.load_metrics_data()
 
     def load_metrics_data(self):
         """메트릭 데이터 로드"""
         if self.metrics_file.exists():
             try:
-                with open(self.metrics_file, encoding="utf-8") as f:
+                with self.metrics_file.open(encoding="utf-8") as f:
                     self.metrics_data = json.load(f)
                 print(f"📊 메트릭 데이터 로드됨: {self.metrics_file}")
             except Exception as e:

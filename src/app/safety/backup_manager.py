@@ -142,9 +142,9 @@ class BackupManager:
             backup_info.files_backed_up = len(source_paths)
             backup_info.metadata = {
                 "strategy": strategy,
-                "compression_level": self.config.compression_level
-                if strategy == BackupStrategy.ZIP
-                else None,
+                "compression_level": (
+                    self.config.compression_level if strategy == BackupStrategy.ZIP else None
+                ),
                 "checksum": self._calculate_checksum(backup_location),
             }
 

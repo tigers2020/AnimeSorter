@@ -9,8 +9,7 @@ UI 컴포넌트 생성, 레이아웃 설정, 메뉴/툴바 생성을 담당합�
 import logging
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QLabel, QMainWindow, QSplitter, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import QLabel, QMainWindow, QSplitter, QVBoxLayout, QWidget
 
 from src.gui.builders.menu_builder import MenuBuilder
 from src.gui.builders.toolbar_builder import ToolbarBuilder
@@ -253,8 +252,7 @@ class UIInitializer:
         """패널들 생성"""
         try:
             # UI Components import 추가
-            from src.gui.components.central_triple_layout import \
-                CentralTripleLayout
+            from src.gui.components.central_triple_layout import CentralTripleLayout
             from src.gui.components.left_panel_dock import LeftPanelDock
             from src.gui.components.results_view import ResultsView
 
@@ -483,14 +481,15 @@ class UIInitializer:
 
             # 대상 폴더 정보 가져오기
             destination_directory = ""
-            if hasattr(self.main_window, "settings_manager"):
-                if hasattr(self.main_window.settings_manager, "config"):
-                    # unified_config_manager의 경우
-                    destination_directory = getattr(
-                        self.main_window.settings_manager.config.application,
-                        "destination_root",
-                        "대상 폴더",
-                    )
+            if hasattr(self.main_window, "settings_manager") and hasattr(
+                self.main_window.settings_manager, "config"
+            ):
+                # unified_config_manager의 경우
+                destination_directory = getattr(
+                    self.main_window.settings_manager.config.application,
+                    "destination_root",
+                    "대상 폴더",
+                )
 
             # 모델들 생성
             tmdb_client = getattr(self.main_window, "tmdb_client", None)

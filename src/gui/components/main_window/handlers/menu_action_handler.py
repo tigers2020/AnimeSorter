@@ -55,21 +55,24 @@ class MainWindowMenuActionHandler:
             if (
                 hasattr(self.main_window, "tmdb_search_handler")
                 and self.main_window.tmdb_search_handler
+                and self.main_window.tmdb_search_handler.is_search_in_progress()
             ):
-                if self.main_window.tmdb_search_handler.is_search_in_progress():
-                    from PyQt5.QtWidgets import QMessageBox
+                from PyQt5.QtWidgets import QMessageBox
 
-                    QMessageBox.warning(
-                        self.main_window,
-                        "파일 정리 불가",
-                        "TMDB 검색 중에는 파일 정리를 할 수 없습니다.\n"
-                        "TMDB 검색이 완료된 후 다시 시도해주세요.",
-                    )
-                    print("⚠️ TMDB 검색 중에는 파일 정리를 할 수 없습니다")
-                    return
+                QMessageBox.warning(
+                    self.main_window,
+                    "파일 정리 불가",
+                    "TMDB 검색 중에는 파일 정리를 할 수 없습니다.\n"
+                    "TMDB 검색이 완료된 후 다시 시도해주세요.",
+                )
+                print("⚠️ TMDB 검색 중에는 파일 정리를 할 수 없습니다")
+                return
 
             # 기존 정리 로직 호출
-            if hasattr(self.main_window, "file_organization_handler") and self.main_window.file_organization_handler:
+            if (
+                hasattr(self.main_window, "file_organization_handler")
+                and self.main_window.file_organization_handler
+            ):
                 print("✅ file_organization_handler 발견 - 파일 정리 시작")
                 try:
                     self.main_window.file_organization_handler.start_file_organization()
@@ -77,15 +80,18 @@ class MainWindowMenuActionHandler:
                 except Exception as e:
                     print(f"❌ 파일 정리 실행 중 오류: {e}")
                     import traceback
+
                     traceback.print_exc()
             else:
                 print("⚠️ file_organization_handler가 아직 초기화되지 않았습니다")
                 print("   애플리케이션이 완전히 시작된 후 다시 시도해주세요")
                 print(f"   hasattr 체크: {hasattr(self.main_window, 'file_organization_handler')}")
-                if hasattr(self.main_window, 'file_organization_handler'):
+                if hasattr(self.main_window, "file_organization_handler"):
                     print(f"   핸들러 값: {self.main_window.file_organization_handler}")
                 # 사용자에게 메시지 표시
-                self._show_message_to_user("파일 정리 기능이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.")
+                self._show_message_to_user(
+                    "파일 정리 기능이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요."
+                )
         except Exception as e:
             print(f"❌ 정리 요청 처리 실패: {e}")
 

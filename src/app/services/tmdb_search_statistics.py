@@ -10,9 +10,13 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from src.app.tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
-                                  TMDBSearchStatistics, TMDBSearchStatus,
-                                  TMDBSearchType)
+from src.app.tmdb_search_events import (
+    TMDBMatch,
+    TMDBMatchConfidence,
+    TMDBSearchStatistics,
+    TMDBSearchStatus,
+    TMDBSearchType,
+)
 
 
 class SearchStatisticsCollector:
@@ -152,21 +156,8 @@ class SearchStatisticsCollector:
                     self._performance_metrics["search_duration"]
                 )
 
-            # 성공률 계산
-            success_rate = 0.0
-            if self._current_stats["total_searches"] > 0:
-                success_rate = (
-                    self._current_stats["successful_searches"]
-                    / self._current_stats["total_searches"]
-                ) * 100
-
-            # 매칭 성공률 계산
-            match_rate = 0.0
-            if self._current_stats["successful_searches"] > 0:
-                match_rate = (
-                    self._current_stats["total_matches"]
-                    / self._current_stats["successful_searches"]
-                ) * 100
+            # 성공률과 매칭 성공률은 현재 TMDBSearchStatistics에 포함되지 않음
+            # 필요시 향후 추가 가능
 
             return TMDBSearchStatistics(
                 total_searches=self._current_stats["total_searches"],
@@ -191,9 +182,10 @@ class SearchStatisticsCollector:
 
             filtered_history = []
             for record in self._search_history:
-                if record["start_time"] >= cutoff_time:
-                    if search_type is None or record["search_type"] == search_type.value:
-                        filtered_history.append(record.copy())
+                if record["start_time"] >= cutoff_time and (
+                    search_type is None or record["search_type"] == search_type.value
+                ):
+                    filtered_history.append(record.copy())
 
             return filtered_history
 
@@ -210,9 +202,10 @@ class SearchStatisticsCollector:
 
             filtered_history = []
             for record in self._match_history:
-                if record["timestamp"] >= cutoff_time:
-                    if min_confidence is None or record["confidence"] >= min_confidence.value:
-                        filtered_history.append(record.copy())
+                if record["timestamp"] >= cutoff_time and (
+                    min_confidence is None or record["confidence"] >= min_confidence.value
+                ):
+                    filtered_history.append(record.copy())
 
             return filtered_history
 
