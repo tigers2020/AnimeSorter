@@ -12,7 +12,6 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox
 # New Architecture Components
 # UI Command Bridge
 # Local imports
-from src.core.settings_manager import SettingsManager
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
 from src.core.unified_event_system import get_unified_event_bus
@@ -74,9 +73,6 @@ class MainWindow(QMainWindow):
         # UI 컴포넌트 속성 초기화
         self.status_progress = None  # 상태바 진행률 표시기
 
-        # 설정 관리자 초기화
-        self.settings_manager = SettingsManager()
-
         # 통합 이벤트 시스템 초기화
         self.unified_event_bus = get_unified_event_bus()
 
@@ -85,6 +81,9 @@ class MainWindow(QMainWindow):
         # 테마 디렉토리 경로 설정
         theme_dir = Path(__file__).parent.parent.parent / "data" / "theme"
         self.token_loader = TokenLoader(theme_dir)
+
+        # 모든 컴포넌트 초기화 (조율자를 통해)
+        self.coordinator.initialize_all_components()
 
         # New Controllers Initialization
         self._init_new_controllers()
@@ -102,9 +101,6 @@ class MainWindow(QMainWindow):
 
         # 통합 이벤트 시스템 연결
         self._connect_unified_event_system()
-
-        # 모든 컴포넌트 초기화 (조율자를 통해)
-        self.coordinator.initialize_all_components()
 
         # MainWindow 핸들러들 초기화 (Coordinator 초기화 완료 후 실행)
         print("🔧 MainWindow 핸들러들 초기화 시작...")
