@@ -3,9 +3,6 @@
 MainWindow의 과도한 __init__ 메서드 로직을 분리하여 가독성과 유지보수성을 향상시킵니다.
 """
 
-import os
-from pathlib import Path
-
 from PyQt5.QtWidgets import QMainWindow
 
 from src.core.file_manager import FileManager
@@ -71,55 +68,6 @@ class MainWindowInitializer:
 
         # TMDB 검색 플래그
         self._tmdb_search_started = False
-
-    def initialize_all(self):
-        """모든 초기화를 순차적으로 실행"""
-        try:
-            print("🚀 메인 윈도우 초기화 시작...")
-
-            # 1. 기본 상태 초기화
-            self._init_basic_state()
-
-            # 2. 핵심 컴포넌트 초기화
-            self._init_core_components()
-
-            # 3. 데이터 관리자 초기화
-            self._init_data_managers()
-
-            # 4. 새로운 아키텍처 컴포넌트 초기화
-            self._init_new_architecture()
-
-            # 5. UI 상태 관리 및 마이그레이션 초기화
-            self._init_ui_state_management()
-
-            # 6. 접근성 및 국제화 관리자 초기화
-            self._init_accessibility_and_i18n()
-
-            print("✅ 메인 윈도우 초기화 완료!")
-
-        except Exception as e:
-            print(f"❌ 메인 윈도우 초기화 실패: {e}")
-            import traceback
-
-            traceback.print_exc()
-
-    def _init_basic_state(self):
-        """기본 상태 초기화"""
-        # 기본 설정
-        self.main_window.setWindowTitle("AnimeSorter")
-        self.main_window.setGeometry(100, 100, 1600, 900)
-
-        # 상태 초기화
-        self.main_window.scanning = False
-        self.main_window.progress = 0
-        self.main_window.source_files = []
-        self.main_window.source_directory = ""
-        self.main_window.destination_directory = None
-
-        # UI 컴포넌트 속성 초기화
-        self.main_window.status_progress = None
-
-        print("✅ 기본 상태 초기화 완료")
 
     def _init_core_components(self):
         """핵심 컴포넌트 초기화"""
