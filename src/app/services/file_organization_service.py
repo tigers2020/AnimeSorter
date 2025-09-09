@@ -13,26 +13,25 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from src.core.file_parser import FileParser
-
 from src.app.background_task import BaseTask, TaskResult, TaskStatus
 from src.app.events import TypedEventBus
 from src.app.organization_events import (OrganizationCancelledEvent,
-                                   OrganizationCompletedEvent,
-                                   OrganizationErrorType,
-                                   OrganizationFailedEvent,
-                                   OrganizationPreflightCompletedEvent,
-                                   OrganizationPreflightData,
-                                   OrganizationPreflightStartedEvent,
-                                   OrganizationProgressEvent,
-                                   OrganizationResult,
-                                   OrganizationStartedEvent,
-                                   OrganizationStatus,
-                                   OrganizationValidationCompletedEvent,
-                                   OrganizationValidationFailedEvent,
-                                   OrganizationValidationResult,
-                                   OrganizationValidationStartedEvent)
+                                         OrganizationCompletedEvent,
+                                         OrganizationErrorType,
+                                         OrganizationFailedEvent,
+                                         OrganizationPreflightCompletedEvent,
+                                         OrganizationPreflightData,
+                                         OrganizationPreflightStartedEvent,
+                                         OrganizationProgressEvent,
+                                         OrganizationResult,
+                                         OrganizationStartedEvent,
+                                         OrganizationStatus,
+                                         OrganizationValidationCompletedEvent,
+                                         OrganizationValidationFailedEvent,
+                                         OrganizationValidationResult,
+                                         OrganizationValidationStartedEvent)
 from src.app.services.background_task_service import IBackgroundTaskService
+from src.core.file_parser import FileParser
 
 
 class IFileOrganizationService(ABC):
@@ -262,7 +261,7 @@ class FileOrganizationTask(BaseTask):
                     if high_quality_files:
                         self.logger.info(f"🎯 고화질 파일들 처리 시작: {len(high_quality_files)}개")
                         # 시즌별로 파일 분류 (직관적이고 효율적인 처리)
-                        season_files = {}
+                        season_files: dict[int, list[dict[str, Any]]] = {}
                         for file_data in high_quality_files:
                             season = file_data.get("season", 1)
 
@@ -298,7 +297,7 @@ class FileOrganizationTask(BaseTask):
                     if low_quality_files:
                         self.logger.info(f"🎯 저화질 파일들 처리 시작: {len(low_quality_files)}개")
                         # 시즌별로 파일 분류 (직관적이고 효율적인 처리)
-                        season_files = {}
+                        season_files: dict[int, list[dict[str, Any]]] = {}
                         for file_data in low_quality_files:
                             season = file_data.get("season", 1)
 
@@ -308,32 +307,28 @@ class FileOrganizationTask(BaseTask):
 
                         # 각 시즌별로 디렉토리 생성 및 파일 처리
                         for season, season_file_list in season_files.items():
-                                season_dir = (
-                                    self.destination_directory
-                                    / self._sanitize_filename(group_name)
-                                    / "_low res"
-                                    / f"Season{season:02d}"
-                                )
-                                if not self.dry_run:
-                                    season_dir.mkdir(parents=True, exist_ok=True)
-                                    result.created_directories.append(season_dir)
+                            season_dir = (
+                                self.destination_directory
+                                / self._sanitize_filename(group_name)
+                                / "_low res"
+                                / f"Season{season:02d}"
+                            )
+                            if not self.dry_run:
+                                season_dir.mkdir(parents=True, exist_ok=True)
+                                result.created_directories.append(season_dir)
 
-                                # 해당 시즌의 파일들 처리
-                                for file_data in season_file_list:
-                                    source_path = file_data.get("source_path", "")
-                                    self.logger.debug(f"🔄 저화질 파일 처리 시도: {source_path}")
-                                    success = self._organize_single_file(
-                                        file_data, season_dir, result
-                                    )
-                                    if success:
-                                        result.success_count += 1
-                                        self.logger.info(f"✅ 저화질 파일 이동 완료: {source_path}")
-                                    else:
-                                        result.error_count += 1
-                                        self.logger.warning(
-                                            f"❌ 저화질 파일 이동 실패: {source_path}"
-                                        )
-                                    processed_files += 1
+                            # 해당 시즌의 파일들 처리
+                            for file_data in season_file_list:
+                                source_path = file_data.get("source_path", "")
+                                self.logger.debug(f"🔄 저화질 파일 처리 시도: {source_path}")
+                                success = self._organize_single_file(file_data, season_dir, result)
+                                if success:
+                                    result.success_count += 1
+                                    self.logger.info(f"✅ 저화질 파일 이동 완료: {source_path}")
+                                else:
+                                    result.error_count += 1
+                                    self.logger.warning(f"❌ 저화질 파일 이동 실패: {source_path}")
+                                processed_files += 1
                     else:
                         # 파일이 없는 경우 기본 그룹 디렉토리만 생성
                         group_dir = self.destination_directory / self._sanitize_filename(group_name)
@@ -456,7 +451,7 @@ class FileOrganizationTask(BaseTask):
 
     def _check_file_duplicates_across_groups(self) -> None:
         """그룹 간 파일 중복 검사"""
-        file_to_groups = {}
+        file_to_groups: dict[str, list[str]] = {}
         total_duplicates = 0
 
         for group_name, group_data in self.grouped_items.items():
@@ -834,7 +829,7 @@ class FileOrganizationService(IFileOrganizationService):
 
     def _group_files_by_name(self, files: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
         """파일명을 기준으로 파일들을 그룹화"""
-        file_groups = {}
+        file_groups: dict[str, list[dict[str, Any]]] = {}
 
         for file_data in files:
             source_path = file_data.get("source_path", "")
@@ -864,7 +859,7 @@ class FileOrganizationService(IFileOrganizationService):
         sorted_files = sorted(
             files,
             key=lambda f: self._get_resolution_priority(f.get("resolution", "")),
-            reverse=True  # 내림차순 (높은 우선순위가 먼저)
+            reverse=True,  # 내림차순 (높은 우선순위가 먼저)
         )
 
         return sorted_files[0]  # 가장 높은 우선순위의 파일 반환
