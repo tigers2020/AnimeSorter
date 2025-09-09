@@ -55,7 +55,7 @@ class QualityMetricsCollector:
         """기존 메트릭 히스토리 로드"""
         if self.metrics_file.exists():
             try:
-                with open(self.metrics_file, encoding="utf-8") as f:
+                with self.metrics_file.open(encoding="utf-8") as f:
                     data = json.load(f)
                     self.metrics_history = [
                         QualityMetric(**metric) for metric in data.get("metrics", [])
@@ -76,7 +76,7 @@ class QualityMetricsCollector:
                 "metrics": [asdict(metric) for metric in self.metrics_history],
             }
 
-            with open(self.metrics_file, "w", encoding="utf-8") as f:
+            with self.metrics_file.open("w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
 
             print(f"💾 메트릭 히스토리 저장됨: {self.metrics_file}")
@@ -323,17 +323,16 @@ class QualityMetricsCollector:
 
         if current_value < avg_previous * 0.9:  # 10% 이상 개선
             return "IMPROVING"
-        elif current_value > avg_previous * 1.1:  # 10% 이상 악화
+        if current_value > avg_previous * 1.1:  # 10% 이상 악화
             return "DECLINING"
-        else:
-            return "STABLE"
+        return "STABLE"
 
     def analyze_trends(self) -> list[QualityTrend]:
         """품질 트렌드 분석"""
         trends = []
 
         # 메트릭별로 그룹화
-        metric_groups = {}
+        metric_groups: dict[str, list[QualityMetric]] = {}
         for metric in self.metrics_history:
             if metric.metric_name not in metric_groups:
                 metric_groups[metric.metric_name] = []
@@ -417,7 +416,7 @@ class QualityMetricsCollector:
         report.append("")
 
         # 카테고리별 분석
-        categories = {}
+        categories: dict[str, list[QualityMetric]] = {}
         for metric in current_metrics:
             if metric.category not in categories:
                 categories[metric.category] = []

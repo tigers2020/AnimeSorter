@@ -6,8 +6,11 @@
 from pathlib import Path
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QHeaderView  # Added for QHeaderView
-from PyQt5.QtWidgets import QMainWindow, QMessageBox
+from PyQt5.QtWidgets import (
+    QHeaderView,  # Added for QHeaderView
+    QMainWindow,
+    QMessageBox,
+)
 
 # New Architecture Components
 # UI Command Bridge
@@ -15,18 +18,23 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
 from src.core.unified_event_system import get_unified_event_bus
+
 # Phase 10.1: 접근성 관리 시스템
 # Phase 10.2: 국제화 관리 시스템
 # Phase 1: 메인 윈도우 분할 - 기능별 클래스 분리
 from src.gui.components.main_window_coordinator import MainWindowCoordinator
 from src.gui.components.message_log_controller import MessageLogController
+
 # UI Components
 from src.gui.components.settings_dialog import SettingsDialog
+
 # New Controllers for Refactoring
 from src.gui.components.theme_controller import ThemeController
+
 # Theme Engine Integration
 from src.gui.components.theme_manager import ThemeManager
 from src.gui.components.ui_state_controller import UIStateController
+
 # Phase 8: UI 상태 관리 및 마이그레이션
 # UI Components
 # Event Handler Manager
@@ -162,9 +170,8 @@ class MainWindow(QMainWindow):
         try:
             if self.unified_event_bus:
                 return self.unified_event_bus.publish(event)
-            else:
-                print("⚠️ 통합 이벤트 버스가 초기화되지 않았습니다")
-                return False
+            print("⚠️ 통합 이벤트 버스가 초기화되지 않았습니다")
+            return False
         except Exception as e:
             print(f"❌ 이벤트 발행 실패: {e}")
             return False
@@ -409,8 +416,9 @@ class MainWindow(QMainWindow):
         try:
             # MainWindowFileHandler 초기화 (필수)
             if hasattr(self, "file_processing_manager") and hasattr(self, "anime_data_manager"):
-                from src.gui.components.main_window.handlers.file_handler import \
-                    MainWindowFileHandler
+                from src.gui.components.main_window.handlers.file_handler import (
+                    MainWindowFileHandler,
+                )
 
                 self.file_handler = MainWindowFileHandler(
                     main_window=self,
@@ -425,23 +433,26 @@ class MainWindow(QMainWindow):
                 self.file_handler = None
 
             # MainWindowLayoutManager 초기화
-            from src.gui.components.main_window.handlers.layout_manager import \
-                MainWindowLayoutManager
+            from src.gui.components.main_window.handlers.layout_manager import (
+                MainWindowLayoutManager,
+            )
 
             self.layout_manager = MainWindowLayoutManager(main_window=self)
             print("✅ MainWindowLayoutManager 초기화 완료")
 
             # MainWindowMenuActionHandler 초기화
-            from src.gui.components.main_window.handlers.menu_action_handler import \
-                MainWindowMenuActionHandler
+            from src.gui.components.main_window.handlers.menu_action_handler import (
+                MainWindowMenuActionHandler,
+            )
 
             self.menu_action_handler = MainWindowMenuActionHandler(main_window=self)
             print("✅ MainWindowMenuActionHandler 초기화 완료")
 
             # MainWindowSessionManager 초기화
             if hasattr(self, "settings_manager"):
-                from src.gui.components.main_window.handlers.session_manager import \
-                    MainWindowSessionManager
+                from src.gui.components.main_window.handlers.session_manager import (
+                    MainWindowSessionManager,
+                )
 
                 self.session_manager = MainWindowSessionManager(
                     main_window=self, settings_manager=self.settings_manager
@@ -520,8 +531,7 @@ class MainWindow(QMainWindow):
             if str(src_dir) not in sys.path:
                 sys.path.insert(0, str(src_dir))
 
-            from src.gui.view_models.main_window_view_model_new import \
-                MainWindowViewModelNew
+            from src.gui.view_models.main_window_view_model_new import MainWindowViewModelNew
 
             print("📋 [MainWindow] ViewModel 초기화 시작...")
 
@@ -1333,8 +1343,7 @@ class MainWindow(QMainWindow):
         """테마 모니터링 위젯 표시"""
         try:
             if not self.theme_monitor_widget:
-                from src.gui.theme.theme_monitor_widget import \
-                    ThemeMonitorWidget
+                from src.gui.theme.theme_monitor_widget import ThemeMonitorWidget
 
                 self.theme_monitor_widget = ThemeMonitorWidget(self.theme_manager, self)
 
@@ -1380,16 +1389,14 @@ class MainWindow(QMainWindow):
             )
 
             # UI 상태 컨트롤러 설정
-            from src.gui.components.ui_state_controller import \
-                UIStateController
+            from src.gui.components.ui_state_controller import UIStateController
 
             self.ui_state_controller = UIStateController(
                 main_window=self, settings_manager=self.settings_manager
             )
 
             # 메시지 로그 컨트롤러 설정
-            from src.gui.components.message_log_controller import \
-                MessageLogController
+            from src.gui.components.message_log_controller import MessageLogController
 
             self.message_log_controller = MessageLogController(main_window=self)
 
@@ -1556,8 +1563,7 @@ class MainWindow(QMainWindow):
             if file_names:
                 if len(file_names) == 1:
                     return file_names[0]
-                else:
-                    return f"{file_names[0]} (+{len(file_names) - 1}개 파일)"
+                return f"{file_names[0]} (+{len(file_names) - 1}개 파일)"
             return "파일 정보 없음"
         except Exception as e:
             print(f"❌ 파일 정보 가져오기 실패: {e}")
@@ -1678,11 +1684,10 @@ class MainWindow(QMainWindow):
                 # 여전히 결과가 없으면 더 줄여서 재검색
                 self._try_progressive_search(group_id, shortened_title)
                 return
-            else:
-                # 여러 결과가 있으면 다이얼로그 표시
-                print(f"🔍 재검색 결과 {len(search_results)}개 - 다이얼로그 표시")
-                self._show_final_dialog(group_id, shortened_title, search_results)
-                return
+            # 여러 결과가 있으면 다이얼로그 표시
+            print(f"🔍 재검색 결과 {len(search_results)}개 - 다이얼로그 표시")
+            self._show_final_dialog(group_id, shortened_title, search_results)
+            return
 
         except Exception as e:
             print(f"❌ 단계적 검색 실패: {e}")
@@ -1772,12 +1777,11 @@ class MainWindow(QMainWindow):
         """에러 메시지를 표시합니다 (새 컨트롤러 사용)"""
         if self.message_log_controller:
             return self.message_log_controller.show_error_message(message, details, error_type)
-        else:
-            # 기존 방식으로 폴백
-            print(f"❌ {message}")
-            if details:
-                print(f"   상세: {details}")
-            return True
+        # 기존 방식으로 폴백
+        print(f"❌ {message}")
+        if details:
+            print(f"   상세: {details}")
+        return True
 
     def show_success_message(
         self, message: str, details: str = "", auto_clear: bool = True
@@ -1785,20 +1789,18 @@ class MainWindow(QMainWindow):
         """성공 메시지를 표시합니다 (새 컨트롤러 사용)"""
         if self.message_log_controller:
             return self.message_log_controller.show_success_message(message, details, auto_clear)
-        else:
-            # 기존 방식으로 폴백
-            print(f"✅ {message}")
-            if details:
-                print(f"   상세: {details}")
-            return True
+        # 기존 방식으로 폴백
+        print(f"✅ {message}")
+        if details:
+            print(f"   상세: {details}")
+        return True
 
     def show_info_message(self, message: str, details: str = "", auto_clear: bool = True) -> bool:
         """정보 메시지를 표시합니다 (새 컨트롤러 사용)"""
         if self.message_log_controller:
             return self.message_log_controller.show_info_message(message, details, auto_clear)
-        else:
-            # 기존 방식으로 폴백
-            print(f"ℹ️ {message}")
-            if details:
-                print(f"   상세: {details}")
-            return True
+        # 기존 방식으로 폴백
+        print(f"ℹ️ {message}")
+        if details:
+            print(f"   상세: {details}")
+        return True
