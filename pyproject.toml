@@ -126,6 +126,13 @@ known-third-party = ["PyQt5", "tmdbsimple", "anitopy", "guessit", "pydantic"]
 split-on-trailing-comma = true
 combine-as-imports = true
 
+[tool.isort]
+profile = "black"
+known_first_party = ["src", "animesorter"]
+known_third_party = ["PyQt5", "tmdbsimple", "anitopy", "guessit", "pydantic"]
+split_on_trailing_comma = true
+combine_as_imports = true
+
 [tool.ruff.lint.mccabe]
 # Complexity threshold
 max-complexity = 10
