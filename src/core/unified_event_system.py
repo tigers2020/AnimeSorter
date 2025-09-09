@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -54,8 +54,8 @@ class EventCategory(Enum):
 class BaseEvent:
     """모든 이벤트의 기본 클래스"""
 
-    source: Optional[str] = None
-    correlation_id: Optional[str] = None
+    source: str | None = None
+    correlation_id: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     priority: EventPriority = EventPriority.NORMAL
     category: EventCategory = EventCategory.SYSTEM
@@ -75,11 +75,11 @@ class BaseEvent:
 class EventContext:
     """이벤트 컨텍스트 정보"""
 
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
-    request_id: Optional[str] = None
-    source_component: Optional[str] = None
-    target_component: Optional[str] = None
+    user_id: str | None = None
+    session_id: str | None = None
+    request_id: str | None = None
+    source_component: str | None = None
+    target_component: str | None = None
     additional_context: dict[str, Any] = field(default_factory=dict)
 
 
@@ -118,10 +118,10 @@ class EventFilter:
 
     def __init__(
         self,
-        categories: Optional[list[EventCategory]] = None,
-        sources: Optional[list[str]] = None,
-        priority_min: Optional[EventPriority] = None,
-        priority_max: Optional[EventPriority] = None,
+        categories: list[EventCategory] | None = None,
+        sources: list[str] | None = None,
+        priority_min: EventPriority | None = None,
+        priority_max: EventPriority | None = None,
     ):
         self.categories = categories or []
         self.sources = sources or []
@@ -148,15 +148,15 @@ class EventFilter:
         return True
 
 
-class EventSubscription:
+class EventSubscription(Generic[TEvent]):
     """이벤트 구독 정보"""
 
     def __init__(
         self,
         subscription_id: str,
-        event_type: type,
-        handler: Callable[[BaseEvent], None],
-        filter: Optional[EventFilter] = None,
+        event_type: type[TEvent],
+        handler: Callable[[TEvent], None],
+        filter: EventFilter | None = None,
         priority: int = 0,
     ):
         self.subscription_id = subscription_id
@@ -165,7 +165,7 @@ class EventSubscription:
         self.filter = filter
         self.priority = priority
         self.created_at = datetime.now()
-        self.last_used = None
+        self.last_used: datetime | None = None
         self.usage_count = 0
 
 
@@ -181,7 +181,7 @@ class UnifiedEventBus(QObject):
         super().__init__(parent)
 
         # 구독자 저장소 (이벤트 타입 -> 구독 리스트)
-        self._subscriptions: dict[type, list[EventSubscription]] = defaultdict(list)
+        self._subscriptions: dict[type[TEvent], list[EventSubscription[TEvent]]] = defaultdict(list)
 
         # 핸들러 저장소 (이벤트 타입 -> 핸들러 리스트)
         self._handlers: dict[type, list[EventHandler]] = defaultdict(list)
@@ -194,7 +194,7 @@ class UnifiedEventBus(QObject):
         self._max_history_size = 1000
 
         # 이벤트 통계
-        self._event_stats: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._event_stats: dict[str, dict[str, Any]] = defaultdict(lambda: defaultdict(int))
 
         # 구독 ID 카운터
         self._subscription_counter = 0
@@ -234,7 +234,7 @@ class UnifiedEventBus(QObject):
         self,
         event_type: type[TEvent],
         handler: Callable[[TEvent], None],
-        filter: Optional[EventFilter] = None,
+        filter: EventFilter | None = None,
         priority: int = 0,
     ) -> str:
         """이벤트 구독"""
@@ -242,7 +242,7 @@ class UnifiedEventBus(QObject):
             subscription_id = f"sub_{self._subscription_counter:06d}"
             self._subscription_counter += 1
 
-            subscription = EventSubscription(
+            subscription: EventSubscription[TEvent] = EventSubscription(
                 subscription_id=subscription_id,
                 event_type=event_type,
                 handler=handler,
@@ -266,7 +266,7 @@ class UnifiedEventBus(QObject):
         """구독 해제"""
         try:
             with self._lock:
-                for event_type, subscriptions in self._subscriptions.items():
+                for _event_type, subscriptions in self._subscriptions.items():
                     for i, subscription in enumerate(subscriptions):
                         if subscription.subscription_id == subscription_id:
                             subscriptions.pop(i)
@@ -331,11 +331,13 @@ class UnifiedEventBus(QObject):
         except Exception as e:
             logger.error(f"이벤트 처리 실패: {event.__class__.__name__} - {e}")
 
-    def _notify_subscribers(self, event: BaseEvent, event_type: type) -> None:
+    def _notify_subscribers(self, event: TEvent, event_type: type[TEvent]) -> None:
         """구독자들에게 이벤트 알림"""
         try:
             with self._lock:
-                subscriptions = self._subscriptions.get(event_type, [])
+                subscriptions: list[EventSubscription[TEvent]] = self._subscriptions.get(
+                    event_type, []
+                )
 
             for subscription in subscriptions:
                 try:
@@ -387,7 +389,7 @@ class UnifiedEventBus(QObject):
             logger.error(f"핸들러 알림 실패: {e}")
 
     def get_event_history(
-        self, event_type: Optional[type] = None, limit: Optional[int] = None
+        self, event_type: type | None = None, limit: int | None = None
     ) -> list[BaseEvent]:
         """이벤트 히스토리 조회"""
         try:
@@ -406,14 +408,13 @@ class UnifiedEventBus(QObject):
             logger.error(f"이벤트 히스토리 조회 실패: {e}")
             return []
 
-    def get_event_stats(self, event_type: Optional[str] = None) -> dict[str, Any]:
+    def get_event_stats(self, event_type: str | None = None) -> dict[str, Any]:
         """이벤트 통계 조회"""
         try:
             with self._lock:
                 if event_type:
                     return self._event_stats.get(event_type, {}).copy()
-                else:
-                    return {k: v.copy() for k, v in self._event_stats.items()}
+                return {k: v.copy() for k, v in self._event_stats.items()}
 
         except Exception as e:
             logger.error(f"이벤트 통계 조회 실패: {e}")
@@ -428,14 +429,13 @@ class UnifiedEventBus(QObject):
         except Exception as e:
             logger.error(f"이벤트 히스토리 정리 실패: {e}")
 
-    def get_subscription_count(self, event_type: Optional[type] = None) -> int:
+    def get_subscription_count(self, event_type: type | None = None) -> int:
         """구독 수 조회"""
         try:
             with self._lock:
                 if event_type:
                     return len(self._subscriptions.get(event_type, []))
-                else:
-                    return sum(len(subs) for subs in self._subscriptions.values())
+                return sum(len(subs) for subs in self._subscriptions.values())
 
         except Exception as e:
             logger.error(f"구독 수 조회 실패: {e}")
