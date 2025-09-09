@@ -4,8 +4,6 @@
 """
 
 from .anime_data_manager import AnimeDataManager
-from .event_handler import EventHandler
 from .file_processing_manager import FileProcessingManager
-from .tmdb_manager import TMDBManager
 
-__all__ = ["AnimeDataManager", "FileProcessingManager", "TMDBManager", "EventHandler"]
+__all__ = ["AnimeDataManager", "FileProcessingManager"]

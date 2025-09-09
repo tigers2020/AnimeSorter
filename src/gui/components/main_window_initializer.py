@@ -11,15 +11,12 @@ from PyQt5.QtWidgets import QMainWindow
 from src.core.file_manager import FileManager
 from src.core.file_parser import FileParser
 from src.core.settings_manager import SettingsManager
-from src.core.tmdb_client import TMDBClient
-from src.core.unified_config import unified_config_manager
 
 from src.gui.handlers.event_handler_manager import EventHandlerManager
 from src.gui.initializers.ui_initializer import UIInitializer
 from src.gui.managers.anime_data_manager import AnimeDataManager
 from src.gui.managers.file_processing_manager import FileProcessingManager
 from src.gui.managers.status_bar_manager import StatusBarManager
-from src.gui.managers.tmdb_manager import TMDBManager
 from src.gui.components.accessibility_manager import AccessibilityManager
 from src.gui.components.i18n_manager import I18nManager
 from src.gui.components.ui_migration_manager import UIMigrationManager
@@ -33,11 +30,10 @@ class MainWindowInitializer:
         self.main_window = main_window
         self.settings_manager: SettingsManager | None = None
         self.file_parser: FileParser | None = None
-        self.tmdb_client: TMDBClient | None = None
+        self.tmdb_client = None
         self.file_manager: FileManager | None = None
         self.anime_data_manager: AnimeDataManager | None = None
         self.file_processing_manager: FileProcessingManager | None = None
-        self.tmdb_manager: TMDBManager | None = None
         self.accessibility_manager: AccessibilityManager | None = None
         self.i18n_manager: I18nManager | None = None
         self.ui_state_manager: UIStateManager | None = None
@@ -132,25 +128,6 @@ class MainWindowInitializer:
             self.file_parser = FileParser()
             self.main_window.file_parser = self.file_parser
 
-            # TMDBClient 초기화 (통합 설정에서 API 키 가져오기)
-            services_section = unified_config_manager.get_section("services")
-            api_key = ""
-            if services_section:
-                tmdb_config = getattr(services_section, 'tmdb_api', {})
-                # 딕셔너리에서 API 키 가져오기
-                api_key = tmdb_config.get('api_key', '') if isinstance(tmdb_config, dict) else getattr(tmdb_config, 'api_key', '')
-
-            print(f"🔍 TMDB API 키 확인: 통합 설정={api_key[:8] if api_key else '없음'}")
-            if api_key:
-                self.tmdb_client = TMDBClient(api_key=api_key)
-                self.main_window.tmdb_client = self.tmdb_client
-                print(f"✅ TMDBClient 초기화 성공 (API 키: {api_key[:8]}...)")
-            else:
-                print("⚠️ TMDB API 키가 통합 설정에 없습니다.")
-                print("   통합 설정 파일에서 TMDB API 키를 설정하거나 환경 변수를 설정하세요.")
-                self.tmdb_client = None
-                self.main_window.tmdb_client = None
-
             # FileManager 초기화
             dest_root = self.settings_manager.get_setting("destination_root", "")
             safe_mode = self.settings_manager.get_setting("safe_mode", True)
@@ -166,24 +143,18 @@ class MainWindowInitializer:
         except Exception as e:
             print(f"❌ 핵심 컴포넌트 초기화 실패: {e}")
             self.file_parser = None
-            self.tmdb_client = None
             self.file_manager = None
 
     def _init_data_managers(self):
         """데이터 관리자 초기화"""
         try:
             # 애니메 데이터 관리자 초기화
-            self.anime_data_manager = AnimeDataManager(tmdb_client=self.tmdb_client)
+            self.anime_data_manager = AnimeDataManager()
             self.main_window.anime_data_manager = self.anime_data_manager
 
             # 파일 처리 관리자 초기화
             self.file_processing_manager = FileProcessingManager()
             self.main_window.file_processing_manager = self.file_processing_manager
-
-            # TMDBManager 초기화 시 API 키 전달
-            api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
-            self.tmdb_manager = TMDBManager(api_key=api_key)
-            self.main_window.tmdb_manager = self.tmdb_manager
 
             print("✅ 데이터 관리자 초기화 완료")
 
@@ -222,6 +193,10 @@ class MainWindowInitializer:
 
             self.tmdb_search_service = get_service(ITMDBSearchService)
             self.main_window.tmdb_search_service = self.tmdb_search_service
+            self.tmdb_client = self.tmdb_search_service.tmdb_client
+            self.main_window.tmdb_client = self.tmdb_client
+            if self.anime_data_manager:
+                self.anime_data_manager.tmdb_client = self.tmdb_client
             print(f"✅ TMDBSearchService 연결됨: {id(self.tmdb_search_service)}")
 
             self.ui_update_service = get_service(IUIUpdateService)
@@ -261,7 +236,9 @@ class MainWindowInitializer:
             # TMDBSearchHandler 초기화
             from src.gui.handlers.tmdb_search_handler import TMDBSearchHandler
 
-            self.main_window.tmdb_search_handler = TMDBSearchHandler(self.main_window)
+            self.main_window.tmdb_search_handler = TMDBSearchHandler(
+                self.main_window, self.tmdb_search_service
+            )
 
             # TMDB 검색 시그널-슬롯 연결
             if (

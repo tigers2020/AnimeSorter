@@ -6,7 +6,6 @@ GUI 컨트롤러 모듈
 
 from .file_processing_controller import FileProcessingController
 from .organize_controller import OrganizeController
-from .tmdb_controller import TMDBController
 from .window_manager import WindowManager
 
-__all__ = ["WindowManager", "FileProcessingController", "TMDBController", "OrganizeController"]
+__all__ = ["WindowManager", "FileProcessingController", "OrganizeController"]

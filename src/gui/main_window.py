@@ -13,8 +13,6 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox
 # UI Command Bridge
 # Local imports
 from src.core.settings_manager import SettingsManager
-from src.core.tmdb_client import TMDBClient
-from src.core.unified_config import unified_config_manager
 from src.core.unified_event_system import get_unified_event_bus
 # Phase 10.1: 접근성 관리 시스템
 # Phase 10.2: 국제화 관리 시스템
@@ -35,8 +33,9 @@ from src.gui.components.ui_state_controller import UIStateController
 # Data Models
 from src.gui.managers.anime_data_manager import AnimeDataManager
 from src.gui.managers.file_processing_manager import FileProcessingManager
-from src.gui.managers.tmdb_manager import TMDBManager
 from src.gui.theme.engine.variable_loader import VariableLoader as TokenLoader
+
+from src.app.services.tmdb_search_service import TMDBSearchService
 
 # Table Models
 
@@ -73,6 +72,10 @@ class MainWindow(QMainWindow):
 
         # UI 컴포넌트 속성 초기화
         self.status_progress = None  # 상태바 진행률 표시기
+
+        # TMDB 서비스 초기화 플레이스홀더
+        self.tmdb_search_service: TMDBSearchService | None = None
+        self.tmdb_client = None
 
         # 설정 관리자 초기화
         self.settings_manager = SettingsManager()
@@ -545,10 +548,6 @@ class MainWindow(QMainWindow):
         self.anime_data_manager = AnimeDataManager(tmdb_client=self.tmdb_client)
         self.file_processing_manager = FileProcessingManager()
 
-        # TMDBManager 초기화 시 API 키 전달
-        api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
-        self.tmdb_manager = TMDBManager(api_key=api_key)
-
     def apply_settings_to_ui(self):
         """설정을 UI 컴포넌트에 적용 - MainWindowSessionManager로 위임"""
         if self.session_manager:
@@ -897,12 +896,13 @@ class MainWindow(QMainWindow):
             # 설정 변경 시 필요한 컴포넌트 업데이트
             self.apply_settings_to_ui()
 
-            # TMDB 클라이언트 재초기화 (API 키가 변경된 경우)
-            if hasattr(self, "tmdb_client"):
+            # TMDB 검색 서비스 재초기화 (API 키 변경 시)
+            if hasattr(self, "tmdb_search_service"):
                 api_key = self.settings_manager.settings.tmdb_api_key
-                if api_key and (not self.tmdb_client or self.tmdb_client.api_key != api_key):
-                    self.tmdb_client = TMDBClient(api_key=api_key)
-                    print("✅ TMDBClient 재초기화 완료")
+                if api_key:
+                    self.tmdb_search_service = TMDBSearchService(event_bus=self.unified_event_bus)
+                    self.tmdb_client = self.tmdb_search_service.tmdb_client
+                    print("✅ TMDBSearchService 재초기화 완료")
 
             # FileManager 설정 업데이트
             if self.settings_manager and self.file_manager:

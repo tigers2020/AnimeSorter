@@ -15,7 +15,6 @@ from src.gui.components.log_dock import LogDock
 if TYPE_CHECKING:
     from src.gui.managers.anime_data_manager import AnimeDataManager
     from src.gui.managers.file_processing_manager import FileProcessingManager
-    from src.gui.managers.tmdb_manager import TMDBManager
     from src.gui.components.accessibility_manager import AccessibilityManager
     from src.gui.components.i18n_manager import I18nManager
     from src.gui.components.ui_migration_manager import UIMigrationManager
@@ -39,7 +38,6 @@ class UIComponentManager:
         # 데이터 관리자들
         self.anime_data_manager: AnimeDataManager | None = None
         self.file_processing_manager: FileProcessingManager | None = None
-        self.tmdb_manager: TMDBManager | None = None
 
         # TMDB 검색 다이얼로그 저장
         self.tmdb_search_dialogs = {}

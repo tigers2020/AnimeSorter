@@ -146,14 +146,19 @@ class MainWindowCoordinator:
         try:
             print("🔧 MainWindowCoordinator: TMDB 검색 핸들러 초기화 중...")
 
-            # TMDB 클라이언트 확인
-            if not hasattr(self.main_window, 'tmdb_client') or not self.main_window.tmdb_client:
-                print("⚠️ TMDB 클라이언트가 초기화되지 않았습니다. TMDB 검색 핸들러를 건너뜁니다.")
+            # TMDB 검색 서비스 확인
+            if (
+                not hasattr(self.main_window, 'tmdb_search_service')
+                or not self.main_window.tmdb_search_service
+            ):
+                print("⚠️ TMDB 검색 서비스가 초기화되지 않았습니다. TMDB 검색 핸들러를 건너뜁니다.")
                 return
 
             # TMDB 검색 핸들러 초기화
             from src.gui.handlers.tmdb_search_handler import TMDBSearchHandler
-            self.main_window.tmdb_search_handler = TMDBSearchHandler(self.main_window)
+            self.main_window.tmdb_search_handler = TMDBSearchHandler(
+                self.main_window, self.main_window.tmdb_search_service
+            )
 
             # TMDB 검색 핸들러와 관련 컴포넌트 연결
             if hasattr(self.main_window, "anime_data_manager") and self.main_window.anime_data_manager:

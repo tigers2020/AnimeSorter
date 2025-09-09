@@ -11,15 +11,17 @@ import logging
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow
 
+from src.app.services.tmdb_search_service import TMDBSearchService
 from src.gui.components.tmdb_search_dialog import TMDBSearchDialog
 
 
 class TMDBSearchHandler:
     """TMDB 검색 관련 메서드들을 관리하는 클래스"""
 
-    def __init__(self, main_window: QMainWindow):
+    def __init__(self, main_window: QMainWindow, tmdb_search_service: TMDBSearchService):
         """TMDBSearchHandler 초기화"""
         self.main_window = main_window
+        self.tmdb_search_service = tmdb_search_service
         self.logger = logging.getLogger(__name__)
 
         # TMDB 검색 관련 상태
@@ -51,12 +53,12 @@ class TMDBSearchHandler:
             self.logger.info(f"🔍 TMDB 검색 시작: {group_title} (그룹 {group_id})")
 
             # TMDB 검색 실행
-            if not self.main_window.tmdb_client:
-                self.logger.error("❌ TMDB 클라이언트가 초기화되지 않았습니다")
+            if not self.tmdb_search_service or not self.tmdb_search_service.tmdb_client:
+                self.logger.error("❌ TMDB 검색 서비스가 초기화되지 않았습니다")
                 return
 
             self.logger.info(f"🔍 TMDB API 호출 시작: {group_title}")
-            search_results = self.main_window.tmdb_client.search_anime(group_title)
+            search_results = self.tmdb_search_service.tmdb_client.search_anime(group_title)
             self.logger.info(f"🔍 TMDB API 호출 완료: {len(search_results)}개 결과")
 
             if len(search_results) == 1:
@@ -102,7 +104,7 @@ class TMDBSearchHandler:
 
             dialog = TMDBSearchDialog(
                 group_title,
-                self.main_window.tmdb_client,
+                self.tmdb_search_service.tmdb_client,
                 self.main_window,
                 file_info,
                 group_title,
@@ -182,8 +184,8 @@ class TMDBSearchHandler:
     def start_tmdb_search_for_groups(self):
         """그룹화 후 TMDB 검색 시작 (순차적 처리)"""
         try:
-            if not self.main_window.tmdb_client:
-                self.logger.warning("⚠️ TMDB 클라이언트가 초기화되지 않아 검색을 건너뜁니다")
+            if not self.tmdb_search_service or not self.tmdb_search_service.tmdb_client:
+                self.logger.warning("⚠️ TMDB 검색 서비스가 초기화되지 않아 검색을 건너뜁니다")
                 self.main_window.update_status_bar("TMDB API 키가 설정되지 않아 검색을 건너뜁니다")
                 return
 
