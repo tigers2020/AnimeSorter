@@ -3,9 +3,6 @@
 MainWindow의 과도한 __init__ 메서드 로직을 분리하여 가독성과 유지보수성을 향상시킵니다.
 """
 
-import os
-from pathlib import Path
-
 from PyQt5.QtWidgets import QMainWindow
 
 from src.core.file_manager import FileManager
@@ -13,17 +10,16 @@ from src.core.file_parser import FileParser
 from src.core.settings_manager import SettingsManager
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
-
+from src.gui.components.accessibility_manager import AccessibilityManager
+from src.gui.components.i18n_manager import I18nManager
+from src.gui.components.ui_migration_manager import UIMigrationManager
+from src.gui.components.ui_state_manager import UIStateManager
 from src.gui.handlers.event_handler_manager import EventHandlerManager
 from src.gui.initializers.ui_initializer import UIInitializer
 from src.gui.managers.anime_data_manager import AnimeDataManager
 from src.gui.managers.file_processing_manager import FileProcessingManager
 from src.gui.managers.status_bar_manager import StatusBarManager
 from src.gui.managers.tmdb_manager import TMDBManager
-from src.gui.components.accessibility_manager import AccessibilityManager
-from src.gui.components.i18n_manager import I18nManager
-from src.gui.components.ui_migration_manager import UIMigrationManager
-from src.gui.components.ui_state_manager import UIStateManager
 
 
 class MainWindowInitializer:
@@ -136,9 +132,13 @@ class MainWindowInitializer:
             services_section = unified_config_manager.get_section("services")
             api_key = ""
             if services_section:
-                tmdb_config = getattr(services_section, 'tmdb_api', {})
+                tmdb_config = getattr(services_section, "tmdb_api", {})
                 # 딕셔너리에서 API 키 가져오기
-                api_key = tmdb_config.get('api_key', '') if isinstance(tmdb_config, dict) else getattr(tmdb_config, 'api_key', '')
+                api_key = (
+                    tmdb_config.get("api_key", "")
+                    if isinstance(tmdb_config, dict)
+                    else getattr(tmdb_config, "api_key", "")
+                )
 
             print(f"🔍 TMDB API 키 확인: 통합 설정={api_key[:8] if api_key else '없음'}")
             if api_key:
@@ -195,13 +195,14 @@ class MainWindowInitializer:
         try:
             # 애플리케이션 서비스 설정
             from src.app.setup import setup_application_services
+
             setup_application_services()
             print("✅ 애플리케이션 서비스 설정 완료")
 
             # EventBus 가져오기 (전역 인스턴스)
             from src.app import (IFileOrganizationService, IFileScanService,
-                                IMediaDataService, ITMDBSearchService,
-                                IUIUpdateService, get_event_bus, get_service)
+                                 IMediaDataService, ITMDBSearchService,
+                                 IUIUpdateService, get_event_bus, get_service)
 
             self.event_bus = get_event_bus()
             self.main_window.event_bus = self.event_bus
@@ -293,7 +294,9 @@ class MainWindowInitializer:
 
                 # 방법 1: 직접 import
                 try:
-                    from src.gui.handlers.file_organization_handler import FileOrganizationHandler
+                    from src.gui.handlers.file_organization_handler import \
+                        FileOrganizationHandler
+
                     print("✅ 방법 1: 직접 import 성공")
                 except ImportError as ie1:
                     import_errors.append(f"직접 import 실패: {ie1}")
@@ -301,9 +304,12 @@ class MainWindowInitializer:
                     # 방법 2: sys.path 추가 후 import
                     try:
                         import sys
-                        if 'src' not in sys.path:
-                            sys.path.insert(0, 'src')
-                        from gui.handlers.file_organization_handler import FileOrganizationHandler
+
+                        if "src" not in sys.path:
+                            sys.path.insert(0, "src")
+                        from gui.handlers.file_organization_handler import \
+                            FileOrganizationHandler
+
                         print("✅ 방법 2: sys.path 추가 후 import 성공")
                     except ImportError as ie2:
                         import_errors.append(f"sys.path 추가 후 import 실패: {ie2}")
@@ -311,9 +317,10 @@ class MainWindowInitializer:
                         # 방법 3: 절대 경로 import
                         try:
                             import importlib.util
+
                             spec = importlib.util.spec_from_file_location(
                                 "file_organization_handler",
-                                "src/gui/handlers/file_organization_handler.py"
+                                "src/gui/handlers/file_organization_handler.py",
                             )
                             module = importlib.util.module_from_spec(spec)
                             spec.loader.exec_module(module)
@@ -342,14 +349,17 @@ class MainWindowInitializer:
                     print("✅ FileOrganizationHandler 기본 초기화 완료")
 
                 # 초기화 상태 확인
-                if hasattr(self.main_window, 'file_organization_handler'):
-                    print(f"✅ file_organization_handler 속성 설정됨: {type(self.main_window.file_organization_handler)}")
+                if hasattr(self.main_window, "file_organization_handler"):
+                    print(
+                        f"✅ file_organization_handler 속성 설정됨: {type(self.main_window.file_organization_handler)}"
+                    )
                 else:
                     print("❌ file_organization_handler 속성 설정 실패")
 
             except Exception as e:
                 print(f"❌ FileOrganizationHandler 초기화 실패: {e}")
                 import traceback
+
                 traceback.print_exc()
                 self.main_window.file_organization_handler = None
 
@@ -373,7 +383,8 @@ class MainWindowInitializer:
     def _init_safety_system(self):
         """Safety System 초기화"""
         try:
-            from src.gui.managers.safety_system_manager import SafetySystemManager
+            from src.gui.managers.safety_system_manager import \
+                SafetySystemManager
 
             self.main_window.safety_system_manager = SafetySystemManager(self.main_window)
             print("✅ Safety System Manager 초기화 완료")
@@ -384,7 +395,8 @@ class MainWindowInitializer:
     def _init_command_system(self):
         """Command System 초기화"""
         try:
-            from src.managers.command_system_manager import CommandSystemManager
+            from src.managers.command_system_manager import \
+                CommandSystemManager
 
             self.main_window.command_system_manager = CommandSystemManager(self.main_window)
             print("✅ Command System Manager 초기화 완료")
@@ -395,17 +407,15 @@ class MainWindowInitializer:
     def _init_journal_system(self):
         """Journal System 초기화"""
         try:
-            from app import IJournalManager, IRollbackEngine, get_service
+            from app import IJournalManager, get_service
 
             # Journal Manager 가져오기
             self.journal_manager = get_service(IJournalManager)
             self.main_window.journal_manager = self.journal_manager
             print(f"✅ JournalManager 연결됨: {id(self.journal_manager)}")
 
-            # Rollback Engine 가져오기
-            self.rollback_engine = get_service(IRollbackEngine)
-            self.main_window.rollback_engine = self.rollback_engine
-            print(f"✅ RollbackEngine 연결됨: {id(self.rollback_engine)}")
+            # TODO: Register and resolve IRollbackEngine when implementation is available
+            self.main_window.rollback_engine = None
 
         except Exception as e:
             print(f"⚠️ Journal System 초기화 실패: {e}")

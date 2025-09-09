@@ -11,13 +11,8 @@ from pathlib import Path
 
 from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
-from src.app import (
-    IBackupManager,
-    IConfirmationManager,
-    IInterruptionManager,
-    ISafetyManager,
-    get_service,
-)
+from src.app import (IBackupManager, IConfirmationManager,
+                     IInterruptionManager, ISafetyManager, get_service)
 
 
 class SafetySystemManager:
@@ -45,18 +40,22 @@ class SafetySystemManager:
             self.logger.info(f"✅ SafetyManager 연결됨: {id(self.safety_manager)}")
 
             # 하위 매니저들 가져오기
-            self.backup_manager = get_service(IBackupManager)
-            self.confirmation_manager = get_service(IConfirmationManager)
             self.interruption_manager = get_service(IInterruptionManager)
+
+            # TODO: Register and resolve IBackupManager when implementation is available
+            self.backup_manager = None
+            self.confirmation_manager = (
+                None  # TODO: Register and resolve IConfirmationManager when ready
+            )
 
             self.logger.info("✅ Safety System 하위 매니저들 연결됨")
 
         except Exception as e:
             self.logger.error(f"⚠️ Safety System 초기화 실패: {e}")
             self.safety_manager = None
+            self.interruption_manager = None
             self.backup_manager = None
             self.confirmation_manager = None
-            self.interruption_manager = None
 
     def change_safety_mode(self, mode: str):
         """안전 모드 변경"""

@@ -10,7 +10,7 @@ import logging
 
 from PyQt5.QtWidgets import QMainWindow
 
-from src.app import ICommandInvoker, IUndoRedoManager, get_service
+from src.app import ICommandInvoker, IUndoRedoManager
 from src.app.journal import JournalManager
 from src.app.staging import StagingManager
 from src.app.ui import UICommandBridge
@@ -42,9 +42,8 @@ class CommandSystemManager:
     def init_command_system(self):
         """Command System 초기화"""
         try:
-            # Command Invoker 가져오기
-            self.command_invoker = get_service(ICommandInvoker)
-            self.logger.info(f"✅ CommandInvoker 연결됨: {id(self.command_invoker)}")
+            # TODO: Register and resolve ICommandInvoker when implementation is available
+            self.command_invoker = None
 
         except Exception as e:
             self.logger.error(f"⚠️ Command System 초기화 실패: {e}")
@@ -53,9 +52,8 @@ class CommandSystemManager:
     def init_undo_redo_system(self):
         """Undo/Redo System 초기화"""
         try:
-            # Undo/Redo Manager 가져오기
-            self.undo_redo_manager = get_service(IUndoRedoManager)
-            self.logger.info(f"✅ UndoRedoManager 연결됨: {id(self.undo_redo_manager)}")
+            # TODO: Register and resolve IUndoRedoManager when implementation is available
+            self.undo_redo_manager = None
 
             # UI Command 시스템 초기화
             self.init_ui_command_system()
