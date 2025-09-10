@@ -7,6 +7,7 @@ for file operations.
 """
 
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 import shutil
@@ -428,6 +429,7 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
         destination_root: Path,
         naming_strategy: str = "standard",
         operation_type: FileOperationType = FileOperationType.COPY,
+        grouped_items: dict = None,
     ) -> list[FileOperationPlan]:
         """Scan directory and create organization plan"""
         try:
@@ -442,16 +444,44 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                     if not parsed_metadata or not parsed_metadata.title:
                         self.logger.warning(f"Could not parse metadata for {file_path}")
                         continue
-                    # 항상 원본 파일명을 유지하고 디렉토리만 변경
-                    target_path = destination_root / file_path.name
-                    # 기본 메타데이터 설정
+                    # 애니메이션 제목과 시즌 폴더 구조 생성
+                    title = parsed_metadata.title or file_path.stem
+                    season = parsed_metadata.season or 1
+
+                    # grouped_items에서 TMDB 매치 정보 찾기
+                    if grouped_items:
+                        for group_items in grouped_items.values():
+                            if isinstance(group_items, list):
+                                for item in group_items:
+                                    if (
+                                        hasattr(item, "sourcePath")
+                                        and Path(item.sourcePath) == file_path
+                                    ):
+                                        if (
+                                            hasattr(item, "tmdbMatch")
+                                            and item.tmdbMatch
+                                            and item.tmdbMatch.name
+                                        ):
+                                            title = item.tmdbMatch.name
+                                            self.logger.info(f"✅ TMDB 매치 제목 사용: {title}")
+                                        if hasattr(item, "season") and item.season:
+                                            season = item.season
+                                        break
+                    safe_title = re.sub(r"[^\w\s가-힣]", "", title).strip()
+                    safe_title = re.sub(r"\s+", " ", safe_title)
+                    if not safe_title:
+                        safe_title = "Unknown"
+
+                    season_folder = f"Season{season:02d}"
+                    target_path = destination_root / safe_title / season_folder / file_path.name
+                    # 파싱된 메타데이터 사용
                     metadata = {
-                        "title": file_path.stem,
-                        "season": 1,
-                        "episode": 1,
-                        "resolution": "Unknown",
-                        "year": None,
-                        "group": "Unknown",
+                        "title": safe_title,
+                        "season": season,
+                        "episode": parsed_metadata.episode or 1,
+                        "resolution": parsed_metadata.resolution or "Unknown",
+                        "year": parsed_metadata.year,
+                        "group": parsed_metadata.group or "Unknown",
                     }
 
                     # 파일명 충돌 해결

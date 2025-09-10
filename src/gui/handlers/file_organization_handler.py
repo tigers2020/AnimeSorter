@@ -12,12 +12,10 @@ from pathlib import Path
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
-from src.app.file_processing_events import (FileProcessingCompletedEvent,
-                                            FileProcessingFailedEvent,
-                                            FileProcessingProgressEvent,
+from src.app.file_processing_events import (FileProcessingFailedEvent,
                                             FileProcessingStartedEvent)
 from src.core.services.unified_file_organization_service import (
-    FileOperationType, FileOrganizationConfig, UnifiedFileOrganizationService)
+    FileOrganizationConfig, UnifiedFileOrganizationService)
 from src.gui.components.dialogs.organize_preflight_dialog import \
     OrganizePreflightDialog
 
@@ -103,7 +101,7 @@ class FileOrganizationHandler(QObject):
             logger.info("🚀 파일 정리 실행 시작")
             self.main_window.update_status_bar("파일 정리 실행 중...")
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
-            result = self._execute_file_organization_simple(grouped_items)
+            result = self._execute_file_organization_with_quality_separation(grouped_items)
             self.on_organization_completed(result)
         except Exception as e:
             logger.info("❌ 파일 정리 실행 실패: %s", e)
@@ -112,8 +110,8 @@ class FileOrganizationHandler(QObject):
             )
             self.main_window.update_status_bar(f"파일 정리 실행 실패: {str(e)}")
 
-    def _execute_file_organization_simple(self, grouped_items):
-        """통합된 파일 조직화 서비스를 사용한 간소화된 구현"""
+    def _execute_file_organization_with_quality_separation(self, grouped_items):
+        """해상도별 격리 기능을 사용한 파일 조직화"""
         from uuid import uuid4
 
         from src.app.organization_events import OrganizationResult
@@ -142,74 +140,33 @@ class FileOrganizationHandler(QObject):
             )
             self.event_bus.publish(started_event)
         logger.info("%s", "=" * 50)
-        logger.debug("🔍 DEBUG: 통합된 파일 정리 시작!")
+        logger.debug("🔍 DEBUG: 해상도별 격리 파일 정리 시작!")
         logger.debug("🔍 DEBUG: 총 그룹 수: %s", len(grouped_items))
         logger.info("%s", "=" * 50)
         try:
-            file_paths = []
-            for group_items in grouped_items.values():
-                if isinstance(group_items, list):
-                    for item in group_items:
-                        if hasattr(item, "sourcePath") and Path(item.sourcePath).exists():
-                            file_paths.append(Path(item.sourcePath))
-            if not file_paths:
-                logger.info("⚠️ 처리할 파일이 없습니다")
-                return result
-            destination_root = Path(self.main_window.destination_directory)
-            organization_plans = []
-            for file_path in file_paths:
-                source_directory = file_path.parent
-                logger.info("🔍 파일명 파싱 시작: %s", file_path)
-                file_plans = self.unified_service.scan_and_plan_organization(
-                    source_directory, destination_root, "standard", FileOperationType.MOVE
-                )
-                for plan in file_plans:
-                    if plan.source_path == file_path:
-                        organization_plans.append(plan)
-                        break
-            logger.debug("🔍 DEBUG: 생성된 조직화 계획 수: %s", len(organization_plans))
-            validation_result = self.unified_service.validate_organization_plan(organization_plans)
-            if not validation_result["valid"]:
-                logger.info("⚠️ 조직화 계획 검증 실패: %s개 오류", validation_result["errors"])
-                result.error_count = validation_result["errors"]
-                result.errors = [issue["issues"] for issue in validation_result["issues"]]
-                return result
-            logger.info("🚀 파일 조직화 실행 중...")
+            # 해상도별 격리 기능을 사용한 파일 정리
+            group_qualities = self._prepare_group_qualities(grouped_items)
+            source_directories = set()
+            self._process_groups_by_quality(group_qualities, result, source_directories)
 
-            def detailed_progress_callback(progress_event: FileProcessingProgressEvent):
-                if self.event_bus:
-                    self.event_bus.publish(progress_event)
-                self.main_window.update_status_bar(
-                    f"파일 정리 중... {progress_event.current_step} ({progress_event.current_file_index + 1}/{progress_event.total_files})",
-                    int(progress_event.progress_percentage),
-                )
-
-            execution_results = self.unified_service.execute_organization_plan(
-                organization_plans,
-                dry_run=False,
-                detailed_progress_callback=detailed_progress_callback,
-            )
-            for exec_result in execution_results:
-                if exec_result.success:
-                    result.success_count += 1
-                    logger.info("✅ 파일 이동 성공: %s", exec_result.source_path.name)
-                else:
-                    result.error_count += 1
-                    result.errors.append(f"{exec_result.source_path}: {exec_result.error_message}")
-                    logger.info(
-                        "❌ 파일 이동 실패: %s - %s",
-                        exec_result.source_path.name,
-                        exec_result.error_message,
-                    )
+            # 빈 디렉토리 정리
             logger.info("🧹 빈 디렉토리 정리를 시작합니다...")
-            cleaned_dirs = self._cleanup_empty_directories_from_plans(organization_plans)
+            logger.info("🔍 정리할 소스 디렉토리들: %s", list(source_directories))
+            cleaned_dirs = self._cleanup_empty_directories_from_source_dirs(source_directories)
             result.cleaned_directories = cleaned_dirs
             logger.info("✅ 빈 디렉토리 정리 완료: %s개 디렉토리 삭제", cleaned_dirs)
-            logger.info("🗂️ 애니 폴더 전체 빈 디렉토리 정리를 시작합니다...")
-            anime_cleaned = self._cleanup_anime_directories()
-            logger.info("🗑️ 애니 폴더 빈 디렉토리 정리 완료: %s개 디렉토리 삭제", anime_cleaned)
-            result.cleaned_directories += anime_cleaned
-            result.total_count = len(organization_plans)
+
+            # 추가로 전체 소스 디렉토리에서 빈 폴더 정리
+            if hasattr(self.main_window, "source_directory") and self.main_window.source_directory:
+                logger.info(
+                    "🗂️ 전체 소스 디렉토리에서 빈 폴더 정리 시작: %s",
+                    self.main_window.source_directory,
+                )
+                anime_cleaned = self._cleanup_anime_directories()
+                result.cleaned_directories += anime_cleaned
+                logger.info("🗑️ 전체 소스 디렉토리 정리 완료: %s개 디렉토리 삭제", anime_cleaned)
+
+            result.total_count = result.success_count + result.error_count + result.skip_count
         except Exception as e:
             logger.info("❌ 파일 조직화 실행 실패: %s", e)
             result.error_count += 1
@@ -229,28 +186,54 @@ class FileOrganizationHandler(QObject):
                 self.event_bus.publish(failed_event)
         logger.info("%s", "=" * 50)
         logger.debug("🔍 DEBUG: 파일 정리 최종 결과")
-        logger.info("   ✅ 성공: %s개", result.success_count)
-        logger.info("   ❌ 실패: %s개", result.error_count)
-        logger.info("   ⏭️  건너뜀: %s개", result.skip_count)
-        logger.info("%s", "=" * 50)
-        if self.event_bus:
-            completed_event = FileProcessingCompletedEvent(
-                operation_id=self.current_operation_id,
-                total_files=(
-                    result.total_count
-                    if hasattr(result, "total_count")
-                    else result.success_count + result.error_count
-                ),
-                successful_files=result.success_count,
-                failed_files=result.error_count,
-                skipped_files=result.skip_count,
-                total_size_bytes=0,
-                processed_size_bytes=0,
-                total_processing_time_seconds=0.0,
-                errors=result.errors if hasattr(result, "errors") else [],
-            )
-            self.event_bus.publish(completed_event)
         return result
+
+    def _prepare_group_qualities(self, grouped_items):
+        """그룹별로 화질 정보를 준비"""
+        group_qualities = {}
+        for group_key, group_items in grouped_items.items():
+            if not isinstance(group_items, list):
+                continue
+            files = []
+            for item in group_items:
+                if hasattr(item, "sourcePath") and Path(item.sourcePath).exists():
+                    # 해상도 정보 추출
+                    resolution = ""
+                    if hasattr(item, "resolution") and item.resolution:
+                        resolution = item.resolution
+                    else:
+                        # 파일명에서 해상도 추출 시도
+                        filename = Path(item.sourcePath).name
+                        import re
+
+                        resolution_match = re.search(r"(\d{3,4}p)", filename, re.IGNORECASE)
+                        if resolution_match:
+                            resolution = resolution_match.group(1).lower()
+
+                    files.append(
+                        {
+                            "item": item,
+                            "source_path": item.sourcePath,
+                            "normalized_path": self._norm(item.sourcePath),
+                            "resolution": resolution,
+                        }
+                    )
+            if files:
+                group_qualities[group_key] = files
+        return group_qualities
+
+    def _cleanup_empty_directories_from_source_dirs(self, source_directories: set) -> int:
+        """소스 디렉토리들에서 빈 디렉토리 정리"""
+        cleaned_count = 0
+        for source_dir in source_directories:
+            try:
+                if not Path(source_dir).exists():
+                    continue
+                cleaned_count += self._remove_empty_dirs_recursive(source_dir)
+                cleaned_count += self._cleanup_parent_directories(source_dir)
+            except Exception as e:
+                logger.info("⚠️ 디렉토리 정리 중 오류 (%s): %s", source_dir, e)
+        return cleaned_count
 
     def _cleanup_empty_directories_from_plans(self, organization_plans) -> int:
         """조직화 계획에서 소스 디렉토리들을 정리"""
