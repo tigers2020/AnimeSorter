@@ -3,6 +3,9 @@
 Settings ViewModel의 상태 관리 부분을 분리합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 
 
@@ -10,27 +13,18 @@ from dataclasses import dataclass, field
 class SettingsState:
     """설정 상태 정보"""
 
-    # 설정 변경 상태
     has_unsaved_changes: bool = False
     is_loading_settings: bool = False
     is_saving_settings: bool = False
-
-    # 설정 카테고리별 변경 상태
     scan_settings_changed: bool = False
     organize_settings_changed: bool = False
     metadata_settings_changed: bool = False
     ui_settings_changed: bool = False
     safety_settings_changed: bool = False
-
-    # 설정 유효성
     settings_valid: bool = True
     validation_errors: list[str] = field(default_factory=list)
-
-    # 마지막 저장/로드 시간
     last_saved: str | None = None
     last_loaded: str | None = None
-
-    # 설정 파일 경로
     current_settings_file: str | None = None
     backup_settings_file: str | None = None
 

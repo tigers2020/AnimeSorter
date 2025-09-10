@@ -7,6 +7,8 @@
 import importlib
 import importlib.util
 import logging
+
+logger = logging.getLogger(__name__)
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -22,7 +24,7 @@ class PluginInfo:
     version: str
     description: str
     author: str
-    plugin_type: str  # metadata_provider, file_processor, etc.
+    plugin_type: str
     enabled: bool = True
 
 
@@ -109,33 +111,26 @@ class PluginManager:
         self.plugin_dirs = plugin_dirs or [str(Path(__file__).parent / "providers")]
         self.metadata_providers: dict[str, MetadataProvider] = {}
         self.file_processors: dict[str, FileProcessor] = {}
-
-        # 플러그인 디렉토리 생성
         for plugin_dir in self.plugin_dirs:
             Path(plugin_dir).mkdir(parents=True, exist_ok=True)
 
     def discover_plugins(self) -> list[str]:
         """사용 가능한 플러그인을 발견합니다"""
         discovered_plugins = []
-
         for plugin_dir in self.plugin_dirs:
             plugin_path = Path(plugin_dir)
             if not plugin_path.exists():
                 continue
-
             for file_path in plugin_path.glob("*.py"):
                 if file_path.name.startswith("__"):
                     continue
-
                 try:
-                    # 모듈 로드 시도
                     spec = importlib.util.spec_from_file_location(file_path.stem, file_path)
                     if spec and spec.loader:
                         discovered_plugins.append(str(file_path))
                         self.logger.info(f"플러그인 발견: {file_path.name}")
                 except Exception as e:
                     self.logger.warning(f"플러그인 로드 실패 {file_path.name}: {e}")
-
         return discovered_plugins
 
     def load_plugin(self, plugin_path: str) -> BasePlugin | None:
@@ -145,31 +140,19 @@ class PluginManager:
             if not plugin_path_obj.exists():
                 self.logger.error(f"플러그인 파일이 존재하지 않음: {plugin_path}")
                 return None
-
-            # src 디렉토리를 Python 경로에 추가하여 상대 임포트 지원
-            src_dir = plugin_path_obj.parent.parent.parent  # src/plugins/providers -> src
+            src_dir = plugin_path_obj.parent.parent.parent
             if str(src_dir) not in sys.path:
                 sys.path.insert(0, str(src_dir))
-
-            # 플러그인 디렉토리를 Python 경로에 추가하여 상대 임포트 지원
             plugin_dir = plugin_path_obj.parent
             if str(plugin_dir) not in sys.path:
                 sys.path.insert(0, str(plugin_dir))
-
-            # 모듈 로드
             spec = importlib.util.spec_from_file_location(plugin_path_obj.stem, plugin_path)
             if not spec or not spec.loader:
                 self.logger.error(f"플러그인 모듈 로드 실패: {plugin_path}")
                 return None
-
             module = importlib.util.module_from_spec(spec)
-
-            # 플러그인 모듈의 __package__ 속성을 설정하여 상대 임포트 지원
             module.__package__ = "src.plugins.providers"
-
             spec.loader.exec_module(module)
-
-            # 플러그인 클래스 찾기
             plugin_class = None
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
@@ -180,36 +163,26 @@ class PluginManager:
                     and attr != MetadataProvider
                     and attr != FileProcessor
                     and not attr.__abstractmethods__
-                ):  # 추상 메서드가 없는 구체 클래스만
+                ):
                     plugin_class = attr
                     break
-
             if not plugin_class:
                 self.logger.error(f"플러그인 클래스를 찾을 수 없음: {plugin_path}")
                 return None
-
-            # 플러그인 인스턴스 생성
             plugin = plugin_class()
-
-            # 초기화
             if not plugin.initialize():
                 self.logger.error(f"플러그인 초기화 실패: {plugin_path}")
                 return None
-
-            # 플러그인 타입에 따라 분류
             plugin_info = plugin.get_plugin_info()
             plugin_name = plugin_info.name
-
             if isinstance(plugin, MetadataProvider):
                 self.metadata_providers[plugin_name] = plugin
                 self.logger.info(f"메타데이터 제공자 로드: {plugin_name}")
             elif isinstance(plugin, FileProcessor):
                 self.file_processors[plugin_name] = plugin
                 self.logger.info(f"파일 처리기 로드: {plugin_name}")
-
             self.plugins[plugin_name] = plugin
             return plugin
-
         except Exception as e:
             self.logger.error(f"플러그인 로드 실패 {plugin_path}: {e}")
             return None
@@ -218,11 +191,9 @@ class PluginManager:
         """모든 플러그인을 로드합니다"""
         discovered_plugins = self.discover_plugins()
         loaded_count = 0
-
         for plugin_path in discovered_plugins:
             if self.load_plugin(plugin_path):
                 loaded_count += 1
-
         self.logger.info(f"플러그인 로드 완료: {loaded_count}/{len(discovered_plugins)}")
         return loaded_count
 
@@ -232,20 +203,15 @@ class PluginManager:
             if plugin_name not in self.plugins:
                 self.logger.warning(f"플러그인을 찾을 수 없음: {plugin_name}")
                 return False
-
             plugin = self.plugins[plugin_name]
             plugin.cleanup()
-
-            # 플러그인 타입에 따라 제거
             if isinstance(plugin, MetadataProvider):
                 self.metadata_providers.pop(plugin_name, None)
             elif isinstance(plugin, FileProcessor):
                 self.file_processors.pop(plugin_name, None)
-
             del self.plugins[plugin_name]
             self.logger.info(f"플러그인 언로드: {plugin_name}")
             return True
-
         except Exception as e:
             self.logger.error(f"플러그인 언로드 실패 {plugin_name}: {e}")
             return False

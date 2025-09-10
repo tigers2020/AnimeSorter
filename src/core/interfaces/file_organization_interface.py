@@ -5,12 +5,15 @@ This module defines the core interfaces for file organization operations,
 providing a consistent contract for all file handling operations across the application.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from src.core.types import FileOperationResult
 
@@ -41,7 +44,7 @@ class FileOperationPlan:
     source_path: Path
     target_path: Path
     operation_type: FileOperationType
-    backup_path: Optional[Path] = None
+    backup_path: Path | None = None
     conflict_resolution: FileConflictResolution = FileConflictResolution.RENAME
     estimated_size: int = 0
     metadata: dict[str, Any] = None
@@ -49,20 +52,6 @@ class FileOperationPlan:
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
-
-
-@dataclass
-class FileOperationResult:
-    """Result of a file operation"""
-
-    success: bool
-    source_path: Path
-    target_path: Path
-    operation_type: FileOperationType
-    error_message: Optional[str] = None
-    backup_path: Optional[Path] = None
-    actual_size: int = 0
-    processing_time: float = 0.0
 
 
 @dataclass
@@ -118,7 +107,7 @@ class IFileOperationExecutor(ABC):
     def execute_batch_operations(
         self,
         plans: list[FileOperationPlan],
-        progress_callback: Optional[Callable[[int, int], None]] = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[FileOperationResult]:
         """Execute multiple file operations in batch"""
 
@@ -161,7 +150,7 @@ class IFileOrganizationService(ABC):
         self,
         plans: list[FileOperationPlan],
         dry_run: bool = True,
-        progress_callback: Optional[Callable[[int, int], None]] = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[FileOperationResult]:
         """Execute file organization plan"""
 

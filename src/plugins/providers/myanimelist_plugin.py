@@ -4,6 +4,9 @@ MyAnimeList 플러그인 - AnimeSorter
 MyAnimeList API를 사용하여 애니메이션 메타데이터를 제공합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import Any
 
 import requests
@@ -16,7 +19,7 @@ class MyAnimeListPlugin(MetadataProvider):
 
     def __init__(self):
         self.base_url = "https://api.myanimelist.net/v2"
-        self.client_id = None  # 실제 사용 시 환경 변수에서 로드
+        self.client_id = None
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "AnimeSorter/1.0"})
         super().__init__()
@@ -33,8 +36,6 @@ class MyAnimeListPlugin(MetadataProvider):
     def initialize(self) -> bool:
         """플러그인 초기화"""
         try:
-            # 여기서 API 키나 클라이언트 ID를 로드할 수 있습니다
-            # self.client_id = os.getenv('MAL_CLIENT_ID')
             self.logger.info("MyAnimeList 플러그인 초기화 완료")
             return True
         except Exception as e:
@@ -53,8 +54,6 @@ class MyAnimeListPlugin(MetadataProvider):
             검색 결과 리스트
         """
         try:
-            # 실제 API 호출 대신 모의 데이터 반환
-            # 실제 구현에서는 MyAnimeList API를 호출합니다
             results = [
                 {
                     "id": 1,
@@ -79,10 +78,8 @@ class MyAnimeListPlugin(MetadataProvider):
                     "image_url": "https://example.com/image.jpg",
                 }
             ]
-
             self.logger.info(f"MyAnimeList 검색 완료: {query} -> {len(results)}개 결과")
             return results
-
         except Exception as e:
             self.logger.error(f"MyAnimeList 검색 실패: {e}")
             return []
@@ -99,17 +96,11 @@ class MyAnimeListPlugin(MetadataProvider):
             메타데이터 딕셔너리 또는 None (찾지 못한 경우)
         """
         try:
-            # 검색을 통해 메타데이터 찾기
             search_results = self.search_anime(title, **kwargs)
-
             if not search_results:
                 self.logger.warning(f"MyAnimeList에서 메타데이터를 찾을 수 없음: {title}")
                 return None
-
-            # 첫 번째 결과 반환
             result = search_results[0]
-
-            # AnimeSorter 형식으로 변환
             metadata = {
                 "title": result["title"],
                 "english_title": result.get("english_title"),
@@ -133,15 +124,12 @@ class MyAnimeListPlugin(MetadataProvider):
                 "image_url": result.get("image_url"),
                 "source": "MyAnimeList",
             }
-
             self.logger.info(f"MyAnimeList 메타데이터 조회 완료: {title}")
             return metadata
-
         except Exception as e:
             self.logger.error(f"MyAnimeList 메타데이터 조회 실패: {e}")
             return None
 
     def is_available(self) -> bool:
         """플러그인이 사용 가능한지 확인"""
-        # 실제 구현에서는 API 키나 네트워크 연결 상태를 확인합니다
         return True

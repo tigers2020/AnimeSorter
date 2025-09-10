@@ -5,6 +5,8 @@
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import os
 from pathlib import Path
 from typing import Any
@@ -30,21 +32,11 @@ class OrganizeController(IController):
         super().__init__(event_bus)
         self.parent_widget = parent_widget
         self.logger = logging.getLogger(__name__)
-
-        # 정리 상태
         self.is_organizing = False
         self.current_operation: str | None = None
-
-        # 대상 디렉토리
         self.destination_directory: str | None = None
-
-        # 그룹화된 아이템들
         self.grouped_items: dict[str, list] = {}
-
-        # 정리 결과
         self.last_organize_result: OrganizeResult | None = None
-
-        # 설정
         self.config = {
             "safe_mode": True,
             "backup_before_organize": False,
@@ -53,16 +45,13 @@ class OrganizeController(IController):
             "auto_cleanup_empty_dirs": True,
             "skip_existing_files": True,
         }
-
         self.logger.info("OrganizeController 초기화 완료")
 
     def initialize(self) -> None:
         """컨트롤러 초기화"""
         try:
             self._setup_event_subscriptions()
-
             self.logger.info("OrganizeController 초기화 완료")
-
         except Exception as e:
             self.logger.error(f"OrganizeController 초기화 실패: {e}")
             raise
@@ -70,15 +59,10 @@ class OrganizeController(IController):
     def cleanup(self) -> None:
         """리소스 정리"""
         try:
-            # 진행 중인 정리 작업 중단
             if self.is_organizing:
                 self._cancel_current_operation()
-
-            # 이벤트 구독 해제
             self._cleanup_event_subscriptions()
-
             self.logger.info("OrganizeController 정리 완료")
-
         except Exception as e:
             self.logger.error(f"OrganizeController 정리 실패: {e}")
 
@@ -99,7 +83,6 @@ class OrganizeController(IController):
                 self._start_simulate_flow()
             elif event.type == "organize_cancelled":
                 self._cancel_current_operation()
-
         except Exception as e:
             self.logger.error(f"이벤트 처리 실패: {event.type} - {e}")
 
@@ -126,7 +109,6 @@ class OrganizeController(IController):
     def _handle_organize_request(self, data: dict[str, Any]) -> None:
         """정리 요청 처리"""
         mode = data.get("mode", "execute")
-
         if mode == "execute":
             self._start_organize_flow()
         elif mode == "simulate":
@@ -157,17 +139,11 @@ class OrganizeController(IController):
             if self.is_organizing:
                 self.logger.warning("이미 정리 작업이 진행 중입니다")
                 return
-
-            # 기본 검증
             if not self._validate_organize_prerequisites():
                 return
-
             self.logger.info("파일 정리 플로우 시작")
             self.current_operation = "organize"
-
-            # 프리플라이트 다이얼로그 표시
             self._show_preflight_dialog(execute_mode=True)
-
         except Exception as e:
             self.logger.error(f"파일 정리 플로우 시작 실패: {e}")
             self.event_bus.publish("error_occurred", f"파일 정리 시작 실패: {str(e)}")
@@ -178,17 +154,11 @@ class OrganizeController(IController):
             if self.is_organizing:
                 self.logger.warning("이미 정리 작업이 진행 중입니다")
                 return
-
-            # 기본 검증
             if not self._validate_organize_prerequisites():
                 return
-
             self.logger.info("시뮬레이션 플로우 시작")
             self.current_operation = "simulate"
-
-            # 프리플라이트 다이얼로그 표시
             self._show_preflight_dialog(execute_mode=False)
-
         except Exception as e:
             self.logger.error(f"시뮬레이션 플로우 시작 실패: {e}")
             self.event_bus.publish("error_occurred", f"시뮬레이션 시작 실패: {str(e)}")
@@ -196,33 +166,24 @@ class OrganizeController(IController):
     def _validate_organize_prerequisites(self) -> bool:
         """정리 작업 전제 조건 검증"""
         try:
-            # 그룹화된 아이템 확인
             if not self.grouped_items:
                 self.event_bus.publish(
                     "error_occurred", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요."
                 )
                 return False
-
-            # 유효한 그룹 확인
             valid_groups = {k: v for k, v in self.grouped_items.items() if k != "ungrouped" and v}
             if not valid_groups:
                 self.event_bus.publish("error_occurred", "정리할 유효한 그룹이 없습니다.")
                 return False
-
-            # 대상 디렉토리 확인
             if not self.destination_directory or not Path(self.destination_directory).exists():
                 self.event_bus.publish(
                     "error_occurred", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
                 )
                 return False
-
-            # 쓰기 권한 확인
             if not os.access(self.destination_directory, os.W_OK):
                 self.event_bus.publish("error_occurred", "대상 폴더에 쓰기 권한이 없습니다.")
                 return False
-
             return True
-
         except Exception as e:
             self.logger.error(f"전제 조건 검증 실패: {e}")
             self.event_bus.publish("error_occurred", f"검증 실패: {str(e)}")
@@ -234,29 +195,19 @@ class OrganizeController(IController):
             if not self.parent_widget:
                 self.logger.warning("부모 위젯이 설정되지 않아 다이얼로그를 표시할 수 없습니다")
                 return
-
-            # 프리플라이트 다이얼로그 생성
             dialog = OrganizePreflightDialog(
                 self.grouped_items, self.destination_directory, self.parent_widget
             )
-
-            # 시뮬레이션 모드 설정
             if not execute_mode:
                 dialog.set_simulation_mode(True)
-
-            # 시그널 연결
             dialog.proceed_requested.connect(lambda: self._on_preflight_proceed(execute_mode))
             dialog.cancelled.connect(self._on_preflight_cancelled)
-
-            # 다이얼로그 표시
             result = dialog.exec_()
-
             if result == QDialog.Accepted:
                 self.logger.info("프리플라이트 확인 완료")
             else:
                 self.logger.info("프리플라이트 취소됨")
                 self._reset_operation_state()
-
         except Exception as e:
             self.logger.error(f"프리플라이트 다이얼로그 표시 실패: {e}")
             self._reset_operation_state()
@@ -265,29 +216,17 @@ class OrganizeController(IController):
         """프리플라이트 확인 후 진행"""
         try:
             self.logger.info(f"{'파일 정리' if execute_mode else '시뮬레이션'} 실행 시작")
-
-            # 상태 업데이트
             self.is_organizing = True
             operation_name = "파일 정리" if execute_mode else "시뮬레이션"
             self.event_bus.publish("status_update", {"message": f"{operation_name} 실행 중..."})
-
-            # 진행률 다이얼로그 생성 및 실행
             progress_dialog = OrganizeProgressDialog(
                 self.grouped_items, self.destination_directory, self.parent_widget
             )
-
-            # 시뮬레이션 모드 설정
             if not execute_mode:
                 progress_dialog.set_simulation_mode(True)
-
-            # 정리 시작
             progress_dialog.start_organization()
-
-            # 다이얼로그 실행
             result = progress_dialog.exec_()
-
             if result == QDialog.Accepted:
-                # 결과 처리
                 organize_result = progress_dialog.get_result()
                 if organize_result:
                     self._on_organize_completed(organize_result, execute_mode)
@@ -297,7 +236,6 @@ class OrganizeController(IController):
             else:
                 self.logger.info(f"{operation_name}이 취소되었습니다")
                 self._on_organize_cancelled()
-
         except Exception as e:
             self.logger.error(f"정리 실행 실패: {e}")
             self._on_organize_failed(str(e))
@@ -312,34 +250,21 @@ class OrganizeController(IController):
         try:
             self.last_organize_result = result
             operation_name = "파일 정리" if execute_mode else "시뮬레이션"
-
-            # 결과 요약 생성
             summary = self._generate_result_summary(result, execute_mode)
-
-            # 결과 다이얼로그 표시
             QMessageBox.information(self.parent_widget, f"{operation_name} 완료", summary)
-
-            # 완료 이벤트 발행
             self.event_bus.publish(
                 "organize_completed",
                 {"result": result, "execute_mode": execute_mode, "summary": summary},
             )
-
-            # 상태 업데이트
             if result.success_count > 0:
                 status_msg = f"{operation_name} 완료: {result.success_count}개 파일 처리 성공"
             else:
                 status_msg = f"{operation_name} 완료 (성공한 파일 없음)"
-
             self.event_bus.publish("status_update", {"message": status_msg})
-
             self.logger.info(
                 f"{operation_name} 완료: 성공 {result.success_count}, 실패 {result.error_count}"
             )
-
-            # 상태 초기화
             self._reset_operation_state()
-
         except Exception as e:
             self.logger.error(f"정리 완료 처리 실패: {e}")
             self._on_organize_failed(str(e))
@@ -347,38 +272,25 @@ class OrganizeController(IController):
     def _on_organize_failed(self, error_message: str) -> None:
         """정리 실패 처리"""
         operation_name = "파일 정리" if self.current_operation == "organize" else "시뮬레이션"
-
-        # 오류 다이얼로그 표시
         QMessageBox.critical(
             self.parent_widget,
             f"{operation_name} 실패",
-            f"{operation_name} 중 오류가 발생했습니다:\n{error_message}",
+            f"""{operation_name} 중 오류가 발생했습니다:
+{error_message}""",
         )
-
-        # 실패 이벤트 발행
         self.event_bus.publish(
             "organize_failed", {"error_message": error_message, "operation": self.current_operation}
         )
-
-        # 상태 업데이트
         self.event_bus.publish(
             "status_update", {"message": f"{operation_name} 실패: {error_message}"}
         )
-
-        # 상태 초기화
         self._reset_operation_state()
 
     def _on_organize_cancelled(self) -> None:
         """정리 취소 처리"""
         operation_name = "파일 정리" if self.current_operation == "organize" else "시뮬레이션"
-
-        # 취소 이벤트 발행
         self.event_bus.publish("organize_cancelled", {"operation": self.current_operation})
-
-        # 상태 업데이트
         self.event_bus.publish("status_update", {"message": f"{operation_name}이 취소되었습니다"})
-
-        # 상태 초기화
         self._reset_operation_state()
 
     def _cancel_current_operation(self) -> None:
@@ -395,20 +307,14 @@ class OrganizeController(IController):
     def _generate_result_summary(self, result: OrganizeResult, execute_mode: bool = True) -> str:
         """결과 요약 생성"""
         operation_name = "파일 정리" if execute_mode else "시뮬레이션"
-
         summary = f"{operation_name}이 완료되었습니다.\n\n"
         summary += "📊 결과 요약:\n"
         summary += f"• 성공: {result.success_count}개 파일\n"
         summary += f"• 실패: {result.error_count}개 파일\n"
         summary += f"• 건너뜀: {result.skip_count}개 파일\n"
-
-        # 빈 디렉토리 정리 정보
         if hasattr(result, "cleaned_directories") and result.cleaned_directories > 0:
             summary += f"• 정리된 빈 디렉토리: {result.cleaned_directories}개\n"
-
         summary += "\n"
-
-        # 오류 목록 (최대 5개)
         if result.errors:
             summary += "❌ 오류 목록:\n"
             for i, error in enumerate(result.errors[:5], 1):
@@ -416,15 +322,12 @@ class OrganizeController(IController):
             if len(result.errors) > 5:
                 summary += f"... 및 {len(result.errors) - 5}개 더\n"
             summary += "\n"
-
-        # 건너뛴 파일 목록 (최대 3개)
         if result.skipped_files:
             summary += "⏭️ 건너뛴 파일:\n"
             for i, skipped in enumerate(result.skipped_files[:3], 1):
                 summary += f"{i}. {skipped}\n"
             if len(result.skipped_files) > 3:
                 summary += f"... 및 {len(result.skipped_files) - 3}개 더\n"
-
         return summary
 
     def get_organize_stats(self) -> dict[str, Any]:

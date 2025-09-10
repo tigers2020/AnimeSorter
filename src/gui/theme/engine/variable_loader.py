@@ -32,10 +32,7 @@ class VariableLoader:
         self.vars_dir = self.theme_dir / "vars"
         self._cache: dict[str, dict[str, Any]] = {}
         self._base_vars: dict[str, Any] | None = None
-
-        # Ensure vars directory exists
         self.vars_dir.mkdir(parents=True, exist_ok=True)
-
         logger.info(f"VariableLoader initialized with theme directory: {self.theme_dir}")
 
     def load_base_variables(self) -> dict[str, Any]:
@@ -47,13 +44,11 @@ class VariableLoader:
         """
         if self._base_vars is not None:
             return self._base_vars
-
         base_file = self.vars_dir / "base.json"
         if not base_file.exists():
             logger.warning("base.json not found, using empty base variables")
             self._base_vars = {}
             return self._base_vars
-
         try:
             with base_file.open(encoding="utf-8") as f:
                 self._base_vars = json.load(f)
@@ -61,7 +56,6 @@ class VariableLoader:
         except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Failed to load base variables: {e}")
             self._base_vars = {}
-
         return self._base_vars
 
     def load_theme_variables(self, theme_name: str) -> dict[str, Any]:
@@ -74,18 +68,13 @@ class VariableLoader:
         Returns:
             Dictionary containing theme variables
         """
-        # Check cache first
         if theme_name in self._cache:
             return self._cache[theme_name]
-
-        # Normalize theme name for file lookup
         normalized_name = self._normalize_theme_name(theme_name)
         theme_file = self.vars_dir / f"{normalized_name}.json"
-
         if not theme_file.exists():
             logger.warning(f"Theme file not found: {theme_file}")
             return {}
-
         try:
             with theme_file.open(encoding="utf-8") as f:
                 theme_vars = json.load(f)
@@ -93,8 +82,6 @@ class VariableLoader:
         except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Failed to load theme variables for '{theme_name}': {e}")
             return {}
-
-        # Cache the loaded variables
         self._cache[theme_name] = theme_vars
         return theme_vars
 
@@ -110,10 +97,7 @@ class VariableLoader:
         """
         base_vars = self.load_base_variables()
         theme_vars = self.load_theme_variables(theme_name)
-
-        # Merge base and theme variables (theme takes precedence)
         merged_vars = self._deep_merge_dicts(base_vars, theme_vars)
-
         logger.debug(
             f"Merged variables for theme '{theme_name}': {len(merged_vars)} total variables"
         )
@@ -129,13 +113,11 @@ class VariableLoader:
         Returns:
             Normalized theme name
         """
-        # Handle common variations
         name_mapping = {
             "high-contrast": "high-contrast",
             "high_contrast": "high-contrast",
             "highcontrast": "high-contrast",
         }
-
         return name_mapping.get(theme_name, theme_name)
 
     def _deep_merge_dicts(self, base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -150,13 +132,11 @@ class VariableLoader:
             Merged dictionary
         """
         result = base.copy()
-
         for key, value in override.items():
             if key in result and isinstance(result[key], Mapping) and isinstance(value, Mapping):
                 result[key] = self._deep_merge_dicts(result[key], value)
             else:
                 result[key] = value
-
         return result
 
     def validate_variables(self, variables: dict[str, Any]) -> bool:
@@ -170,25 +150,18 @@ class VariableLoader:
             True if valid, False otherwise
         """
         try:
-            # Check if variables has expected structure
             if not isinstance(variables, dict):
                 logger.error("Variables must be a dictionary")
                 return False
-
-            # Check for required top-level keys
             required_keys = ["colors"]
             for key in required_keys:
                 if key not in variables:
                     logger.warning(f"Missing required key: {key}")
-
-            # Validate color values if present
             if "colors" in variables:
                 colors = variables["colors"]
                 if not isinstance(colors, dict):
                     logger.error("Colors must be a dictionary")
                     return False
-
-                # Validate hex color values
                 for category, color_dict in colors.items():
                     if isinstance(color_dict, dict):
                         for shade, color_value in color_dict.items():
@@ -196,10 +169,8 @@ class VariableLoader:
                                 logger.warning(
                                     f"Invalid hex color: {color_value} in {category}.{shade}"
                                 )
-
             logger.info("Variables validation completed successfully")
             return True
-
         except Exception as e:
             logger.error(f"Error during variables validation: {e}")
             return False
@@ -216,12 +187,9 @@ class VariableLoader:
         """
         if not isinstance(color_value, str):
             return False
-
-        # Check if it's a valid hex color (#RRGGBB or #RGB)
         if color_value.startswith("#"):
             hex_part = color_value[1:]
             return len(hex_part) in (3, 6) and all(c in "0123456789abcdefABCDEF" for c in hex_part)
-
         return False
 
     def clear_cache(self) -> None:
@@ -243,7 +211,6 @@ class VariableLoader:
                 if theme_file.name != "base.json":
                     theme_name = theme_file.stem
                     themes.append(theme_name)
-
         logger.info(f"Available themes: {themes}")
         return themes
 

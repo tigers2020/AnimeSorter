@@ -3,6 +3,9 @@
 리팩토링: 통합된 파일 조직화 서비스를 사용하여 중복 코드 제거
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 import os
 from pathlib import Path
 
@@ -15,7 +18,7 @@ from src.app.file_processing_events import (FileProcessingCompletedEvent,
                                             FileProcessingStartedEvent)
 from src.core.services.unified_file_organization_service import (
     FileOperationType, FileOrganizationConfig, UnifiedFileOrganizationService)
-from src.gui.components.organize_preflight_dialog import \
+from src.gui.components.dialogs.organize_preflight_dialog import \
     OrganizePreflightDialog
 
 
@@ -27,8 +30,6 @@ class FileOrganizationHandler(QObject):
         self.main_window = main_window
         self.event_bus = event_bus
         self.current_operation_id = None
-
-        # 통합된 파일 조직화 서비스 초기화
         config = FileOrganizationConfig(
             safe_mode=True, backup_before_operation=True, overwrite_existing=False
         )
@@ -39,12 +40,10 @@ class FileOrganizationHandler(QObject):
         try:
             from src.app import IPreflightCoordinator, get_service
 
-            # Preflight Coordinator 가져오기
             self.preflight_coordinator = get_service(IPreflightCoordinator)
-            print(f"✅ PreflightCoordinator 연결됨: {id(self.preflight_coordinator)}")
-
+            logger.info("✅ PreflightCoordinator 연결됨: %s", id(self.preflight_coordinator))
         except Exception as e:
-            print(f"⚠️ Preflight System 초기화 실패: {e}")
+            logger.info("⚠️ Preflight System 초기화 실패: %s", e)
             self.preflight_coordinator = None
 
     def start_file_organization(self):
@@ -52,37 +51,29 @@ class FileOrganizationHandler(QObject):
         try:
             import time
 
-            # 중복 실행 방지 (강화된 보호)
             if hasattr(self, "_is_organizing") and self._is_organizing:
-                print("⚠️ 파일 정리 작업이 이미 진행 중입니다")
+                logger.info("⚠️ 파일 정리 작업이 이미 진행 중입니다")
                 self.main_window.update_status_bar("파일 정리 작업이 이미 진행 중입니다")
                 return
-
             if hasattr(self, "_last_organization_time"):
                 current_time = time.time()
                 time_diff = current_time - self._last_organization_time
-                if time_diff < 2.0:  # 2초 이내 중복 요청 방지
-                    print(f"⚠️ 너무 빠른 연속 요청 감지 ({time_diff:.1f}초)")
+                if time_diff < 2.0:
+                    logger.info("⚠️ 너무 빠른 연속 요청 감지 (%s초)", time_diff)
                     return
-
             self._is_organizing = True
             self._last_organization_time = time.time()
-
-            # 기본 검증
             if not hasattr(self.main_window, "anime_data_manager"):
                 QMessageBox.warning(
                     self.main_window, "경고", "스캔된 데이터가 없습니다. 먼저 파일을 스캔해주세요."
                 )
                 return
-
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
             if not grouped_items:
                 QMessageBox.warning(
                     self.main_window, "경고", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요."
                 )
                 return
-
-            # 대상 폴더 확인
             if (
                 not self.main_window.destination_directory
                 or not Path(self.main_window.destination_directory).exists()
@@ -91,20 +82,16 @@ class FileOrganizationHandler(QObject):
                     self.main_window, "경고", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
                 )
                 return
-
-            # 간단한 확인
             reply = QMessageBox.question(
                 self.main_window,
                 "확인",
                 f"{len(grouped_items)}개 그룹의 파일들을 정리하시겠습니까?",
                 QMessageBox.Yes | QMessageBox.No,
             )
-
             if reply == QMessageBox.Yes:
                 self.on_organize_proceed()
-
         except Exception as e:
-            print(f"❌ 파일 정리 실행 시작 실패: {e}")
+            logger.info("❌ 파일 정리 실행 시작 실패: %s", e)
             QMessageBox.critical(
                 self.main_window, "오류", f"파일 정리 실행 중 오류가 발생했습니다:\n{str(e)}"
             )
@@ -113,21 +100,13 @@ class FileOrganizationHandler(QObject):
     def on_organize_proceed(self):
         """프리플라이트 확인 후 실제 정리 실행"""
         try:
-            print("🚀 파일 정리 실행 시작")
+            logger.info("🚀 파일 정리 실행 시작")
             self.main_window.update_status_bar("파일 정리 실행 중...")
-
-            # 그룹화된 아이템 가져오기
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
-
-            # FileOrganizationService의 로직을 직접 사용하여 실행
-
-            # 간단한 방식으로 FileOrganizationTask의 execute 로직을 직접 구현
             result = self._execute_file_organization_simple(grouped_items)
-
             self.on_organization_completed(result)
-
         except Exception as e:
-            print(f"❌ 파일 정리 실행 실패: {e}")
+            logger.info("❌ 파일 정리 실행 실패: %s", e)
             QMessageBox.critical(
                 self.main_window, "오류", f"파일 정리 실행 중 오류가 발생했습니다:\n{str(e)}"
             )
@@ -140,7 +119,6 @@ class FileOrganizationHandler(QObject):
         from src.app.organization_events import OrganizationResult
 
         result = OrganizationResult()
-        # 안전 가드: 누락 필드 초기화
         for name, default in [
             ("success_count", 0),
             ("error_count", 0),
@@ -152,8 +130,6 @@ class FileOrganizationHandler(QObject):
         ]:
             if not hasattr(result, name):
                 setattr(result, name, default)
-
-        # Emit processing started event
         self.current_operation_id = uuid4()
         if self.event_bus:
             started_event = FileProcessingStartedEvent(
@@ -165,64 +141,44 @@ class FileOrganizationHandler(QObject):
                 processing_mode="normal",
             )
             self.event_bus.publish(started_event)
-
-        print("=" * 50)
-        print("🔍 DEBUG: 통합된 파일 정리 시작!")
-        print(f"🔍 DEBUG: 총 그룹 수: {len(grouped_items)}")
-        print("=" * 50)
-
+        logger.info("%s", "=" * 50)
+        logger.debug("🔍 DEBUG: 통합된 파일 정리 시작!")
+        logger.debug("🔍 DEBUG: 총 그룹 수: %s", len(grouped_items))
+        logger.info("%s", "=" * 50)
         try:
-            # 그룹화된 아이템들을 파일 경로 리스트로 변환
             file_paths = []
             for group_items in grouped_items.values():
                 if isinstance(group_items, list):
                     for item in group_items:
                         if hasattr(item, "sourcePath") and Path(item.sourcePath).exists():
                             file_paths.append(Path(item.sourcePath))
-
             if not file_paths:
-                print("⚠️ 처리할 파일이 없습니다")
+                logger.info("⚠️ 처리할 파일이 없습니다")
                 return result
-
-            # 통합된 서비스를 사용하여 조직화 계획 생성
-            # 모든 파일의 부모 디렉토리들을 고려하여 계획 생성
             destination_root = Path(self.main_window.destination_directory)
-
-            # 각 파일에 대해 개별적으로 계획 생성
             organization_plans = []
             for file_path in file_paths:
                 source_directory = file_path.parent
-                print(f"🔍 파일명 파싱 시작: {file_path}")
-
-                # 개별 파일에 대한 계획 생성
+                logger.info("🔍 파일명 파싱 시작: %s", file_path)
                 file_plans = self.unified_service.scan_and_plan_organization(
                     source_directory, destination_root, "standard", FileOperationType.MOVE
                 )
-
-                # 해당 파일과 관련된 계획만 필터링
                 for plan in file_plans:
                     if plan.source_path == file_path:
                         organization_plans.append(plan)
                         break
-
-            print(f"🔍 DEBUG: 생성된 조직화 계획 수: {len(organization_plans)}")
-
-            # 계획 검증
+            logger.debug("🔍 DEBUG: 생성된 조직화 계획 수: %s", len(organization_plans))
             validation_result = self.unified_service.validate_organization_plan(organization_plans)
             if not validation_result["valid"]:
-                print(f"⚠️ 조직화 계획 검증 실패: {validation_result['errors']}개 오류")
+                logger.info("⚠️ 조직화 계획 검증 실패: %s개 오류", validation_result["errors"])
                 result.error_count = validation_result["errors"]
                 result.errors = [issue["issues"] for issue in validation_result["issues"]]
                 return result
+            logger.info("🚀 파일 조직화 실행 중...")
 
-            # 조직화 실행
-            print("🚀 파일 조직화 실행 중...")
-
-            # Create detailed progress callback
             def detailed_progress_callback(progress_event: FileProcessingProgressEvent):
                 if self.event_bus:
                     self.event_bus.publish(progress_event)
-                # Update status bar with progress
                 self.main_window.update_status_bar(
                     f"파일 정리 중... {progress_event.current_step} ({progress_event.current_file_index + 1}/{progress_event.total_files})",
                     int(progress_event.progress_percentage),
@@ -233,39 +189,31 @@ class FileOrganizationHandler(QObject):
                 dry_run=False,
                 detailed_progress_callback=detailed_progress_callback,
             )
-
-            # 결과 처리
             for exec_result in execution_results:
                 if exec_result.success:
                     result.success_count += 1
-                    print(f"✅ 파일 이동 성공: {exec_result.source_path.name}")
+                    logger.info("✅ 파일 이동 성공: %s", exec_result.source_path.name)
                 else:
                     result.error_count += 1
                     result.errors.append(f"{exec_result.source_path}: {exec_result.error_message}")
-                    print(
-                        f"❌ 파일 이동 실패: {exec_result.source_path.name} - {exec_result.error_message}"
+                    logger.info(
+                        "❌ 파일 이동 실패: %s - %s",
+                        exec_result.source_path.name,
+                        exec_result.error_message,
                     )
-
-            # 빈 디렉토리 정리
-            print("🧹 빈 디렉토리 정리를 시작합니다...")
+            logger.info("🧹 빈 디렉토리 정리를 시작합니다...")
             cleaned_dirs = self._cleanup_empty_directories_from_plans(organization_plans)
             result.cleaned_directories = cleaned_dirs
-            print(f"✅ 빈 디렉토리 정리 완료: {cleaned_dirs}개 디렉토리 삭제")
-
-            # 애니 폴더 전체 정리
-            print("🗂️ 애니 폴더 전체 빈 디렉토리 정리를 시작합니다...")
+            logger.info("✅ 빈 디렉토리 정리 완료: %s개 디렉토리 삭제", cleaned_dirs)
+            logger.info("🗂️ 애니 폴더 전체 빈 디렉토리 정리를 시작합니다...")
             anime_cleaned = self._cleanup_anime_directories()
-            print(f"🗑️ 애니 폴더 빈 디렉토리 정리 완료: {anime_cleaned}개 디렉토리 삭제")
+            logger.info("🗑️ 애니 폴더 빈 디렉토리 정리 완료: %s개 디렉토리 삭제", anime_cleaned)
             result.cleaned_directories += anime_cleaned
-
             result.total_count = len(organization_plans)
-
         except Exception as e:
-            print(f"❌ 파일 조직화 실행 실패: {e}")
+            logger.info("❌ 파일 조직화 실행 실패: %s", e)
             result.error_count += 1
             result.errors.append(f"조직화 실행 실패: {str(e)}")
-
-            # Emit processing failed event
             if self.event_bus:
                 failed_event = FileProcessingFailedEvent(
                     operation_id=self.current_operation_id,
@@ -279,15 +227,12 @@ class FileOrganizationHandler(QObject):
                     can_retry=True,
                 )
                 self.event_bus.publish(failed_event)
-
-        print("=" * 50)
-        print("🔍 DEBUG: 파일 정리 최종 결과")
-        print(f"   ✅ 성공: {result.success_count}개")
-        print(f"   ❌ 실패: {result.error_count}개")
-        print(f"   ⏭️  건너뜀: {result.skip_count}개")
-        print("=" * 50)
-
-        # Emit processing completed event
+        logger.info("%s", "=" * 50)
+        logger.debug("🔍 DEBUG: 파일 정리 최종 결과")
+        logger.info("   ✅ 성공: %s개", result.success_count)
+        logger.info("   ❌ 실패: %s개", result.error_count)
+        logger.info("   ⏭️  건너뜀: %s개", result.skip_count)
+        logger.info("%s", "=" * 50)
         if self.event_bus:
             completed_event = FileProcessingCompletedEvent(
                 operation_id=self.current_operation_id,
@@ -299,42 +244,34 @@ class FileOrganizationHandler(QObject):
                 successful_files=result.success_count,
                 failed_files=result.error_count,
                 skipped_files=result.skip_count,
-                total_size_bytes=0,  # Could be calculated if needed
-                processed_size_bytes=0,  # Could be calculated if needed
-                total_processing_time_seconds=0.0,  # Could be calculated if needed
+                total_size_bytes=0,
+                processed_size_bytes=0,
+                total_processing_time_seconds=0.0,
                 errors=result.errors if hasattr(result, "errors") else [],
             )
             self.event_bus.publish(completed_event)
-
         return result
 
     def _cleanup_empty_directories_from_plans(self, organization_plans) -> int:
         """조직화 계획에서 소스 디렉토리들을 정리"""
         cleaned_count = 0
         source_directories = set()
-
-        # 소스 디렉토리 수집
         for plan in organization_plans:
             source_directories.add(str(plan.source_path.parent))
-
-        # 빈 디렉토리 정리
         for source_dir in source_directories:
             try:
                 if Path(source_dir).exists():
                     cleaned_count += self._remove_empty_dirs_recursive(source_dir)
                     cleaned_count += self._cleanup_parent_directories(source_dir)
             except Exception as e:
-                print(f"⚠️ 디렉토리 정리 중 오류 ({source_dir}): {e}")
-
+                logger.info("⚠️ 디렉토리 정리 중 오류 (%s): %s", source_dir, e)
         return cleaned_count
 
     def _process_subtitle_files(self, video_path: str, target_dir: Path, result):
         """비디오 파일과 연관된 자막 파일들을 처리합니다"""
         try:
-            # 자막 카운터 초기화 보장
             if not hasattr(result, "subtitle_count"):
                 result.subtitle_count = 0
-
             subtitle_files = self._find_subtitle_files(video_path)
             for subtitle_path in subtitle_files:
                 try:
@@ -344,11 +281,11 @@ class FileOrganizationHandler(QObject):
 
                     shutil.move(subtitle_path, subtitle_target_path)
                     result.subtitle_count += 1
-                    print(f"✅ 자막 이동 성공: {subtitle_filename}")
+                    logger.info("✅ 자막 이동 성공: %s", subtitle_filename)
                 except Exception as e:
-                    print(f"❌ 자막 이동 실패: {subtitle_path} - {e}")
+                    logger.info("❌ 자막 이동 실패: %s - %s", subtitle_path, e)
         except Exception as e:
-            print(f"⚠️ 자막 파일 처리 중 오류: {e}")
+            logger.info("⚠️ 자막 파일 처리 중 오류: %s", e)
 
     def _find_subtitle_files(self, video_path: str) -> list[str]:
         """비디오 파일과 연관된 자막 파일들을 찾습니다"""
@@ -364,38 +301,24 @@ class FileOrganizationHandler(QObject):
             ".sami",
             ".txt",
         }
-
         try:
-            # 비디오 파일의 디렉토리와 기본명 추출
             video_dir = str(Path(video_path).parent)
             video_basename = Path(video_path).stem
-
-            # 디렉토리 내 모든 파일 검사
             for file_path_obj in Path(video_dir).iterdir():
                 if not file_path_obj.is_file():
                     continue
-
-                # 자막 파일 확장자인지 확인
                 file_ext = file_path_obj.suffix.lower()
                 if file_ext not in subtitle_extensions:
                     continue
-
-                # 파일명이 비디오 파일과 연관된 자막인지 확인
                 subtitle_basename = file_path_obj.stem
-
-                # 정확히 일치하는 경우
                 if subtitle_basename == video_basename:
                     subtitle_files.append(str(file_path_obj))
                     continue
-
-                # 비디오 파일명이 자막 파일명의 일부인 경우
                 if video_basename in subtitle_basename:
                     subtitle_files.append(str(file_path_obj))
                     continue
-
         except Exception as e:
-            print(f"⚠️ 자막 파일 검색 중 오류: {e}")
-
+            logger.info("⚠️ 자막 파일 검색 중 오류: %s", e)
         return subtitle_files
 
     def _norm(self, path: str) -> str:
@@ -405,9 +328,9 @@ class FileOrganizationHandler(QObject):
         from pathlib import Path
 
         s = str(Path(path))
-        s = unicodedata.normalize("NFKC", s)  # 한글/기호 정규화
-        s = re.sub(r"[ \t]+", " ", s)  # 중복 공백 축약
-        return s.lower()  # Windows 대응(문자열 비교용)
+        s = unicodedata.normalize("NFKC", s)
+        s = re.sub("[ \\t]+", " ", s)
+        return s.lower()
 
     def _process_groups_by_quality(self, group_qualities: dict, result, source_directories: set):
         """그룹별로 화질을 분석하여 파일들을 분류하고 이동"""
@@ -417,11 +340,8 @@ class FileOrganizationHandler(QObject):
         for group_key, files in group_qualities.items():
             if not files:
                 continue
-
-            print(f"🎬 그룹 '{group_key}' 화질 분석 시작 ({len(files)}개 파일)")
-            print(f"🧪 plan: {len(files)} items in {group_key}")
-
-            # 화질 우선순위 정의 (높은 숫자가 더 높은 화질)
+            logger.info("🎬 그룹 '%s' 화질 분석 시작 (%s개 파일)", group_key, len(files))
+            logger.info("🧪 plan: %s items in %s", len(files), group_key)
             quality_priority = {
                 "4k": 5,
                 "2k": 4,
@@ -429,76 +349,54 @@ class FileOrganizationHandler(QObject):
                 "1080p": 2,
                 "720p": 1,
                 "480p": 0,
-                "": -1,  # 해상도 미확인
+                "": -1,
             }
-
-            # 그룹 내 파일들의 화질 분석
             file_qualities = []
             for file_info in files:
                 resolution = file_info["resolution"]
                 priority = quality_priority.get(resolution, -1)
                 file_qualities.append({**file_info, "priority": priority})
-
-            # 가장 높은 화질 찾기
             if file_qualities:
                 highest_priority = max(fq["priority"] for fq in file_qualities)
-                print(f"🎯 그룹 '{group_key}' 최고 화질 우선순위: {highest_priority}")
-
-                # 화질별 분류
+                logger.info("🎯 그룹 '%s' 최고 화질 우선순위: %s", group_key, highest_priority)
                 for file_info in file_qualities:
                     try:
                         item = file_info["item"]
                         source_path = file_info["source_path"]
-                        normalized_path = self._norm(source_path)  # 강화된 정규화
+                        normalized_path = self._norm(source_path)
                         priority = file_info["priority"]
                         resolution = file_info["resolution"]
-
-                        print(f"➡️ trying: {normalized_path}")
-
-                        # 1) 이미 처리된 파일이면 즉시 스킵
+                        logger.info("➡️ trying: %s", normalized_path)
                         if normalized_path in result._processed_sources:
-                            print(f"⏭️ [중복처리] skip-duplicate(before-move): {normalized_path}")
-                            result.skip_count += 1
-                            result.skipped_files.append(normalized_path)
-                            continue
-
-                        # 2) 원본이 이미 사라졌으면(이전 move) 에러 대신 스킵
-                        if not Path(source_path).exists():
-                            print(
-                                f"⏭️ [이동후소실] skip-missing(post-move-ghost): {normalized_path}"
+                            logger.info(
+                                "⏭️ [중복처리] skip-duplicate(before-move): %s", normalized_path
                             )
                             result.skip_count += 1
                             result.skipped_files.append(normalized_path)
                             continue
-
-                        # 3) optimistic mark: move 전에 '처리중'으로 잠금
+                        if not Path(source_path).exists():
+                            logger.info(
+                                "⏭️ [이동후소실] skip-missing(post-move-ghost): %s", normalized_path
+                            )
+                            result.skip_count += 1
+                            result.skipped_files.append(normalized_path)
+                            continue
                         result._processed_sources.add(normalized_path)
-
-                        # 소스 디렉토리 추적 (빈 디렉토리 정리용)
                         source_dir = str(Path(source_path).parent)
                         source_directories.add(source_dir)
-
-                        # 제목과 시즌 정보 추출
                         safe_title = "Unknown"
                         season = 1
-
                         if hasattr(item, "tmdbMatch") and item.tmdbMatch and item.tmdbMatch.name:
                             raw_title = item.tmdbMatch.name
                         else:
                             raw_title = item.title or item.detectedTitle or "Unknown"
-
-                        # 제목 정제
                         import re
 
-                        safe_title = re.sub(r"[^a-zA-Z0-9가-힣\s]", "", raw_title)
-                        safe_title = re.sub(r"\s+", " ", safe_title).strip()
-
+                        safe_title = re.sub("[^a-zA-Z0-9가-힣\\s]", "", raw_title)
+                        safe_title = re.sub("\\s+", " ", safe_title).strip()
                         if hasattr(item, "season") and item.season:
                             season = item.season
-
-                        # 화질 분류
                         if priority == highest_priority:
-                            # 고화질: 정상 폴더
                             season_folder = f"Season{season:02d}"
                             target_base_dir = (
                                 Path(self.main_window.destination_directory)
@@ -507,7 +405,6 @@ class FileOrganizationHandler(QObject):
                             )
                             quality_type = "고화질"
                         else:
-                            # 저화질: _low res 폴더
                             season_folder = f"Season{season:02d}"
                             target_base_dir = (
                                 Path(self.main_window.destination_directory)
@@ -516,34 +413,34 @@ class FileOrganizationHandler(QObject):
                                 / season_folder
                             )
                             quality_type = "저화질"
-
                         target_base_dir.mkdir(parents=True, exist_ok=True)
-
-                        # 파일 이동
                         filename = Path(source_path).name
                         target_path = target_base_dir / filename
-
                         try:
-                            print(f"🚚 [{quality_type}] 파일 이동 시도: {Path(source_path).name}")
+                            logger.info(
+                                "🚚 [%s] 파일 이동 시도: %s", quality_type, Path(source_path).name
+                            )
+                            self._process_subtitle_files(source_path, target_base_dir, result)
                             shutil.move(source_path, target_path)
-
-                            print(
-                                f"✅ [{quality_type}] 이동 성공: {Path(source_path).name} → {target_base_dir.name}/"
+                            logger.info(
+                                "✅ [%s] 이동 성공: %s → %s/",
+                                quality_type,
+                                Path(source_path).name,
+                                target_base_dir.name,
                             )
                             result.success_count += 1
-
-                            # 자막 파일 처리
-                            self._process_subtitle_files(source_path, target_base_dir, result)
-
                         except Exception as e:
-                            # 실패 시 잠금 해제 (재시도 가능하도록)
                             result._processed_sources.discard(normalized_path)
                             result.error_count += 1
                             result.errors.append(f"{source_path}: {e}")
-                            print(f"❌ [{quality_type}] 이동 실패: {Path(source_path).name} - {e}")
-
+                            logger.info(
+                                "❌ [%s] 이동 실패: %s - %s",
+                                quality_type,
+                                Path(source_path).name,
+                                e,
+                            )
                     except Exception as e:
-                        print(f"❌ 그룹 파일 이동 실패: {file_info['source_path']} - {e}")
+                        logger.info("❌ 그룹 파일 이동 실패: %s - %s", file_info["source_path"], e)
                         result.error_count += 1
                         result.errors.append(f"{file_info['source_path']}: {e}")
                         result._processed_sources.add(file_info["normalized_path"])
@@ -551,163 +448,120 @@ class FileOrganizationHandler(QObject):
     def _cleanup_empty_directories(self, source_directories: set[str]) -> int:
         """파일 이동 후 빈 디렉토리들을 정리합니다"""
         cleaned_count = 0
-
         for source_dir in source_directories:
             try:
-                # 디렉토리가 존재하는지 확인
                 if not Path(source_dir).exists():
                     continue
-
-                # 재귀적으로 빈 디렉토리 삭제 (하위부터)
                 cleaned_count += self._remove_empty_dirs_recursive(source_dir)
-
-                # 상위 디렉토리까지 올라가면서 빈 디렉토리 삭제 (안전 경계선 적용)
                 cleaned_count += self._cleanup_parent_directories(source_dir)
-
             except Exception as e:
-                print(f"⚠️ 디렉토리 정리 중 오류 ({source_dir}): {e}")
-
+                logger.info("⚠️ 디렉토리 정리 중 오류 (%s): %s", source_dir, e)
         return cleaned_count
 
     def _remove_empty_dirs_recursive(self, directory: str) -> int:
         """재귀적으로 빈 디렉토리를 삭제합니다 (하위부터 상위로)"""
         cleaned_count = 0
-
         try:
-            # 디렉토리 내 모든 항목 확인
             directory_path = Path(directory)
             items = list(directory_path.iterdir())
-
-            # 하위 디렉토리들을 먼저 처리 (재귀)
             for item_path in items:
                 if item_path.is_dir():
                     cleaned_count += self._remove_empty_dirs_recursive(str(item_path))
-
-            # 현재 디렉토리가 비었는지 다시 확인 (하위 디렉토리 삭제 후)
             if not list(directory_path.iterdir()):
                 try:
                     directory_path.rmdir()
                     cleaned_count += 1
-                    print(f"🗑️ 빈 디렉토리 삭제: {directory}")
+                    logger.info("🗑️ 빈 디렉토리 삭제: %s", directory)
                 except OSError as e:
-                    # 권한 오류나 다른 이유로 삭제 실패
-                    print(f"⚠️ 디렉토리 삭제 실패 ({directory}): {e}")
-
+                    logger.info("⚠️ 디렉토리 삭제 실패 (%s): %s", directory, e)
         except Exception as e:
-            print(f"⚠️ 디렉토리 정리 중 오류 ({directory}): {e}")
-
+            logger.info("⚠️ 디렉토리 정리 중 오류 (%s): %s", directory, e)
         return cleaned_count
 
     def _cleanup_parent_directories(self, start_directory: str) -> int:
         """상위 디렉토리까지 올라가면서 빈 디렉토리를 삭제합니다 (안전 경계선 적용)"""
         cleaned_count = 0
         current_dir = Path(start_directory).parent
-
-        # 안전 경계선: 시스템 드라이브 루트나 사용자 홈 디렉토리까지만 허용
         import os
 
-        system_root = Path(os.sep).resolve()  # Windows: "C:\", Linux: "/"
+        system_root = Path(os.sep).resolve()
         user_home = Path.home()
-
         while current_dir and current_dir != current_dir.parent:
-            # 안전 경계선 체크: 시스템 루트나 사용자 홈을 넘지 않도록
             if (
                 current_dir in [system_root, user_home]
                 or system_root in current_dir.parents
                 or user_home in current_dir.parents
             ):
-                print(f"🛡️ 안전 경계선 도달, 상위 정리 중단: {current_dir}")
+                logger.info("🛡️ 안전 경계선 도달, 상위 정리 중단: %s", current_dir)
                 break
-
             try:
-                # 디렉토리가 존재하고 비어있는지 확인
                 if current_dir.exists() and not list(current_dir.iterdir()):
                     current_dir.rmdir()
                     cleaned_count += 1
-                    print(f"🗑️ 빈 상위 디렉토리 삭제: {current_dir}")
-                    # 상위 디렉토리로 이동
+                    logger.info("🗑️ 빈 상위 디렉토리 삭제: %s", current_dir)
                     current_dir = current_dir.parent
                 else:
-                    # 비어있지 않거나 존재하지 않으면 중단
                     break
             except OSError as e:
-                print(f"⚠️ 상위 디렉토리 삭제 실패 ({current_dir}): {e}")
+                logger.info("⚠️ 상위 디렉토리 삭제 실패 (%s): %s", current_dir, e)
                 break
-
         return cleaned_count
 
     def _cleanup_anime_directories(self) -> int:
         """애니 폴더 전체에서 빈 디렉토리들을 정리합니다"""
         cleaned_count = 0
-
         try:
             source_root = Path(self.main_window.source_directory)
             if not source_root.exists():
-                print("⚠️ 소스 디렉토리가 존재하지 않습니다")
+                logger.info("⚠️ 소스 디렉토리가 존재하지 않습니다")
                 return 0
-
-            print(f"🗂️ 애니 폴더 스캔 시작: {source_root}")
-
-            # 전체 폴더 트리를 재귀적으로 순회하며 빈 폴더 삭제
+            logger.info("🗂️ 애니 폴더 스캔 시작: %s", source_root)
             for root, dirs, _files in os.walk(str(source_root), topdown=False):
-                # 하위 폴더부터 처리 (topdown=False)
                 for dir_name in dirs:
                     dir_path = Path(root) / dir_name
                     try:
-                        # 디렉토리가 비어있는지 확인
                         if not any(dir_path.iterdir()):
                             dir_path.rmdir()
-                            print(f"🗑️ 빈 폴더 삭제: {dir_path}")
+                            logger.info("🗑️ 빈 폴더 삭제: %s", dir_path)
                             cleaned_count += 1
                     except Exception as e:
-                        print(f"⚠️ 폴더 삭제 실패 ({dir_path}): {e}")
-
-            print(f"🗑️ 애니 폴더 정리 완료: {cleaned_count}개 빈 디렉토리 삭제")
-
+                        logger.info("⚠️ 폴더 삭제 실패 (%s): %s", dir_path, e)
+            logger.info("🗑️ 애니 폴더 정리 완료: %s개 빈 디렉토리 삭제", cleaned_count)
         except Exception as e:
-            print(f"❌ 애니 폴더 정리 중 오류: {e}")
-
+            logger.info("❌ 애니 폴더 정리 중 오류: %s", e)
         return cleaned_count
 
     def on_organization_completed(self, result):
         """파일 정리 완료 처리"""
         try:
-            # 결과 요약 메시지 생성
             message = "파일 정리가 완료되었습니다.\n\n"
             message += "📊 결과 요약:\n"
             message += f"• 성공: {result.success_count}개 파일\n"
             message += f"• 실패: {result.error_count}개 파일\n"
             message += f"• 건너뜀: {result.skip_count}개 파일\n\n"
-
             if result.errors:
                 message += "❌ 오류 목록:\n"
-                for i, error in enumerate(result.errors[:5], 1):  # 처음 5개만 표시
+                for i, error in enumerate(result.errors[:5], 1):
                     message += f"{i}. {error}\n"
                 if len(result.errors) > 5:
                     message += f"... 및 {len(result.errors) - 5}개 더\n"
                 message += "\n"
-
             if result.skipped_files:
                 message += "⏭️ 건너뛴 파일:\n"
-                for i, skipped in enumerate(result.skipped_files[:3], 1):  # 처음 3개만 표시
+                for i, skipped in enumerate(result.skipped_files[:3], 1):
                     message += f"{i}. {skipped}\n"
                 if len(result.skipped_files) > 3:
                     message += f"... 및 {len(result.skipped_files) - 3}개 더\n"
                 message += "\n"
-
-            # 결과 다이얼로그 표시 (theme 호환)
             msg_box = QMessageBox(self.main_window)
             msg_box.setWindowTitle("파일 정리 완료")
             msg_box.setText(message)
             msg_box.setIcon(QMessageBox.Information)
-
-            # Theme에 맞는 색상으로 stylesheet 설정
             palette = self.main_window.palette()
             bg_color = palette.color(palette.Window).name()
             text_color = palette.color(palette.WindowText).name()
             button_bg = palette.color(palette.Button).name()
             button_text = palette.color(palette.ButtonText).name()
-
             msg_box.setStyleSheet(
                 f"""
                 QMessageBox {{
@@ -730,30 +584,22 @@ class FileOrganizationHandler(QObject):
                 }}
             """
             )
-
             msg_box.exec_()
-
-            # 상태바 업데이트
             if result.success_count > 0:
                 self.main_window.update_status_bar(
                     f"파일 정리 완료: {result.success_count}개 파일 이동 성공"
                 )
             else:
                 self.main_window.update_status_bar("파일 정리 완료 (성공한 파일 없음)")
-
-            # 모델 리프레시 (필요한 경우)
-            # TODO: 파일 이동 후 모델 업데이트 로직 구현
-
-            print(
-                f"✅ 파일 정리 완료: 성공 {result.success_count}, 실패 {result.error_count}, 건너뜀 {result.skip_count}"
+            logger.info(
+                "✅ 파일 정리 완료: 성공 %s, 실패 %s, 건너뜀 %s",
+                result.success_count,
+                result.error_count,
+                result.skip_count,
             )
-
-            # 작업 완료 플래그 해제
             self._is_organizing = False
-
         except Exception as e:
-            print(f"❌ 파일 정리 완료 처리 실패: {e}")
-            # 오류 발생 시에도 플래그 해제
+            logger.info("❌ 파일 정리 완료 처리 실패: %s", e)
             self._is_organizing = False
             self.main_window.update_status_bar(f"파일 정리 완료 처리 실패: {str(e)}")
 
@@ -770,13 +616,11 @@ class FileOrganizationHandler(QObject):
     def show_preview(self):
         """정리 미리보기 표시"""
         try:
-            # 기본 검증
             if not hasattr(self.main_window, "anime_data_manager"):
                 QMessageBox.warning(
                     self.main_window, "경고", "스캔된 데이터가 없습니다. 먼저 파일을 스캔해주세요."
                 )
                 return
-
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
             if not grouped_items:
                 QMessageBox.warning(
@@ -785,8 +629,6 @@ class FileOrganizationHandler(QObject):
                     "미리보기할 그룹이 없습니다. 먼저 파일을 스캔해주세요.",
                 )
                 return
-
-            # 대상 폴더 확인
             if (
                 not self.main_window.destination_directory
                 or not Path(self.main_window.destination_directory).exists()
@@ -795,42 +637,36 @@ class FileOrganizationHandler(QObject):
                     self.main_window, "경고", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
                 )
                 return
-
-            # 미리보기 다이얼로그 표시
             dialog = OrganizePreflightDialog(
                 grouped_items, self.main_window.destination_directory, self.main_window
             )
             dialog.setWindowTitle("정리 미리보기")
-
-            # 미리보기 모드로 설정 (실제 정리 실행하지 않음)
             dialog.set_preview_mode(True)
-
             result = dialog.exec_()
-
             if result == QDialog.Accepted:
-                print("✅ 미리보기 확인 완료")
+                logger.info("✅ 미리보기 확인 완료")
                 self.main_window.update_status_bar("미리보기 확인 완료")
             else:
-                print("❌ 미리보기가 취소되었습니다")
+                logger.info("❌ 미리보기가 취소되었습니다")
                 self.main_window.update_status_bar("미리보기가 취소되었습니다")
-
         except Exception as e:
-            print(f"❌ 미리보기 표시 실패: {e}")
+            logger.info("❌ 미리보기 표시 실패: %s", e)
             QMessageBox.critical(
                 self.main_window, "오류", f"미리보기 표시 중 오류가 발생했습니다:\n{str(e)}"
             )
             self.main_window.update_status_bar(f"미리보기 표시 실패: {str(e)}")
 
-    # 이벤트 핸들러 메서드들
     def handle_organization_started(self, event):
         """파일 정리 시작 이벤트 핸들러"""
-        print(f"🚀 [FileOrganizationHandler] 파일 정리 시작: {event.organization_id}")
+        logger.info("🚀 [FileOrganizationHandler] 파일 정리 시작: %s", event.organization_id)
         self.main_window.update_status_bar("파일 정리 시작됨", 0)
 
     def handle_organization_progress(self, event):
         """파일 정리 진행률 이벤트 핸들러"""
-        print(
-            f"📊 [FileOrganizationHandler] 파일 정리 진행률: {event.progress_percent}% - {event.current_step}"
+        logger.info(
+            "📊 [FileOrganizationHandler] 파일 정리 진행률: %s% - %s",
+            event.progress_percent,
+            event.current_step,
         )
         self.main_window.update_status_bar(
             f"파일 정리 중... {event.current_step}", event.progress_percent
@@ -838,5 +674,5 @@ class FileOrganizationHandler(QObject):
 
     def handle_organization_completed(self, event):
         """파일 정리 완료 이벤트 핸들러"""
-        print(f"✅ [FileOrganizationHandler] 파일 정리 완료: {event.organization_id}")
+        logger.info("✅ [FileOrganizationHandler] 파일 정리 완료: %s", event.organization_id)
         self.main_window.update_status_bar("파일 정리 완료됨", 100)

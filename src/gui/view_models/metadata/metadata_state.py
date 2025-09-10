@@ -3,6 +3,9 @@
 Metadata ViewModel의 상태 관리 부분을 분리합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -11,36 +14,23 @@ from uuid import UUID
 class MetadataState:
     """메타데이터 상태 정보"""
 
-    # 메타데이터 검색 상태
     is_searching_metadata: bool = False
     current_search_id: UUID | None = None
     search_query: str = ""
-
-    # 메타데이터 처리 상태
     is_processing_metadata: bool = False
     current_processing_id: UUID | None = None
-
-    # 메타데이터 결과
     total_files_with_metadata: int = 0
     files_without_metadata: int = 0
     metadata_quality_score: float = 0.0
-
-    # 진행률
     metadata_search_progress: int = 0
     metadata_processing_progress: int = 0
     current_operation: str = ""
     current_file: str = ""
-
-    # 메타데이터 소스
     tmdb_enabled: bool = True
     anidb_enabled: bool = False
     myanimelist_enabled: bool = False
-
-    # 오류 정보
     last_error: str | None = None
     error_count: int = 0
-
-    # 메타데이터 통계
     successful_searches: int = 0
     failed_searches: int = 0
     partial_matches: int = 0

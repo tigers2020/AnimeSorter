@@ -2,6 +2,9 @@
 안전장치 시스템 이벤트 정의
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -9,8 +12,6 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from src.app.events import BaseEvent
-
-# ===== 백업 시스템 이벤트 =====
 
 
 @dataclass
@@ -20,7 +21,7 @@ class BackupStartedEvent(BaseEvent):
     backup_id: UUID = field(default_factory=lambda: uuid4())
     source_paths: list[Path] = field(default_factory=list)
     backup_location: Path = field(default_factory=Path)
-    backup_type: str = "auto"  # auto, manual, scheduled
+    backup_type: str = "auto"
     timestamp: datetime = field(default_factory=datetime.now)
 
 
@@ -54,12 +55,9 @@ class BackupCleanupEvent(BaseEvent):
     """백업 정리 이벤트"""
 
     backup_ids: list[UUID] = field(default_factory=list)
-    cleanup_type: str = "auto"  # auto, manual, space_cleanup
+    cleanup_type: str = "auto"
     freed_space_bytes: int = 0
     timestamp: datetime = field(default_factory=datetime.now)
-
-
-# ===== 확인 다이얼로그 이벤트 =====
 
 
 @dataclass
@@ -70,10 +68,10 @@ class ConfirmationRequiredEvent(BaseEvent):
     title: str = ""
     message: str = ""
     details: str = ""
-    severity: str = "warning"  # info, warning, danger
+    severity: str = "warning"
     requires_confirmation: bool = True
     can_cancel: bool = True
-    default_action: str = "cancel"  # confirm, cancel
+    default_action: str = "cancel"
     affected_files: list[Path] = field(default_factory=list)
     operation_type: str = ""
     timestamp: datetime = field(default_factory=datetime.now)
@@ -84,7 +82,7 @@ class ConfirmationResponseEvent(BaseEvent):
     """사용자 확인 응답 이벤트"""
 
     confirmation_id: UUID = field(default_factory=lambda: uuid4())
-    user_response: str = "cancel"  # confirm, cancel
+    user_response: str = "cancel"
     user_comment: str | None = None
     response_time_ms: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
@@ -98,13 +96,10 @@ class BatchOperationWarningEvent(BaseEvent):
     operation_type: str = ""
     total_files: int = 0
     estimated_time_seconds: float = 0.0
-    risk_level: str = "medium"  # low, medium, high
+    risk_level: str = "medium"
     warning_message: str = ""
     can_proceed: bool = True
     timestamp: datetime = field(default_factory=datetime.now)
-
-
-# ===== 중단 기능 이벤트 =====
 
 
 @dataclass
@@ -113,7 +108,7 @@ class OperationInterruptRequestedEvent(BaseEvent):
 
     operation_id: UUID = field(default_factory=lambda: uuid4())
     operation_type: str = ""
-    reason: str = "user_request"  # user_request, system_error, timeout
+    reason: str = "user_request"
     can_interrupt: bool = True
     graceful_shutdown: bool = True
     timestamp: datetime = field(default_factory=datetime.now)
@@ -144,9 +139,6 @@ class OperationResumeRequestedEvent(BaseEvent):
     timestamp: datetime = field(default_factory=datetime.now)
 
 
-# ===== 안전 모드 이벤트 =====
-
-
 @dataclass
 class SafetyModeChangedEvent(BaseEvent):
     """안전 모드 변경 이벤트"""
@@ -172,9 +164,6 @@ class TestModeOperationEvent(BaseEvent):
     timestamp: datetime = field(default_factory=datetime.now)
 
 
-# ===== 종합 안전 상태 이벤트 =====
-
-
 @dataclass
 class SafetyStatusUpdateEvent(BaseEvent):
     """안전 상태 업데이트 이벤트"""
@@ -184,7 +173,7 @@ class SafetyStatusUpdateEvent(BaseEvent):
     can_interrupt: bool = True
     safety_mode: str = "normal"
     risk_level: str = "low"
-    safety_score: float = 100.0  # 0-100
+    safety_score: float = 100.0
     warnings: list[str] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.now)
 
@@ -194,7 +183,7 @@ class SafetyAlertEvent(BaseEvent):
     """안전 경고 이벤트"""
 
     alert_id: UUID = field(default_factory=lambda: uuid4())
-    alert_type: str = "warning"  # info, warning, danger, critical
+    alert_type: str = "warning"
     title: str = ""
     message: str = ""
     details: str = ""

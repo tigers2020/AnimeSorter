@@ -21,8 +21,6 @@ from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 from PyQt5.QtCore import QObject, pyqtSignal
 
 logger = logging.getLogger(__name__)
-
-# 이벤트 타입 변수
 TEvent = TypeVar("TEvent", bound="BaseEvent")
 
 
@@ -130,18 +128,12 @@ class EventFilter:
 
     def matches(self, event: BaseEvent) -> bool:
         """이벤트가 필터와 일치하는지 확인"""
-        # 카테고리 필터
         if self.categories and event.category not in self.categories:
             return False
-
-        # 소스 필터
         if self.sources and event.source not in self.sources:
             return False
-
-        # 우선순위 필터
         if self.priority_min and event.priority.value < self.priority_min.value:
             return False
-
         return not (self.priority_max and event.priority.value > self.priority_max.value)
 
 
@@ -171,21 +163,12 @@ class EventSubscription(Generic[TEvent]):
 
     def __repr__(self) -> str:
         """디버그 표현"""
-        return (
-            f"EventSubscription[{self.event_type.__name__}]("
-            f"id={self.subscription_id}, "
-            f"handler={self.handler.__name__ if hasattr(self.handler, '__name__') else str(self.handler)}, "
-            f"priority={self.priority}, "
-            f"usage_count={self.usage_count})"
-        )
+        return f"EventSubscription[{self.event_type.__name__}](id={self.subscription_id}, handler={self.handler.__name__ if hasattr(self.handler, '__name__') else str(self.handler)}, priority={self.priority}, usage_count={self.usage_count})"
 
     def matches(self, event: BaseEvent) -> bool:
         """이벤트가 이 구독과 일치하는지 확인"""
-        # 이벤트 타입 확인
         if not isinstance(event, self.event_type):
             return False
-
-        # 필터 확인
         return not (self.filter and not self.filter.matches(event))
 
     def execute(self, event: TEvent) -> None:
@@ -199,67 +182,43 @@ class EventSubscription(Generic[TEvent]):
 class UnifiedEventBus(QObject, Generic[TEvent]):
     """통합 이벤트 버스"""
 
-    # Qt 시그널
-    event_published = pyqtSignal(object)  # BaseEvent 객체
-    event_handled = pyqtSignal(str, str)  # event_type, handler_name
-    event_failed = pyqtSignal(str, str, str)  # event_type, handler_name, error
+    event_published = pyqtSignal(object)
+    event_handled = pyqtSignal(str, str)
+    event_failed = pyqtSignal(str, str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-
-        # 구독자 저장소 (이벤트 타입 -> 구독 리스트)
         self._subscriptions: dict[type, list[EventSubscription[Any]]] = defaultdict(list)
-
-        # 핸들러 저장소 (이벤트 타입 -> 핸들러 리스트)
         self._handlers: dict[type, list[EventHandler]] = defaultdict(list)
-
-        # 스레드 안전성을 위한 락
         self._lock = threading.RLock()
-
-        # 이벤트 히스토리 (디버깅용)
         self._event_history: list[BaseEvent] = []
         self._max_history_size = 1000
-
-        # 이벤트 통계
         self._event_stats: dict[str, dict[str, int | datetime]] = defaultdict(
             lambda: defaultdict(lambda: 0)
         )
-
-        # 구독 ID 카운터
         self._subscription_counter = 0
-
-        # Qt 시그널 연결
         self.event_published.connect(self._handle_event_in_main_thread)
-
         logger.info("UnifiedEventBus 초기화 완료")
 
     def publish(self, event: BaseEvent) -> bool:
         """이벤트 발행"""
         try:
             with self._lock:
-                # 이벤트 히스토리 저장
                 self._event_history.append(event)
                 if len(self._event_history) > self._max_history_size:
                     self._event_history.pop(0)
-
-                # 통계 업데이트
                 event_type_name = event.__class__.__name__
                 if "published" not in self._event_stats[event_type_name]:
                     self._event_stats[event_type_name]["published"] = 0
-                # Type assertion: we know published is always int
                 published_count = self._event_stats[event_type_name]["published"]
                 if isinstance(published_count, int):
                     self._event_stats[event_type_name]["published"] = published_count + 1
                 self._event_stats[event_type_name]["last_published"] = datetime.now()
-
-            # Qt 시그널로 메인 스레드에서 처리
             self.event_published.emit(event)
-
             logger.debug(
                 f"이벤트 발행: {event.__class__.__name__} (source: {event.source}, priority: {event.priority})"
             )
             return True
-
         except Exception as e:
             logger.error(f"이벤트 발행 실패: {event.__class__.__name__} - {e}")
             return False
@@ -275,7 +234,6 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
         try:
             subscription_id = f"sub_{self._subscription_counter:06d}"
             self._subscription_counter += 1
-
             subscription = EventSubscription[TEvent](
                 subscription_id=subscription_id,
                 event_type=event_type,
@@ -283,15 +241,11 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
                 filter=filter,
                 priority=priority,
             )
-
             with self._lock:
                 self._subscriptions[event_type].append(subscription)
-                # 우선순위 기반 정렬
                 self._subscriptions[event_type].sort(key=lambda x: x.priority, reverse=True)
-
             logger.debug(f"이벤트 구독 등록: {event_type.__name__} -> {subscription_id}")
             return subscription
-
         except Exception as e:
             logger.error(f"이벤트 구독 실패: {event_type.__name__} - {e}")
             raise
@@ -300,7 +254,6 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
         """구독 해제"""
         try:
             with self._lock:
-                # EventSubscription 객체인 경우 직접 제거
                 if isinstance(subscription, EventSubscription):
                     for subscriptions in self._subscriptions.values():
                         if subscription in subscriptions:
@@ -308,17 +261,14 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
                             logger.debug(f"이벤트 구독 해제: {subscription.subscription_id}")
                             return True
                 else:
-                    # subscription_id 문자열인 경우 기존 방식으로 처리
                     for subscriptions in self._subscriptions.values():
                         for i, sub in enumerate(subscriptions):
                             if sub.subscription_id == subscription:
                                 subscriptions.pop(i)
                                 logger.debug(f"이벤트 구독 해제: {subscription}")
                                 return True
-
             logger.warning(f"구독을 찾을 수 없음: {subscription}")
             return False
-
         except Exception as e:
             logger.error(f"구독 해제 실패: {subscription} - {e}")
             return False
@@ -328,12 +278,9 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
         try:
             with self._lock:
                 self._handlers[event_type].append(handler)
-                # 우선순위 기반 정렬
                 self._handlers[event_type].sort()
-
             logger.debug(f"이벤트 핸들러 등록: {event_type.__name__} -> {handler.name}")
             return True
-
         except Exception as e:
             logger.error(f"이벤트 핸들러 등록 실패: {event_type.__name__} -> {handler.name} - {e}")
             return False
@@ -350,10 +297,8 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
                             f"이벤트 핸들러 등록 해제: {event_type.__name__} -> {handler_name}"
                         )
                         return True
-
             logger.warning(f"핸들러를 찾을 수 없음: {event_type.__name__} -> {handler_name}")
             return False
-
         except Exception as e:
             logger.error(
                 f"이벤트 핸들러 등록 해제 실패: {event_type.__name__} -> {handler_name} - {e}"
@@ -364,13 +309,8 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
         """메인 스레드에서 이벤트 처리"""
         try:
             event_type = type(event)
-
-            # 구독자들에게 이벤트 전달
             self._notify_subscribers(event, event_type)
-
-            # 핸들러들에게 이벤트 전달
             self._notify_handlers(event, event_type)
-
         except Exception as e:
             logger.error(f"이벤트 처리 실패: {event.__class__.__name__} - {e}")
 
@@ -379,21 +319,15 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
         try:
             with self._lock:
                 subscriptions = self._subscriptions.get(event_type, [])
-
             for subscription in subscriptions:
                 try:
-                    # EventSubscription의 execute 메서드 사용
                     subscription.execute(event)
-
-                    # Qt 시그널 발생
                     self.event_handled.emit(event_type.__name__, subscription.subscription_id)
-
                 except Exception as e:
                     logger.error(f"구독자 이벤트 처리 실패: {subscription.subscription_id} - {e}")
                     self.event_failed.emit(
                         event_type.__name__, subscription.subscription_id, str(e)
                     )
-
         except Exception as e:
             logger.error(f"구독자 알림 실패: {e}")
 
@@ -402,22 +336,16 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
         try:
             with self._lock:
                 handlers = self._handlers.get(event_type, [])
-
             for handler in handlers:
                 try:
                     if not handler.enabled:
                         continue
-
                     if handler.can_handle(event):
                         handler.handle_event(event)
-
-                        # Qt 시그널 발생
                         self.event_handled.emit(event_type.__name__, handler.name)
-
                 except Exception as e:
                     logger.error(f"핸들러 이벤트 처리 실패: {handler.name} - {e}")
                     self.event_failed.emit(event_type.__name__, handler.name, str(e))
-
         except Exception as e:
             logger.error(f"핸들러 알림 실패: {e}")
 
@@ -431,12 +359,9 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
                     history = [e for e in self._event_history if isinstance(e, event_type)]
                 else:
                     history = self._event_history.copy()
-
                 if limit:
                     history = history[-limit:]
-
                 return history
-
         except Exception as e:
             logger.error(f"이벤트 히스토리 조회 실패: {e}")
             return []
@@ -448,7 +373,6 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
                 if event_type:
                     return self._event_stats.get(event_type, {}).copy()
                 return {k: v.copy() for k, v in self._event_stats.items()}
-
         except Exception as e:
             logger.error(f"이벤트 통계 조회 실패: {e}")
             return {}
@@ -469,7 +393,6 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
                 if event_type:
                     return len(self._subscriptions.get(event_type, []))
                 return sum(len(subs) for subs in self._subscriptions.values())
-
         except Exception as e:
             logger.error(f"구독 수 조회 실패: {e}")
             return 0
@@ -482,12 +405,10 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
             with self._lock:
                 if event_type:
                     return self._subscriptions.get(event_type, []).copy()
-                # 모든 구독 반환
                 all_subscriptions = []
                 for subscriptions in self._subscriptions.values():
                     all_subscriptions.extend(subscriptions)
                 return all_subscriptions
-
         except Exception as e:
             logger.error(f"구독 목록 조회 실패: {e}")
             return []
@@ -501,7 +422,6 @@ class UnifiedEventBus(QObject, Generic[TEvent]):
                         if subscription.subscription_id == subscription_id:
                             return subscription
                 return None
-
         except Exception as e:
             logger.error(f"구독 조회 실패: {subscription_id} - {e}")
             return None
@@ -536,10 +456,7 @@ class EventBusManager:
             if system_name not in self._legacy_systems:
                 logger.warning(f"레거시 시스템을 찾을 수 없음: {system_name}")
                 return False
-
             system = self._legacy_systems[system_name]
-
-            # 시스템별 마이그레이션 로직
             if system_name == "typed_event_bus":
                 self._migrate_typed_event_bus(system)
             elif system_name == "gui_event_bus":
@@ -547,11 +464,9 @@ class EventBusManager:
             else:
                 logger.warning(f"알 수 없는 레거시 시스템: {system_name}")
                 return False
-
             self._migration_status[system_name] = "completed"
             logger.info(f"레거시 이벤트 시스템 마이그레이션 완료: {system_name}")
             return True
-
         except Exception as e:
             logger.error(f"레거시 이벤트 시스템 마이그레이션 실패: {system_name} - {e}")
             self._migration_status[system_name] = "failed"
@@ -560,31 +475,24 @@ class EventBusManager:
     def _migrate_typed_event_bus(self, system: Any) -> None:
         """TypedEventBus 마이그레이션"""
         try:
-            # 기존 구독자들을 통합 이벤트 버스로 마이그레이션
             if hasattr(system, "_subscribers"):
                 for event_type, subscribers in system._subscribers.items():
                     for subscriber in subscribers:
-                        # 약한 참조 처리
                         if callable(subscriber):
                             self._event_bus.subscribe(event_type, subscriber)
-
             logger.info("TypedEventBus 마이그레이션 완료")
-
         except Exception as e:
             logger.error(f"TypedEventBus 마이그레이션 실패: {e}")
 
     def _migrate_gui_event_bus(self, system: Any) -> None:
         """GUI EventBus 마이그레이션"""
         try:
-            # 기존 구독자들을 통합 이벤트 버스로 마이그레이션
             if hasattr(system, "_subscribers"):
                 for event_type, subscribers in system._subscribers.items():
                     for subscriber in subscribers:
                         if callable(subscriber):
                             self._event_bus.subscribe(event_type, subscriber)
-
             logger.info("GUI EventBus 마이그레이션 완료")
-
         except Exception as e:
             logger.error(f"GUI EventBus 마이그레이션 실패: {e}")
 
@@ -597,7 +505,43 @@ class EventBusManager:
         return all(status == "completed" for status in self._migration_status.values())
 
 
-# 전역 인스턴스
+class TypedEventBusCompatibility:
+    """TypedEventBus와 호환되는 UnifiedEventBus 래퍼"""
+
+    def __init__(self, unified_bus: UnifiedEventBus):
+        self._unified_bus = unified_bus
+
+    def publish(self, event: BaseEvent) -> None:
+        """이벤트 발행 (TypedEventBus 호환)"""
+        self._unified_bus.publish(event)
+
+    def subscribe(self, event_type: type, handler: Callable, weak_ref: bool = True) -> str:
+        """이벤트 구독 (TypedEventBus 호환)"""
+        subscription = self._unified_bus.subscribe(event_type, handler)
+        return subscription.subscription_id
+
+    def unsubscribe(self, subscription_id: str) -> bool:
+        """구독 해제 (TypedEventBus 호환)"""
+        return self._unified_bus.unsubscribe(subscription_id)
+
+    def unsubscribe_all(self, event_type: type = None) -> int:
+        """모든 구독 해제 (TypedEventBus 호환)"""
+        if event_type is None:
+            count = 0
+            for subscriptions in self._unified_bus._subscriptions.values():
+                count += len(subscriptions)
+                subscriptions.clear()
+            return count
+        if event_type in self._unified_bus._subscriptions:
+            count = len(self._unified_bus._subscriptions[event_type])
+            self._unified_bus._subscriptions[event_type].clear()
+            return count
+        return 0
+
+    def dispose(self) -> None:
+        """리소스 정리 (TypedEventBus 호환)"""
+
+
 event_bus_manager = EventBusManager()
 unified_event_bus = event_bus_manager.event_bus
 

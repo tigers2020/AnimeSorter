@@ -1,28 +1,71 @@
 """
-Application Services Module
+GUI 서비스 모듈
 
-비즈니스 로직을 담당하는 서비스 계층
+비즈니스 로직을 담당하는 서비스들
 """
 
-from .background_task_service import (BackgroundTaskService,
-                                      IBackgroundTaskService)
-# Legacy file_organization_service removed - using UnifiedFileOrganizationService instead
-from .file_scan_service import FileScanService, IFileScanService
-from .media_data_service import IMediaDataService, MediaDataService
-from .tmdb_search_service import ITMDBSearchService, TMDBSearchService
-from .ui_update_service import IUIUpdateService, UIUpdateService
+import logging
+
+logger = logging.getLogger(__name__)
+from .file_service import FileService
+from .metadata_service import MetadataService
+from .state_service import StateService
+
+
+# Legacy services - placeholder implementations
+class BackgroundTaskService:
+    """백그라운드 작업 서비스 - 플레이스홀더"""
+
+
+# FileScanService는 별도 파일에서 임포트
+from .file_scan_service import FileScanService
+
+
+class MediaDataService:
+    """미디어 데이터 서비스 - 플레이스홀더"""
+
+
+class TMDBSearchService:
+    """TMDB 검색 서비스 - 플레이스홀더"""
+
+
+class UIUpdateService:
+    """UI 업데이트 서비스 - 플레이스홀더"""
+
+
+# Interface placeholders
+class IBackgroundTaskService:
+    """백그라운드 작업 서비스 인터페이스 - 플레이스홀더"""
+
+
+class IFileScanService:
+    """파일 스캔 서비스 인터페이스 - 플레이스홀더"""
+
+
+class IMediaDataService:
+    """미디어 데이터 서비스 인터페이스 - 플레이스홀더"""
+
+
+class ITMDBSearchService:
+    """TMDB 검색 서비스 인터페이스 - 플레이스홀더"""
+
+
+class IUIUpdateService:
+    """UI 업데이트 서비스 인터페이스 - 플레이스홀더"""
+
 
 __all__ = [
-    "IFileScanService",
+    "FileService",
+    "MetadataService",
+    "StateService",
+    "BackgroundTaskService",
     "FileScanService",
-    "IUIUpdateService",
+    "MediaDataService",
+    "TMDBSearchService",
     "UIUpdateService",
     "IBackgroundTaskService",
-    "BackgroundTaskService",
-    # "IFileOrganizationService",  # Legacy - using UnifiedFileOrganizationService instead
-    # "FileOrganizationService",  # Legacy - using UnifiedFileOrganizationService instead
+    "IFileScanService",
     "IMediaDataService",
-    "MediaDataService",
     "ITMDBSearchService",
-    "TMDBSearchService",
+    "IUIUpdateService",
 ]

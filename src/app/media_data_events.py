@@ -4,6 +4,9 @@
 파싱된 미디어 파일 데이터의 관리, 그룹화, 필터링 과정의 이벤트를 정의합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -69,7 +72,7 @@ class MediaDataFilter:
 
     criteria: FilterCriteria
     value: Any
-    operator: str = "equals"  # "equals", "contains", "greater_than", "less_than", "range"
+    operator: str = "equals"
     case_sensitive: bool = False
 
 
@@ -78,12 +81,9 @@ class MediaDataGrouping:
     """미디어 데이터 그룹화 설정"""
 
     strategy: GroupingStrategy = GroupingStrategy.BY_TITLE
-    custom_key_function: str | None = None  # 커스텀 그룹화 함수명
+    custom_key_function: str | None = None
     sort_groups: bool = True
     sort_files_within_groups: bool = True
-
-
-# ===== 이벤트 정의 =====
 
 
 @dataclass
@@ -187,8 +187,8 @@ class MediaDataUpdatedEvent(BaseEvent):
 
     operation_id: UUID = field(default_factory=uuid4)
     updated_files: list[MediaFile] = field(default_factory=list)
-    updated_groups: list[str] = field(default_factory=list)  # 업데이트된 그룹 ID들
-    update_type: str = "modified"  # "added", "removed", "modified"
+    updated_groups: list[str] = field(default_factory=list)
+    update_type: str = "modified"
 
 
 @dataclass
@@ -205,7 +205,7 @@ class MediaDataExportStartedEvent(BaseEvent):
     """미디어 데이터 내보내기 시작 이벤트"""
 
     operation_id: UUID = field(default_factory=uuid4)
-    export_format: str = "json"  # "json", "csv", "xlsx"
+    export_format: str = "json"
     export_path: Path = field(default_factory=Path)
     include_statistics: bool = True
 

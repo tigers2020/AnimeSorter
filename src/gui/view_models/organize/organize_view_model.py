@@ -5,15 +5,16 @@ Organize ViewModel - Phase 3.2 뷰모델 분할
 
 import logging
 
+logger = logging.getLogger(__name__)
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
 from src.app import (ErrorMessageEvent, FileDeletedEvent, FileMovedEvent,
-                     FileRenamedEvent, IFileOrganizationService,
-                     IUIUpdateService, OrganizationCancelledEvent,
-                     OrganizationCompletedEvent, OrganizationFailedEvent,
-                     OrganizationProgressEvent, OrganizationStartedEvent,
-                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
-                     get_event_bus, get_service)
+                     IFileOrganizationService, IUIUpdateService,
+                     OrganizationCancelledEvent, OrganizationCompletedEvent,
+                     OrganizationFailedEvent, OrganizationProgressEvent,
+                     OrganizationStartedEvent, StatusBarUpdateEvent,
+                     SuccessMessageEvent, TypedEventBus, get_event_bus,
+                     get_service)
 
 from .organization_state import OrganizationCapabilities, OrganizationState
 
@@ -21,7 +22,6 @@ from .organization_state import OrganizationCapabilities, OrganizationState
 class OrganizeViewModel(QObject):
     """파일 정리 ViewModel"""
 
-    # 시그널
     state_changed = pyqtSignal()
     capabilities_changed = pyqtSignal()
     progress_changed = pyqtSignal(int)
@@ -33,43 +33,28 @@ class OrganizeViewModel(QObject):
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(__name__)
-
-        # 상태 초기화
         self._state = OrganizationState()
         self._capabilities = OrganizationCapabilities()
-
-        # 서비스 및 이벤트 버스
         self.event_bus: TypedEventBus = get_event_bus()
         self.file_organization_service: IFileOrganizationService = get_service(
             IFileOrganizationService
         )
         self.ui_update_service: IUIUpdateService = get_service(IUIUpdateService)
-
-        # 이벤트 연결
         self._connect_events()
 
     def _connect_events(self):
         """이벤트 연결 설정"""
-        # 정리 관련 이벤트
         self.event_bus.subscribe(OrganizationStartedEvent, self._on_organization_started)
         self.event_bus.subscribe(OrganizationProgressEvent, self._on_organization_progress)
         self.event_bus.subscribe(OrganizationCompletedEvent, self._on_organization_completed)
         self.event_bus.subscribe(OrganizationFailedEvent, self._on_organization_failed)
         self.event_bus.subscribe(OrganizationCancelledEvent, self._on_organization_cancelled)
-
-        # 파일 작업 이벤트
         self.event_bus.subscribe(FileMovedEvent, self._on_file_moved)
-        self.event_bus.subscribe(FileRenamedEvent, self._on_file_renamed)
         self.event_bus.subscribe(FileDeletedEvent, self._on_file_deleted)
-        # TODO: DirectoryCreatedEvent is not available in src.app
-        # self.event_bus.subscribe(DirectoryCreatedEvent, self._on_directory_created)
-
-        # UI 이벤트
         self.event_bus.subscribe(StatusBarUpdateEvent, self._on_status_bar_update)
         self.event_bus.subscribe(SuccessMessageEvent, self._on_success_message)
         self.event_bus.subscribe(ErrorMessageEvent, self._on_error_message)
 
-    # 상태 속성들
     @pyqtProperty(bool, notify=state_changed)
     def is_organizing(self) -> bool:
         return self._state.is_organizing
@@ -118,7 +103,6 @@ class OrganizeViewModel(QObject):
     def error_count(self) -> int:
         return self._state.error_count
 
-    # 정리 통계 속성들
     @pyqtProperty(int, notify=state_changed)
     def files_moved(self) -> int:
         return self._state.files_moved
@@ -135,7 +119,6 @@ class OrganizeViewModel(QObject):
     def directories_created(self) -> int:
         return self._state.directories_created
 
-    # 정리 설정 속성들
     @pyqtProperty(bool, notify=state_changed)
     def create_directories(self) -> bool:
         return self._state.create_directories
@@ -156,7 +139,6 @@ class OrganizeViewModel(QObject):
     def backup_before_organize(self) -> bool:
         return self._state.backup_before_organize
 
-    # UI 기능 속성들
     @pyqtProperty(bool, notify=capabilities_changed)
     def can_start_organization(self) -> bool:
         return self._capabilities.can_start_organization
@@ -193,7 +175,6 @@ class OrganizeViewModel(QObject):
     def can_export_organization_log(self) -> bool:
         return self._capabilities.can_export_organization_log
 
-    # 이벤트 핸들러들
     def _on_organization_started(self, event: OrganizationStartedEvent):
         """정리 시작 이벤트 처리"""
         self._state.is_organizing = True
@@ -203,7 +184,6 @@ class OrganizeViewModel(QObject):
         self._state.organization_progress = 0
         self._state.current_operation = "정리 시작"
         self._state.current_file = ""
-
         self._update_capabilities()
         self.state_changed.emit()
 
@@ -213,7 +193,6 @@ class OrganizeViewModel(QObject):
         self._state.organization_progress = event.progress
         self._state.current_operation = event.operation
         self._state.current_file = event.current_file
-
         self.progress_changed.emit(event.progress)
         self.operation_changed.emit(event.operation)
         self.file_changed.emit(event.current_file)
@@ -225,12 +204,9 @@ class OrganizeViewModel(QObject):
         self._state.organization_progress = 100
         self._state.current_operation = "정리 완료"
         self._state.current_file = ""
-
-        # 결과 통계 업데이트
         self._state.successful_operations = event.successful_operations
         self._state.failed_operations = event.failed_operations
         self._state.skipped_operations = event.skipped_operations
-
         self._update_capabilities()
         self.state_changed.emit()
         self.success_occurred.emit("파일 정리가 완료되었습니다")
@@ -241,7 +217,6 @@ class OrganizeViewModel(QObject):
         self._state.current_organization_id = None
         self._state.last_error = event.error_message
         self._state.error_count += 1
-
         self._update_capabilities()
         self.state_changed.emit()
         self.error_occurred.emit(event.error_message)
@@ -251,7 +226,6 @@ class OrganizeViewModel(QObject):
         self._state.is_organizing = False
         self._state.current_organization_id = None
         self._state.current_operation = "정리 취소됨"
-
         self._update_capabilities()
         self.state_changed.emit()
 
@@ -260,25 +234,13 @@ class OrganizeViewModel(QObject):
         self._state.files_moved += 1
         self.state_changed.emit()
 
-    def _on_file_renamed(self, event: FileRenamedEvent):
-        """파일 이름 변경 이벤트 처리"""
-        self._state.files_renamed += 1
-        self.state_changed.emit()
-
     def _on_file_deleted(self, event: FileDeletedEvent):
         """파일 삭제 이벤트 처리"""
         self._state.files_deleted += 1
         self.state_changed.emit()
 
-    # TODO: DirectoryCreatedEvent is not available in src.app
-    # def _on_directory_created(self, event: DirectoryCreatedEvent):
-    #     """디렉토리 생성 이벤트 처리"""
-    #     self._state.directories_created += 1
-    #     self.state_changed.emit()
-
     def _on_status_bar_update(self, event: StatusBarUpdateEvent):
         """상태바 업데이트 이벤트 처리"""
-        # 상태바 메시지는 View에서 직접 처리
 
     def _on_success_message(self, event: SuccessMessageEvent):
         """성공 메시지 이벤트 처리"""
@@ -294,22 +256,18 @@ class OrganizeViewModel(QObject):
     def _update_capabilities(self):
         """UI 기능 상태 업데이트"""
         old_capabilities = self._capabilities
-
         if self._state.is_organizing:
             self._capabilities = OrganizationCapabilities.organizing()
         else:
             self._capabilities = OrganizationCapabilities()
-
         if old_capabilities != self._capabilities:
             self.capabilities_changed.emit()
 
-    # 공개 메서드들
     def start_organization(self, mode: str = "simulation"):
         """정리 시작"""
         if not self.can_start_organization:
             self.logger.warning("정리를 시작할 수 없습니다")
             return
-
         try:
             self._state.organization_mode = mode
             self.file_organization_service.start_organization(mode)
@@ -322,7 +280,6 @@ class OrganizeViewModel(QObject):
         if not self.can_stop_organization:
             self.logger.warning("정리를 중지할 수 없습니다")
             return
-
         try:
             if self._state.current_organization_id:
                 self.file_organization_service.stop_organization(
@@ -337,7 +294,6 @@ class OrganizeViewModel(QObject):
         if not self.can_pause_organization:
             self.logger.warning("정리를 일시정지할 수 없습니다")
             return
-
         try:
             if self._state.current_organization_id:
                 self.file_organization_service.pause_organization(
@@ -352,7 +308,6 @@ class OrganizeViewModel(QObject):
         if not self.can_resume_organization:
             self.logger.warning("정리를 재개할 수 없습니다")
             return
-
         try:
             if self._state.current_organization_id:
                 self.file_organization_service.resume_organization(
@@ -367,7 +322,6 @@ class OrganizeViewModel(QObject):
         if not self.can_preview_organization:
             self.logger.warning("정리 미리보기를 할 수 없습니다")
             return
-
         try:
             self.file_organization_service.preview_organization()
         except Exception as e:
@@ -379,7 +333,6 @@ class OrganizeViewModel(QObject):
         if not self.can_clear_organization_results:
             self.logger.warning("정리 결과를 초기화할 수 없습니다")
             return
-
         self._state.total_files_to_process = 0
         self._state.processed_files_count = 0
         self._state.successful_operations = 0
@@ -394,7 +347,6 @@ class OrganizeViewModel(QObject):
         self._state.files_renamed = 0
         self._state.files_deleted = 0
         self._state.directories_created = 0
-
         self._update_capabilities()
         self.state_changed.emit()
 
@@ -403,5 +355,4 @@ class OrganizeViewModel(QObject):
         for key, value in kwargs.items():
             if hasattr(self._state, key):
                 setattr(self._state, key, value)
-
         self.state_changed.emit()

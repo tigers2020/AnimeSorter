@@ -21,15 +21,9 @@ class TemplateEngine:
 
     def __init__(self):
         """Initialize the TemplateEngine."""
-        # Pattern for ${variable} syntax
-        self.variable_pattern = re.compile(r"\$\{([^}]+)\}")
-
-        # Pattern for var(--variable) syntax (CSS custom properties)
-        self.css_var_pattern = re.compile(r"var\(--([^)]+)\)")
-
-        # Pattern for nested variable access (e.g., ${colors.primary.500})
-        self.nested_var_pattern = re.compile(r"\$\{([^}]+)\}")
-
+        self.variable_pattern = re.compile("\\$\\{([^}]+)\\}")
+        self.css_var_pattern = re.compile("var\\(--([^)]+)\\)")
+        self.nested_var_pattern = re.compile("\\$\\{([^}]+)\\}")
         logger.info("TemplateEngine initialized")
 
     def compile_qss(self, qss_content: str, variables: dict[str, Any]) -> str:
@@ -46,24 +40,16 @@ class TemplateEngine:
         if not qss_content:
             logger.warning("Empty QSS content provided")
             return ""
-
         if not variables:
             logger.warning("No variables provided for substitution")
             return qss_content
-
         try:
-            # First, handle ${variable} syntax
             compiled_qss = self._substitute_variables(qss_content, variables)
-
-            # Then, handle var(--variable) syntax for compatibility
             compiled_qss = self._substitute_css_variables(compiled_qss, variables)
-
             logger.info("QSS compilation completed successfully")
             return compiled_qss
-
         except Exception as e:
             logger.error(f"Error during QSS compilation: {e}")
-            # Return original content on error
             return qss_content
 
     def _substitute_variables(self, qss_content: str, variables: dict[str, Any]) -> str:
@@ -85,10 +71,10 @@ class TemplateEngine:
                 if value is not None:
                     return str(value)
                 logger.warning(f"Variable not found: {var_path}")
-                return match.group(0)  # Keep original placeholder
+                return match.group(0)
             except Exception as e:
                 logger.error(f"Error resolving variable {var_path}: {e}")
-                return match.group(0)  # Keep original placeholder
+                return match.group(0)
 
         return self.variable_pattern.sub(replace_variable, qss_content)
 
@@ -107,16 +93,14 @@ class TemplateEngine:
         def replace_css_variable(match):
             var_name = match.group(1)
             try:
-                # Try to find the variable in the variables dictionary
-                # Convert CSS variable name to our variable structure
                 value = self._find_css_variable_value(variables, var_name)
                 if value is not None:
                     return str(value)
                 logger.warning(f"CSS variable not found: {var_name}")
-                return match.group(0)  # Keep original placeholder
+                return match.group(0)
             except Exception as e:
                 logger.error(f"Error resolving CSS variable {var_name}: {e}")
-                return match.group(0)  # Keep original placeholder
+                return match.group(0)
 
         return self.css_var_pattern.sub(replace_css_variable, qss_content)
 
@@ -134,13 +118,11 @@ class TemplateEngine:
         try:
             keys = path.split(".")
             current = data
-
             for key in keys:
                 if isinstance(current, dict) and key in current:
                     current = current[key]
                 else:
                     return None
-
             return current
         except Exception as e:
             logger.error(f"Error accessing nested path {path}: {e}")
@@ -158,11 +140,6 @@ class TemplateEngine:
             Value for the CSS variable or None if not found
         """
         try:
-            # Convert CSS variable names to our structure
-            # e.g., "primary-color" -> "colors.primary.500"
-            # e.g., "text-color" -> "colors.text.primary"
-
-            # Handle common CSS variable patterns
             if var_name == "primary-color":
                 return self._get_nested_value(variables, "colors.primary.500")
             if var_name == "primary-hover-color":
@@ -177,10 +154,8 @@ class TemplateEngine:
                 return self._get_nested_value(variables, "colors.border.default")
             if var_name == "focus-color":
                 return self._get_nested_value(variables, "colors.border.focus")
-            # Try to find by converting kebab-case to dot notation
             dot_path = var_name.replace("-", ".")
             return self._get_nested_value(variables, dot_path)
-
         except Exception as e:
             logger.error(f"Error finding CSS variable {var_name}: {e}")
             return None
@@ -196,34 +171,23 @@ class TemplateEngine:
             Tuple of (is_valid, list_of_issues)
         """
         issues = []
-
         try:
-            # Check for unmatched braces
             open_braces = qss_content.count("${")
             close_braces = qss_content.count("}")
-
             if open_braces != close_braces:
                 issues.append(f"Unmatched braces: {open_braces} open, {close_braces} close")
-
-            # Check for empty variable placeholders
-            empty_vars = re.findall(r"\$\{\s*\}", qss_content)
+            empty_vars = re.findall("\\$\\{\\s*\\}", qss_content)
             if empty_vars:
                 issues.append(f"Empty variable placeholders found: {len(empty_vars)}")
-
-            # Check for malformed CSS variable usage
-            malformed_css_vars = re.findall(r"var\([^)]*$", qss_content)
+            malformed_css_vars = re.findall("var\\([^)]*$", qss_content)
             if malformed_css_vars:
                 issues.append(f"Malformed CSS variable declarations: {len(malformed_css_vars)}")
-
             is_valid = len(issues) == 0
-
             if is_valid:
                 logger.info("QSS template validation passed")
             else:
                 logger.warning(f"QSS template validation failed: {issues}")
-
             return is_valid, issues
-
         except Exception as e:
             logger.error(f"Error during template validation: {e}")
             issues.append(f"Validation error: {e}")
@@ -240,19 +204,13 @@ class TemplateEngine:
             List of variable names used
         """
         variables = set()
-
         try:
-            # Find ${variable} usage
             var_matches = self.variable_pattern.findall(qss_content)
             variables.update(var_matches)
-
-            # Find var(--variable) usage
             css_var_matches = self.css_var_pattern.findall(qss_content)
             variables.update(css_var_matches)
-
             logger.debug(f"Found {len(variables)} variables in QSS content")
             return list(variables)
-
         except Exception as e:
             logger.error(f"Error extracting variables: {e}")
             return []
@@ -272,19 +230,14 @@ class TemplateEngine:
         """
         used_vars = self.get_used_variables(qss_content)
         mapping: dict[str, Any] = {}
-
         for var_name in used_vars:
             if var_name.startswith("--"):
-                # CSS variable
                 value = self._find_css_variable_value(variables, var_name[2:])
             else:
-                # Regular variable
                 value = self._get_nested_value(variables, var_name)
-
             if value is not None:
                 mapping[var_name] = value
             else:
                 logger.warning(f"Variable {var_name} not found in variables dictionary")
-
         logger.debug(f"Created variable mapping with {len(mapping)} variables")
         return mapping

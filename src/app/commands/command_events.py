@@ -4,6 +4,9 @@ Command 관련 이벤트 정의
 Command 실행, 취소, 실패 등의 상태 변화를 EventBus로 전파
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID

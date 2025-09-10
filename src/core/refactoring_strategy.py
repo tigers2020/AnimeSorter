@@ -20,36 +20,36 @@ logger = logging.getLogger(__name__)
 class RefactoringPriority(Enum):
     """리팩토링 우선순위"""
 
-    CRITICAL = 1  # 즉시 리팩토링 필요 (심각한 문제)
-    HIGH = 2  # 높은 우선순위 (주요 개선 효과)
-    MEDIUM = 3  # 중간 우선순위 (점진적 개선)
-    LOW = 4  # 낮은 우선순위 (향후 고려)
+    CRITICAL = 1
+    HIGH = 2
+    MEDIUM = 3
+    LOW = 4
 
 
 class RefactoringType(Enum):
     """리팩토링 유형"""
 
-    EXTRACT_CLASS = "extract_class"  # 클래스 추출
-    EXTRACT_METHOD = "extract_method"  # 메서드 추출
-    EXTRACT_MODULE = "extract_module"  # 모듈 추출
-    SPLIT_FILE = "split_file"  # 파일 분할
-    MOVE_METHOD = "move_method"  # 메서드 이동
-    MOVE_CLASS = "move_class"  # 클래스 이동
-    SIMPLIFY_METHOD = "simplify_method"  # 메서드 단순화
-    REMOVE_DUPLICATION = "remove_duplication"  # 중복 제거
+    EXTRACT_CLASS = "extract_class"
+    EXTRACT_METHOD = "extract_method"
+    EXTRACT_MODULE = "extract_module"
+    SPLIT_FILE = "split_file"
+    MOVE_METHOD = "move_method"
+    MOVE_CLASS = "move_class"
+    SIMPLIFY_METHOD = "simplify_method"
+    REMOVE_DUPLICATION = "remove_duplication"
 
 
 class ResponsibilityType(Enum):
     """책임 유형"""
 
-    UI_RENDERING = "ui_rendering"  # UI 렌더링
-    BUSINESS_LOGIC = "business_logic"  # 비즈니스 로직
-    DATA_MANAGEMENT = "data_management"  # 데이터 관리
-    EVENT_HANDLING = "event_handling"  # 이벤트 처리
-    CONFIGURATION = "configuration"  # 설정 관리
-    VALIDATION = "validation"  # 검증 로직
-    UTILITY = "utility"  # 유틸리티 함수
-    INTEGRATION = "integration"  # 외부 시스템 통합
+    UI_RENDERING = "ui_rendering"
+    BUSINESS_LOGIC = "business_logic"
+    DATA_MANAGEMENT = "data_management"
+    EVENT_HANDLING = "event_handling"
+    CONFIGURATION = "configuration"
+    VALIDATION = "validation"
+    UTILITY = "utility"
+    INTEGRATION = "integration"
 
 
 @dataclass
@@ -62,7 +62,7 @@ class RefactoringTarget:
     priority: RefactoringPriority
     refactoring_types: list[RefactoringType]
     responsibilities: list[ResponsibilityType]
-    estimated_effort: int  # 예상 작업 시간 (시간)
+    estimated_effort: int
     dependencies: list[str] = field(default_factory=list)
     risks: list[str] = field(default_factory=list)
     benefits: list[str] = field(default_factory=list)
@@ -77,7 +77,7 @@ class RefactoringPlan:
     description: str
     targets: list[RefactoringTarget]
     prerequisites: list[str] = field(default_factory=list)
-    estimated_duration: int = 0  # 예상 소요 시간 (시간)
+    estimated_duration: int = 0
     success_criteria: list[str] = field(default_factory=list)
 
 
@@ -92,28 +92,14 @@ class RefactoringStrategy:
     def analyze_file(self, file_path: Path) -> RefactoringTarget:
         """파일 분석하여 리팩토링 대상으로 등록"""
         try:
-            # 파일 크기 및 라인 수 확인
             size_kb = file_path.stat().st_size // 1024
             line_count = self._count_lines(file_path)
-
-            # 우선순위 결정
             priority = self._determine_priority(size_kb, line_count)
-
-            # 리팩토링 유형 결정
             refactoring_types = self._determine_refactoring_types(file_path, size_kb, line_count)
-
-            # 책임 유형 분석
             responsibilities = self._analyze_responsibilities(file_path)
-
-            # 예상 작업 시간 추정
             estimated_effort = self._estimate_effort(size_kb, line_count, len(refactoring_types))
-
-            # 의존성 및 리스크 분석
             dependencies, risks = self._analyze_dependencies_and_risks(file_path)
-
-            # 개선 효과 분석
             benefits = self._analyze_benefits(file_path, refactoring_types)
-
             target = RefactoringTarget(
                 file_path=file_path,
                 current_size_kb=size_kb,
@@ -126,22 +112,16 @@ class RefactoringStrategy:
                 risks=risks,
                 benefits=benefits,
             )
-
             self.targets.append(target)
             logger.info(f"리팩토링 대상 등록: {file_path.name} (우선순위: {priority.value})")
-
             return target
-
         except Exception as e:
             logger.error(f"파일 분석 실패 {file_path}: {e}")
             raise
 
     def create_refactoring_plans(self) -> list[RefactoringPlan]:
         """리팩토링 실행 계획 생성"""
-        # 우선순위별로 정렬
         sorted_targets = sorted(self.targets, key=lambda x: x.priority.value)
-
-        # Phase 1: 핵심 GUI 컴포넌트 분리
         phase1_targets = [
             t
             for t in sorted_targets
@@ -151,7 +131,7 @@ class RefactoringStrategy:
             phase=1,
             name="핵심 GUI 컴포넌트 분리",
             description="가장 큰 모놀리식 파일들을 우선적으로 분리하여 기본 구조 개선",
-            targets=phase1_targets[:3],  # 상위 3개만
+            targets=phase1_targets[:3],
             estimated_duration=sum(t.estimated_effort for t in phase1_targets[:3]),
             success_criteria=[
                 "main_window.py가 300줄 이하로 축소",
@@ -159,8 +139,6 @@ class RefactoringStrategy:
                 "각 컴포넌트가 단일 책임을 가지도록 분리",
             ],
         )
-
-        # Phase 2: 비즈니스 로직 분리
         phase2_targets = [t for t in sorted_targets if t.priority == RefactoringPriority.MEDIUM]
         phase2_plan = RefactoringPlan(
             phase=2,
@@ -175,8 +153,6 @@ class RefactoringStrategy:
                 "테스트 가능성이 향상됨",
             ],
         )
-
-        # Phase 3: 유틸리티 및 헬퍼 분리
         phase3_targets = [t for t in sorted_targets if t.priority == RefactoringPriority.LOW]
         phase3_plan = RefactoringPlan(
             phase=3,
@@ -191,7 +167,6 @@ class RefactoringStrategy:
                 "유지보수성이 향상됨",
             ],
         )
-
         self.plans = [phase1_plan, phase2_plan, phase3_plan]
         return self.plans
 
@@ -211,8 +186,7 @@ class RefactoringStrategy:
         """진행 상황 반환"""
         total = len(self.targets)
         completed = len(self.completed_targets)
-        progress_percent = (completed / total * 100) if total > 0 else 0
-
+        progress_percent = completed / total * 100 if total > 0 else 0
         return {
             "total_targets": total,
             "completed_targets": completed,
@@ -248,64 +222,49 @@ class RefactoringStrategy:
     ) -> list[RefactoringType]:
         """리팩토링 유형 결정"""
         types = []
-
         if size_kb > 40:
             types.append(RefactoringType.SPLIT_FILE)
             types.append(RefactoringType.EXTRACT_CLASS)
-
         if line_count > 500:
             types.append(RefactoringType.EXTRACT_METHOD)
             types.append(RefactoringType.EXTRACT_MODULE)
-
         if "manager" in file_path.name.lower() or "service" in file_path.name.lower():
             types.append(RefactoringType.MOVE_CLASS)
-
         return types
 
     def _analyze_responsibilities(self, file_path: Path) -> list[ResponsibilityType]:
         """책임 유형 분석"""
         responsibilities = []
-
-        # 파일명 기반 기본 책임 추정
         if "ui" in file_path.name.lower() or "view" in file_path.name.lower():
             responsibilities.append(ResponsibilityType.UI_RENDERING)
-
         if "manager" in file_path.name.lower():
             responsibilities.append(ResponsibilityType.BUSINESS_LOGIC)
             responsibilities.append(ResponsibilityType.DATA_MANAGEMENT)
-
         if "service" in file_path.name.lower():
             responsibilities.append(ResponsibilityType.BUSINESS_LOGIC)
             responsibilities.append(ResponsibilityType.INTEGRATION)
-
         if "handler" in file_path.name.lower():
             responsibilities.append(ResponsibilityType.EVENT_HANDLING)
-
         if "config" in file_path.name.lower() or "settings" in file_path.name.lower():
             responsibilities.append(ResponsibilityType.CONFIGURATION)
-
         return responsibilities
 
     def _estimate_effort(self, size_kb: int, line_count: int, refactoring_count: int) -> int:
         """예상 작업 시간 추정 (시간 단위)"""
         base_effort = max(size_kb // 10, line_count // 100)
-        complexity_multiplier = 1 + (refactoring_count * 0.5)
+        complexity_multiplier = 1 + refactoring_count * 0.5
         return int(base_effort * complexity_multiplier)
 
     def _analyze_dependencies_and_risks(self, file_path: Path) -> tuple[list[str], list[str]]:
         """의존성 및 리스크 분석"""
         dependencies = []
         risks = []
-
-        # 기본 의존성 (파일명 기반)
         if "main_window" in file_path.name.lower():
             dependencies.extend(["theme_manager", "anime_data_manager", "settings_manager"])
             risks.extend(["UI 깨짐", "기능 손실", "테마 적용 오류"])
-
         if "results_view" in file_path.name.lower():
             dependencies.extend(["table_models", "cell_delegates"])
             risks.extend(["데이터 표시 오류", "테이블 기능 손실"])
-
         return dependencies, risks
 
     def _analyze_benefits(
@@ -313,20 +272,15 @@ class RefactoringStrategy:
     ) -> list[str]:
         """개선 효과 분석"""
         benefits = []
-
         if RefactoringType.SPLIT_FILE in refactoring_types:
             benefits.extend(["가독성 향상", "유지보수성 개선", "테스트 용이성"])
-
         if RefactoringType.EXTRACT_CLASS in refactoring_types:
             benefits.extend(["단일 책임 원칙 준수", "재사용성 향상", "확장성 개선"])
-
         if RefactoringType.EXTRACT_METHOD in refactoring_types:
             benefits.extend(["코드 가독성 향상", "테스트 용이성", "중복 제거"])
-
         return benefits
 
 
-# 전역 리팩토링 전략 인스턴스
 refactoring_strategy = RefactoringStrategy()
 
 

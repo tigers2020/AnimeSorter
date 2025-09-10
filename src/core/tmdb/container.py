@@ -6,6 +6,8 @@ TMDB 서비스들의 의존성을 관리하고 인스턴스를 생성하는 컨�
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +33,8 @@ class TMDBClientFactoryImpl(TMDBClientFactory):
 
     def create_service(self, config: TMDBConfig) -> TMDBServiceProtocol:
         """TMDB 서비스 생성"""
-        # 의존성 생성
         cache = self.create_cache(config)
         rate_limiter = self.create_rate_limiter(config)
-
-        # 서비스 생성
         return TMDBSimpleService(config, cache, rate_limiter)
 
     def create_cache(self, config: TMDBConfig) -> TMDBCacheProtocol:
@@ -58,8 +57,7 @@ class TMDBClientFactoryImpl(TMDBClientFactory):
     def create_rate_limiter(self, config: TMDBConfig) -> TMDBRateLimiterProtocol:
         """속도 제한 관리자 생성"""
         rate_limiter = TMDBRateLimiter(
-            requests_per_second=config.requests_per_second,
-            burst_limit=config.burst_limit,
+            requests_per_second=config.requests_per_second, burst_limit=config.burst_limit
         )
         return TMDBRateLimiterAdapter(rate_limiter)
 
@@ -71,8 +69,6 @@ class TMDBClientContainer:
         """컨테이너 초기화"""
         self.factory = factory or TMDBClientFactoryImpl()
         self.logger = logging.getLogger(self.__class__.__name__)
-
-        # 싱글톤 인스턴스들
         self._client: TMDBClientProtocol | None = None
         self._config: TMDBConfig | None = None
 
@@ -86,33 +82,26 @@ class TMDBClientContainer:
         if self._client is None:
             if self._config is None:
                 raise ValueError("컨테이너가 설정되지 않았습니다. configure()를 먼저 호출하세요.")
-
             self._client = self._create_client(self._config)
-
         return self._client
 
     def _create_client(self, config: TMDBConfig) -> TMDBClientProtocol:
         """TMDB 클라이언트 생성"""
-        # 의존성 생성
         service = self.factory.create_service(config)
         cache = self.factory.create_cache(config)
         image_manager = self.factory.create_image_manager(config)
         rate_limiter = self.factory.create_rate_limiter(config)
-
-        # 클라이언트 생성
         return TMDBClientImpl(config, service, cache, image_manager, rate_limiter)
 
     def reset(self) -> None:
         """컨테이너 초기화"""
         if self._client:
-            # 리소스 정리
             import asyncio
 
             try:
                 asyncio.create_task(self._client.close_resources())
             except Exception as e:
                 self.logger.warning(f"리소스 정리 중 오류: {e}")
-
         self._client = None
         self._config = None
         self.logger.info("TMDB 컨테이너 초기화 완료")
@@ -136,10 +125,8 @@ class TMDBClientImpl(TMDBClientProtocol):
         self.image_manager = image_manager
         self.rate_limiter = rate_limiter
         self.logger = logging.getLogger(self.__class__.__name__)
-
         self.logger.info("TMDB 클라이언트 초기화 완료 (의존성 주입 패턴)")
 
-    # 서비스 메서드들 - 위임
     def search_anime(
         self,
         query: str,
@@ -170,7 +157,6 @@ class TMDBClientImpl(TMDBClientProtocol):
         """에피소드 정보 조회"""
         return self.service.get_anime_episode(tv_id, season_number, episode_number, language)
 
-    # 이미지 관련 메서드들 - 위임
     def download_poster(self, poster_path: str, size: str = "w185") -> str | None:
         """TMDB 포스터 이미지 다운로드"""
         return self.image_manager.download_poster(poster_path, size)
@@ -199,7 +185,6 @@ class TMDBClientImpl(TMDBClientProtocol):
         """TMDB 이미지 URL 생성"""
         return self.image_manager.get_image_url(image_path, size)
 
-    # 캐시 관련 메서드들 - 위임
     def clear_cache(self) -> None:
         """캐시 초기화"""
         self.cache.clear_cache()
@@ -209,7 +194,6 @@ class TMDBClientImpl(TMDBClientProtocol):
         cache_info = self.cache.get_cache_info()
         image_cache_info = self.image_manager.get_image_cache_info()
         rate_limiter_info = self.rate_limiter.get_health_status()
-
         return {
             "api_cache": cache_info,
             "image_cache": image_cache_info,
@@ -228,7 +212,6 @@ class TMDBClientImpl(TMDBClientProtocol):
         """메모리 캐시 크기 설정"""
         self.cache.set_memory_cache_size(size)
 
-    # 설정 관련 메서드들
     def set_language(self, language: str) -> None:
         """언어 설정 변경"""
         self.config.language = language
@@ -237,19 +220,15 @@ class TMDBClientImpl(TMDBClientProtocol):
         """API 키 업데이트"""
         if new_api_key and new_api_key != self.config.api_key:
             self.config.api_key = new_api_key
-
-            # tmdbsimple 설정 업데이트
             import tmdbsimple as tmdb
 
             tmdb.API_KEY = new_api_key
-
             self.logger.info("TMDB API 키가 업데이트되었습니다")
 
     def get_api_key(self) -> str:
         """현재 API 키 반환"""
         return self.config.api_key
 
-    # 속도 제한 관련 메서드들 - 위임
     def get_rate_limiter_status(self) -> dict:
         """속도 제한 관리자 상태 반환"""
         return self.rate_limiter.get_health_status()
@@ -262,13 +241,10 @@ class TMDBClientImpl(TMDBClientProtocol):
         """속도 제한 관리자 초기화"""
         self.rate_limiter.reset()
 
-    # 비동기 메서드들 - 위임
     async def download_poster_async(self, poster_path: str, size: str = "w185") -> str | None:
         """TMDB 포스터 이미지 비동기 다운로드"""
-        # TMDBImageManager의 비동기 메서드 호출
         if hasattr(self.image_manager, "image_manager"):
             return await self.image_manager.image_manager.download_poster_async(poster_path, size)
-        # 동기 메서드로 폴백
         return self.image_manager.download_poster(poster_path, size)
 
     async def close_resources(self) -> None:
@@ -277,7 +253,6 @@ class TMDBClientImpl(TMDBClientProtocol):
             await self.image_manager.image_manager.close_async_session()
 
 
-# 전역 컨테이너 인스턴스
 _tmdb_container: TMDBClientContainer | None = None
 
 

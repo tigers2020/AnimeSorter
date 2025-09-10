@@ -6,6 +6,8 @@ MainWindow의 AnimeDataManager 역할을 대체합니다.
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -102,70 +104,47 @@ class MediaDataService(IMediaDataService):
     def __init__(self, event_bus: TypedEventBus):
         self.event_bus = event_bus
         self.logger = logging.getLogger(self.__class__.__name__)
-
-        # 분할된 모듈들 초기화
         self.media_extractor = MediaExtractor()
         self.media_processor = MediaProcessor()
         self.media_filter = MediaFilter()
         self.media_exporter = MediaExporter()
-
-        # 데이터 저장소
         self._media_files: dict[UUID, MediaFile] = {}
         self._groups: dict[str, MediaGroup] = {}
         self._filtered_files: set[UUID] = set()
         self._current_filters: list[MediaDataFilter] = []
         self._current_grouping: MediaDataGrouping | None = None
-
-        # 상태 관리
         self._status = MediaDataStatus.READY
         self._is_filtered = False
         self._is_grouped = False
-
         self.logger.info("MediaDataService 초기화 완료")
 
     def load_media_files(self, file_paths: list[Path]) -> UUID:
         """미디어 파일들을 로드하고 파싱"""
         operation_id = uuid4()
-
         try:
             self.logger.info(f"미디어 파일 로드 시작: {len(file_paths)}개 파일")
-
-            # 로드 시작 이벤트 발행
             self.event_bus.publish(
                 MediaDataLoadStartedEvent(
                     operation_id=operation_id, file_paths=file_paths, total_files=len(file_paths)
                 )
             )
-
             self._status = MediaDataStatus.PARSING
             start_time = time.time()
-
-            # MediaExtractor를 사용하여 파일 파싱
             parsed_files = self.media_extractor.extract_batch(file_paths)
-
-            # MediaProcessor를 사용하여 데이터 정규화 및 처리
             processed_files = self.media_processor.process_media_files(parsed_files)
-
-            # 파싱된 파일들을 저장
             for media_file in processed_files:
                 self._media_files[media_file.id] = media_file
-
             parsing_duration = time.time() - start_time
-
-            # 파싱 완료 이벤트 발행
             self.event_bus.publish(
                 MediaDataParsingCompletedEvent(
                     operation_id=operation_id,
                     parsed_files=processed_files,
-                    failed_files=[],  # MediaExtractor에서 처리된 파일들
+                    failed_files=[],
                     parsing_errors=[],
                     parsing_duration_seconds=parsing_duration,
                 )
             )
-
             self._status = MediaDataStatus.READY
-
-            # 준비 완료 이벤트 발행
             self.event_bus.publish(
                 MediaDataReadyEvent(
                     operation_id=operation_id,
@@ -176,14 +155,11 @@ class MediaDataService(IMediaDataService):
                     is_grouped=self._is_grouped,
                 )
             )
-
             self.logger.info(f"미디어 파일 로드 완료: {len(processed_files)}개 성공")
             return operation_id
-
         except Exception as e:
             self.logger.error(f"미디어 파일 로드 실패: {e}")
             self._status = MediaDataStatus.ERROR
-
             self.event_bus.publish(
                 MediaDataErrorEvent(
                     operation_id=operation_id,
@@ -193,24 +169,18 @@ class MediaDataService(IMediaDataService):
                     error_details={"file_paths": [str(p) for p in file_paths]},
                 )
             )
-
             raise
 
     def add_media_file(self, media_file: MediaFile) -> bool:
         """단일 미디어 파일 추가"""
         try:
-            # MediaProcessor를 사용하여 데이터 정규화
             normalized_file = self.media_processor.normalize_media_file(media_file)
             self._media_files[normalized_file.id] = normalized_file
-
-            # 업데이트 이벤트 발행
             self.event_bus.publish(
                 MediaDataUpdatedEvent(updated_files=[normalized_file], update_type="added")
             )
-
             self.logger.debug(f"미디어 파일 추가됨: {normalized_file.original_name}")
             return True
-
         except Exception as e:
             self.logger.error(f"미디어 파일 추가 실패: {e}")
             return False
@@ -220,23 +190,14 @@ class MediaDataService(IMediaDataService):
         try:
             if file_id in self._media_files:
                 removed_file = self._media_files.pop(file_id)
-
-                # 필터된 파일 목록에서도 제거
                 self._filtered_files.discard(file_id)
-
-                # 그룹에서도 제거
                 self._remove_file_from_groups(file_id)
-
-                # 업데이트 이벤트 발행
                 self.event_bus.publish(
                     MediaDataUpdatedEvent(updated_files=[removed_file], update_type="removed")
                 )
-
                 self.logger.debug(f"미디어 파일 제거됨: {removed_file.original_name}")
                 return True
-
             return False
-
         except Exception as e:
             self.logger.error(f"미디어 파일 제거 실패: {e}")
             return False
@@ -245,23 +206,15 @@ class MediaDataService(IMediaDataService):
         """미디어 파일 업데이트"""
         try:
             if media_file.id in self._media_files:
-                # MediaProcessor를 사용하여 데이터 정규화
                 normalized_file = self.media_processor.normalize_media_file(media_file)
                 self._media_files[normalized_file.id] = normalized_file
-
-                # 그룹 업데이트
                 self._update_file_in_groups(normalized_file)
-
-                # 업데이트 이벤트 발행
                 self.event_bus.publish(
                     MediaDataUpdatedEvent(updated_files=[normalized_file], update_type="modified")
                 )
-
                 self.logger.debug(f"미디어 파일 업데이트됨: {normalized_file.original_name}")
                 return True
-
             return False
-
         except Exception as e:
             self.logger.error(f"미디어 파일 업데이트 실패: {e}")
             return False
@@ -283,11 +236,8 @@ class MediaDataService(IMediaDataService):
     def create_groups(self, grouping_config: MediaDataGrouping) -> UUID:
         """미디어 파일들을 그룹화"""
         operation_id = uuid4()
-
         try:
             self.logger.info(f"그룹화 시작: {grouping_config.strategy}")
-
-            # 그룹화 시작 이벤트 발행
             self.event_bus.publish(
                 MediaDataGroupingStartedEvent(
                     operation_id=operation_id,
@@ -295,15 +245,10 @@ class MediaDataService(IMediaDataService):
                     total_files=len(self._media_files),
                 )
             )
-
             self._status = MediaDataStatus.GROUPING
             start_time = time.time()
-
-            # 기존 그룹 초기화
             self._groups.clear()
             self._current_grouping = grouping_config
-
-            # MediaProcessor를 사용하여 그룹 생성
             files_to_group = self.get_all_media_files()
             strategy = (
                 grouping_config.strategy.value
@@ -311,10 +256,7 @@ class MediaDataService(IMediaDataService):
                 else str(grouping_config.strategy)
             )
             self._groups = self.media_processor.create_media_groups(files_to_group, strategy)
-
             grouping_duration = time.time() - start_time
-
-            # 그룹화 완료 이벤트 발행
             self.event_bus.publish(
                 MediaDataGroupingCompletedEvent(
                     operation_id=operation_id,
@@ -323,17 +265,13 @@ class MediaDataService(IMediaDataService):
                     statistics=self.get_statistics(),
                 )
             )
-
             self._status = MediaDataStatus.READY
             self._is_grouped = True
-
             self.logger.info(f"그룹화 완료: {len(self._groups)}개 그룹 생성")
             return operation_id
-
         except Exception as e:
             self.logger.error(f"그룹화 실패: {e}")
             self._status = MediaDataStatus.ERROR
-
             self.event_bus.publish(
                 MediaDataErrorEvent(
                     operation_id=operation_id,
@@ -342,7 +280,6 @@ class MediaDataService(IMediaDataService):
                     failed_operation=MediaDataStatus.GROUPING,
                 )
             )
-
             raise
 
     def get_groups(self) -> dict[str, MediaGroup]:
@@ -356,37 +293,26 @@ class MediaDataService(IMediaDataService):
     def apply_filters(self, filters: list[MediaDataFilter]) -> UUID:
         """필터 적용"""
         operation_id = uuid4()
-
         try:
             self.logger.info(f"필터링 시작: {len(filters)}개 필터")
-
-            # 필터링 시작 이벤트 발행
             total_items = len(self._media_files)
             self.event_bus.publish(
                 MediaDataFilteringStartedEvent(
                     operation_id=operation_id, filters=filters, total_items=total_items
                 )
             )
-
             self._status = MediaDataStatus.FILTERING
             start_time = time.time()
-
-            # MediaFilter를 사용하여 필터 적용
             self._current_filters = filters
             filtered_file_ids = self.media_filter.apply_filters(
                 list(self._media_files.values()), filters
             )
             self._filtered_files = set(filtered_file_ids)
-
-            # 필터링된 파일들과 그룹들
             filtered_files = [self._media_files[file_id] for file_id in filtered_file_ids]
             filtered_groups = self.media_filter.create_filtered_groups(
                 self._groups, self._filtered_files
             )
-
             filtering_duration = time.time() - start_time
-
-            # 필터링 완료 이벤트 발행
             self.event_bus.publish(
                 MediaDataFilteringCompletedEvent(
                     operation_id=operation_id,
@@ -397,17 +323,13 @@ class MediaDataService(IMediaDataService):
                     items_after_filter=len(filtered_files),
                 )
             )
-
             self._status = MediaDataStatus.READY
             self._is_filtered = True
-
             self.logger.info(f"필터링 완료: {total_items}개 → {len(filtered_files)}개")
             return operation_id
-
         except Exception as e:
             self.logger.error(f"필터링 실패: {e}")
             self._status = MediaDataStatus.ERROR
-
             self.event_bus.publish(
                 MediaDataErrorEvent(
                     operation_id=operation_id,
@@ -416,7 +338,6 @@ class MediaDataService(IMediaDataService):
                     failed_operation=MediaDataStatus.FILTERING,
                 )
             )
-
             raise
 
     def clear_filters(self) -> None:
@@ -424,16 +345,13 @@ class MediaDataService(IMediaDataService):
         self._filtered_files.clear()
         self._current_filters.clear()
         self._is_filtered = False
-
         self.logger.info("필터 초기화됨")
 
     def get_statistics(self) -> MediaDataStatistics:
         """통계 정보 조회"""
-        # MediaProcessor를 사용하여 통계 계산
         stats_data = self.media_processor.calculate_statistics(
             self.get_all_media_files(), self._groups
         )
-
         return MediaDataStatistics(
             total_files=stats_data["total_files"],
             total_groups=stats_data["total_groups"],
@@ -450,7 +368,6 @@ class MediaDataService(IMediaDataService):
         """모든 데이터 초기화"""
         previous_files = len(self._media_files)
         previous_groups = len(self._groups)
-
         self._media_files.clear()
         self._groups.clear()
         self._filtered_files.clear()
@@ -459,22 +376,17 @@ class MediaDataService(IMediaDataService):
         self._is_filtered = False
         self._is_grouped = False
         self._status = MediaDataStatus.READY
-
-        # 초기화 이벤트 발행
         self.event_bus.publish(
             MediaDataClearedEvent(
                 previous_file_count=previous_files, previous_group_count=previous_groups
             )
         )
-
         self.logger.info(f"데이터 초기화됨: {previous_files}개 파일, {previous_groups}개 그룹")
 
     def export_data(self, export_path: Path, format: str = "json") -> UUID:
         """데이터 내보내기"""
         operation_id = uuid4()
-
         try:
-            # 내보내기 시작 이벤트 발행
             self.event_bus.publish(
                 MediaDataExportStartedEvent(
                     operation_id=operation_id,
@@ -483,14 +395,10 @@ class MediaDataService(IMediaDataService):
                     include_statistics=True,
                 )
             )
-
-            # MediaExporter를 사용하여 데이터 내보내기
             export_result = self.media_exporter.export_data(
                 self.get_all_media_files(), self._groups, export_path, format
             )
-
             if export_result["success"]:
-                # 내보내기 완료 이벤트 발행
                 self.event_bus.publish(
                     MediaDataExportCompletedEvent(
                         operation_id=operation_id,
@@ -501,16 +409,12 @@ class MediaDataService(IMediaDataService):
                         export_duration_seconds=export_result["export_duration_seconds"],
                     )
                 )
-
                 self.logger.info(f"데이터 내보내기 완료: {export_path}")
             else:
                 raise Exception(export_result.get("error", "알 수 없는 내보내기 오류"))
-
             return operation_id
-
         except Exception as e:
             self.logger.error(f"데이터 내보내기 실패: {e}")
-
             self.event_bus.publish(
                 MediaDataErrorEvent(
                     operation_id=operation_id,
@@ -519,7 +423,6 @@ class MediaDataService(IMediaDataService):
                     failed_operation=MediaDataStatus.ERROR,
                 )
             )
-
             raise
 
     def dispose(self) -> None:
@@ -527,12 +430,9 @@ class MediaDataService(IMediaDataService):
         self.clear_data()
         self.logger.info("MediaDataService 정리 완료")
 
-    # ===== 헬퍼 메서드 =====
-
     def _remove_file_from_groups(self, file_id: UUID) -> None:
         """그룹에서 파일 제거"""
         for group in self._groups.values():
-            # episodes 딕셔너리에서 해당 파일 ID를 가진 에피소드 제거
             episodes_to_remove = [
                 ep_num for ep_num, ep_file_id in group.episodes.items() if ep_file_id == file_id
             ]
@@ -543,7 +443,6 @@ class MediaDataService(IMediaDataService):
     def _update_file_in_groups(self, media_file: MediaFile) -> None:
         """그룹 내 파일 업데이트"""
         for group in self._groups.values():
-            # episodes 딕셔너리에서 해당 파일 ID를 가진 에피소드 찾아서 업데이트
             for ep_num, ep_file_id in group.episodes.items():
                 if ep_file_id == media_file.id:
                     group.episodes[ep_num] = media_file.id

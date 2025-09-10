@@ -5,6 +5,8 @@ EventBus를 통해 UI 업데이트 이벤트를 처리하는 서비스
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from typing import Any, Protocol
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
@@ -32,35 +34,28 @@ class IUIUpdateService(Protocol):
 class UIUpdateService(QObject):
     """UI 업데이트 서비스 구현"""
 
-    # Qt 시그널 정의 (메인 스레드에서 UI 업데이트용)
-    _status_bar_update_signal = pyqtSignal(str, object)  # message, progress
-    _progress_update_signal = pyqtSignal(int, int, str)  # current, total, message
-    _file_count_update_signal = pyqtSignal(int, int, int)  # count, processed, failed
-    _memory_update_signal = pyqtSignal(float, object)  # memory_mb, cpu_percent
-    _error_message_signal = pyqtSignal(str, str, str)  # message, details, error_type
-    _success_message_signal = pyqtSignal(str, str, bool)  # message, details, auto_clear
-    _window_title_signal = pyqtSignal(str, str)  # title, subtitle
-    _menu_state_signal = pyqtSignal(str, bool, object, str)  # action_name, enabled, checked, text
+    _status_bar_update_signal = pyqtSignal(str, object)
+    _progress_update_signal = pyqtSignal(int, int, str)
+    _file_count_update_signal = pyqtSignal(int, int, int)
+    _memory_update_signal = pyqtSignal(float, object)
+    _error_message_signal = pyqtSignal(str, str, str)
+    _success_message_signal = pyqtSignal(str, str, bool)
+    _window_title_signal = pyqtSignal(str, str)
+    _menu_state_signal = pyqtSignal(str, bool, object, str)
 
     def __init__(self, event_bus: TypedEventBus, parent=None):
         super().__init__(parent)
         self.event_bus = event_bus
         self.logger = logging.getLogger(__name__)
-
-        # UI 요소 참조들
         self.main_window: QMainWindow | None = None
         self.status_bar: QStatusBar | None = None
         self.status_label: QLabel | None = None
         self.status_progress: QProgressBar | None = None
         self.status_file_count: QLabel | None = None
         self.status_memory: QLabel | None = None
-
-        # 자동 클리어용 타이머
         self.clear_timer = QTimer()
         self.clear_timer.timeout.connect(self._clear_status_message)
         self.clear_timer.setSingleShot(True)
-
-        # 이벤트 구독 설정
         self._setup_event_subscriptions()
         self._connect_signals()
 
@@ -73,21 +68,15 @@ class UIUpdateService(QObject):
     def dispose(self) -> None:
         """서비스 정리"""
         try:
-            # 타이머 정리
             if self.clear_timer.isActive():
                 self.clear_timer.stop()
-
-            # 이벤트 구독 해제
             self._unsubscribe_events()
-
-            # 참조 해제
             self.main_window = None
             self.status_bar = None
             self.status_label = None
             self.status_progress = None
             self.status_file_count = None
             self.status_memory = None
-
             self.logger.debug("UIUpdateService 정리 완료")
         except Exception as e:
             self.logger.error(f"UIUpdateService 정리 실패: {e}")
@@ -96,18 +85,12 @@ class UIUpdateService(QObject):
         """UI 요소 참조 설정"""
         if not self.main_window:
             return
-
-        # 상태바 관련 요소들 찾기
         self.status_bar = self.main_window.statusBar()
-
-        # 상태바의 자식 위젯들 찾기
         if self.status_bar:
             for child in self.status_bar.children():
                 if isinstance(child, QLabel):
-                    # 첫 번째 QLabel을 상태 메시지용으로 사용
                     if self.status_label is None:
                         self.status_label = child
-                    # 이름으로 구분하여 다른 라벨들 찾기
                     elif hasattr(child, "objectName"):
                         name = child.objectName()
                         if "file" in name.lower() or "count" in name.lower():
@@ -119,7 +102,6 @@ class UIUpdateService(QObject):
 
     def _setup_event_subscriptions(self) -> None:
         """이벤트 구독 설정"""
-        # UI 업데이트 이벤트들 구독
         self.event_bus.subscribe(StatusBarUpdateEvent, self._on_status_bar_update, weak_ref=False)
         self.event_bus.subscribe(ProgressUpdateEvent, self._on_progress_update, weak_ref=False)
         self.event_bus.subscribe(FileCountUpdateEvent, self._on_file_count_update, weak_ref=False)
@@ -133,8 +115,6 @@ class UIUpdateService(QObject):
 
     def _unsubscribe_events(self) -> None:
         """이벤트 구독 해제"""
-        # EventBus가 자동으로 약한 참조 정리를 하므로 explicit unsubscribe는 생략
-        # dispose시에는 weak_ref=False로 등록했으므로 수동 해제 필요할 수 있음
 
     def _connect_signals(self) -> None:
         """Qt 시그널 연결"""
@@ -147,13 +127,9 @@ class UIUpdateService(QObject):
         self._window_title_signal.connect(self._handle_window_title_update)
         self._menu_state_signal.connect(self._handle_menu_state_update)
 
-    # === 이벤트 핸들러들 ===
-
     def _on_status_bar_update(self, event: StatusBarUpdateEvent) -> None:
         """상태바 업데이트 이벤트 처리"""
         self._status_bar_update_signal.emit(event.message, event.progress)
-
-        # 자동 클리어 설정
         if event.clear_after and event.clear_after > 0:
             self.clear_timer.start(int(event.clear_after * 1000))
 
@@ -190,13 +166,10 @@ class UIUpdateService(QObject):
         text = event.text or ""
         self._menu_state_signal.emit(event.action_name, event.enabled, event.checked, text)
 
-    # === Qt 시그널 핸들러들 (메인 스레드에서 실행) ===
-
     def _handle_status_bar_update(self, message: str, progress: Any) -> None:
         """상태바 업데이트 처리 (메인 스레드)"""
         if self.status_label:
             self.status_label.setText(message)
-
         if progress is not None and self.status_progress:
             self.status_progress.setValue(int(progress))
 
@@ -204,11 +177,10 @@ class UIUpdateService(QObject):
         """진행률 업데이트 처리 (메인 스레드)"""
         if self.status_progress:
             if total > 0:
-                percentage = int((current / total) * 100)
+                percentage = int(current / total * 100)
                 self.status_progress.setValue(percentage)
             else:
                 self.status_progress.setValue(0)
-
         if message and self.status_label:
             progress_text = f"{message} ({current}/{total})" if total > 0 else message
             self.status_label.setText(progress_text)
@@ -240,14 +212,10 @@ class UIUpdateService(QObject):
                 prefix = "ℹ️ "
             else:
                 prefix = "❌ "
-
             display_message = f"{prefix}{message}"
             if details:
                 display_message += f": {details}"
-
             self.status_label.setText(display_message)
-
-        # 로그에도 기록
         if error_type == "warning":
             self.logger.warning(f"{message}: {details}")
         elif error_type == "info":
@@ -262,11 +230,8 @@ class UIUpdateService(QObject):
             if details:
                 display_message += f": {details}"
             self.status_label.setText(display_message)
-
-        # 자동 클리어
         if auto_clear:
-            self.clear_timer.start(3000)  # 3초 후 클리어
-
+            self.clear_timer.start(3000)
         self.logger.info(f"{message}: {details}")
 
     def _handle_window_title_update(self, title: str, subtitle: str) -> None:
@@ -279,7 +244,6 @@ class UIUpdateService(QObject):
         self, action_name: str, enabled: bool, checked: Any, text: str
     ) -> None:
         """메뉴 상태 업데이트 처리 (메인 스레드)"""
-        # MainWindow에서 메뉴 액션을 찾아서 업데이트
         if self.main_window:
             action = self.main_window.findChild(QObject, action_name)
             if action and hasattr(action, "setEnabled"):

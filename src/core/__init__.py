@@ -8,7 +8,9 @@ Core 모듈 - 핵심 기능 구현
 - 설정 관리
 """
 
-# Legacy FileManager import removed - using UnifiedFileOrganizationService instead
+import logging
+
+logger = logging.getLogger(__name__)
 from .file_parser import FileParser, ParsedMetadata
 from .tmdb_client import TMDBAnimeInfo, TMDBClient
 from .tmdb_models import TMDBAnimeInfo as TMDBAnimeInfoModel
@@ -21,7 +23,6 @@ __all__ = [
     "ParsedMetadata",
     "TMDBClient",
     "TMDBAnimeInfo",
-    # "FileManager",  # Legacy - using UnifiedFileOrganizationService instead
     "FileOperationResult",
     "unified_config_manager",
     "VideoMetadataExtractor",

@@ -5,6 +5,8 @@ TMDB 검색 통계 모듈
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -20,13 +22,9 @@ class SearchStatisticsCollector:
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-
-        # 검색 통계 데이터
         self._search_history: list[dict[str, Any]] = []
         self._match_history: list[dict[str, Any]] = []
         self._performance_metrics: dict[str, list[float]] = defaultdict(list)
-
-        # 실시간 통계
         self._current_stats = {
             "total_searches": 0,
             "successful_searches": 0,
@@ -55,10 +53,8 @@ class SearchStatisticsCollector:
                 "duration": 0.0,
                 "error": None,
             }
-
             self._search_history.append(search_record)
             self._current_stats["total_searches"] += 1
-
         except Exception as e:
             self.logger.error(f"검색 시작 기록 실패: {e}")
 
@@ -71,44 +67,33 @@ class SearchStatisticsCollector:
     ) -> None:
         """검색 완료 기록"""
         try:
-            # 해당 검색 기록 찾기
             for record in self._search_history:
                 if record["search_id"] == search_id:
                     record["status"] = status.value
                     record["results_count"] = results_count
                     record["error"] = error
-
-                    # 성공/실패 통계 업데이트
                     if status == TMDBSearchStatus.COMPLETED:
                         self._current_stats["successful_searches"] += 1
                     elif status == TMDBSearchStatus.FAILED:
                         self._current_stats["failed_searches"] += 1
-
-                    # 성능 메트릭 기록
                     if record["start_time"]:
                         duration = time.time() - record["start_time"]
                         record["duration"] = duration
                         self._performance_metrics["search_duration"].append(duration)
-
                     break
-
         except Exception as e:
             self.logger.error(f"검색 완료 기록 실패: {e}")
 
     def record_match_result(self, search_id: str, match: TMDBMatch | None) -> None:
         """매칭 결과 기록"""
         try:
-            # 검색 기록에 매칭 정보 추가
             for record in self._search_history:
                 if record["search_id"] == search_id:
                     if match:
                         record["match_found"] = True
                         record["confidence"] = match.confidence.value
                         record["score"] = match.confidence_score
-
-                        # 매칭 통계 업데이트
                         self._current_stats["total_matches"] += 1
-
                         if match.confidence == TMDBMatchConfidence.HIGH:
                             self._current_stats["high_confidence_matches"] += 1
                         elif match.confidence == TMDBMatchConfidence.MEDIUM:
@@ -122,49 +107,38 @@ class SearchStatisticsCollector:
                         record["confidence"] = TMDBMatchConfidence.UNCERTAIN.value
                         record["score"] = 0.0
                     break
-
-            # 매칭 히스토리에 추가
             if match:
                 match_record = {
                     "search_id": search_id,
                     "timestamp": time.time(),
                     "datetime": datetime.now(),
-                    "group_id": str(
-                        match.search_result.tmdb_id
-                    ),  # group_id는 없으므로 tmdb_id 사용
+                    "group_id": str(match.search_result.tmdb_id),
                     "tmdb_id": match.search_result.tmdb_id,
                     "title": match.search_result.title,
                     "confidence": match.confidence.value,
                     "score": match.confidence_score,
                 }
                 self._match_history.append(match_record)
-
         except Exception as e:
             self.logger.error(f"매칭 결과 기록 실패: {e}")
 
     def get_current_statistics(self) -> TMDBSearchStatistics:
         """현재 통계 정보 반환"""
         try:
-            # 성능 메트릭 계산
             avg_search_duration = 0.0
             if self._performance_metrics["search_duration"]:
                 avg_search_duration = sum(self._performance_metrics["search_duration"]) / len(
                     self._performance_metrics["search_duration"]
                 )
-
-            # 성공률과 매칭 성공률은 현재 TMDBSearchStatistics에 포함되지 않음
-            # 필요시 향후 추가 가능
-
             return TMDBSearchStatistics(
                 total_searches=self._current_stats["total_searches"],
                 successful_searches=self._current_stats["successful_searches"],
                 failed_searches=self._current_stats["failed_searches"],
                 cached_results=self._current_stats.get("cached_results", 0),
                 api_calls_count=self._current_stats.get("api_calls_count", 0),
-                average_search_time_ms=avg_search_duration * 1000,  # 초를 밀리초로 변환
+                average_search_time_ms=avg_search_duration * 1000,
                 cache_hit_rate=self._current_stats.get("cache_hit_rate", 0.0),
             )
-
         except Exception as e:
             self.logger.error(f"통계 정보 생성 실패: {e}")
             return TMDBSearchStatistics()
@@ -174,17 +148,14 @@ class SearchStatisticsCollector:
     ) -> list[dict[str, Any]]:
         """검색 히스토리 반환"""
         try:
-            cutoff_time = time.time() - (days * 24 * 3600)
-
+            cutoff_time = time.time() - days * 24 * 3600
             filtered_history = []
             for record in self._search_history:
                 if record["start_time"] >= cutoff_time and (
                     search_type is None or record["search_type"] == search_type.value
                 ):
                     filtered_history.append(record.copy())
-
             return filtered_history
-
         except Exception as e:
             self.logger.error(f"검색 히스토리 조회 실패: {e}")
             return []
@@ -194,17 +165,14 @@ class SearchStatisticsCollector:
     ) -> list[dict[str, Any]]:
         """매칭 히스토리 반환"""
         try:
-            cutoff_time = time.time() - (days * 24 * 3600)
-
+            cutoff_time = time.time() - days * 24 * 3600
             filtered_history = []
             for record in self._match_history:
                 if record["timestamp"] >= cutoff_time and (
                     min_confidence is None or record["confidence"] >= min_confidence.value
                 ):
                     filtered_history.append(record.copy())
-
             return filtered_history
-
         except Exception as e:
             self.logger.error(f"매칭 히스토리 조회 실패: {e}")
             return []
@@ -214,19 +182,16 @@ class SearchStatisticsCollector:
         try:
             if metric_name not in self._performance_metrics:
                 return {"error": f"Unknown metric: {metric_name}"}
-
             values = self._performance_metrics[metric_name]
             if not values:
                 return {"count": 0, "average": 0.0, "min": 0.0, "max": 0.0}
-
             return {
                 "count": len(values),
                 "average": sum(values) / len(values),
                 "min": min(values),
                 "max": max(values),
-                "recent_values": values[-10:],  # 최근 10개 값
+                "recent_values": values[-10:],
             }
-
         except Exception as e:
             self.logger.error(f"성능 메트릭 조회 실패: {e}")
             return {"error": str(e)}
@@ -244,36 +209,28 @@ class SearchStatisticsCollector:
                     "matches_found": 0,
                 }
             )
-
             for record in self._search_history:
                 search_type = record["search_type"]
                 type_stats[search_type]["count"] += 1
-
                 if record["status"] == TMDBSearchStatus.COMPLETED.value:
                     type_stats[search_type]["successful"] += 1
                 elif record["status"] == TMDBSearchStatus.FAILED.value:
                     type_stats[search_type]["failed"] += 1
-
                 type_stats[search_type]["total_duration"] += record.get("duration", 0.0)
                 type_stats[search_type]["total_results"] += record.get("results_count", 0)
-
                 if record.get("match_found", False):
                     type_stats[search_type]["matches_found"] += 1
-
-            # 평균 계산
             for stats in type_stats.values():
                 if stats["count"] > 0:
-                    stats["success_rate"] = (stats["successful"] / stats["count"]) * 100
+                    stats["success_rate"] = stats["successful"] / stats["count"] * 100
                     stats["average_duration"] = stats["total_duration"] / stats["count"]
                     stats["average_results"] = stats["total_results"] / stats["count"]
                     stats["match_rate"] = (
-                        (stats["matches_found"] / stats["successful"]) * 100
+                        stats["matches_found"] / stats["successful"] * 100
                         if stats["successful"] > 0
                         else 0.0
                     )
-
             return dict(type_stats)
-
         except Exception as e:
             self.logger.error(f"검색 타입별 통계 생성 실패: {e}")
             return {}
@@ -281,16 +238,13 @@ class SearchStatisticsCollector:
     def get_confidence_distribution(self, days: int = 7) -> dict[str, int]:
         """신뢰도 분포 통계"""
         try:
-            cutoff_time = time.time() - (days * 24 * 3600)
-
+            cutoff_time = time.time() - days * 24 * 3600
             confidence_dist: dict[str, int] = defaultdict(int)
             for record in self._match_history:
                 if record["timestamp"] >= cutoff_time:
                     confidence = record["confidence"]
                     confidence_dist[confidence] += 1
-
             return dict(confidence_dist)
-
         except Exception as e:
             self.logger.error(f"신뢰도 분포 통계 생성 실패: {e}")
             return {}
@@ -298,10 +252,8 @@ class SearchStatisticsCollector:
     def get_score_distribution(self, days: int = 7) -> dict[str, int]:
         """점수 분포 통계"""
         try:
-            cutoff_time = time.time() - (days * 24 * 3600)
-
+            cutoff_time = time.time() - days * 24 * 3600
             score_dist = {"0.0-0.3": 0, "0.3-0.5": 0, "0.5-0.7": 0, "0.7-0.9": 0, "0.9-1.0": 0}
-
             for record in self._match_history:
                 if record["timestamp"] >= cutoff_time:
                     score = record["score"]
@@ -315,9 +267,7 @@ class SearchStatisticsCollector:
                         score_dist["0.7-0.9"] += 1
                     else:
                         score_dist["0.9-1.0"] += 1
-
             return score_dist
-
         except Exception as e:
             self.logger.error(f"점수 분포 통계 생성 실패: {e}")
             return {}
@@ -325,34 +275,25 @@ class SearchStatisticsCollector:
     def clear_old_data(self, days: int = 30) -> int:
         """오래된 데이터 정리"""
         try:
-            cutoff_time = time.time() - (days * 24 * 3600)
-
-            # 검색 히스토리 정리
+            cutoff_time = time.time() - days * 24 * 3600
             initial_search_count = len(self._search_history)
             self._search_history = [
                 r for r in self._search_history if r["start_time"] >= cutoff_time
             ]
             search_cleaned = initial_search_count - len(self._search_history)
-
-            # 매칭 히스토리 정리
             initial_match_count = len(self._match_history)
             self._match_history = [r for r in self._match_history if r["timestamp"] >= cutoff_time]
             match_cleaned = initial_match_count - len(self._match_history)
-
-            # 성능 메트릭 정리 (최근 100개만 유지)
             for metric_name in self._performance_metrics:
                 if len(self._performance_metrics[metric_name]) > 100:
                     self._performance_metrics[metric_name] = self._performance_metrics[metric_name][
                         -100:
                     ]
-
             total_cleaned = search_cleaned + match_cleaned
             self.logger.info(
                 f"오래된 데이터 정리 완료: 검색 {search_cleaned}개, 매칭 {match_cleaned}개"
             )
-
             return total_cleaned
-
         except Exception as e:
             self.logger.error(f"오래된 데이터 정리 실패: {e}")
             return 0
@@ -363,13 +304,9 @@ class SearchStatisticsCollector:
             self._search_history.clear()
             self._match_history.clear()
             self._performance_metrics.clear()
-
-            # 현재 통계 초기화
             for key in self._current_stats:
                 self._current_stats[key] = 0
-
             self.logger.info("검색 통계가 초기화되었습니다.")
-
         except Exception as e:
             self.logger.error(f"통계 초기화 실패: {e}")
 
@@ -398,7 +335,6 @@ class SearchStatisticsCollector:
                     ),
                 },
             }
-
         except Exception as e:
             self.logger.error(f"통계 데이터 내보내기 실패: {e}")
             return {"error": str(e)}

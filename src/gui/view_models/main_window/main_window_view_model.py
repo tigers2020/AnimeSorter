@@ -5,6 +5,7 @@ MainWindow ViewModel - Phase 3.1 뷰모델 분할
 
 import logging
 
+logger = logging.getLogger(__name__)
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
 from src.app import (ErrorMessageEvent, FileCountUpdateEvent,
@@ -22,7 +23,6 @@ from .application_state import ApplicationState, UICapabilities
 class MainWindowViewModel(QObject):
     """메인 윈도우 ViewModel"""
 
-    # 시그널
     state_changed = pyqtSignal()
     capabilities_changed = pyqtSignal()
     status_message_changed = pyqtSignal(str)
@@ -32,34 +32,23 @@ class MainWindowViewModel(QObject):
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(__name__)
-
-        # 상태 초기화
         self._state = ApplicationState()
         self._capabilities = UICapabilities.from_app_state(self._state)
-
-        # 서비스 및 이벤트 버스
         self.event_bus: TypedEventBus = get_event_bus()
         self.file_scan_service: IFileScanService = get_service(IFileScanService)
         self.ui_update_service: IUIUpdateService = get_service(IUIUpdateService)
         self.background_task_service: IBackgroundTaskService = get_service(IBackgroundTaskService)
-
-        # 이벤트 연결
         self._connect_events()
 
     def _connect_events(self):
         """이벤트 연결 설정"""
-        # 스캔 관련 이벤트
         self.event_bus.subscribe(FilesScannedEvent, self._on_files_scanned)
         self.event_bus.subscribe(FileCountUpdateEvent, self._on_file_count_updated)
-
-        # 작업 관련 이벤트
         self.event_bus.subscribe(TaskStartedEvent, self._on_task_started)
         self.event_bus.subscribe(TaskProgressEvent, self._on_task_progress)
         self.event_bus.subscribe(TaskCompletedEvent, self._on_task_completed)
         self.event_bus.subscribe(TaskFailedEvent, self._on_task_failed)
         self.event_bus.subscribe(TaskCancelledEvent, self._on_task_cancelled)
-
-        # UI 관련 이벤트
         self.event_bus.subscribe(StatusBarUpdateEvent, self._on_status_bar_update)
         self.event_bus.subscribe(SuccessMessageEvent, self._on_success_message)
         self.event_bus.subscribe(ErrorMessageEvent, self._on_error_message)
@@ -68,7 +57,6 @@ class MainWindowViewModel(QObject):
         self.event_bus.subscribe(MenuStateUpdateEvent, self._on_menu_state_update)
         self.event_bus.subscribe(TableDataUpdateEvent, self._on_table_data_update)
 
-    # 상태 속성들
     @pyqtProperty(bool, notify=state_changed)
     def is_scanning(self) -> bool:
         return self._state.is_scanning
@@ -109,7 +97,6 @@ class MainWindowViewModel(QObject):
     def tmdb_progress(self) -> int:
         return self._state.tmdb_progress
 
-    # UI 기능 속성들
     @pyqtProperty(bool, notify=capabilities_changed)
     def can_start_scan(self) -> bool:
         return self._capabilities.can_start_scan
@@ -130,7 +117,6 @@ class MainWindowViewModel(QObject):
     def can_clear_results(self) -> bool:
         return self._capabilities.can_clear_results
 
-    # 이벤트 핸들러들
     def _on_files_scanned(self, event: FilesScannedEvent):
         """파일 스캔 완료 이벤트 처리"""
         self._state.has_scanned_files = True
@@ -153,7 +139,6 @@ class MainWindowViewModel(QObject):
             self._state.is_organizing = True
         elif event.task_type == "tmdb_search":
             self._state.is_searching_tmdb = True
-
         self._update_capabilities()
         self.state_changed.emit()
 
@@ -165,7 +150,6 @@ class MainWindowViewModel(QObject):
             self._state.organize_progress = event.progress
         elif event.task_type == "tmdb_search":
             self._state.tmdb_progress = event.progress
-
         self.progress_changed.emit(event.task_type, event.progress)
 
     def _on_task_completed(self, event: TaskCompletedEvent):
@@ -180,7 +164,6 @@ class MainWindowViewModel(QObject):
         elif event.task_type == "tmdb_search":
             self._state.is_searching_tmdb = False
             self._state.tmdb_progress = 100
-
         self._update_capabilities()
         self.state_changed.emit()
 
@@ -193,7 +176,6 @@ class MainWindowViewModel(QObject):
             self._state.is_organizing = False
         elif event.task_type == "tmdb_search":
             self._state.is_searching_tmdb = False
-
         self._state.last_error = event.error_message
         self._update_capabilities()
         self.state_changed.emit()
@@ -208,7 +190,6 @@ class MainWindowViewModel(QObject):
             self._state.is_organizing = False
         elif event.task_type == "tmdb_search":
             self._state.is_searching_tmdb = False
-
         self._update_capabilities()
         self.state_changed.emit()
 
@@ -232,35 +213,28 @@ class MainWindowViewModel(QObject):
 
     def _on_window_title_update(self, event: WindowTitleUpdateEvent):
         """윈도우 제목 업데이트 이벤트 처리"""
-        # 윈도우 제목은 View에서 직접 처리
 
     def _on_ui_state_update(self, event: UIStateUpdateEvent):
         """UI 상태 업데이트 이벤트 처리"""
-        # UI 상태는 View에서 직접 처리
 
     def _on_menu_state_update(self, event: MenuStateUpdateEvent):
         """메뉴 상태 업데이트 이벤트 처리"""
-        # 메뉴 상태는 View에서 직접 처리
 
     def _on_table_data_update(self, event: TableDataUpdateEvent):
         """테이블 데이터 업데이트 이벤트 처리"""
-        # 테이블 데이터는 View에서 직접 처리
 
     def _update_capabilities(self):
         """UI 기능 상태 업데이트"""
         old_capabilities = self._capabilities
         self._capabilities = UICapabilities.from_app_state(self._state)
-
         if old_capabilities != self._capabilities:
             self.capabilities_changed.emit()
 
-    # 공개 메서드들
     def start_scan(self, directory_path: str):
         """스캔 시작"""
         if not self.can_start_scan:
             self.logger.warning("스캔을 시작할 수 없습니다")
             return
-
         try:
             self.file_scan_service.scan_directory(directory_path)
         except Exception as e:
@@ -272,7 +246,6 @@ class MainWindowViewModel(QObject):
         if not self.can_stop_scan:
             self.logger.warning("스캔을 중지할 수 없습니다")
             return
-
         try:
             if self._state.current_scan_id:
                 self.background_task_service.cancel_task(self._state.current_scan_id)
@@ -285,7 +258,6 @@ class MainWindowViewModel(QObject):
         if not self.can_clear_results:
             self.logger.warning("결과를 초기화할 수 없습니다")
             return
-
         self._state.has_scanned_files = False
         self._state.has_grouped_files = False
         self._state.has_tmdb_matches = False
@@ -294,7 +266,6 @@ class MainWindowViewModel(QObject):
         self._state.scan_progress = 0
         self._state.organize_progress = 0
         self._state.tmdb_progress = 0
-
         self._update_capabilities()
         self.state_changed.emit()
 

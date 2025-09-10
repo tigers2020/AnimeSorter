@@ -4,6 +4,9 @@
 검사 시작, 완료, 문제 발견 등의 이벤트 정의
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID
@@ -18,7 +21,7 @@ class PreflightStartedEvent(BaseEvent):
     """프리플라이트 검사 시작 이벤트"""
 
     check_id: UUID = field(default_factory=lambda: UUID("00000000-0000-0000-0000-000000000000"))
-    operation_type: str = ""  # "single" or "batch"
+    operation_type: str = ""
     source_path: Path | None = None
     destination_path: Path | None = None
     total_operations: int = 0
@@ -45,7 +48,7 @@ class PreflightIssueFoundEvent(BaseEvent):
     check_id: UUID = field(default_factory=lambda: UUID("00000000-0000-0000-0000-000000000000"))
     checker_name: str = ""
     issue: PreflightIssue | None = None
-    severity: str = ""  # PreflightSeverity.value
+    severity: str = ""
     title: str = ""
     description: str = ""
     affected_files: list[Path] = field(default_factory=list)
@@ -107,7 +110,7 @@ class PreflightUserDecisionEvent(BaseEvent):
     """프리플라이트 검사 후 사용자 결정 이벤트"""
 
     check_id: UUID = field(default_factory=lambda: UUID("00000000-0000-0000-0000-000000000000"))
-    decision: str = ""  # "proceed", "cancel", "modify"
+    decision: str = ""
     proceed_with_warnings: bool = False
     ignored_warnings: list[str] = field(default_factory=list)
     user_notes: str = ""
@@ -119,5 +122,5 @@ class PreflightSettingsChangedEvent(BaseEvent):
 
     enabled_checkers: list[str] = field(default_factory=list)
     disabled_checkers: list[str] = field(default_factory=list)
-    severity_overrides: dict = field(default_factory=dict)  # checker_name -> severity
+    severity_overrides: dict = field(default_factory=dict)
     auto_proceed_on_warnings: bool = False

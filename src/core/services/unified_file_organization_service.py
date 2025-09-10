@@ -7,16 +7,16 @@ for file operations.
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import shutil
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
-from src.app.file_processing_events import (FileOperationType,
-                                            FileProcessingProgressEvent,
+from src.app.file_processing_events import (FileProcessingProgressEvent,
                                             calculate_processing_speed,
                                             calculate_progress_percentage,
                                             estimate_remaining_time)
@@ -25,6 +25,7 @@ from src.core.backup.backup_manager import (BackupPolicy,
 from src.core.commands.file_operation_commands import (
     BatchFileOperationCommand, FileOperationCommand,
     FileOperationCommandInvoker)
+from src.core.config.file_organization_config import FileOrganizationConfig
 from src.core.file_parser import FileParser
 from src.core.file_validation import FileValidator
 from src.core.interfaces.file_organization_interface import (
@@ -33,64 +34,6 @@ from src.core.interfaces.file_organization_interface import (
     IFileOperationExecutor, IFileOrganizationService, IFileScanner)
 from src.core.strategies.file_naming_strategies import (NamingConfig,
                                                         NamingStrategyFactory)
-
-
-@dataclass
-class FileOrganizationConfig:
-    """Configuration for file organization operations"""
-
-    safe_mode: bool = True
-    backup_before_operation: bool = True
-    overwrite_existing: bool = False
-    create_directories: bool = True
-    max_path_length: int = 260
-    min_file_size: int = 1024 * 1024  # 1MB
-    video_extensions: set[str] = None
-    subtitle_extensions: set[str] = None
-    naming_strategy: str = "standard"
-    naming_config: NamingConfig = None
-    backup_policy: BackupPolicy = None
-
-    # Enhanced unique filename generation settings
-    max_unique_filename_attempts: int = 1000  # Maximum attempts for unique filename generation
-    enable_timestamp_fallback: bool = True  # Enable timestamp fallback for unique names
-
-    def __post_init__(self):
-        if self.video_extensions is None:
-            self.video_extensions = {
-                ".mkv",
-                ".mp4",
-                ".avi",
-                ".mov",
-                ".wmv",
-                ".flv",
-                ".webm",
-                ".m4v",
-                ".mpg",
-                ".mpeg",
-                ".ts",
-                ".m2ts",
-            }
-        if self.subtitle_extensions is None:
-            self.subtitle_extensions = {
-                ".srt",
-                ".ass",
-                ".ssa",
-                ".sub",
-                ".vtt",
-                ".idx",
-                ".smi",
-                ".sami",
-                ".txt",
-            }
-        if self.naming_config is None:
-            self.naming_config = NamingConfig()
-        if self.backup_policy is None:
-            self.backup_policy = BackupPolicy()
-
-        # Apply enhanced unique filename generation settings to naming config
-        self.naming_config.max_unique_attempts = self.max_unique_filename_attempts
-        self.naming_config.enable_timestamp_fallback = self.enable_timestamp_fallback
 
 
 class UnifiedFileScanner(IFileScanner):
@@ -107,20 +50,13 @@ class UnifiedFileScanner(IFileScanner):
         start_time = time.time()
         files_found = []
         errors = []
-
         try:
             if not directory_path.exists():
                 errors.append(f"Directory does not exist: {directory_path}")
                 return FileScanResult(files_found, 0, 0, errors)
-
             if file_extensions is None:
                 file_extensions = self.config.video_extensions
-
-            if recursive:
-                pattern = "**/*"
-            else:
-                pattern = "*"
-
+            pattern = "**/*" if recursive else "*"
             total_size = 0
             for file_path in directory_path.glob(pattern):
                 if file_path.is_file() and file_path.suffix.lower() in file_extensions:
@@ -131,14 +67,11 @@ class UnifiedFileScanner(IFileScanner):
                             total_size += file_size
                     except OSError as e:
                         errors.append(f"Cannot access {file_path}: {e}")
-
             scan_duration = time.time() - start_time
             self.logger.info(
                 f"Directory scan completed: {len(files_found)} files found in {scan_duration:.2f}s"
             )
-
             return FileScanResult(files_found, total_size, scan_duration, errors)
-
         except Exception as e:
             errors.append(f"Scan failed: {e}")
             self.logger.error(f"Directory scan failed: {e}")
@@ -149,21 +82,12 @@ class UnifiedFileScanner(IFileScanner):
         try:
             if not file_path.exists():
                 return False
-
             if not file_path.is_file():
                 return False
-
-            # Check file size
             file_size = file_path.stat().st_size
             if file_size < self.config.min_file_size:
                 return False
-
-            # Check path length
-            if len(str(file_path)) > self.config.max_path_length:
-                return False
-
-            return True
-
+            return len(str(file_path)) <= self.config.max_path_length
         except Exception as e:
             self.logger.error(f"File validation failed for {file_path}: {e}")
             return False
@@ -181,28 +105,18 @@ class StandardFileNamingStrategy(IFileNamingStrategy):
     ) -> Path:
         """Generate target path based on naming strategy"""
         try:
-            # Extract metadata
             title = metadata.get("title", "Unknown")
             season = metadata.get("season", 1)
             episode = metadata.get("episode", 1)
             resolution = metadata.get("resolution", "")
-
-            # Sanitize title
             safe_title = self._sanitize_filename(title)
-
-            # Create directory structure
             season_folder = f"Season{season:02d}"
             target_dir = destination_root / safe_title / season_folder
-
-            # Generate filename
             filename = f"{safe_title} - S{season:02d}E{episode:02d}"
             if resolution and resolution != "Unknown":
                 filename += f" [{resolution}]"
-
             filename += source_path.suffix
-
             return target_dir / filename
-
         except Exception as e:
             self.logger.error(f"Target path generation failed: {e}")
             return destination_root / source_path.name
@@ -211,14 +125,12 @@ class StandardFileNamingStrategy(IFileNamingStrategy):
         """Resolve file naming conflicts"""
         if not target_path.exists():
             return target_path
-
-        if resolution == FileConflictResolution.SKIP:
+        if (
+            resolution == FileConflictResolution.SKIP
+            or resolution == FileConflictResolution.OVERWRITE
+        ):
             return target_path
-
-        elif resolution == FileConflictResolution.OVERWRITE:
-            return target_path
-
-        elif resolution == FileConflictResolution.RENAME:
+        if resolution == FileConflictResolution.RENAME:
             counter = 1
             while True:
                 stem = target_path.stem
@@ -228,9 +140,7 @@ class StandardFileNamingStrategy(IFileNamingStrategy):
                 if not new_path.exists():
                     return new_path
                 counter += 1
-
         elif resolution == FileConflictResolution.BACKUP_AND_OVERWRITE:
-            # Create backup first
             backup_path = target_path.with_suffix(f"{target_path.suffix}.backup_{int(time.time())}")
             try:
                 shutil.copy2(target_path, backup_path)
@@ -238,24 +148,18 @@ class StandardFileNamingStrategy(IFileNamingStrategy):
             except Exception as e:
                 self.logger.error(f"Backup creation failed: {e}")
             return target_path
-
         return target_path
 
     def _sanitize_filename(self, filename: str) -> str:
         """Sanitize filename for filesystem compatibility"""
         invalid_chars = ["<", ">", ":", '"', "/", "\\", "|", "?", "*"]
         sanitized = filename
-
         for char in invalid_chars:
             sanitized = sanitized.replace(char, "_")
-
-        # Normalize whitespace
         sanitized = " ".join(sanitized.split())
         sanitized = sanitized.strip()
-
         if not sanitized:
             sanitized = "Unknown"
-
         return sanitized
 
 
@@ -267,10 +171,12 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
         config: FileOrganizationConfig,
         logger: logging.Logger,
         naming_strategy: IFileNamingStrategy,
+        service=None,
     ):
         self.config = config
         self.logger = logger
         self.naming_strategy = naming_strategy
+        self.service = service
         self.operation_id = uuid4()
         self.start_time = None
         self.processed_bytes = 0
@@ -282,41 +188,29 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
     def execute_operation(self, plan: FileOperationPlan) -> FileOperationResult:
         """Execute a single file operation"""
         start_time = time.time()
-
         try:
-            # Validate source file
             if not plan.source_path.exists():
                 return FileOperationResult(
                     success=False,
                     source_path=plan.source_path,
-                    target_path=plan.target_path,
+                    destination_path=plan.target_path,
                     operation_type=plan.operation_type,
                     error_message="Source file does not exist",
                 )
-
-            # Create target directory if needed
             if self.config.create_directories:
                 plan.target_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Handle conflicts - use rename strategy instead of failing
-            if plan.target_path.exists():
-                if not self.config.overwrite_existing:
-                    # Resolve conflict by renaming
-                    plan.target_path = self.naming_strategy.resolve_conflict(
-                        plan.target_path, FileConflictResolution.RENAME
-                    )
-                    print(f"🔍 해상도 추출 시도: {plan.source_path.name}")
-                    print(f"  ✅ 패턴 매칭: (충돌 해결) -> {plan.target_path.name}")
-
-            # Create backup if needed
+            if plan.target_path.exists() and not self.config.overwrite_existing:
+                plan.target_path = self.naming_strategy.resolve_conflict(
+                    plan.target_path, FileConflictResolution.RENAME
+                )
+                logger.info("🔍 해상도 추출 시도: %s", plan.source_path.name)
+                logger.info("  ✅ 패턴 매칭: (충돌 해결) -> %s", plan.target_path.name)
             backup_path = None
             if self.config.backup_before_operation and plan.target_path.exists():
                 backup_path = plan.target_path.with_suffix(
                     f"{plan.target_path.suffix}.backup_{int(time.time())}"
                 )
                 shutil.copy2(plan.target_path, backup_path)
-
-            # Execute operation
             if plan.operation_type == FileOperationType.COPY:
                 shutil.copy2(plan.source_path, plan.target_path)
             elif plan.operation_type == FileOperationType.MOVE:
@@ -326,32 +220,31 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
             else:
                 raise ValueError(f"Unsupported operation type: {plan.operation_type}")
 
-            # Get actual file size
+            # 자막 파일도 함께 처리 (UnifiedFileOrganizationService의 메서드 호출)
+            if hasattr(self, "service") and hasattr(self.service, "_process_subtitle_files"):
+                self.service._process_subtitle_files(plan.source_path, plan.target_path)
+
             actual_size = plan.target_path.stat().st_size if plan.target_path.exists() else 0
             processing_time = time.time() - start_time
-
             self.logger.info(
                 f"File operation completed: {plan.source_path.name} -> {plan.target_path.name}"
             )
-
             return FileOperationResult(
                 success=True,
                 source_path=plan.source_path,
-                target_path=plan.target_path,
+                destination_path=plan.target_path,
                 operation_type=plan.operation_type,
                 backup_path=backup_path,
-                actual_size=actual_size,
+                file_size=actual_size,
                 processing_time=processing_time,
             )
-
         except Exception as e:
             processing_time = time.time() - start_time
             self.logger.error(f"File operation failed: {e}")
-
             return FileOperationResult(
                 success=False,
                 source_path=plan.source_path,
-                target_path=plan.target_path,
+                destination_path=plan.target_path,
                 operation_type=plan.operation_type,
                 error_message=str(e),
                 processing_time=processing_time,
@@ -360,8 +253,8 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
     def execute_batch_operations(
         self,
         plans: list[FileOperationPlan],
-        progress_callback: Optional[Callable[[int, int], None]] = None,
-        detailed_progress_callback: Optional[Callable[[FileProcessingProgressEvent], None]] = None,
+        progress_callback: Callable[[int, int], None] | None = None,
+        detailed_progress_callback: Callable[[FileProcessingProgressEvent], None] | None = None,
     ) -> list[FileOperationResult]:
         """Execute multiple file operations in batch with detailed progress tracking"""
         self.operation_id = uuid4()
@@ -371,20 +264,15 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
         self.success_count = 0
         self.error_count = 0
         self.skip_count = 0
-
         results = []
         total_plans = len(plans)
-
         for i, plan in enumerate(plans):
-            # Calculate progress before operation
             progress_percentage = calculate_progress_percentage(i, total_plans)
             time_elapsed = time.time() - self.start_time
             speed_mbps = calculate_processing_speed(self.processed_bytes, time_elapsed)
             remaining_time = estimate_remaining_time(
                 self.processed_bytes, self.total_bytes, time_elapsed
             )
-
-            # Create detailed progress event
             if detailed_progress_callback:
                 progress_event = FileProcessingProgressEvent(
                     operation_id=self.operation_id,
@@ -408,22 +296,15 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
                     skip_count=self.skip_count,
                 )
                 detailed_progress_callback(progress_event)
-
-            # Execute operation
             result = self.execute_operation(plan)
             results.append(result)
-
-            # Update statistics
             if result.success:
                 self.success_count += 1
                 self.processed_bytes += plan.estimated_size
             else:
                 self.error_count += 1
-
-            # Simple progress callback for backward compatibility
             if progress_callback:
                 progress_callback(i + 1, total_plans)
-
         return results
 
     def simulate_operations(self, plans: list[FileOperationPlan]) -> dict[str, Any]:
@@ -436,7 +317,6 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
             "total_size": 0,
             "details": [],
         }
-
         for plan in plans:
             detail = {
                 "source": str(plan.source_path),
@@ -445,22 +325,16 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
                 "status": "success",
                 "issues": [],
             }
-
-            # Check for conflicts
             if plan.target_path.exists():
                 detail["status"] = "conflict"
                 detail["issues"].append("Target file already exists")
                 simulation_results["conflicts"] += 1
             else:
                 simulation_results["successful"] += 1
-
-            # Check source file
             if not plan.source_path.exists():
                 detail["status"] = "error"
                 detail["issues"].append("Source file does not exist")
                 simulation_results["errors"] += 1
-
-            # Calculate size
             if plan.source_path.exists():
                 try:
                     file_size = plan.source_path.stat().st_size
@@ -468,9 +342,7 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
                     detail["size"] = file_size
                 except OSError:
                     detail["issues"].append("Cannot access source file")
-
             simulation_results["details"].append(detail)
-
         return simulation_results
 
 
@@ -488,14 +360,10 @@ class UnifiedFileBackupManager(IFileBackupManager):
             timestamp = int(time.time())
             backup_name = f"{file_path.stem}_backup_{timestamp}{file_path.suffix}"
             backup_path = self.backup_root / backup_name
-
-            # Ensure backup directory exists
             backup_path.parent.mkdir(parents=True, exist_ok=True)
-
             shutil.copy2(file_path, backup_path)
             self.logger.info(f"Backup created: {backup_path}")
             return backup_path
-
         except Exception as e:
             self.logger.error(f"Backup creation failed for {file_path}: {e}")
             raise
@@ -506,14 +374,10 @@ class UnifiedFileBackupManager(IFileBackupManager):
             if not backup_path.exists():
                 self.logger.error(f"Backup file does not exist: {backup_path}")
                 return False
-
-            # Ensure target directory exists
             target_path.parent.mkdir(parents=True, exist_ok=True)
-
             shutil.copy2(backup_path, target_path)
             self.logger.info(f"File restored from backup: {target_path}")
             return True
-
         except Exception as e:
             self.logger.error(f"Backup restore failed: {e}")
             return False
@@ -524,17 +388,14 @@ class UnifiedFileBackupManager(IFileBackupManager):
             current_time = time.time()
             max_age_seconds = max_age_days * 24 * 60 * 60
             cleaned_count = 0
-
             for backup_file in self.backup_root.rglob("*"):
                 if backup_file.is_file():
                     file_age = current_time - backup_file.stat().st_mtime
                     if file_age > max_age_seconds:
                         backup_file.unlink()
                         cleaned_count += 1
-
             self.logger.info(f"Cleaned up {cleaned_count} old backup files")
             return cleaned_count
-
         except Exception as e:
             self.logger.error(f"Backup cleanup failed: {e}")
             return 0
@@ -546,31 +407,19 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
     def __init__(self, config: FileOrganizationConfig = None, logger: logging.Logger = None):
         self.config = config or FileOrganizationConfig()
         self.logger = logger or logging.getLogger(__name__)
-
-        # Initialize components
         self.scanner = UnifiedFileScanner(self.config, self.logger)
-
-        # Initialize naming strategy using factory
         self.naming_strategy = NamingStrategyFactory.create_strategy(
             self.config.naming_strategy, self.config.naming_config, self.logger
         )
-
         self.operation_executor = UnifiedFileOperationExecutor(
-            self.config, self.logger, self.naming_strategy
+            self.config, self.logger, self.naming_strategy, self
         )
-
-        # Initialize centralized backup manager
         self.backup_manager = CentralizedBackupManager(
             Path("_backup"), self.config.backup_policy, self.logger
         )
-
-        # Initialize parsers
         self.file_parser = FileParser()
         self.file_validator = FileValidator()
-
-        # Initialize command invoker for undo/redo support
         self.command_invoker = FileOperationCommandInvoker(self.logger)
-
         self.logger.info("UnifiedFileOrganizationService initialized with Command pattern support")
 
     def scan_and_plan_organization(
@@ -582,45 +431,33 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
     ) -> list[FileOperationPlan]:
         """Scan directory and create organization plan"""
         try:
-            # Scan for files
             scan_result = self.scanner.scan_directory(source_directory)
-
             if not scan_result.files_found:
                 self.logger.warning("No files found for organization")
                 return []
-
             plans = []
-
             for file_path in scan_result.files_found:
                 try:
-                    # Parse file metadata
                     parsed_metadata = self.file_parser.parse_filename(str(file_path))
-
                     if not parsed_metadata or not parsed_metadata.title:
                         self.logger.warning(f"Could not parse metadata for {file_path}")
                         continue
-
-                    # Prepare metadata for naming strategy
+                    # 항상 원본 파일명을 유지하고 디렉토리만 변경
+                    target_path = destination_root / file_path.name
+                    # 기본 메타데이터 설정
                     metadata = {
-                        "title": parsed_metadata.title,
-                        "season": parsed_metadata.season or 1,
-                        "episode": parsed_metadata.episode or 1,
-                        "resolution": parsed_metadata.resolution or "Unknown",
-                        "year": parsed_metadata.year,
-                        "group": parsed_metadata.group or "Unknown",
+                        "title": file_path.stem,
+                        "season": 1,
+                        "episode": 1,
+                        "resolution": "Unknown",
+                        "year": None,
+                        "group": "Unknown",
                     }
 
-                    # Generate target path
-                    target_path = self.naming_strategy.generate_target_path(
-                        file_path, metadata, destination_root
-                    )
-
-                    # Resolve conflicts
+                    # 파일명 충돌 해결
                     target_path = self.naming_strategy.resolve_conflict(
                         target_path, FileConflictResolution.RENAME
                     )
-
-                    # Create operation plan
                     plan = FileOperationPlan(
                         source_path=file_path,
                         target_path=target_path,
@@ -628,15 +465,11 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                         estimated_size=file_path.stat().st_size,
                         metadata=metadata,
                     )
-
                     plans.append(plan)
-
                 except Exception as e:
                     self.logger.error(f"Failed to create plan for {file_path}: {e}")
-
             self.logger.info(f"Created {len(plans)} organization plans")
             return plans
-
         except Exception as e:
             self.logger.error(f"Organization planning failed: {e}")
             return []
@@ -645,18 +478,17 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
         self,
         plans: list[FileOperationPlan],
         dry_run: bool = True,
-        progress_callback: Optional[Callable[[int, int], None]] = None,
-        detailed_progress_callback: Optional[Callable[[FileProcessingProgressEvent], None]] = None,
+        progress_callback: Callable[[int, int], None] | None = None,
+        detailed_progress_callback: Callable[[FileProcessingProgressEvent], None] | None = None,
     ) -> list[FileOperationResult]:
         """Execute file organization plan with detailed progress tracking"""
         if dry_run:
             self.logger.info("Executing organization plan in dry-run mode")
             return self.operation_executor.simulate_operations(plans)
-        else:
-            self.logger.info("Executing organization plan")
-            return self.operation_executor.execute_batch_operations(
-                plans, progress_callback, detailed_progress_callback
-            )
+        self.logger.info("Executing organization plan")
+        return self.operation_executor.execute_batch_operations(
+            plans, progress_callback, detailed_progress_callback
+        )
 
     def validate_organization_plan(self, plans: list[FileOperationPlan]) -> dict[str, Any]:
         """Validate organization plan for conflicts and issues"""
@@ -668,32 +500,22 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
             "warnings": 0,
             "issues": [],
         }
-
         for i, plan in enumerate(plans):
             issues = []
-
-            # Check source file
             if not plan.source_path.exists():
                 issues.append(f"Source file does not exist: {plan.source_path}")
                 validation_result["errors"] += 1
-
-            # Check target conflicts
             if plan.target_path.exists():
                 issues.append(f"Target file already exists: {plan.target_path}")
                 validation_result["conflicts"] += 1
-
-            # Check path length
             if len(str(plan.target_path)) > self.config.max_path_length:
                 issues.append(f"Target path too long: {len(str(plan.target_path))} characters")
                 validation_result["warnings"] += 1
-
-            # Check directory permissions
             try:
                 plan.target_path.parent.mkdir(parents=True, exist_ok=True)
             except PermissionError:
                 issues.append(f"Cannot create target directory: {plan.target_path.parent}")
                 validation_result["errors"] += 1
-
             if issues:
                 validation_result["issues"].append(
                     {
@@ -703,55 +525,43 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                         "issues": issues,
                     }
                 )
-
         if validation_result["errors"] > 0 or validation_result["conflicts"] > 0:
             validation_result["valid"] = False
-
         return validation_result
 
     def get_organization_statistics(self, plans: list[FileOperationPlan]) -> dict[str, Any]:
         """Get statistics about organization plan"""
         total_size = sum(plan.estimated_size for plan in plans)
-
-        # Count by operation type
         operation_counts = {}
         for plan in plans:
             op_type = plan.operation_type.value
             operation_counts[op_type] = operation_counts.get(op_type, 0) + 1
-
-        # Estimate processing time (rough calculation)
-        estimated_time = total_size / (100 * 1024 * 1024)  # Assume 100MB/s processing speed
-
+        estimated_time = total_size / (100 * 1024 * 1024)
         return {
             "total_plans": len(plans),
             "total_size_bytes": total_size,
             "total_size_mb": total_size / (1024 * 1024),
             "operation_counts": operation_counts,
             "estimated_time_seconds": max(1, int(estimated_time)),
-            "average_file_size_mb": (total_size / len(plans)) / (1024 * 1024) if plans else 0,
+            "average_file_size_mb": total_size / len(plans) / (1024 * 1024) if plans else 0,
         }
 
     def execute_organization_with_commands(
         self,
         plans: list[FileOperationPlan],
-        progress_callback: Optional[Callable[[int, int], None]] = None,
-        detailed_progress_callback: Optional[Callable[[FileProcessingProgressEvent], None]] = None,
+        progress_callback: Callable[[int, int], None] | None = None,
+        detailed_progress_callback: Callable[[FileProcessingProgressEvent], None] | None = None,
     ) -> dict[str, Any]:
         """Execute organization plan using Command pattern for undo/redo support with progress tracking"""
         try:
             operation_id = uuid4()
-            start_time = time.time()
             total_plans = len(plans)
-
-            # Convert plans to commands
             commands = []
             for i, plan in enumerate(plans):
                 command = FileOperationCommand(
                     plan.source_path, plan.target_path, plan.operation_type, self.logger
                 )
                 commands.append(command)
-
-                # Progress callback for command creation
                 if detailed_progress_callback:
                     progress_event = FileProcessingProgressEvent(
                         operation_id=operation_id,
@@ -768,17 +578,10 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                         current_step="Preparing commands",
                     )
                     detailed_progress_callback(progress_event)
-
-            # Create batch command
             batch_command = BatchFileOperationCommand(commands, self.logger)
-
-            # Execute using command invoker
             result = self.command_invoker.execute_command(batch_command)
-
-            # Final progress callback
             if progress_callback:
                 progress_callback(len(plans), len(plans))
-
             if detailed_progress_callback:
                 final_progress_event = FileProcessingProgressEvent(
                     operation_id=operation_id,
@@ -788,14 +591,12 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                     current_step="Command execution completed",
                 )
                 detailed_progress_callback(final_progress_event)
-
             return {
                 "success": result.success,
                 "message": result.message,
                 "data": result.data,
                 "error": result.error,
             }
-
         except Exception as e:
             self.logger.error(f"Command-based organization execution failed: {e}")
             return {
@@ -880,9 +681,79 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
     def set_backup_policy(self, policy: BackupPolicy):
         """Update backup policy"""
         self.config.backup_policy = policy
-        # Reinitialize backup manager with new policy
         self.backup_manager = CentralizedBackupManager(Path("_backup"), policy, self.logger)
         self.logger.info("Backup policy updated")
+
+    def _process_subtitle_files(self, source_path: Path, target_path: Path):
+        """비디오 파일과 연관된 자막 파일들을 함께 처리합니다"""
+        try:
+            # 비디오 파일인지 확인
+            if not self._is_video_file(source_path):
+                return
+
+            # 자막 파일 찾기
+            subtitle_files = self._find_subtitle_files(source_path)
+            if not subtitle_files:
+                return
+
+            # 자막 파일들을 대상 디렉토리로 이동/복사
+            for subtitle_path in subtitle_files:
+                try:
+                    subtitle_filename = Path(subtitle_path).name
+                    subtitle_target_path = target_path.parent / subtitle_filename
+
+                    # 자막 파일이 이미 존재하는 경우 충돌 해결
+                    if subtitle_target_path.exists() and not self.config.overwrite_existing:
+                        subtitle_target_path = self.naming_strategy.resolve_conflict(
+                            subtitle_target_path, FileConflictResolution.RENAME
+                        )
+
+                    # 자막 파일 이동/복사
+                    if self.config.backup_before_operation and subtitle_target_path.exists():
+                        backup_path = subtitle_target_path.with_suffix(
+                            f"{subtitle_target_path.suffix}.backup_{int(time.time())}"
+                        )
+                        shutil.copy2(subtitle_target_path, backup_path)
+
+                    shutil.move(subtitle_path, subtitle_target_path)
+                    self.logger.info(f"✅ 자막 파일 처리 완료: {subtitle_filename}")
+
+                except Exception as e:
+                    self.logger.warning(f"⚠️ 자막 파일 처리 실패: {subtitle_path} - {e}")
+
+        except Exception as e:
+            self.logger.warning(f"⚠️ 자막 파일 처리 중 오류: {e}")
+
+    def _is_video_file(self, file_path: Path) -> bool:
+        """파일이 비디오 파일인지 확인합니다"""
+        video_extensions = self.config.video_extensions
+        return file_path.suffix.lower() in video_extensions
+
+    def _find_subtitle_files(self, video_path: Path) -> list[Path]:
+        """비디오 파일과 연관된 자막 파일들을 찾습니다"""
+        subtitle_files = []
+        subtitle_extensions = self.config.subtitle_extensions
+
+        try:
+            video_dir = video_path.parent
+            video_basename = video_path.stem
+
+            for file_path in video_dir.iterdir():
+                if not file_path.is_file():
+                    continue
+
+                file_ext = file_path.suffix.lower()
+                if file_ext not in subtitle_extensions:
+                    continue
+
+                subtitle_basename = file_path.stem
+                if subtitle_basename == video_basename:
+                    subtitle_files.append(file_path)
+
+        except Exception as e:
+            self.logger.warning(f"⚠️ 자막 파일 검색 중 오류: {e}")
+
+        return subtitle_files
 
     def get_backup_policy(self) -> BackupPolicy:
         """Get current backup policy"""

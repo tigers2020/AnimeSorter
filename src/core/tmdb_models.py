@@ -4,6 +4,9 @@ TMDB 데이터 모델
 TMDB API 응답을 위한 데이터 클래스들을 정의합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -47,13 +50,10 @@ class TMDBAnimeInfo:
     translations: dict[str, Any]
     content_ratings: dict[str, Any]
     watch_providers: dict[str, Any]
-
-    # 호환성을 위한 tmdb_id 속성 (id와 동일)
     tmdb_id: int | None = field(default=None)
 
     def __post_init__(self):
         """초기화 후 tmdb_id와 id를 동기화"""
-        # tmdb_id가 설정되어 있다면 id에 할당, 그렇지 않으면 tmdb_id에 id 할당
         if self.tmdb_id is not None:
             self.id = self.tmdb_id
         else:

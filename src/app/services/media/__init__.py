@@ -4,14 +4,12 @@
 미디어 데이터 처리와 관련된 서비스들을 제공합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from .media_export import MediaExporter
 from .media_extractor import MediaExtractor
 from .media_filtering import MediaFilter
 from .media_processor import MediaProcessor
 
-__all__ = [
-    "MediaExtractor",
-    "MediaProcessor",
-    "MediaFilter",
-    "MediaExporter",
-]
+__all__ = ["MediaExtractor", "MediaProcessor", "MediaFilter", "MediaExporter"]

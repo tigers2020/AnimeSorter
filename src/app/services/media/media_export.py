@@ -6,6 +6,8 @@
 
 import json
 import logging
+
+logger = logging.getLogger(__name__)
 import time
 from pathlib import Path
 from typing import Any
@@ -30,22 +32,14 @@ class MediaExporter:
         """미디어 데이터를 지정된 형식으로 내보냅니다."""
         try:
             self.logger.info(f"데이터 내보내기 시작: {format} 형식, {export_path}")
-
             start_time = time.time()
-
-            # 내보낼 데이터 준비
             export_data = self._prepare_export_data(media_files, groups, include_statistics)
-
-            # 형식에 따라 내보내기
             if format.lower() == "json":
                 self._export_to_json(export_data, export_path)
             else:
                 raise ValueError(f"지원하지 않는 내보내기 형식: {format}")
-
             export_duration = time.time() - start_time
             export_size = export_path.stat().st_size if export_path.exists() else 0
-
-            # 내보내기 결과 정보
             result = {
                 "export_path": export_path,
                 "export_size_bytes": export_size,
@@ -55,24 +49,14 @@ class MediaExporter:
                 "format": format,
                 "success": True,
             }
-
             self.logger.info(f"데이터 내보내기 완료: {export_path}")
             return result
-
         except Exception as e:
             self.logger.error(f"데이터 내보내기 실패: {e}")
-
-            return {
-                "export_path": export_path,
-                "error": str(e),
-                "success": False,
-            }
+            return {"export_path": export_path, "error": str(e), "success": False}
 
     def _prepare_export_data(
-        self,
-        media_files: list[MediaFile],
-        groups: dict[str, MediaGroup],
-        include_statistics: bool,
+        self, media_files: list[MediaFile], groups: dict[str, MediaGroup], include_statistics: bool
     ) -> dict[str, Any]:
         """내보낼 데이터를 준비합니다."""
         export_data = {
@@ -85,18 +69,13 @@ class MediaExporter:
                 "export_format": "json",
             },
         }
-
         if include_statistics:
             export_data["statistics"] = self._calculate_statistics(media_files, groups)
-
         return export_data
 
     def _export_to_json(self, data: dict[str, Any], export_path: Path) -> None:
         """JSON 형식으로 데이터를 내보냅니다."""
-        # 디렉토리 생성
         export_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # JSON 파일로 저장
         with export_path.open("w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -123,7 +102,7 @@ class MediaExporter:
             "title": media_group.title,
             "total_episodes": media_group.total_episodes,
             "episode_count": media_group.episode_count,
-            "files": list(media_group.episode_numbers),  # 에피소드 번호만 반환
+            "files": list(media_group.episode_numbers),
         }
 
     def _calculate_statistics(
@@ -142,37 +121,25 @@ class MediaExporter:
                 "largest_file_size_mb": 0.0,
                 "smallest_file_size_mb": 0.0,
             }
-
-        # 타입별, 품질별, 소스별 통계
         files_by_type: dict[str, int] = {}
         files_by_quality: dict[str, int] = {}
         files_by_source: dict[str, int] = {}
-
         total_size = 0
         file_sizes = []
-
         for file in media_files:
-            # 타입별 통계
             type_key = file.media_type.value
             files_by_type[type_key] = files_by_type.get(type_key, 0) + 1
-
-            # 품질별, 소스별, 파일 크기 통계 (메타데이터가 있는 경우만)
             if file.metadata:
                 quality_key = file.metadata.quality.value
                 files_by_quality[quality_key] = files_by_quality.get(quality_key, 0) + 1
-
                 source_key = file.metadata.source.value
                 files_by_source[source_key] = files_by_source.get(source_key, 0) + 1
-
                 if file.metadata.file_size_bytes > 0:
                     total_size += file.metadata.file_size_bytes
-                    file_sizes.append(file.metadata.file_size_bytes / (1024 * 1024))  # MB로 변환
-
-        # 파일 크기 통계 계산
+                    file_sizes.append(file.metadata.file_size_bytes / (1024 * 1024))
         average_size = sum(file_sizes) / len(file_sizes) if file_sizes else 0.0
         largest_size = max(file_sizes) if file_sizes else 0.0
         smallest_size = min(file_sizes) if file_sizes else 0.0
-
         return {
             "total_files": len(media_files),
             "total_groups": len(groups),
@@ -190,9 +157,7 @@ class MediaExporter:
         try:
             import csv
 
-            # 디렉토리 생성
             export_path.parent.mkdir(parents=True, exist_ok=True)
-
             with export_path.open("w", newline="", encoding="utf-8") as csvfile:
                 fieldnames = [
                     "file_id",
@@ -207,16 +172,12 @@ class MediaExporter:
                     "season",
                     "episode",
                 ]
-
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
-
                 for file in media_files:
                     writer.writerow(self._media_file_to_dict(file))
-
             self.logger.info(f"CSV 내보내기 완료: {export_path}")
             return True
-
         except ImportError:
             self.logger.error("CSV 모듈을 가져올 수 없습니다")
             return False
@@ -231,11 +192,8 @@ class MediaExporter:
     def validate_export_path(self, export_path: Path) -> bool:
         """내보내기 경로가 유효한지 확인합니다."""
         try:
-            # 디렉토리가 존재하거나 생성 가능한지 확인
             if export_path.exists():
-                # 파일이 이미 존재하는 경우 덮어쓸 수 있는지 확인
                 return export_path.is_file() and export_path.parent.is_dir()
-            # 부모 디렉토리가 존재하거나 생성 가능한지 확인
             return export_path.parent.exists() or export_path.parent.is_dir()
         except Exception:
             return False

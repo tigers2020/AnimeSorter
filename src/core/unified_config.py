@@ -36,7 +36,6 @@ class ApplicationSettings:
     logging_config: dict[str, Any] = field(default_factory=dict)
     performance_settings: dict[str, Any] = field(default_factory=dict)
 
-    # 호환성을 위한 직접 속성들
     @property
     def destination_root(self) -> str:
         return self.file_organization.get("destination_root", "")
@@ -135,7 +134,6 @@ class UserPreferences:
     theme_preferences: dict[str, Any] = field(default_factory=dict)
     language_settings: dict[str, Any] = field(default_factory=dict)
 
-    # 호환성을 위한 직접 속성들
     @property
     def theme(self) -> str:
         return self.theme_preferences.get("theme", "light")
@@ -223,23 +221,19 @@ class UnifiedConfig:
 class UnifiedConfigManager(QObject):
     """통합 설정 관리자"""
 
-    config_changed = pyqtSignal(str, object)  # section, new_value
+    config_changed = pyqtSignal(str, object)
     config_loaded = pyqtSignal()
     config_saved = pyqtSignal()
 
     def __init__(self, config_dir: Path | None = None):
         super().__init__()
-        # data 디렉토리를 기준으로 config 디렉토리 찾기
         self.config_dir = config_dir or Path(__file__).parent.parent.parent / "data" / "config"
         self.config_dir.mkdir(exist_ok=True)
-
         self.config = UnifiedConfig()
         self.config_file = self.config_dir / "unified_config.json"
         self.backup_dir = self.config_dir / "backups"
         self.backup_dir.mkdir(exist_ok=True)
-
         self._change_callbacks: list[Callable] = []
-
         self.load_config()
 
     def add_change_callback(self, callback: Callable):
@@ -289,7 +283,6 @@ class UnifiedConfigManager(QObject):
                     tmdb_api=services_data.get("tmdb_api", {}),
                     api_keys=services_data.get("api_keys", {}),
                 )
-
             if "application" in data:
                 app_data = data["application"]
                 self.config.application = ApplicationSettings(
@@ -298,7 +291,6 @@ class UnifiedConfigManager(QObject):
                     logging_config=app_data.get("logging_config", {}),
                     performance_settings=app_data.get("performance_settings", {}),
                 )
-
             if "user_preferences" in data:
                 user_data = data["user_preferences"]
                 self.config.user_preferences = UserPreferences(
@@ -307,21 +299,16 @@ class UnifiedConfigManager(QObject):
                     theme_preferences=user_data.get("theme_preferences", {}),
                     language_settings=user_data.get("language_settings", {}),
                 )
-
             if "metadata" in data:
                 self.config.metadata = data["metadata"]
-
             logger.info("설정 데이터 파싱 완료")
         except Exception as e:
             logger.error(f"설정 데이터 파싱 실패: {e}")
-            # 기본값으로 초기화
             self.config = UnifiedConfig()
 
     def _migrate_existing_configs(self):
         """기존 설정 파일들을 통합 설정으로 마이그레이션"""
         logger.info("기존 설정 파일들을 통합 설정으로 마이그레이션합니다.")
-
-        # opencode.json 마이그레이션
         opencode_file = Path("opencode.json")
         if opencode_file.exists():
             try:
@@ -334,15 +321,11 @@ class UnifiedConfigManager(QObject):
                     logger.info("opencode.json 마이그레이션 완료")
             except Exception as e:
                 logger.error(f"opencode.json 마이그레이션 실패: {e}")
-
-        # animesorter_config.json 마이그레이션
         app_config_file = Path("src/animesorter_config.json")
         if app_config_file.exists():
             try:
                 with app_config_file.open(encoding="utf-8") as f:
                     data = json.load(f)
-
-                    # 파일 정리 설정
                     self.config.application.file_organization = {
                         "destination_root": data.get("destination_root", ""),
                         "organize_mode": data.get("organize_mode", "복사"),
@@ -354,57 +337,41 @@ class UnifiedConfigManager(QObject):
                         "realtime_monitoring": data.get("realtime_monitoring", False),
                         "auto_refresh_interval": data.get("auto_refresh_interval", 30),
                     }
-
-                    # 백업 설정
                     self.config.application.backup_settings = {
                         "backup_location": data.get("backup_location", ""),
                         "max_backup_count": data.get("max_backup_count", 10),
                     }
-
-                    # 로깅 설정
                     self.config.application.logging_config = {
                         "log_level": data.get("log_level", "INFO"),
                         "log_to_file": data.get("log_to_file", False),
                     }
-
-                    # TMDB 설정
                     self.config.services.tmdb_api = {
                         "api_key": data.get("tmdb_api_key", ""),
                         "language": data.get("tmdb_language", "ko-KR"),
                     }
-
-                    # GUI 상태
                     self.config.user_preferences.gui_state = {
                         "window_geometry": data.get("window_geometry", "100,100,1600,900"),
                         "last_source_directory": data.get("last_source_directory", ""),
                         "last_destination_directory": data.get("last_destination_directory", ""),
                         "remember_last_session": data.get("remember_last_session", True),
                     }
-
-                    # 접근성 설정
                     self.config.user_preferences.accessibility = {
                         "high_contrast_mode": data.get("high_contrast_mode", False),
                         "keyboard_navigation": data.get("keyboard_navigation", True),
                         "screen_reader_support": data.get("screen_reader_support", True),
                     }
-
-                    # 테마 설정
                     self.config.user_preferences.theme_preferences = {
                         "theme": data.get("theme", "dark"),
                         "language": data.get("language", "ko"),
                     }
-
                     logger.info("animesorter_config.json 마이그레이션 완료")
             except Exception as e:
                 logger.error(f"animesorter_config.json 마이그레이션 실패: {e}")
-
-        # 메타데이터 설정
         source_files = []
         if opencode_file.exists():
             source_files.append(str(opencode_file))
         if app_config_file.exists():
             source_files.append(str(app_config_file))
-
         self.config.metadata = {
             "migrated_at": str(Path().cwd()),
             "migration_version": "1.0.0",
@@ -414,7 +381,6 @@ class UnifiedConfigManager(QObject):
     def save_config(self) -> bool:
         """통합 설정 파일 저장"""
         try:
-            # 백업 생성
             if self.config_file.exists():
                 backup_file = (
                     self.backup_dir
@@ -423,11 +389,8 @@ class UnifiedConfigManager(QObject):
                 with backup_file.open("w", encoding="utf-8") as f:
                     json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
                 logger.info(f"설정 백업 생성: {backup_file}")
-
-            # 새 설정 저장
             with self.config_file.open("w", encoding="utf-8") as f:
                 json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
-
             logger.info("통합 설정 파일 저장 완료")
             self.config_saved.emit()
             return True
@@ -515,9 +478,7 @@ class UnifiedConfigManager(QObject):
     def set_setting(self, key: str, value: Any) -> bool:
         """설정값 설정 (SettingsManager 호환성)"""
         try:
-            # key에 따라 적절한 섹션과 키로 변환
             if key == "destination_root":
-                # file_organization 딕셔너리 안의 destination_root 설정
                 if hasattr(self.config.application, "file_organization"):
                     self.config.application.file_organization["destination_root"] = value
                     self._notify_change_callbacks("application", value)
@@ -525,7 +486,6 @@ class UnifiedConfigManager(QObject):
                     return True
                 return False
             if key == "theme":
-                # theme_preferences 딕셔너리 안의 theme 설정
                 if hasattr(self.config.user_preferences, "theme_preferences"):
                     self.config.user_preferences.theme_preferences["theme"] = value
                     self._notify_change_callbacks("user_preferences", value)
@@ -533,7 +493,6 @@ class UnifiedConfigManager(QObject):
                     return True
                 return False
             if key == "language":
-                # theme_preferences 딕셔너리 안의 language 설정
                 if hasattr(self.config.user_preferences, "theme_preferences"):
                     self.config.user_preferences.theme_preferences["language"] = value
                     self._notify_change_callbacks("user_preferences", value)
@@ -547,7 +506,6 @@ class UnifiedConfigManager(QObject):
             if key == "ui_style":
                 return self.set("user_preferences", "ui_style", value)
             if key == "last_source_directory":
-                # gui_state 딕셔너리 안의 last_source_directory 설정
                 if hasattr(self.config.user_preferences, "gui_state"):
                     self.config.user_preferences.gui_state["last_source_directory"] = value
                     self._notify_change_callbacks("user_preferences", value)
@@ -555,14 +513,12 @@ class UnifiedConfigManager(QObject):
                     return True
                 return False
             if key == "last_destination_directory":
-                # gui_state 딕셔너리 안의 last_destination_directory 설정
                 if hasattr(self.config.user_preferences, "gui_state"):
                     self.config.user_preferences.gui_state["last_destination_directory"] = value
                     self._notify_change_callbacks("user_preferences", value)
                     self.config_changed.emit("user_preferences", value)
                     return True
                 return False
-            # 기본적으로 user_preferences에 설정
             return self.set("user_preferences", key, value)
         except Exception as e:
             logger.error(f"설정값 설정 실패: {key} = {value} - {e}")
@@ -580,7 +536,6 @@ class UnifiedConfigManager(QObject):
                 for key, value in data.items():
                     if hasattr(section_obj, key):
                         setattr(section_obj, key, value)
-
                 self._notify_change_callbacks(section, data)
                 self.config_changed.emit(section, data)
                 return True
@@ -609,7 +564,6 @@ class UnifiedConfigManager(QObject):
             if file_path.exists():
                 with file_path.open(encoding="utf-8") as f:
                     data = json.load(f)
-
                 if self.set_section(section, data):
                     logger.info(f"섹션 가져오기 완료: {file_path} -> {section}")
                     return True
@@ -619,5 +573,4 @@ class UnifiedConfigManager(QObject):
             return False
 
 
-# 전역 인스턴스
 unified_config_manager = UnifiedConfigManager()

@@ -5,6 +5,8 @@ TMDB 서비스 어댑터
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 

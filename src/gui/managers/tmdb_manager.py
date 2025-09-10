@@ -3,6 +3,9 @@ TMDB 관리자
 TMDB API 검색, 메타데이터 가져오기, 포스터 캐싱 등을 관리합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 import json
 import sys
 from dataclasses import dataclass
@@ -30,7 +33,7 @@ class TMDBSearchResult:
     popularity: float
     media_type: str
     confidence_score: float = 0.0
-    source: str = "TMDB"  # 메타데이터 소스 추가
+    source: str = "TMDB"
 
 
 class TMDBManager:
@@ -41,27 +44,20 @@ class TMDBManager:
         if api_key:
             self.api_key = api_key
         else:
-            # 통합 설정에서 API 키 가져오기
             self.api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
         self.tmdb_client = None
-        self.poster_cache = {}  # 포스터 이미지 캐시
-        self.search_cache = {}  # 검색 결과 캐시
-
-        # 플러그인 시스템 초기화
+        self.poster_cache = {}
+        self.search_cache = {}
         self.plugin_manager = PluginManager()
         self.metadata_providers = {}
-
-        # TMDB 클라이언트 초기화
         if self.api_key:
             try:
                 self.tmdb_client = TMDBClient(api_key=self.api_key)
-                print("✅ TMDBManager 초기화 성공")
+                logger.info("✅ TMDBManager 초기화 성공")
             except Exception as e:
-                print(f"❌ TMDBManager 초기화 실패: {e}")
+                logger.info("❌ TMDBManager 초기화 실패: %s", e)
         else:
-            print("⚠️ TMDB_API_KEY가 설정되지 않았습니다")
-
-        # 플러그인 로드
+            logger.info("⚠️ TMDB_API_KEY가 설정되지 않았습니다")
         self._load_plugins()
 
     def _load_plugins(self):
@@ -69,14 +65,13 @@ class TMDBManager:
         try:
             loaded_count = self.plugin_manager.load_all_plugins()
             self.metadata_providers = self.plugin_manager.get_metadata_providers()
-            print(f"✅ 플러그인 로드 완료: {loaded_count}개")
-
-            # 사용 가능한 메타데이터 제공자 출력
+            logger.info("✅ 플러그인 로드 완료: %s개", loaded_count)
             for name, provider in self.metadata_providers.items():
-                print(f"📦 메타데이터 제공자: {name} ({provider.get_plugin_info().description})")
-
+                logger.info(
+                    "📦 메타데이터 제공자: %s (%s)", name, provider.get_plugin_info().description
+                )
         except Exception as e:
-            print(f"❌ 플러그인 로드 실패: {e}")
+            logger.info("❌ 플러그인 로드 실패: %s", e)
 
     def get_available_providers(self) -> list[str]:
         """사용 가능한 메타데이터 제공자 목록 반환"""
@@ -91,22 +86,19 @@ class TMDBManager:
     ) -> list[TMDBSearchResult]:
         """애니메이션 검색 (플러그인 시스템 포함)"""
         all_results = []
-
-        # 1. TMDB 검색 (기본)
         if self.is_available():
             tmdb_results = self._search_tmdb(query, language)
             all_results.extend(tmdb_results)
-
-        # 2. 플러그인 검색
         if use_plugins and self.metadata_providers:
             plugin_results = self._search_plugins(query, language)
             all_results.extend(plugin_results)
-
-        # 신뢰도 점수로 정렬
         all_results.sort(key=lambda x: x.confidence_score, reverse=True)
-
-        print(
-            f"🔍 '{query}' 검색 완료: {len(all_results)}개 결과 (TMDB: {len(tmdb_results) if self.is_available() else 0}, 플러그인: {len(plugin_results) if use_plugins and self.metadata_providers else 0})"
+        logger.info(
+            "🔍 '%s' 검색 완료: %s개 결과 (TMDB: %s, 플러그인: %s)",
+            query,
+            len(all_results),
+            len(tmdb_results) if self.is_available() else 0,
+            len(plugin_results) if use_plugins and self.metadata_providers else 0,
         )
         return all_results
 
@@ -114,23 +106,15 @@ class TMDBManager:
         """TMDB에서 검색"""
         if not self.is_available():
             return []
-
-        # 캐시 확인
         cache_key = f"tmdb_{query}_{language}"
         if cache_key in self.search_cache:
-            print(f"📋 캐시된 TMDB 검색 결과 사용: {query}")
+            logger.info("📋 캐시된 TMDB 검색 결과 사용: %s", query)
             return self.search_cache[cache_key]
-
         try:
-            # TMDB에서 검색
             results = self.tmdb_client.search_anime(query, language=language)
-
-            # 결과를 TMDBSearchResult로 변환
             search_results = []
             for result in results:
-                # 신뢰도 점수 계산 (제목 유사도 기반)
                 confidence = self._calculate_title_confidence(query, result.name)
-
                 search_result = TMDBSearchResult(
                     tmdb_id=result.id,
                     name=result.name,
@@ -146,31 +130,22 @@ class TMDBManager:
                     source="TMDB",
                 )
                 search_results.append(search_result)
-
-            # 캐시에 저장
             self.search_cache[cache_key] = search_results
             return search_results
-
         except Exception as e:
-            print(f"❌ TMDB 검색 실패: {e}")
+            logger.info("❌ TMDB 검색 실패: %s", e)
             return []
 
     def _search_plugins(self, query: str, language: str) -> list[TMDBSearchResult]:
         """플러그인에서 검색"""
         plugin_results = []
-
         for name, provider in self.metadata_providers.items():
             try:
                 if not provider.is_available():
                     continue
-
-                # 플러그인에서 검색
                 results = provider.search_anime(query, language=language)
-
                 for result in results:
-                    # 신뢰도 점수 계산
                     confidence = self._calculate_title_confidence(query, result.get("title", ""))
-
                     search_result = TMDBSearchResult(
                         tmdb_id=result.get("id", 0),
                         name=result.get("title", ""),
@@ -186,156 +161,117 @@ class TMDBManager:
                         source=name,
                     )
                     plugin_results.append(search_result)
-
-                print(f"📦 {name} 플러그인 검색 완료: {len(results)}개 결과")
-
+                logger.info("📦 %s 플러그인 검색 완료: %s개 결과", name, len(results))
             except Exception as e:
-                print(f"❌ {name} 플러그인 검색 실패: {e}")
-
+                logger.info("❌ %s 플러그인 검색 실패: %s", name, e)
         return plugin_results
 
     def get_anime_details(self, tmdb_id: int, language: str = "ko-KR") -> TMDBAnimeInfo | None:
         """애니메이션 상세 정보 가져오기"""
         if not self.is_available():
             return None
-
         try:
             details = self.tmdb_client.get_anime_details(tmdb_id, language=language)
-            print(f"📖 TMDB ID {tmdb_id} 상세 정보 로드 완료")
+            logger.info("📖 TMDB ID %s 상세 정보 로드 완료", tmdb_id)
             return details
         except Exception as e:
-            print(f"❌ 상세 정보 로드 오류: {e}")
+            logger.info("❌ 상세 정보 로드 오류: %s", e)
             return None
 
     def get_poster_path(self, poster_path: str, size: str = "w92") -> str | None:
         """포스터 이미지 경로 가져오기"""
         if not self.is_available() or not poster_path:
             return None
-
-        # 캐시 확인
         cache_key = f"{poster_path}_{size}"
         if cache_key in self.poster_cache:
             return self.poster_cache[cache_key]
-
         try:
             poster_file_path = self.tmdb_client.get_poster_path(poster_path, size)
             if poster_file_path and Path(poster_file_path).exists():
-                # 캐시에 저장
                 self.poster_cache[cache_key] = poster_file_path
                 return poster_file_path
         except Exception as e:
-            print(f"❌ 포스터 로드 오류: {e}")
-
+            logger.info("❌ 포스터 로드 오류: %s", e)
         return None
 
     def auto_match_anime(self, parsed_item: ParsedItem) -> TMDBSearchResult | None:
         """파싱된 아이템을 자동으로 TMDB와 매칭"""
         if not self.is_available():
             return None
-
-        # 제목으로 검색
         search_query = parsed_item.detectedTitle or parsed_item.title
         if not search_query:
             return None
-
-        print(f"🔍 자동 매칭 시도: {search_query}")
-
-        # 한국어로 먼저 검색
+        logger.info("🔍 자동 매칭 시도: %s", search_query)
         results = self.search_anime(search_query, "ko-KR")
         if results:
             best_match = results[0]
-            if best_match.confidence_score >= 0.7:  # 70% 이상 유사도
-                print(
-                    f"✅ 자동 매칭 성공: {best_match.name} (신뢰도: {best_match.confidence_score:.2f})"
+            if best_match.confidence_score >= 0.7:
+                logger.info(
+                    "✅ 자동 매칭 성공: %s (신뢰도: %s)",
+                    best_match.name,
+                    best_match.confidence_score,
                 )
                 return best_match
-
-        # 영어로도 검색
         results = self.search_anime(search_query, "en-US")
         if results:
             best_match = results[0]
             if best_match.confidence_score >= 0.7:
-                print(
-                    f"✅ 자동 매칭 성공 (영어): {best_match.name} (신뢰도: {best_match.confidence_score:.2f})"
+                logger.info(
+                    "✅ 자동 매칭 성공 (영어): %s (신뢰도: %s)",
+                    best_match.name,
+                    best_match.confidence_score,
                 )
                 return best_match
-
-        print(f"❌ 자동 매칭 실패: {search_query}")
+        logger.info("❌ 자동 매칭 실패: %s", search_query)
         return None
 
     def batch_search_anime(self, parsed_items: list[ParsedItem]) -> dict[str, TMDBSearchResult]:
         """여러 애니메이션을 일괄 검색"""
         if not self.is_available():
             return {}
-
-        print(f"🚀 일괄 검색 시작: {len(parsed_items)}개 아이템")
-
+        logger.info("🚀 일괄 검색 시작: %s개 아이템", len(parsed_items))
         results = {}
         for i, item in enumerate(parsed_items):
-            print(f"진행률: {i + 1}/{len(parsed_items)} - {item.detectedTitle}")
-
-            # 이미 TMDB 매칭이 되어 있으면 건너뛰기
+            logger.info("진행률: %s/%s - %s", i + 1, len(parsed_items), item.detectedTitle)
             if item.tmdbId:
                 continue
-
-            # 자동 매칭 시도
             match_result = self.auto_match_anime(item)
             if match_result:
                 results[item.id] = match_result
-
-                # 아이템 업데이트
                 item.tmdbId = match_result.tmdb_id
                 item.tmdbMatch = self.get_anime_details(match_result.tmdb_id)
-
-        print(f"✅ 일괄 검색 완료: {len(results)}개 매칭 성공")
+        logger.info("✅ 일괄 검색 완료: %s개 매칭 성공", len(results))
         return results
 
     def _calculate_title_confidence(self, query: str, title: str) -> float:
         """제목 유사도 계산 (0.0 ~ 1.0)"""
         if not query or not title:
             return 0.0
-
-        # 소문자 변환
         query_lower = query.lower()
         title_lower = title.lower()
-
-        # 정확한 일치
         if query_lower == title_lower:
             return 1.0
-
-        # 포함 관계
         if query_lower in title_lower or title_lower in query_lower:
             return 0.9
-
-        # 단어 기반 유사도
         query_words = set(query_lower.split())
         title_words = set(title_lower.split())
-
         if not query_words or not title_words:
             return 0.0
-
-        # Jaccard 유사도
         intersection = len(query_words.intersection(title_words))
         union = len(query_words.union(title_words))
-
         if union == 0:
             return 0.0
-
         jaccard_similarity = intersection / union
-
-        # 길이 유사도
         length_diff = abs(len(query) - len(title))
         max_length = max(len(query), len(title))
-        length_similarity = 1.0 - (length_diff / max_length) if max_length > 0 else 0.0
-
-        # 최종 유사도 (Jaccard 70%, 길이 30%)
-        return (jaccard_similarity * 0.7) + (length_similarity * 0.3)
+        length_similarity = 1.0 - length_diff / max_length if max_length > 0 else 0.0
+        return jaccard_similarity * 0.7 + length_similarity * 0.3
 
     def clear_cache(self):
         """캐시 초기화"""
         self.poster_cache.clear()
         self.search_cache.clear()
-        print("🗑️ TMDB 캐시 초기화 완료")
+        logger.info("🗑️ TMDB 캐시 초기화 완료")
 
     def get_cache_stats(self) -> dict[str, int]:
         """캐시 통계 반환"""
@@ -352,11 +288,8 @@ class TMDBManager:
                 "search_cache": list(self.search_cache.keys()),
                 "stats": self.get_cache_stats(),
             }
-
             with Path(filepath).open("w", encoding="utf-8") as f:
                 json.dump(cache_info, f, ensure_ascii=False, indent=2)
-
-            print(f"✅ 캐시 정보 내보내기 완료: {filepath}")
-
+            logger.info("✅ 캐시 정보 내보내기 완료: %s", filepath)
         except Exception as e:
-            print(f"❌ 캐시 정보 내보내기 실패: {e}")
+            logger.info("❌ 캐시 정보 내보내기 실패: %s", e)

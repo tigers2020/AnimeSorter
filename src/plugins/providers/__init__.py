@@ -4,4 +4,6 @@
 메타데이터 제공자 플러그인들이 위치하는 디렉토리입니다.
 """
 
-# 이 디렉토리는 플러그인 파일들을 포함합니다.
+import logging
+
+logger = logging.getLogger(__name__)

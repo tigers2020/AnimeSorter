@@ -1,166 +1,59 @@
-"""
-파일 스캔 서비스
-
-MainWindow의 파일 스캔 로직을 분리한 서비스입니다.
-백그라운드 작업을 통해 UI를 블로킹하지 않고 스캔을 수행합니다.
-리팩토링: 통합된 파일 조직화 서비스를 사용하여 중복 코드 제거
-"""
-
 import logging
-from abc import ABC, abstractmethod
 from pathlib import Path
-from uuid import UUID, uuid4
 
-from src.app.events import TypedEventBus
-from src.app.services.background_task_service import IBackgroundTaskService
-from src.app.services.file_scan_task import FileScanTask
-from src.core.services.unified_file_organization_service import (
-    FileOrganizationConfig, UnifiedFileOrganizationService)
+from src.core.constants import DEFAULT_VIDEO_EXTENSIONS
+
+logger = logging.getLogger(__name__)
 
 
-class IFileScanService(ABC):
-    """파일 스캔 서비스 인터페이스"""
+class FileScanService:
+    """파일 스캔 서비스"""
 
-    @abstractmethod
-    def scan_directory(
-        self,
-        directory_path: Path,
-        recursive: bool = True,
-        extensions: set[str] | None = None,
-        min_file_size: int = 1024 * 1024,  # 1MB
-        max_file_size: int = 50 * 1024 * 1024 * 1024,  # 50GB
-    ) -> UUID:
-        """디렉토리 스캔 시작 (스캔 ID 반환)"""
-
-    @abstractmethod
-    def scan_files(
-        self,
-        file_paths: list[Path],
-        extensions: set[str] | None = None,
-        min_file_size: int = 1024 * 1024,  # 1MB
-        max_file_size: int = 50 * 1024 * 1024 * 1024,  # 50GB
-    ) -> UUID:
-        """파일 목록 스캔 시작 (스캔 ID 반환)"""
-
-    @abstractmethod
-    def cancel_scan(self, scan_id: UUID) -> bool:
-        """스캔 취소"""
-
-    @abstractmethod
-    def dispose(self) -> None:
-        """서비스 정리"""
-
-
-class FileScanService(IFileScanService):
-    """파일 스캔 서비스 구현 (백그라운드 작업 기반) - 리팩토링된 버전"""
-
-    def __init__(self, event_bus: TypedEventBus, background_task_service: IBackgroundTaskService):
-        self.event_bus = event_bus
-        self.background_task_service = background_task_service
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self._active_scans: dict[UUID, str] = {}  # scan_id -> background_task_id
-
-        # 통합된 파일 조직화 서비스 초기화
-        config = FileOrganizationConfig(
-            safe_mode=True, backup_before_operation=False, overwrite_existing=False
-        )
-        self.unified_service = UnifiedFileOrganizationService(config)
-
-        self.logger.info("FileScanService 초기화 완료 (리팩토링된 버전)")
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
 
     def scan_directory(
         self,
-        directory_path: Path,
+        directory_path: str,
         recursive: bool = True,
         extensions: set[str] | None = None,
-        min_file_size: int = 1024 * 1024,  # 1MB
-        max_file_size: int = 50 * 1024 * 1024 * 1024,  # 50GB
-    ) -> UUID:
-        """디렉토리 스캔 시작 (백그라운드 실행)"""
-        scan_id = uuid4()
-        self.logger.info(f"백그라운드 디렉토리 스캔 시작: {directory_path} (스캔 ID: {scan_id})")
+        min_file_size: int = 0,
+        max_file_size: int = 0,
+    ) -> list[str]:
+        """디렉토리를 스캔하여 파일 목록을 반환"""
+        try:
+            self.logger.info(f"디렉토리 스캔 시작: {directory_path}")
 
-        # FileScanTask 생성
-        scan_task = FileScanTask(
-            event_bus=self.event_bus,
-            directory_path=str(directory_path),
-            recursive=recursive,
-            extensions=extensions
-            or {".mkv", ".mp4", ".avi", ".wmv", ".mov", ".flv", ".webm", ".m4v"},
-            min_size_mb=min_file_size / (1024 * 1024),  # MB로 변환
-            max_size_gb=max_file_size / (1024 * 1024 * 1024),  # GB로 변환
-        )
+            directory = Path(directory_path)
+            if not directory.exists():
+                self.logger.error(f"디렉토리가 존재하지 않습니다: {directory_path}")
+                return []
 
-        # 백그라운드 작업 제출
-        background_task_id = self.background_task_service.submit_task(scan_task)
-        self._active_scans[scan_id] = str(background_task_id)
+            # 지원하는 비디오 파일 확장자 (기본값)
+            if extensions is None:
+                extensions = DEFAULT_VIDEO_EXTENSIONS
 
-        self.logger.info(
-            f"디렉토리 스캔 작업 제출됨: {scan_id} (백그라운드 태스크 ID: {background_task_id})"
-        )
-        return scan_id
+            files = []
+            pattern = "**/*" if recursive else "*"
 
-    def scan_files(
-        self,
-        file_paths: list[Path],
-        extensions: set[str] | None = None,
-        min_file_size: int = 1024 * 1024,  # 1MB
-        max_file_size: int = 50 * 1024 * 1024 * 1024,  # 50GB
-    ) -> UUID:
-        """파일 목록 스캔 시작 (백그라운드 실행)"""
-        scan_id = uuid4()
-        self.logger.info(
-            f"백그라운드 파일 스캔 시작: {len(file_paths)}개 파일 (스캔 ID: {scan_id})"
-        )
+            for file_path in directory.glob(pattern):
+                if file_path.is_file():
+                    file_ext = file_path.suffix.lower()
+                    if file_ext in extensions:
+                        # 파일 크기 확인
+                        try:
+                            file_size = file_path.stat().st_size
+                            if file_size >= min_file_size and (
+                                max_file_size == 0 or file_size <= max_file_size
+                            ):
+                                files.append(str(file_path))
+                        except OSError:
+                            # 파일 크기를 가져올 수 없는 경우 무시
+                            pass
 
-        # 임시 구현: 파일 목록의 공통 디렉토리를 찾아서 스캔
-        common_dir = file_paths[0].parent if file_paths else Path()
+            self.logger.info(f"스캔 완료: {len(files)}개 파일 발견")
+            return files
 
-        # FileScanTask 생성
-        scan_task = FileScanTask(
-            event_bus=self.event_bus,
-            directory_path=str(common_dir),
-            recursive=True,
-            extensions=extensions
-            or {".mkv", ".mp4", ".avi", ".wmv", ".mov", ".flv", ".webm", ".m4v"},
-            min_size_mb=min_file_size / (1024 * 1024),  # MB로 변환
-            max_size_gb=max_file_size / (1024 * 1024 * 1024),  # GB로 변환
-        )
-
-        # 백그라운드 작업 제출
-        background_task_id = self.background_task_service.submit_task(scan_task)
-        self._active_scans[scan_id] = str(background_task_id)
-
-        self.logger.info(
-            f"파일 목록 스캔 작업 제출됨: {scan_id} (백그라운드 태스크 ID: {background_task_id})"
-        )
-        return scan_id
-
-    def cancel_scan(self, scan_id: UUID) -> bool:
-        """스캔 취소"""
-        if scan_id not in self._active_scans:
-            self.logger.warning(f"취소할 스캔을 찾을 수 없음: {scan_id}")
-            return False
-
-        background_task_id = self._active_scans[scan_id]
-        success = self.background_task_service.cancel_task(background_task_id)
-
-        if success:
-            self.logger.info(
-                f"스캔 취소 성공: {scan_id} (백그라운드 태스크 ID: {background_task_id})"
-            )
-            self._active_scans.pop(scan_id)
-        else:
-            self.logger.warning(
-                f"스캔 취소 실패: {scan_id} (백그라운드 태스크 ID: {background_task_id})"
-            )
-
-        return success
-
-    def dispose(self) -> None:
-        """서비스 정리"""
-        # 모든 활성 스캔 취소
-        for scan_id in list(self._active_scans.keys()):
-            self.cancel_scan(scan_id)
-
-        self.logger.info("FileScanService 정리 완료")
+        except Exception as e:
+            self.logger.error(f"디렉토리 스캔 중 오류 발생: {e}")
+            return []

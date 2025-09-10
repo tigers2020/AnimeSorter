@@ -2,6 +2,9 @@
 UI 업데이트 관련 이벤트 정의
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 
 from src.app.events import BaseEvent
@@ -12,8 +15,8 @@ class StatusBarUpdateEvent(BaseEvent):
     """상태바 업데이트 이벤트"""
 
     message: str = ""
-    progress: int | None = None  # 0-100
-    clear_after: float | None = None  # 초 후 자동 클리어
+    progress: int | None = None
+    clear_after: float | None = None
 
 
 @dataclass
@@ -59,7 +62,7 @@ class ErrorMessageEvent(BaseEvent):
 
     message: str = ""
     details: str | None = None
-    error_type: str = "error"  # error, warning, info
+    error_type: str = "error"
 
 
 @dataclass
@@ -75,7 +78,7 @@ class SuccessMessageEvent(BaseEvent):
 class TableDataUpdateEvent(BaseEvent):
     """테이블 데이터 업데이트 이벤트"""
 
-    table_name: str = ""  # "file_list", "detail_list" 등
+    table_name: str = ""
     data: list = field(default_factory=list)
     selection_changed: bool = False
 
@@ -113,7 +116,7 @@ class SettingsChangedEvent(BaseEvent):
     setting_name: str = ""
     old_value: str | None = None
     new_value: str | None = None
-    category: str = "general"  # general, ui, file_operations, tmdb 등
+    category: str = "general"
 
 
 @dataclass

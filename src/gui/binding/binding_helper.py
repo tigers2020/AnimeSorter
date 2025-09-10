@@ -5,6 +5,8 @@ Phase 2 MVVM 아키텍처의 일부로, View와 ViewModel 간의 데이터 바�
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from collections.abc import Callable
 from typing import Any
 
@@ -18,27 +20,19 @@ from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QLabel,
 class BindingHelper(QObject):
     """View와 ViewModel 간의 데이터 바인딩을 관리하는 헬퍼 클래스"""
 
-    # 시그널 정의
-    binding_created = pyqtSignal(str, str)  # view_property, viewmodel_property
-    binding_removed = pyqtSignal(str, str)  # view_property, viewmodel_property
-    binding_error = pyqtSignal(str, str)  # error_type, error_message
+    binding_created = pyqtSignal(str, str)
+    binding_removed = pyqtSignal(str, str)
+    binding_error = pyqtSignal(str, str)
 
     def __init__(self):
         super().__init__()
-
-        # 로깅 설정
         self.logger = logging.getLogger(__name__)
-
-        # 바인딩 정보 저장
         self._bindings: dict[str, dict[str, Any]] = {}
         self._viewmodel: QObject | None = None
         self._view: QWidget | None = None
-
-        # 자동 업데이트 타이머
         self._update_timer = QTimer()
         self._update_timer.timeout.connect(self._update_all_bindings)
-        self._update_timer.start(100)  # 100ms마다 업데이트
-
+        self._update_timer.start(100)
         self.logger.info("BindingHelper 초기화 완료")
 
     def set_viewmodel(self, viewmodel: QObject):
@@ -64,11 +58,7 @@ class BindingHelper(QObject):
             if not self._view or not self._viewmodel:
                 self.logger.error("View 또는 ViewModel이 설정되지 않았습니다")
                 return False
-
-            # 바인딩 ID 생성
             binding_id = f"{view_property}_{viewmodel_property}"
-
-            # 바인딩 정보 저장
             self._bindings[binding_id] = {
                 "view_property": view_property,
                 "viewmodel_property": viewmodel_property,
@@ -77,8 +67,6 @@ class BindingHelper(QObject):
                 "validator": validator,
                 "active": True,
             }
-
-            # 바인딩 설정
             if binding_type == "one_way":
                 self._setup_one_way_binding(binding_id)
             elif binding_type == "two_way":
@@ -88,12 +76,9 @@ class BindingHelper(QObject):
             else:
                 self.logger.error(f"지원하지 않는 바인딩 타입: {binding_type}")
                 return False
-
             self.binding_created.emit(view_property, viewmodel_property)
             self.logger.info(f"바인딩 생성 완료: {view_property} <-> {viewmodel_property}")
-
             return True
-
         except Exception as e:
             self.logger.error(f"바인딩 생성 중 오류 발생: {e}")
             self.binding_error.emit("creation_error", str(e))
@@ -103,21 +88,14 @@ class BindingHelper(QObject):
         """바인딩 제거"""
         try:
             binding_id = f"{view_property}_{viewmodel_property}"
-
             if binding_id in self._bindings:
-                # 바인딩 비활성화
                 self._bindings[binding_id]["active"] = False
-
-                # 바인딩 정보 제거
                 del self._bindings[binding_id]
-
                 self.binding_removed.emit(view_property, viewmodel_property)
                 self.logger.info(f"바인딩 제거 완료: {view_property} <-> {viewmodel_property}")
-
                 return True
             self.logger.warning(f"제거할 바인딩을 찾을 수 없음: {binding_id}")
             return False
-
         except Exception as e:
             self.logger.error(f"바인딩 제거 중 오류 발생: {e}")
             return False
@@ -126,13 +104,10 @@ class BindingHelper(QObject):
         """모든 바인딩 제거"""
         try:
             binding_ids = list(self._bindings.keys())
-
             for binding_id in binding_ids:
                 binding = self._bindings[binding_id]
                 self.remove_binding(binding["view_property"], binding["viewmodel_property"])
-
             self.logger.info("모든 바인딩 제거 완료")
-
         except Exception as e:
             self.logger.error(f"모든 바인딩 제거 중 오류 발생: {e}")
 
@@ -153,7 +128,6 @@ class BindingHelper(QObject):
         binding = self._bindings.get(binding_id)
         return binding is not None and binding.get("active", False)
 
-    # 편의 메서드들
     def bind_text_input(
         self, _line_edit: QLineEdit, viewmodel_property: str, binding_type: str = "two_way"
     ) -> bool:
@@ -223,7 +197,6 @@ class BindingHelper(QObject):
         """트리 위젯 바인딩"""
         return self.create_binding("data", viewmodel_property, binding_type)
 
-    # 고급 바인딩 메서드들
     def bind_with_converter(
         self,
         view_property: str,
@@ -255,8 +228,6 @@ class BindingHelper(QObject):
         """조건부 바인딩 생성"""
         try:
             binding_id = f"{view_property}_{viewmodel_property}"
-
-            # 조건부 바인딩 정보 저장
             self._bindings[binding_id] = {
                 "view_property": view_property,
                 "viewmodel_property": viewmodel_property,
@@ -268,32 +239,22 @@ class BindingHelper(QObject):
                 "condition_property": condition_property,
                 "condition_value": condition_value,
             }
-
-            # 조건부 바인딩 설정
             self._setup_conditional_binding(binding_id)
-
             self.binding_created.emit(view_property, viewmodel_property)
             self.logger.info(f"조건부 바인딩 생성 완료: {view_property} <-> {viewmodel_property}")
-
             return True
-
         except Exception as e:
             self.logger.error(f"조건부 바인딩 생성 중 오류 발생: {e}")
             return False
 
-    # 내부 바인딩 설정 메서드들
     def _setup_one_way_binding(self, binding_id: str):
         """단방향 바인딩 설정 (ViewModel -> View)"""
         binding = self._bindings[binding_id]
         view_property = binding["view_property"]
         viewmodel_property = binding["viewmodel_property"]
-
-        # ViewModel의 속성 변경 시그널 연결
         if hasattr(self._viewmodel, f"{viewmodel_property}Changed"):
             signal = getattr(self._viewmodel, f"{viewmodel_property}Changed")
             signal.connect(lambda: self._update_view_property(view_property, viewmodel_property))
-
-        # 초기 값 설정
         self._update_view_property(view_property, viewmodel_property)
 
     def _setup_two_way_binding(self, binding_id: str):
@@ -301,11 +262,7 @@ class BindingHelper(QObject):
         binding = self._bindings[binding_id]
         binding["view_property"]
         binding["viewmodel_property"]
-
-        # ViewModel -> View 바인딩
         self._setup_one_way_binding(binding_id)
-
-        # View -> ViewModel 바인딩
         self._setup_view_to_viewmodel_binding(binding_id)
 
     def _setup_one_way_to_source_binding(self, binding_id: str):
@@ -313,8 +270,6 @@ class BindingHelper(QObject):
         binding = self._bindings[binding_id]
         binding["view_property"]
         binding["viewmodel_property"]
-
-        # View -> ViewModel 바인딩
         self._setup_view_to_viewmodel_binding(binding_id)
 
     def _setup_conditional_binding(self, binding_id: str):
@@ -323,13 +278,9 @@ class BindingHelper(QObject):
         binding["view_property"]
         binding["viewmodel_property"]
         condition_property = binding["condition_property"]
-
-        # 조건 속성 변경 시그널 연결
         if hasattr(self._viewmodel, f"{condition_property}Changed"):
             signal = getattr(self._viewmodel, f"{condition_property}Changed")
             signal.connect(lambda: self._update_conditional_binding(binding_id))
-
-        # 초기 조건 확인
         self._update_conditional_binding(binding_id)
 
     def _setup_view_to_viewmodel_binding(self, binding_id: str):
@@ -337,20 +288,14 @@ class BindingHelper(QObject):
         binding = self._bindings[binding_id]
         view_property = binding["view_property"]
         viewmodel_property = binding["viewmodel_property"]
-
-        # View 위젯 찾기
         view_widget = self._find_view_widget(view_property)
         if not view_widget:
             return
-
-        # View 위젯의 시그널 연결
         if hasattr(view_widget, f"{view_property}Changed"):
             signal = getattr(view_widget, f"{view_property}Changed")
             signal.connect(
                 lambda: self._update_viewmodel_property(view_property, viewmodel_property)
             )
-
-        # 특정 위젯 타입별 시그널 연결
         self._connect_widget_specific_signals(view_widget, view_property, viewmodel_property)
 
     def _connect_widget_specific_signals(
@@ -382,23 +327,17 @@ class BindingHelper(QObject):
                 lambda: self._update_viewmodel_property(view_property, viewmodel_property)
             )
 
-    # 바인딩 업데이트 메서드들
     def _update_view_property(self, view_property: str, viewmodel_property: str):
         """View 속성 업데이트"""
         try:
             if not self._view or not self._viewmodel:
                 return
-
-            # ViewModel에서 값 가져오기
             if hasattr(self._viewmodel, viewmodel_property):
                 value = getattr(self._viewmodel, viewmodel_property)
-
-                # View 위젯 찾기
                 view_widget = self._find_view_widget(view_property)
                 if view_widget and hasattr(view_widget, f"set{view_property.capitalize()}"):
                     setter = getattr(view_widget, f"set{view_property.capitalize()}")
                     setter(value)
-
         except Exception as e:
             self.logger.error(f"View 속성 업데이트 중 오류 발생: {e}")
 
@@ -407,17 +346,12 @@ class BindingHelper(QObject):
         try:
             if not self._view or not self._viewmodel:
                 return
-
-            # View에서 값 가져오기
             view_widget = self._find_view_widget(view_property)
             if view_widget and hasattr(view_widget, view_property):
                 value = getattr(view_widget, view_property)
-
-                # ViewModel에 값 설정
                 if hasattr(self._viewmodel, f"set{viewmodel_property.capitalize()}"):
                     setter = getattr(self._viewmodel, f"set{viewmodel_property.capitalize()}")
                     setter(value)
-
         except Exception as e:
             self.logger.error(f"ViewModel 속성 업데이트 중 오류 발생: {e}")
 
@@ -427,21 +361,14 @@ class BindingHelper(QObject):
             binding = self._bindings[binding_id]
             condition_property = binding["condition_property"]
             condition_value = binding["condition_value"]
-
-            # 조건 확인
             if hasattr(self._viewmodel, condition_property):
                 current_value = getattr(self._viewmodel, condition_property)
                 is_active = current_value == condition_value
-
-                # 바인딩 활성화/비활성화
                 binding["active"] = is_active
-
                 if is_active:
                     self._setup_two_way_binding(binding_id)
                 else:
-                    # 바인딩 비활성화
                     pass
-
         except Exception as e:
             self.logger.error(f"조건부 바인딩 업데이트 중 오류 발생: {e}")
 
@@ -453,21 +380,15 @@ class BindingHelper(QObject):
                     self._update_view_property(
                         binding["view_property"], binding["viewmodel_property"]
                     )
-
         except Exception as e:
             self.logger.error(f"모든 바인딩 업데이트 중 오류 발생: {e}")
 
-    # 헬퍼 메서드들
     def _find_view_widget(self, property_name: str) -> QWidget | None:
         """View에서 특정 속성을 가진 위젯 찾기"""
         if not self._view:
             return None
-
-        # 간단한 구현: View 자체가 위젯인 경우
         if hasattr(self._view, property_name):
             return self._view
-
-        # TODO: 더 복잡한 위젯 검색 로직 구현
         return None
 
     def get_binding_summary(self) -> dict[str, Any]:

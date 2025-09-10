@@ -4,6 +4,9 @@
 파일 조작 전 안전성 검사를 통한 데이터 손실 방지
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from .base_checker import (BasePreflightChecker, IPreflightChecker,
                            PreflightIssue, PreflightResult, PreflightSeverity)
 from .file_checkers import (CircularReferenceChecker, DiskSpaceChecker,
@@ -18,24 +21,20 @@ from .preflight_events import (BatchPreflightCompletedEvent,
                                PreflightIssueFoundEvent, PreflightStartedEvent)
 
 __all__ = [
-    # Base
     "BasePreflightChecker",
     "PreflightResult",
     "PreflightSeverity",
     "PreflightIssue",
     "IPreflightChecker",
-    # Checkers
     "FileConflictChecker",
     "PermissionChecker",
     "DiskSpaceChecker",
     "PathValidityChecker",
     "CircularReferenceChecker",
     "FileLockChecker",
-    # Coordinator
     "PreflightCoordinator",
     "IPreflightCoordinator",
     "PreflightCheckResult",
-    # Events
     "PreflightStartedEvent",
     "PreflightCompletedEvent",
     "PreflightIssueFoundEvent",

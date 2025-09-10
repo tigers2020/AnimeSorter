@@ -4,6 +4,9 @@
 도메인 이벤트와 애플리케이션 이벤트 정의
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -46,9 +49,6 @@ class OperationStatus(Enum):
     SKIPPED = "skipped"
 
 
-# === 파일 스캔 이벤트 ===
-
-
 @dataclass
 class FileScanStartedEvent(BaseEvent):
     """파일 스캔 시작 이벤트"""
@@ -82,9 +82,6 @@ class FilesScannedEvent(BaseEvent):
     error_message: str | None = None
 
 
-# === 메타데이터 이벤트 ===
-
-
 @dataclass
 class MetadataExtractionStartedEvent(BaseEvent):
     """메타데이터 추출 시작 이벤트"""
@@ -116,9 +113,6 @@ class MetadataSyncedEvent(BaseEvent):
     errors: list[str] = field(default_factory=list)
 
 
-# === 파일 조작 계획 이벤트 ===
-
-
 @dataclass
 class FileOperationPlannedEvent(BaseEvent):
     """파일 조작 계획 수립 이벤트"""
@@ -146,9 +140,6 @@ class BatchOperationPlannedEvent(BaseEvent):
     has_conflicts: bool = False
 
 
-# === 파일 조작 실행 이벤트 ===
-
-
 @dataclass
 class FileOperationStartedEvent(BaseEvent):
     """파일 조작 시작 이벤트"""
@@ -167,7 +158,7 @@ class FileOperationProgressEvent(BaseEvent):
     bytes_processed: int = 0
     total_bytes: int = 0
     progress_percentage: float = 0.0
-    current_speed_bps: float = 0.0  # bytes per second
+    current_speed_bps: float = 0.0
 
 
 @dataclass
@@ -197,9 +188,6 @@ class BatchOperationCompletedEvent(BaseEvent):
     total_bytes_processed: int = 0
 
 
-# === 오류 이벤트 ===
-
-
 @dataclass
 class OperationFailedEvent(BaseEvent):
     """조작 실패 이벤트"""
@@ -224,9 +212,6 @@ class ValidationFailedEvent(BaseEvent):
     expected_value: Any = None
     actual_value: Any = None
     error_message: str = ""
-
-
-# === 미디어 파일 이벤트 ===
 
 
 @dataclass
@@ -271,28 +256,14 @@ class MediaFileMovedEvent(BaseEvent):
 
 
 @dataclass
-class MediaFileRenamedEvent(BaseEvent):
-    """미디어 파일 이름 변경 이벤트"""
-
-    file_id: UUID = field(default_factory=uuid4)
-    old_path: Path = field(default_factory=lambda: Path())
-    new_path: Path = field(default_factory=lambda: Path())
-    old_name: str = ""
-    new_name: str = ""
-
-
-@dataclass
 class MediaFileFlagChangedEvent(BaseEvent):
     """미디어 파일 플래그 변경 이벤트"""
 
     file_id: UUID = field(default_factory=uuid4)
     file_path: Path = field(default_factory=lambda: Path())
     flag: str = ""
-    added: bool = True  # True: 추가, False: 제거
+    added: bool = True
     reason: str | None = None
-
-
-# === 미디어 그룹 이벤트 ===
 
 
 @dataclass
@@ -348,17 +319,14 @@ class MediaGroupCompletedEvent(BaseEvent):
     completion_time: datetime = field(default_factory=datetime.now)
 
 
-# === TMDB/외부 메타데이터 이벤트 ===
-
-
 @dataclass
 class ExternalMetadataSearchStartedEvent(BaseEvent):
     """외부 메타데이터 검색 시작 이벤트"""
 
     search_id: UUID = field(default_factory=uuid4)
     query: str = ""
-    provider: str = ""  # "tmdb", "tvdb", etc.
-    search_type: str = ""  # "movie", "tv", "anime"
+    provider: str = ""
+    search_type: str = ""
 
 
 @dataclass
@@ -386,9 +354,6 @@ class ExternalMetadataLinkedEvent(BaseEvent):
     linked_by_user: bool = False
 
 
-# === UI/사용자 상호작용 이벤트 ===
-
-
 @dataclass
 class UserActionEvent(BaseEvent):
     """사용자 액션 이벤트"""
@@ -406,19 +371,16 @@ class SelectionChangedEvent(BaseEvent):
     selected_file_ids: list[UUID] = field(default_factory=list)
     selected_group_ids: list[UUID] = field(default_factory=list)
     selection_count: int = 0
-    selection_type: str = ""  # "files", "groups", "mixed"
+    selection_type: str = ""
 
 
 @dataclass
 class ViewModeChangedEvent(BaseEvent):
     """뷰 모드 변경 이벤트"""
 
-    view_mode: str = ""  # "list", "grid", "detailed"
+    view_mode: str = ""
     previous_mode: str = ""
     filter_settings: dict[str, Any] = field(default_factory=dict)
-
-
-# === 설정 및 상태 이벤트 ===
 
 
 @dataclass
@@ -428,19 +390,16 @@ class SettingsChangedEvent(BaseEvent):
     setting_key: str = ""
     old_value: Any = None
     new_value: Any = None
-    category: str = ""  # "general", "advanced", "ui", etc.
+    category: str = ""
 
 
 @dataclass
 class ApplicationStateChangedEvent(BaseEvent):
     """애플리케이션 상태 변경 이벤트"""
 
-    state: str = ""  # "idle", "scanning", "processing", "error"
+    state: str = ""
     previous_state: str = ""
     context: dict[str, Any] = field(default_factory=dict)
-
-
-# === 성능 및 모니터링 이벤트 ===
 
 
 @dataclass
@@ -449,7 +408,7 @@ class PerformanceMetricEvent(BaseEvent):
 
     metric_name: str = ""
     value: float = 0.0
-    unit: str = ""  # "ms", "seconds", "bytes", "count", etc.
+    unit: str = ""
     context: dict[str, Any] = field(default_factory=dict)
 
 
@@ -475,9 +434,6 @@ class DiskSpaceEvent(BaseEvent):
     warning_threshold_reached: bool = False
 
 
-# === 시스템 이벤트 ===
-
-
 @dataclass
 class ApplicationStartedEvent(BaseEvent):
     """애플리케이션 시작 이벤트"""
@@ -491,6 +447,6 @@ class ApplicationStartedEvent(BaseEvent):
 class ApplicationShutdownEvent(BaseEvent):
     """애플리케이션 종료 이벤트"""
 
-    shutdown_reason: str = ""  # "user_exit", "error", "system_shutdown"
+    shutdown_reason: str = ""
     uptime_seconds: float = 0.0
     unsaved_changes: bool = False

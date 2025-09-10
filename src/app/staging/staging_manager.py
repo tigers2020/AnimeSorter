@@ -6,6 +6,8 @@ Phase 3 요구사항: 모든 파일 조작 전 스테이징 디렉토리에서 �
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import os
 import shutil
 import tempfile
@@ -20,25 +22,18 @@ from uuid import UUID, uuid4
 class StagingConfiguration:
     """스테이징 시스템 설정"""
 
-    # 기본 설정
     staging_directory: Path = field(default_factory=lambda: Path(".animesorter_staging"))
     temp_directory: Path = field(
         default_factory=lambda: Path(tempfile.gettempdir()) / "animesorter_temp"
     )
-
-    # 정리 설정
     auto_cleanup: bool = True
     cleanup_interval_hours: int = 24
     max_staging_age_hours: int = 72
     max_staging_size_mb: int = 1000
-
-    # 보안 설정
     preserve_original_permissions: bool = True
     validate_file_integrity: bool = True
     create_backup_before_staging: bool = True
-
-    # 성능 설정
-    use_hard_links: bool = False  # Windows에서는 권장하지 않음
+    use_hard_links: bool = False
     batch_operations: bool = True
     max_concurrent_operations: int = 4
 
@@ -55,7 +50,7 @@ class StagedFile:
     file_size: int
     checksum: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    status: str = "staged"  # staged, processing, completed, failed, cleaned
+    status: str = "staged"
 
 
 class IStagingManager:
@@ -100,36 +95,22 @@ class StagingManager:
     def __init__(self, config: StagingConfiguration | None = None):
         self.config = config or StagingConfiguration()
         self.logger = logging.getLogger(self.__class__.__name__)
-
-        # 스테이징된 파일들 관리
         self._staged_files: dict[UUID, StagedFile] = {}
         self._path_to_staging_id: dict[Path, UUID] = {}
-
-        # 상태 관리
         self._is_initialized = False
         self._last_cleanup_time: datetime | None = None
-
-        # 초기화
         self._initialize_directories()
         self._is_initialized = True
-
         self.logger.info("StagingManager 초기화 완료")
 
     def _initialize_directories(self) -> None:
         """필요한 디렉토리들 초기화"""
         try:
-            # 스테이징 디렉토리 생성
             self.config.staging_directory.mkdir(parents=True, exist_ok=True)
-
-            # 임시 디렉토리 생성
             self.config.temp_directory.mkdir(parents=True, exist_ok=True)
-
-            # 하위 디렉토리들 생성
             for subdir in ["files", "directories", "backups", "processing"]:
                 (self.config.staging_directory / subdir).mkdir(parents=True, exist_ok=True)
-
             self.logger.info(f"스테이징 디렉토리 초기화 완료: {self.config.staging_directory}")
-
         except Exception as e:
             self.logger.error(f"스테이징 디렉토리 초기화 실패: {e}")
             raise
@@ -139,44 +120,29 @@ class StagingManager:
         try:
             if not source_path.exists():
                 raise FileNotFoundError(f"소스 파일을 찾을 수 없습니다: {source_path}")
-
             if not source_path.is_file():
                 raise ValueError(f"소스 경로가 파일이 아닙니다: {source_path}")
-
-            # 스테이징 ID 생성
             staging_id = uuid4()
-
-            # 스테이징 경로 생성
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             unique_id = str(staging_id)[:8]
             staging_name = f"{timestamp}_{unique_id}_{source_path.name}"
             staging_path = self.config.staging_directory / "files" / staging_name
-
-            # 백업 생성 (설정에 따라)
             backup_path = None
             if self.config.create_backup_before_staging:
                 backup_name = f"backup_{staging_name}"
                 backup_path = self.config.staging_directory / "backups" / backup_name
                 shutil.copy2(source_path, backup_path)
                 self.logger.debug(f"백업 생성: {backup_path}")
-
-            # 파일 스테이징
             if self.config.use_hard_links and hasattr(os, "link"):
-                # 하드 링크 사용 (Unix/Linux)
                 os.link(source_path, staging_path)
             else:
-                # 파일 복사
                 shutil.copy2(source_path, staging_path)
-
-            # 파일 크기 및 체크섬 계산
             file_size = staging_path.stat().st_size
             checksum = (
                 self._calculate_checksum(staging_path)
                 if self.config.validate_file_integrity
                 else None
             )
-
-            # StagedFile 객체 생성
             staged_file = StagedFile(
                 staging_id=staging_id,
                 original_path=source_path,
@@ -191,14 +157,10 @@ class StagingManager:
                     "staging_method": "hard_link" if self.config.use_hard_links else "copy",
                 },
             )
-
-            # 관리 목록에 추가
             self._staged_files[staging_id] = staged_file
             self._path_to_staging_id[source_path] = staging_id
-
             self.logger.info(f"파일 스테이징 완료: {source_path} -> {staging_path}")
             return staged_file
-
         except Exception as e:
             self.logger.error(f"파일 스테이징 실패: {e}")
             raise
@@ -208,34 +170,21 @@ class StagingManager:
         try:
             if not source_path.exists():
                 raise FileNotFoundError(f"소스 디렉토리를 찾을 수 없습니다: {source_path}")
-
             if not source_path.is_dir():
                 raise ValueError(f"소스 경로가 디렉토리가 아닙니다: {source_path}")
-
-            # 스테이징 ID 생성
             staging_id = uuid4()
-
-            # 스테이징 경로 생성
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             unique_id = str(staging_id)[:8]
             staging_name = f"{timestamp}_{unique_id}_{source_path.name}"
             staging_path = self.config.staging_directory / "directories" / staging_name
-
-            # 백업 생성 (설정에 따라)
             backup_path = None
             if self.config.create_backup_before_staging:
                 backup_name = f"backup_{staging_name}"
                 backup_path = self.config.staging_directory / "backups" / backup_name
                 shutil.copytree(source_path, backup_path)
                 self.logger.debug(f"백업 생성: {backup_path}")
-
-            # 디렉토리 스테이징 (복사)
             shutil.copytree(source_path, staging_path)
-
-            # 디렉토리 크기 계산
             total_size = sum(f.stat().st_size for f in staging_path.rglob("*") if f.is_file())
-
-            # StagedFile 객체 생성
             staged_file = StagedFile(
                 staging_id=staging_id,
                 original_path=source_path,
@@ -243,21 +192,17 @@ class StagingManager:
                 operation_type=operation_type,
                 staged_at=datetime.now(),
                 file_size=total_size,
-                checksum=None,  # 디렉토리 체크섬은 계산하지 않음
+                checksum=None,
                 metadata={
                     "backup_path": str(backup_path) if backup_path else None,
                     "file_count": len(list(staging_path.rglob("*"))),
                     "staging_method": "copy",
                 },
             )
-
-            # 관리 목록에 추가
             self._staged_files[staging_id] = staged_file
             self._path_to_staging_id[source_path] = staging_id
-
             self.logger.info(f"디렉토리 스테이징 완료: {source_path} -> {staging_path}")
             return staged_file
-
         except Exception as e:
             self.logger.error(f"디렉토리 스테이징 실패: {e}")
             raise
@@ -279,20 +224,14 @@ class StagingManager:
             staged_file = self._staged_files.get(staging_id)
             if not staged_file:
                 raise ValueError(f"스테이징 ID를 찾을 수 없습니다: {staging_id}")
-
-            # 상태 업데이트
             staged_file.status = "completed"
-
-            # 백업 파일 정리 (선택적)
             if staged_file.metadata.get("backup_path"):
                 backup_path = Path(staged_file.metadata["backup_path"])
                 if backup_path.exists():
                     backup_path.unlink()
                     self.logger.debug(f"백업 파일 정리: {backup_path}")
-
             self.logger.info(f"스테이징 파일 작업 완료: {staging_id}")
             return True
-
         except Exception as e:
             self.logger.error(f"스테이징 파일 작업 완료 실패: {e}")
             return False
@@ -303,8 +242,6 @@ class StagingManager:
             staged_file = self._staged_files.get(staging_id)
             if not staged_file:
                 raise ValueError(f"스테이징 ID를 찾을 수 없습니다: {staging_id}")
-
-            # 백업에서 복원
             backup_path = staged_file.metadata.get("backup_path")
             if backup_path and Path(backup_path).exists():
                 if staged_file.original_path.is_file():
@@ -313,12 +250,10 @@ class StagingManager:
                     if staged_file.original_path.exists():
                         shutil.rmtree(staged_file.original_path)
                     shutil.copytree(Path(backup_path), staged_file.original_path)
-
                 self.logger.info(f"스테이징 파일 롤백 완료: {staging_id}")
                 return True
             self.logger.warning(f"백업 파일을 찾을 수 없어 롤백할 수 없습니다: {staging_id}")
             return False
-
         except Exception as e:
             self.logger.error(f"스테이징 파일 롤백 실패: {e}")
             return False
@@ -327,42 +262,29 @@ class StagingManager:
         """오래된 스테이징 파일 정리"""
         if not self.config.auto_cleanup:
             return 0
-
         try:
             cleaned_count = 0
             current_time = datetime.now()
             cutoff_time = current_time - timedelta(hours=self.config.max_staging_age_hours)
-
             staging_ids_to_remove = []
-
             for staging_id, staged_file in self._staged_files.items():
-                # 완료된 파일들 중 오래된 것들 정리
                 if staged_file.status == "completed" and staged_file.staged_at < cutoff_time:
-                    # 스테이징 파일 삭제
                     if staged_file.staging_path.exists():
                         if staged_file.staging_path.is_file():
                             staged_file.staging_path.unlink()
                         elif staged_file.staging_path.is_dir():
                             shutil.rmtree(staged_file.staging_path)
-
-                    # 백업 파일도 정리
                     backup_path = staged_file.metadata.get("backup_path")
                     if backup_path and Path(backup_path).exists():
                         Path(backup_path).unlink()
-
                     staging_ids_to_remove.append(staging_id)
                     cleaned_count += 1
-
-            # 관리 목록에서 제거
             for staging_id in staging_ids_to_remove:
                 staged_file = self._staged_files.pop(staging_id)
                 self._path_to_staging_id.pop(staged_file.original_path, None)
-
             self._last_cleanup_time = current_time
             self.logger.info(f"오래된 스테이징 파일 {cleaned_count}개 정리 완료")
-
             return cleaned_count
-
         except Exception as e:
             self.logger.error(f"스테이징 파일 정리 실패: {e}")
             return 0
@@ -373,12 +295,10 @@ class StagingManager:
             total_files = len(self._staged_files)
             status_counts: dict[str, int] = {}
             total_size = 0
-
             for staged_file in self._staged_files.values():
                 status = staged_file.status
                 status_counts[status] = status_counts.get(status, 0) + 1
                 total_size += staged_file.file_size
-
             return {
                 "total_staged_files": total_files,
                 "status_distribution": status_counts,
@@ -390,7 +310,6 @@ class StagingManager:
                 ),
                 "auto_cleanup_enabled": self.config.auto_cleanup,
             }
-
         except Exception as e:
             self.logger.error(f"스테이징 요약 생성 실패: {e}")
             return {}
@@ -400,14 +319,11 @@ class StagingManager:
         try:
             import hashlib
 
-            hash_md5 = hashlib.md5()
-
+            hash_md5 = hashlib.md5(usedforsecurity=False)
             with file_path.open("rb") as f:
                 for chunk in iter(lambda: f.read(4096), b""):
                     hash_md5.update(chunk)
-
             return hash_md5.hexdigest()
-
         except Exception as e:
             self.logger.warning(f"체크섬 계산 실패: {e}")
             return None

@@ -4,6 +4,9 @@
 선택된 그룹의 상세 정보를 관리하는 뷰모델
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass
 from typing import Any
 
@@ -33,46 +36,37 @@ class DetailInfo:
 class DetailViewModel(QObject):
     """상세 뷰 뷰모델"""
 
-    # 시그널 정의
-    detail_changed = pyqtSignal()  # 상세 정보 변경
-    selection_changed = pyqtSignal()  # 선택 변경
+    detail_changed = pyqtSignal()
+    selection_changed = pyqtSignal()
 
     def __init__(self, event_bus: ITypedEventBus, parent=None):
         super().__init__(parent)
         self.event_bus = event_bus
-
-        # 현재 선택된 그룹
         self._selected_group_key: str | None = None
         self._detail_info: DetailInfo | None = None
-
-        # 이벤트 버스 연결
         self._connect_event_bus()
 
     def initialize(self) -> bool:
         """뷰모델 초기화"""
         try:
-            print("✅ DetailViewModel 초기화 완료")
+            logger.info("✅ DetailViewModel 초기화 완료")
             return True
         except Exception as e:
-            print(f"❌ DetailViewModel 초기화 실패: {e}")
+            logger.info("❌ DetailViewModel 초기화 실패: %s", e)
             return False
 
     def cleanup(self):
         """뷰모델 정리"""
         try:
-            # 이벤트 버스 연결 해제
             self._disconnect_event_bus()
-            print("🧹 DetailViewModel 정리 완료")
+            logger.info("🧹 DetailViewModel 정리 완료")
         except Exception as e:
-            print(f"❌ DetailViewModel 정리 실패: {e}")
+            logger.info("❌ DetailViewModel 정리 실패: %s", e)
 
     def _connect_event_bus(self):
         """이벤트 버스 연결"""
         if self.event_bus:
-            # 선택 변경 이벤트
             self.event_bus.subscribe("group_selection_changed", self._on_group_selection_changed)
-
-            # 데이터 업데이트 이벤트
             self.event_bus.subscribe("grouped_items_updated", self._on_grouped_items_updated)
             self.event_bus.subscribe("tmdb_matches_updated", self._on_tmdb_matches_updated)
 
@@ -83,11 +77,8 @@ class DetailViewModel(QObject):
             self.event_bus.unsubscribe("grouped_items_updated", self._on_grouped_items_updated)
             self.event_bus.unsubscribe("tmdb_matches_updated", self._on_tmdb_matches_updated)
 
-    # === 이벤트 핸들러 ===
-
     def _on_group_selection_changed(self, selected_groups: list[str]):
         """그룹 선택 변경 처리"""
-        # 첫 번째 선택된 그룹을 상세 뷰에 표시
         if selected_groups:
             self.set_selected_group(selected_groups[0])
         else:
@@ -102,8 +93,6 @@ class DetailViewModel(QObject):
         """TMDB 매치 업데이트"""
         if self._selected_group_key:
             self._update_detail_info()
-
-    # === 선택 관리 ===
 
     def set_selected_group(self, group_key: str):
         """선택된 그룹 설정"""
@@ -122,28 +111,17 @@ class DetailViewModel(QObject):
         """상세 정보 업데이트"""
         if not self._selected_group_key:
             return
-
         try:
-            # 이벤트 버스를 통해 데이터 가져오기
             if not self.event_bus:
                 return
-
-            # 그룹화된 아이템 가져오기
             grouped_items = self.event_bus.publish("get_grouped_items", [])
             items = grouped_items.get(self._selected_group_key, [])
-
             if not items:
                 self.clear_selection()
                 return
-
-            # TMDB 매치 가져오기
             tmdb_matches = self.event_bus.publish("get_all_tmdb_matches", [])
             tmdb_match = tmdb_matches.get(self._selected_group_key)
-
-            # 첫 번째 아이템에서 기본 정보 추출
             first_item = items[0]
-
-            # 상세 정보 생성
             detail_info = DetailInfo(
                 group_key=self._selected_group_key,
                 title=first_item.title,
@@ -153,58 +131,37 @@ class DetailViewModel(QObject):
                 file_list=items,
                 tmdb_match=tmdb_match,
             )
-
-            # 최종 경로 계산
             detail_info.final_path = self._calculate_final_path(detail_info)
-
-            # 포스터 URL 설정
             if tmdb_match and tmdb_match.poster_path:
                 detail_info.poster_url = f"https://image.tmdb.org/t/p/w500{tmdb_match.poster_path}"
-
-            # 개요 설정
             if tmdb_match and tmdb_match.overview:
                 detail_info.overview = tmdb_match.overview
-
             self._detail_info = detail_info
             self.detail_changed.emit()
-
         except Exception as e:
-            print(f"❌ 상세 정보 업데이트 실패: {e}")
+            logger.info("❌ 상세 정보 업데이트 실패: %s", e)
             self.clear_selection()
 
     def _calculate_final_path(self, detail_info: DetailInfo) -> str:
         """최종 경로 계산"""
         try:
-            # TMDB 매치가 있으면 한글 제목 사용, 없으면 파싱된 제목 사용
             title = detail_info.tmdb_match.name if detail_info.tmdb_match else detail_info.title
-
-            # 제목 정제 (특수문자 제거, 공백 정규화)
             sanitized_title = self._sanitize_title(title)
-
-            # 시즌 정보 추가
             if detail_info.season:
                 season_str = f"Season{detail_info.season:02d}"
                 return f"{sanitized_title}/{season_str}"
             return sanitized_title
-
         except Exception as e:
-            print(f"❌ 최종 경로 계산 실패: {e}")
+            logger.info("❌ 최종 경로 계산 실패: %s", e)
             return detail_info.title
 
     def _sanitize_title(self, title: str) -> str:
         """제목 정제 (특수문자 제거, 공백 정규화)"""
         import re
 
-        # 특수문자 제거 (한글, 영문, 숫자, 공백만 허용)
-        sanitized = re.sub(r"[^\w\s가-힣]", "", title)
-
-        # 연속된 공백을 하나로 정규화
-        sanitized = re.sub(r"\s+", " ", sanitized)
-
-        # 앞뒤 공백 제거
+        sanitized = re.sub("[^\\w\\s가-힣]", "", title)
+        sanitized = re.sub("\\s+", " ", sanitized)
         return sanitized.strip()
-
-    # === 프로퍼티 (PyQt 바인딩용) ===
 
     @pyqtProperty(bool, notify=selection_changed)
     def has_selection(self) -> bool:
@@ -308,8 +265,6 @@ class DetailViewModel(QObject):
         """개요가 있는지 확인"""
         return bool(self.overview)
 
-    # === IViewModel 인터페이스 구현 ===
-
     def set_property(self, name: str, value: Any, validate: bool = True) -> bool:
         """프로퍼티 설정"""
         try:
@@ -318,7 +273,7 @@ class DetailViewModel(QObject):
                 return True
             return False
         except Exception as e:
-            print(f"❌ 프로퍼티 설정 실패: {name} = {value} - {e}")
+            logger.info("❌ 프로퍼티 설정 실패: %s = %s - %s", name, value, e)
             return False
 
     def get_property(self, name: str) -> Any:
@@ -328,7 +283,7 @@ class DetailViewModel(QObject):
                 return getattr(self, f"_{name}")
             return None
         except Exception as e:
-            print(f"❌ 프로퍼티 가져오기 실패: {name} - {e}")
+            logger.info("❌ 프로퍼티 가져오기 실패: %s - %s", name, e)
             return None
 
     def get_all_properties(self) -> dict[str, Any]:
@@ -336,11 +291,9 @@ class DetailViewModel(QObject):
         properties = {}
         for attr_name in dir(self):
             if attr_name.startswith("_") and not attr_name.startswith("__"):
-                prop_name = attr_name[1:]  # 언더스코어 제거
+                prop_name = attr_name[1:]
                 properties[prop_name] = getattr(self, attr_name)
         return properties
-
-    # === 공개 메서드 ===
 
     def get_detail_info(self) -> DetailInfo | None:
         """상세 정보 반환"""
@@ -367,25 +320,19 @@ class DetailViewModel(QObject):
         """파일 정보 요약 반환"""
         if not self._detail_info:
             return {}
-
         files = self._detail_info.file_list
-
-        # 파일 확장자별 통계
         extensions = {}
         for file in files:
             ext = file.extension.lower()
             if ext not in extensions:
                 extensions[ext] = 0
             extensions[ext] += 1
-
-        # 해상도별 통계
         resolutions = {}
         for file in files:
             res = file.resolution or "Unknown"
             if res not in resolutions:
                 resolutions[res] = 0
             resolutions[res] += 1
-
         return {
             "total_files": len(files),
             "extensions": extensions,

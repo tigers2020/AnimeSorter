@@ -6,10 +6,13 @@ MainWindow에서 세션 및 설정 관리 관련 로직을 담당하는 핸들�
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 # SettingsManager는 더 이상 사용하지 않음 - unified_config_manager 사용
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindowSessionManager:
@@ -27,16 +30,16 @@ class MainWindowSessionManager:
     - 이벤트 처리는 EventHandlerManager가 담당
     """
 
-    def __init__(self, main_window, settings_manager):
+    def __init__(self, main_window, unified_config_manager):
         """
         MainWindowSessionManager 초기화
 
         Args:
             main_window: MainWindow 인스턴스
-            settings_manager: 설정 관리자
+            unified_config_manager: 통합 설정 관리자
         """
         self.main_window = main_window
-        self.settings_manager = settings_manager
+        self.unified_config_manager = unified_config_manager
 
         # 세션 파일 경로
         self.session_file = Path.home() / ".animesorter" / "session.json"
@@ -51,13 +54,13 @@ class MainWindowSessionManager:
         """
         try:
             if not self.session_file.exists():
-                print("📋 [MainWindowSessionManager] 세션 파일이 없습니다. 새로 시작합니다.")
+                logger.info("📋 [MainWindowSessionManager] 세션 파일이 없습니다. 새로 시작합니다.")
                 return True
 
             with self.session_file.open(encoding="utf-8") as f:
                 session_data = json.load(f)
 
-            print("📋 [MainWindowSessionManager] 세션 상태 복원 시작")
+            logger.info("📋 [MainWindowSessionManager] 세션 상태 복원 시작")
 
             # 윈도우 위치 및 크기 복원
             if "window" in session_data:
@@ -99,11 +102,11 @@ class MainWindowSessionManager:
             if "dock_widgets" in session_data:
                 self._restore_dock_widgets(session_data["dock_widgets"])
 
-            print("✅ [MainWindowSessionManager] 세션 상태 복원 완료")
+            logger.info("✅ [MainWindowSessionManager] 세션 상태 복원 완료")
             return True
 
         except Exception as e:
-            print(f"❌ [MainWindowSessionManager] 세션 상태 복원 실패: {e}")
+            logger.error(f"❌ [MainWindowSessionManager] 세션 상태 복원 실패: {e}")
             return False
 
     def save_session_state(self) -> bool:
@@ -114,7 +117,7 @@ class MainWindowSessionManager:
             저장 성공 여부
         """
         try:
-            print("📋 [MainWindowSessionManager] 세션 상태 저장 시작")
+            logger.info("📋 [MainWindowSessionManager] 세션 상태 저장 시작")
 
             session_data = {
                 "window": {
@@ -134,11 +137,11 @@ class MainWindowSessionManager:
             with self.session_file.open("w", encoding="utf-8") as f:
                 json.dump(session_data, f, ensure_ascii=False, indent=2)
 
-            print("✅ [MainWindowSessionManager] 세션 상태 저장 완료")
+            logger.info("✅ [MainWindowSessionManager] 세션 상태 저장 완료")
             return True
 
         except Exception as e:
-            print(f"❌ [MainWindowSessionManager] 세션 상태 저장 실패: {e}")
+            logger.error(f"❌ [MainWindowSessionManager] 세션 상태 저장 실패: {e}")
             return False
 
     def apply_settings_to_ui(self) -> None:
@@ -148,41 +151,40 @@ class MainWindowSessionManager:
         unified_config_manager의 설정값을 MainWindow의 UI 컴포넌트들에 적용합니다.
         """
         try:
-            print("⚙️ [MainWindowSessionManager] 설정을 UI에 적용 시작")
+            logger.info("⚙️ [MainWindowSessionManager] 설정을 UI에 적용 시작")
 
             # unified_config_manager의 경우 config 속성 사용
-            if hasattr(self.settings_manager, "config"):
-                config = self.settings_manager.config
-                user_prefs = config.user_preferences
+            config = self.unified_config_manager.config
+            user_prefs = config.user_preferences
 
-                # 테마 설정 적용
-                theme_prefs = getattr(user_prefs, "theme_preferences", {})
-                if isinstance(theme_prefs, dict):
-                    theme = theme_prefs.get("theme", "light")
-                else:
-                    theme = getattr(theme_prefs, "theme", "light")
-                self._apply_theme(theme)
+            # 테마 설정 적용
+            theme_prefs = getattr(user_prefs, "theme_preferences", {})
+            if isinstance(theme_prefs, dict):
+                theme = theme_prefs.get("theme", "light")
+            else:
+                theme = getattr(theme_prefs, "theme", "light")
+            self._apply_theme(theme)
 
-                # 언어 설정 적용
-                if isinstance(theme_prefs, dict):
-                    language = theme_prefs.get("language", "ko")
-                else:
-                    language = getattr(theme_prefs, "language", "ko")
-                self._apply_language(language)
+            # 언어 설정 적용
+            if isinstance(theme_prefs, dict):
+                language = theme_prefs.get("language", "ko")
+            else:
+                language = getattr(theme_prefs, "language", "ko")
+            self._apply_language(language)
 
-                # 폰트 설정 적용
-                font_family = getattr(user_prefs, "font_family", "Segoe UI")
-                font_size = getattr(user_prefs, "font_size", 9)
-                self._apply_font(font_family, font_size)
+            # 폰트 설정 적용
+            font_family = getattr(user_prefs, "font_family", "Segoe UI")
+            font_size = getattr(user_prefs, "font_size", 9)
+            self._apply_font(font_family, font_size)
 
-                # UI 스타일 설정 적용
-                ui_style = getattr(user_prefs, "ui_style", "default")
-                self._apply_ui_style(ui_style)
+            # UI 스타일 설정 적용
+            ui_style = getattr(user_prefs, "ui_style", "default")
+            self._apply_ui_style(ui_style)
 
-            print("✅ [MainWindowSessionManager] 설정을 UI에 적용 완료")
+            logger.info("✅ [MainWindowSessionManager] 설정을 UI에 적용 완료")
 
         except Exception as e:
-            print(f"❌ [MainWindowSessionManager] 설정을 UI에 적용 실패: {e}")
+            logger.error(f"❌ [MainWindowSessionManager] 설정을 UI에 적용 실패: {e}")
 
     def handle_settings_changed(self, setting_name: str, new_value: Any) -> None:
         """
@@ -193,7 +195,9 @@ class MainWindowSessionManager:
             new_value: 새로운 설정값
         """
         try:
-            print(f"⚙️ [MainWindowSessionManager] 설정 변경 처리: {setting_name} = {new_value}")
+            logger.info(
+                f"⚙️ [MainWindowSessionManager] 설정 변경 처리: {setting_name} = {new_value}"
+            )
 
             # 설정에 따른 UI 업데이트
             if setting_name == "theme":
@@ -202,9 +206,11 @@ class MainWindowSessionManager:
                 self._apply_language(new_value)
             elif setting_name == "font_family" or setting_name == "font_size":
                 font_family = getattr(
-                    self.settings_manager.config.user_preferences, "font_family", "Segoe UI"
+                    self.unified_config_manager.config.user_preferences, "font_family", "Segoe UI"
                 )
-                font_size = getattr(self.settings_manager.config.user_preferences, "font_size", 9)
+                font_size = getattr(
+                    self.unified_config_manager.config.user_preferences, "font_size", 9
+                )
                 self._apply_font(font_family, font_size)
             elif setting_name == "ui_style":
                 self._apply_ui_style(new_value)
@@ -213,10 +219,10 @@ class MainWindowSessionManager:
             if hasattr(self.main_window, "update_status_bar"):
                 self.main_window.update_status_bar(f"설정이 변경되었습니다: {setting_name}")
 
-            print(f"✅ [MainWindowSessionManager] 설정 변경 처리 완료: {setting_name}")
+            logger.info(f"✅ [MainWindowSessionManager] 설정 변경 처리 완료: {setting_name}")
 
         except Exception as e:
-            print(f"❌ [MainWindowSessionManager] 설정 변경 처리 실패: {e}")
+            logger.error(f"❌ [MainWindowSessionManager] 설정 변경 처리 실패: {e}")
 
     def restore_table_column_widths(self, column_widths: dict[str, int]) -> None:
         """
@@ -243,7 +249,9 @@ class MainWindowSessionManager:
                                 header.setSectionResizeMode(column_index, header.Fixed)
                                 header.resizeSection(column_index, width)
                         except Exception as e:
-                            print(f"⚠️ 그룹 테이블 컬럼 너비 복원 실패: {column_name} - {e}")
+                            logger.warning(
+                                f"⚠️ 그룹 테이블 컬럼 너비 복원 실패: {column_name} - {e}"
+                            )
 
             # 상세 테이블 컬럼 너비 복원
             if hasattr(results_view, "detail_table") and results_view.detail_table:
@@ -257,12 +265,14 @@ class MainWindowSessionManager:
                                 header.setSectionResizeMode(column_index, header.Fixed)
                                 header.resizeSection(column_index, width)
                         except Exception as e:
-                            print(f"⚠️ 상세 테이블 컬럼 너비 복원 실패: {column_name} - {e}")
+                            logger.warning(
+                                f"⚠️ 상세 테이블 컬럼 너비 복원 실패: {column_name} - {e}"
+                            )
 
-            print("✅ [MainWindowSessionManager] 테이블 컬럼 너비 복원 완료")
+            logger.info("✅ [MainWindowSessionManager] 테이블 컬럼 너비 복원 완료")
 
         except Exception as e:
-            print(f"❌ [MainWindowSessionManager] 테이블 컬럼 너비 복원 실패: {e}")
+            logger.error(f"❌ [MainWindowSessionManager] 테이블 컬럼 너비 복원 실패: {e}")
 
     def get_table_column_widths(self) -> dict[str, dict[str, int]]:
         """
@@ -304,7 +314,7 @@ class MainWindowSessionManager:
             return column_widths
 
         except Exception as e:
-            print(f"❌ [MainWindowSessionManager] 테이블 컬럼 너비 가져오기 실패: {e}")
+            logger.error(f"❌ [MainWindowSessionManager] 테이블 컬럼 너비 가져오기 실패: {e}")
             return {}
 
     def _apply_theme(self, theme: str) -> None:
@@ -321,10 +331,10 @@ class MainWindowSessionManager:
                 # 기본 테마 스타일시트 적용
                 pass
 
-            print(f"✅ 테마 적용 완료: {theme}")
+            logger.info(f"✅ 테마 적용 완료: {theme}")
 
         except Exception as e:
-            print(f"❌ 테마 적용 실패: {e}")
+            logger.error(f"❌ 테마 적용 실패: {e}")
 
     def _apply_language(self, language: str) -> None:
         """언어 설정 적용"""
@@ -333,10 +343,10 @@ class MainWindowSessionManager:
             if hasattr(self.main_window, "i18n_manager") and self.main_window.i18n_manager:
                 self.main_window.i18n_manager.set_language(language)
 
-            print(f"✅ 언어 적용 완료: {language}")
+            logger.info(f"✅ 언어 적용 완료: {language}")
 
         except Exception as e:
-            print(f"❌ 언어 적용 실패: {e}")
+            logger.error(f"❌ 언어 적용 실패: {e}")
 
     def _apply_font(self, font_family: str, font_size: int) -> None:
         """폰트 설정 적용"""
@@ -347,10 +357,10 @@ class MainWindowSessionManager:
             font = QFont(font_family, font_size)
             self.main_window.setFont(font)
 
-            print(f"✅ 폰트 적용 완료: {font_family}, {font_size}")
+            logger.info(f"✅ 폰트 적용 완료: {font_family}, {font_size}")
 
         except Exception as e:
-            print(f"❌ 폰트 적용 실패: {e}")
+            logger.error(f"❌ 폰트 적용 실패: {e}")
 
     def _apply_ui_style(self, ui_style: str) -> None:
         """UI 스타일 설정 적용"""
@@ -366,10 +376,10 @@ class MainWindowSessionManager:
                 # 기본 스타일 적용
                 pass
 
-            print(f"✅ UI 스타일 적용 완료: {ui_style}")
+            logger.info(f"✅ UI 스타일 적용 완료: {ui_style}")
 
         except Exception as e:
-            print(f"❌ UI 스타일 적용 실패: {e}")
+            logger.error(f"❌ UI 스타일 적용 실패: {e}")
 
     def _restore_dock_widgets(self, dock_data: dict[str, Any]) -> None:
         """도크 위젯 상태 복원"""
@@ -396,10 +406,10 @@ class MainWindowSessionManager:
                 if "size" in dock_data["log_dock"]:
                     log_dock.resize(dock_data["log_dock"]["size"])
 
-            print("✅ 도크 위젯 상태 복원 완료")
+            logger.info("✅ 도크 위젯 상태 복원 완료")
 
         except Exception as e:
-            print(f"❌ 도크 위젯 상태 복원 실패: {e}")
+            logger.error(f"❌ 도크 위젯 상태 복원 실패: {e}")
 
     def _get_dock_widgets_state(self) -> dict[str, Any]:
         """도크 위젯 상태 가져오기"""
@@ -425,7 +435,7 @@ class MainWindowSessionManager:
             return dock_state
 
         except Exception as e:
-            print(f"❌ 도크 위젯 상태 가져오기 실패: {e}")
+            logger.error(f"❌ 도크 위젯 상태 가져오기 실패: {e}")
             return {}
 
     def _get_column_index_by_name(self, table, column_name: str) -> int:

@@ -4,10 +4,13 @@ File Processing Progress Events
 Comprehensive event system for tracking file processing operations with detailed progress information.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 from .events import BaseEvent
@@ -51,10 +54,10 @@ class FileProcessingStartedEvent(BaseEvent):
     operation_type: str = "file_processing"
     total_files: int = 0
     total_size_bytes: int = 0
-    estimated_duration_seconds: Optional[float] = None
-    source_directory: Optional[Path] = None
-    destination_directory: Optional[Path] = None
-    processing_mode: str = "normal"  # normal, dry_run, simulation
+    estimated_duration_seconds: float | None = None
+    source_directory: Path | None = None
+    destination_directory: Path | None = None
+    processing_mode: str = "normal"
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -65,15 +68,15 @@ class FileProcessingProgressEvent(BaseEvent):
     operation_id: UUID = field(default_factory=uuid4)
     current_file_index: int = 0
     total_files: int = 0
-    current_file_path: Optional[Path] = None
+    current_file_path: Path | None = None
     current_file_size: int = 0
     bytes_processed: int = 0
     total_bytes: int = 0
     progress_percentage: float = 0.0
     current_operation: FileOperationType = FileOperationType.SCAN
     current_step: str = ""
-    processing_speed_mbps: float = 0.0  # MB per second
-    estimated_remaining_seconds: Optional[float] = None
+    processing_speed_mbps: float = 0.0
+    estimated_remaining_seconds: float | None = None
     success_count: int = 0
     error_count: int = 0
     skip_count: int = 0
@@ -87,9 +90,9 @@ class FileProcessingStepEvent(BaseEvent):
     operation_id: UUID = field(default_factory=uuid4)
     previous_step: str = ""
     current_step: str = ""
-    step_progress: float = 0.0  # Progress within current step (0.0 - 1.0)
+    step_progress: float = 0.0
     step_description: str = ""
-    estimated_step_duration_seconds: Optional[float] = None
+    estimated_step_duration_seconds: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -97,13 +100,13 @@ class FileProcessingStepEvent(BaseEvent):
 class FileProcessingFileEvent(BaseEvent):
     """Individual file processing event"""
 
-    file_path: Optional[Path] = None
+    file_path: Path | None = None
     file_size: int = 0
     operation_type: FileOperationType = FileOperationType.SCAN
     status: FileProcessingStatus = FileProcessingStatus.STARTED
     operation_id: UUID = field(default_factory=uuid4)
     processing_time_seconds: float = 0.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -117,7 +120,7 @@ class FileProcessingBatchEvent(BaseEvent):
     batch_size: int = 0
     files_in_batch: list[Path] = field(default_factory=list)
     batch_progress_percentage: float = 0.0
-    estimated_batch_duration_seconds: Optional[float] = None
+    estimated_batch_duration_seconds: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -129,7 +132,7 @@ class FileProcessingSpeedEvent(BaseEvent):
     current_speed_mbps: float = 0.0
     average_speed_mbps: float = 0.0
     peak_speed_mbps: float = 0.0
-    speed_trend: str = "stable"  # increasing, decreasing, stable
+    speed_trend: str = "stable"
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -180,7 +183,7 @@ class FileProcessingFailedEvent(BaseEvent):
     failed_at_step: str = ""
     processed_files_before_failure: int = 0
     total_files: int = 0
-    partial_results: Optional[dict[str, Any]] = None
+    partial_results: dict[str, Any] | None = None
     can_retry: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -194,7 +197,7 @@ class FileProcessingCancelledEvent(BaseEvent):
     processed_files_before_cancellation: int = 0
     total_files: int = 0
     cancellation_reason: str = "user_requested"
-    partial_results: Optional[dict[str, Any]] = None
+    partial_results: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -223,7 +226,6 @@ class FileProcessingResumedEvent(BaseEvent):
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-# Progress callback type definitions
 from typing import Protocol
 
 
@@ -234,7 +236,7 @@ class ProgressCallback(Protocol):
         self,
         current: int,
         total: int,
-        current_file: Optional[Path] = None,
+        current_file: Path | None = None,
         operation_type: FileOperationType = FileOperationType.SCAN,
         step: str = "",
         speed_mbps: float = 0.0,
@@ -252,35 +254,31 @@ class DetailedProgressCallback(Protocol):
         ...
 
 
-# Utility functions for progress calculation
 def calculate_progress_percentage(current: int, total: int) -> float:
     """Calculate progress percentage"""
     if total <= 0:
         return 0.0
-    return min(100.0, max(0.0, (current / total) * 100.0))
+    return min(100.0, max(0.0, current / total * 100.0))
 
 
 def calculate_processing_speed(bytes_processed: int, time_elapsed_seconds: float) -> float:
     """Calculate processing speed in MB/s"""
     if time_elapsed_seconds <= 0:
         return 0.0
-    return (bytes_processed / (1024 * 1024)) / time_elapsed_seconds
+    return bytes_processed / (1024 * 1024) / time_elapsed_seconds
 
 
 def estimate_remaining_time(
     bytes_processed: int, total_bytes: int, time_elapsed_seconds: float
-) -> Optional[float]:
+) -> float | None:
     """Estimate remaining processing time in seconds"""
     if bytes_processed <= 0 or time_elapsed_seconds <= 0:
         return None
-
     remaining_bytes = total_bytes - bytes_processed
     if remaining_bytes <= 0:
         return 0.0
-
     speed_mbps = calculate_processing_speed(bytes_processed, time_elapsed_seconds)
     if speed_mbps <= 0:
         return None
-
     remaining_mb = remaining_bytes / (1024 * 1024)
     return remaining_mb / speed_mbps

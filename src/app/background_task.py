@@ -6,9 +6,10 @@ QRunnable을 기반으로 하여 QThreadPool에서 실행될 수 있습니다.
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import time
 import traceback
-# from abc import abstractmethod  # ABC 제거로 인해 불필요
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
@@ -19,7 +20,7 @@ from src.app.background_events import (TaskCancelledEvent, TaskCompletedEvent,
                                        TaskFailedEvent, TaskPriority,
                                        TaskProgressEvent, TaskStartedEvent,
                                        TaskStatus)
-from src.app.events import TypedEventBus
+from src.app.events import get_event_bus
 
 
 @dataclass
@@ -42,11 +43,11 @@ class TaskResult:
 class TaskSignals(QObject):
     """백그라운드 작업 시그널 (Qt 스레드 간 통신용)"""
 
-    started = pyqtSignal(str)  # task_id
-    progress = pyqtSignal(str, int, str)  # task_id, progress_percent, current_step
-    completed = pyqtSignal(str, object)  # task_id, TaskResult
-    failed = pyqtSignal(str, str, str)  # task_id, error_message, error_details
-    cancelled = pyqtSignal(str, str)  # task_id, reason
+    started = pyqtSignal(str)
+    progress = pyqtSignal(str, int, str)
+    completed = pyqtSignal(str, object)
+    failed = pyqtSignal(str, str, str)
+    cancelled = pyqtSignal(str, str)
 
 
 class BaseTask(QRunnable):
@@ -58,34 +59,27 @@ class BaseTask(QRunnable):
 
     def __init__(
         self,
-        event_bus: TypedEventBus,
+        event_bus=None,
         task_name: str = "",
         priority: TaskPriority = TaskPriority.NORMAL,
         metadata: dict[str, Any] | None = None,
     ):
         super().__init__()
-
         self.task_id = str(uuid4())
         self.task_name = task_name or self.__class__.__name__
         self.task_type = self.__class__.__name__
         self.priority = priority
         self.metadata = metadata or {}
-
-        self.event_bus = event_bus
+        self.event_bus = event_bus or get_event_bus()
         self.logger = logging.getLogger(f"{self.__class__.__name__}_{self.task_id[:8]}")
-
-        # 작업 상태 관리
         self._status = TaskStatus.PENDING
         self._cancelled = False
         self._start_time: float | None = None
         self._items_processed = 0
         self._success_count = 0
         self._error_count = 0
-
-        # Qt 시그널 (스레드 간 통신용)
         self.signals = TaskSignals()
         self._connect_signals()
-
         self.logger.debug(f"백그라운드 작업 생성: {self.task_name} (ID: {self.task_id})")
 
     def _connect_signals(self) -> None:
@@ -111,7 +105,6 @@ class BaseTask(QRunnable):
     def _on_progress_signal(self, task_id: str, progress_percent: int, current_step: str) -> None:
         """진행률 시그널 처리"""
         elapsed_time = time.time() - (self._start_time or time.time())
-
         self.event_bus.publish(
             TaskProgressEvent(
                 task_id=task_id,
@@ -142,7 +135,6 @@ class BaseTask(QRunnable):
     def _on_failed_signal(self, task_id: str, error_message: str, error_details: str) -> None:
         """작업 실패 시그널 처리"""
         elapsed_time = time.time() - (self._start_time or time.time())
-
         self.event_bus.publish(
             TaskFailedEvent(
                 task_id=task_id,
@@ -159,7 +151,6 @@ class BaseTask(QRunnable):
     def _on_cancelled_signal(self, task_id: str, reason: str) -> None:
         """작업 취소 시그널 처리"""
         elapsed_time = time.time() - (self._start_time or time.time())
-
         self.event_bus.publish(
             TaskCancelledEvent(
                 task_id=task_id,
@@ -176,14 +167,10 @@ class BaseTask(QRunnable):
         """QRunnable.run() 구현 - 실제 작업 실행"""
         self._start_time = time.time()
         self._status = TaskStatus.RUNNING
-
         try:
             self.logger.info(f"백그라운드 작업 시작: {self.task_name}")
             self.signals.started.emit(self.task_id)
-
-            # 실제 작업 실행
             result = self.execute()
-
             if self._cancelled:
                 self._status = TaskStatus.CANCELLED
                 self.signals.cancelled.emit(self.task_id, "사용자 요청")
@@ -194,17 +181,14 @@ class BaseTask(QRunnable):
                 result.items_processed = self._items_processed
                 result.success_count = self._success_count
                 result.error_count = self._error_count
-
                 self.signals.completed.emit(self.task_id, result)
                 self.logger.info(
                     f"백그라운드 작업 완료: {self.task_name} (소요시간: {result.duration:.2f}초)"
                 )
-
         except Exception as e:
             self._status = TaskStatus.FAILED
             error_message = str(e)
             error_details = traceback.format_exc()
-
             self.signals.failed.emit(self.task_id, error_message, error_details)
             self.logger.error(f"백그라운드 작업 실패: {self.task_name} - {error_message}")
             self.logger.debug(f"상세 오류:\n{error_details}")

@@ -6,12 +6,14 @@ providing a centralized way to execute, undo, and manage file operations.
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import shutil
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from src.core.interfaces.file_organization_interface import FileOperationType
 
@@ -23,7 +25,7 @@ class CommandResult:
     success: bool
     message: str
     data: dict[str, Any] = None
-    error: Optional[str] = None
+    error: str | None = None
 
     def __post_init__(self):
         if self.data is None:
@@ -65,7 +67,7 @@ class FileOperationCommand(IFileCommand):
         self.operation_type = operation_type
         self.logger = logger or logging.getLogger(__name__)
         self._executed = False
-        self._backup_path: Optional[Path] = None
+        self._backup_path: Path | None = None
 
     def execute(self) -> CommandResult:
         """Execute the file operation"""
@@ -76,19 +78,13 @@ class FileOperationCommand(IFileCommand):
                     message="Command already executed",
                     error="Command has already been executed",
                 )
-
-            # Validate source file
             if not self.source_path.exists():
                 return CommandResult(
                     success=False,
                     message=f"Source file does not exist: {self.source_path}",
                     error="Source file not found",
                 )
-
-            # Create target directory if needed
             self.target_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Handle existing target file
             if self.target_path.exists():
                 self._backup_path = self._create_backup()
                 if not self._backup_path:
@@ -97,17 +93,13 @@ class FileOperationCommand(IFileCommand):
                         message="Failed to create backup for existing file",
                         error="Backup creation failed",
                     )
-
-            # Execute the operation
             result = self._perform_operation()
             if result.success:
                 self._executed = True
                 self.logger.info(f"File operation completed: {self.get_description()}")
             else:
                 self.logger.error(f"File operation failed: {result.message}")
-
             return result
-
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
             return CommandResult(
@@ -123,24 +115,18 @@ class FileOperationCommand(IFileCommand):
                     message="Command not executed yet",
                     error="Cannot undo unexecuted command",
                 )
-
             if not self.can_undo():
                 return CommandResult(
                     success=False,
                     message="Command cannot be undone",
                     error="Undo not supported for this operation type",
                 )
-
-            # Restore from backup if available
             if self._backup_path and self._backup_path.exists():
                 shutil.move(str(self._backup_path), str(self.target_path))
-                self._backup_path.unlink()  # Remove backup file
+                self._backup_path.unlink()
                 self.logger.info(f"File operation undone: {self.get_description()}")
                 return CommandResult(success=True, message="Operation undone successfully")
-            else:
-                # Try to reverse the operation
-                return self._reverse_operation()
-
+            return self._reverse_operation()
         except Exception as e:
             self.logger.error(f"Command undo failed: {e}")
             return CommandResult(
@@ -155,7 +141,7 @@ class FileOperationCommand(IFileCommand):
         """Get human-readable description of the command"""
         return f"{self.operation_type.value} {self.source_path.name} -> {self.target_path.name}"
 
-    def _create_backup(self) -> Optional[Path]:
+    def _create_backup(self) -> Path | None:
         """Create backup of existing target file"""
         try:
             timestamp = int(time.time())
@@ -183,11 +169,9 @@ class FileOperationCommand(IFileCommand):
                     message=f"Unsupported operation type: {self.operation_type}",
                     error="Unsupported operation",
                 )
-
             return CommandResult(
                 success=True, message=f"File {self.operation_type.value} completed successfully"
             )
-
         except Exception as e:
             return CommandResult(
                 success=False, message=f"File operation failed: {str(e)}", error=str(e)
@@ -197,10 +181,8 @@ class FileOperationCommand(IFileCommand):
         """Reverse the operation (for undo without backup)"""
         try:
             if self.operation_type == FileOperationType.COPY:
-                # For copy, just delete the target file
                 self.target_path.unlink()
             elif self.operation_type == FileOperationType.MOVE:
-                # For move, move the file back
                 shutil.move(self.target_path, self.source_path)
             else:
                 return CommandResult(
@@ -208,9 +190,7 @@ class FileOperationCommand(IFileCommand):
                     message="Cannot reverse this operation type",
                     error="Unsupported reverse operation",
                 )
-
             return CommandResult(success=True, message="Operation reversed successfully")
-
         except Exception as e:
             return CommandResult(
                 success=False, message=f"Operation reversal failed: {str(e)}", error=str(e)
@@ -230,7 +210,6 @@ class BatchFileOperationCommand(IFileCommand):
         try:
             successful_operations = []
             failed_operations = []
-
             for operation in self.operations:
                 result = operation.execute()
                 if result.success:
@@ -239,7 +218,6 @@ class BatchFileOperationCommand(IFileCommand):
                 else:
                     failed_operations.append(operation)
                     self.logger.error(f"Operation failed: {result.message}")
-
             return CommandResult(
                 success=len(failed_operations) == 0,
                 message=f"Batch operation completed: {len(successful_operations)} successful, {len(failed_operations)} failed",
@@ -249,7 +227,6 @@ class BatchFileOperationCommand(IFileCommand):
                     "total_count": len(self.operations),
                 },
             )
-
         except Exception as e:
             self.logger.error(f"Batch operation failed: {e}")
             return CommandResult(
@@ -263,11 +240,8 @@ class BatchFileOperationCommand(IFileCommand):
                 return CommandResult(
                     success=False, message="No operations to undo", error="No executed operations"
                 )
-
             successful_undos = 0
             failed_undos = 0
-
-            # Undo in reverse order
             for operation in reversed(self._executed_operations):
                 if operation.can_undo():
                     result = operation.undo()
@@ -276,7 +250,6 @@ class BatchFileOperationCommand(IFileCommand):
                     else:
                         failed_undos += 1
                         self.logger.error(f"Undo failed: {result.message}")
-
             return CommandResult(
                 success=failed_undos == 0,
                 message=f"Batch undo completed: {successful_undos} successful, {failed_undos} failed",
@@ -286,7 +259,6 @@ class BatchFileOperationCommand(IFileCommand):
                     "total_undos": len(self._executed_operations),
                 },
             )
-
         except Exception as e:
             self.logger.error(f"Batch undo failed: {e}")
             return CommandResult(
@@ -314,23 +286,16 @@ class FileOperationCommandInvoker:
         """Execute a command and add it to history"""
         try:
             result = command.execute()
-
             if result.success:
-                # Remove any commands after current position (for redo)
                 self._command_history = self._command_history[: self._current_position + 1]
-
-                # Add new command to history
                 self._command_history.append(command)
                 self._current_position += 1
-
                 self.logger.info(
                     f"Command executed and added to history: {command.get_description()}"
                 )
             else:
                 self.logger.error(f"Command execution failed: {result.message}")
-
             return result
-
         except Exception as e:
             self.logger.error(f"Command execution error: {e}")
             return CommandResult(
@@ -344,18 +309,14 @@ class FileOperationCommandInvoker:
                 return CommandResult(
                     success=False, message="No commands to undo", error="Command history is empty"
                 )
-
             command = self._command_history[self._current_position]
             result = command.undo()
-
             if result.success:
                 self._current_position -= 1
                 self.logger.info(f"Command undone: {command.get_description()}")
             else:
                 self.logger.error(f"Command undo failed: {result.message}")
-
             return result
-
         except Exception as e:
             self.logger.error(f"Undo error: {e}")
             return CommandResult(success=False, message=f"Undo error: {str(e)}", error=str(e))
@@ -369,18 +330,14 @@ class FileOperationCommandInvoker:
                     message="No commands to redo",
                     error="No undone commands available",
                 )
-
             self._current_position += 1
             command = self._command_history[self._current_position]
             result = command.execute()
-
             if result.success:
                 self.logger.info(f"Command redone: {command.get_description()}")
             else:
                 self.logger.error(f"Command redo failed: {result.message}")
-
             return result
-
         except Exception as e:
             self.logger.error(f"Redo error: {e}")
             return CommandResult(success=False, message=f"Redo error: {str(e)}", error=str(e))

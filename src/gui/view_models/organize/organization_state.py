@@ -3,6 +3,9 @@
 Organize ViewModel의 상태 관리 부분을 분리합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -11,37 +14,24 @@ from uuid import UUID
 class OrganizationState:
     """파일 정리 상태 정보"""
 
-    # 정리 진행 상태
     is_organizing: bool = False
     current_organization_id: UUID | None = None
-
-    # 정리 모드
-    organization_mode: str = "simulation"  # simulation, safe, normal, aggressive
-
-    # 정리 결과
+    organization_mode: str = "simulation"
     total_files_to_process: int = 0
     processed_files_count: int = 0
     successful_operations: int = 0
     failed_operations: int = 0
     skipped_operations: int = 0
-
-    # 진행률
     organization_progress: int = 0
     current_operation: str = ""
     current_file: str = ""
-
-    # 정리 설정
     create_directories: bool = True
     overwrite_existing: bool = False
     use_hard_links: bool = False
     preserve_timestamps: bool = True
     backup_before_organize: bool = True
-
-    # 오류 정보
     last_error: str | None = None
     error_count: int = 0
-
-    # 정리 통계
     files_moved: int = 0
     files_renamed: int = 0
     files_deleted: int = 0

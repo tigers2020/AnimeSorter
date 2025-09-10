@@ -1,0 +1,411 @@
+"""
+접근성 관리 시스템 (Phase 10.1)
+스크린 리더, 키보드 네비게이션, 고대비 모드를 지원하는 접근성 시스템
+"""
+
+import logging
+
+logger = logging.getLogger(__name__)
+from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtGui import QColor, QPalette
+from PyQt5.QtWidgets import (QApplication, QComboBox, QLineEdit, QPushButton,
+                             QTableView, QWidget)
+
+
+class AccessibilityManager(QObject):
+    """접근성 관리자 - WCAG 2.1 AA 수준 준수"""
+
+    accessibility_enabled = pyqtSignal(bool)
+    high_contrast_changed = pyqtSignal(bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.main_window = None
+        self.high_contrast_mode = False
+        self.focus_order_widgets = []
+        self.accessibility_settings = {
+            "screen_reader_support": True,
+            "keyboard_navigation": True,
+            "high_contrast": False,
+            "focus_indicators": True,
+            "accessible_names": True,
+            "color_contrast_ratio": 4.5,
+        }
+
+    def initialize(self, main_window):
+        """접근성 관리자 초기화"""
+        self.main_window = main_window
+        self._setup_accessibility()
+        logger.info("✅ 접근성 관리자 초기화 완료")
+
+    def _setup_accessibility(self):
+        """접근성 설정 초기화"""
+        if not self.main_window:
+            return
+        self._setup_keyboard_navigation()
+        self._setup_screen_reader_support()
+        self._setup_accessible_names()
+        self._setup_focus_indicators()
+        self._verify_color_contrast()
+
+    def _setup_keyboard_navigation(self):
+        """키보드 네비게이션 설정 (Phase 10.1)"""
+        try:
+            self._collect_focusable_widgets()
+            self._set_tab_order()
+            logger.info("✅ 키보드 네비게이션 설정 완료")
+        except Exception as e:
+            logger.info("⚠️ 키보드 네비게이션 설정 실패: %s", e)
+
+    def _collect_focusable_widgets(self):
+        """포커스 가능한 위젯 수집"""
+        self.focus_order_widgets = []
+        if hasattr(self.main_window, "main_toolbar"):
+            toolbar = self.main_window.main_toolbar
+            if hasattr(toolbar, "scan_action"):
+                self.focus_order_widgets.append(toolbar.scan_action)
+            if hasattr(toolbar, "preview_action"):
+                self.focus_order_widgets.append(toolbar.preview_action)
+            if hasattr(toolbar, "organize_action"):
+                self.focus_order_widgets.append(toolbar.organize_action)
+        if hasattr(self.main_window, "left_panel"):
+            left_panel = self.main_window.left_panel
+            for widget in left_panel.findChildren((QPushButton, QLineEdit, QComboBox)):
+                if widget.isVisible() and widget.isEnabled():
+                    self.focus_order_widgets.append(widget)
+        if hasattr(self.main_window, "results_view"):
+            results_view = self.main_window.results_view
+            if hasattr(results_view, "tab_widget"):
+                self.focus_order_widgets.append(results_view.tab_widget)
+            tables = [
+                getattr(results_view, "all_group_table", None),
+                getattr(results_view, "unmatched_group_table", None),
+                getattr(results_view, "conflict_group_table", None),
+                getattr(results_view, "duplicate_group_table", None),
+                getattr(results_view, "completed_group_table", None),
+            ]
+            for table in tables:
+                if table and table.isVisible():
+                    self.focus_order_widgets.append(table)
+
+    def _set_tab_order(self):
+        """탭 순서 설정"""
+        if len(self.focus_order_widgets) < 2:
+            return
+        for i in range(len(self.focus_order_widgets) - 1):
+            current_widget = self.focus_order_widgets[i]
+            next_widget = self.focus_order_widgets[i + 1]
+            if hasattr(current_widget, "setFocusProxy") and hasattr(next_widget, "setFocusProxy"):
+                QWidget.setTabOrder(current_widget, next_widget)
+
+    def _setup_screen_reader_support(self):
+        """스크린 리더 지원 설정 (Phase 10.1)"""
+        try:
+            self.main_window.setAccessibleName("AnimeSorter 메인 윈도우")
+            self.main_window.setAccessibleDescription("애니메이션 파일 정리 도구의 메인 인터페이스")
+            if hasattr(self.main_window, "results_view"):
+                self._setup_table_accessibility(self.main_window.results_view)
+            logger.info("✅ 스크린 리더 지원 설정 완료")
+        except Exception as e:
+            logger.info("⚠️ 스크린 리더 지원 설정 실패: %s", e)
+
+    def _setup_table_accessibility(self, results_view):
+        """테이블 접근성 설정"""
+        table_info = [
+            (
+                "all_group_table",
+                "전체 애니메이션 그룹 목록",
+                "모든 스캔된 애니메이션 파일들의 그룹화된 목록",
+            ),
+            (
+                "unmatched_group_table",
+                "미매칭 애니메이션 그룹",
+                "TMDB와 매칭되지 않은 애니메이션 그룹들",
+            ),
+            (
+                "conflict_group_table",
+                "충돌 애니메이션 그룹",
+                "이름이나 정보에 충돌이 있는 애니메이션 그룹들",
+            ),
+            ("duplicate_group_table", "중복 애니메이션 그룹", "중복으로 감지된 애니메이션 그룹들"),
+            ("completed_group_table", "완료된 애니메이션 그룹", "정리가 완료된 애니메이션 그룹들"),
+        ]
+        for attr_name, accessible_name, description in table_info:
+            table = getattr(results_view, attr_name, None)
+            if table and isinstance(table, QTableView):
+                table.setAccessibleName(accessible_name)
+                table.setAccessibleDescription(description)
+                if table.horizontalHeader():
+                    table.horizontalHeader().setAccessibleName(f"{accessible_name} 헤더")
+                    table.horizontalHeader().setAccessibleDescription("테이블 컬럼 헤더")
+
+    def _setup_accessible_names(self):
+        """접근 가능한 이름 설정 (Phase 10.1)"""
+        try:
+            if hasattr(self.main_window, "main_toolbar"):
+                toolbar = self.main_window.main_toolbar
+                action_names = {
+                    "scan_action": ("파일 스캔", "선택된 폴더의 애니메이션 파일들을 스캔합니다"),
+                    "preview_action": ("미리보기", "정리 작업의 미리보기를 표시합니다"),
+                    "organize_action": ("파일 정리", "스캔된 파일들을 정리된 구조로 이동합니다"),
+                    "settings_action": ("설정", "애플리케이션 설정을 엽니다"),
+                }
+                for action_attr, (name, description) in action_names.items():
+                    action = getattr(toolbar, action_attr, None)
+                    if action:
+                        action.setText(name)
+                        action.setStatusTip(description)
+                        action.setToolTip(f"{name}: {description}")
+            if hasattr(self.main_window, "left_panel"):
+                self._setup_left_panel_accessibility()
+            logger.info("✅ 접근 가능한 이름 설정 완료")
+        except Exception as e:
+            logger.info("⚠️ 접근 가능한 이름 설정 실패: %s", e)
+
+    def _setup_left_panel_accessibility(self):
+        """좌측 패널 접근성 설정"""
+        left_panel = self.main_window.left_panel
+        button_names = {
+            "source_folder_btn": (
+                "소스 폴더 선택",
+                "스캔할 애니메이션 파일들이 있는 폴더를 선택합니다",
+            ),
+            "destination_folder_btn": (
+                "대상 폴더 선택",
+                "정리된 파일들을 저장할 폴더를 선택합니다",
+            ),
+            "scan_btn": ("스캔 시작", "선택된 폴더의 파일 스캔을 시작합니다"),
+            "preview_btn": ("미리보기", "정리 작업의 미리보기를 표시합니다"),
+            "organize_btn": ("정리 실행", "파일 정리 작업을 실행합니다"),
+        }
+        for btn_name, (accessible_name, description) in button_names.items():
+            btn = getattr(left_panel, btn_name, None)
+            if btn and isinstance(btn, QPushButton):
+                btn.setAccessibleName(accessible_name)
+                btn.setAccessibleDescription(description)
+                btn.setToolTip(f"{accessible_name}: {description}")
+
+    def _setup_focus_indicators(self):
+        """포커스 표시 설정 (Phase 10.1)"""
+        try:
+            focus_stylesheet = """
+            QWidget:focus {
+                border: 2px solid #0078d4;
+                outline: none;
+            }
+
+            QPushButton:focus {
+                border: 2px solid #0078d4;
+                outline: none;
+                background-color: rgba(0, 120, 212, 0.1);
+            }
+
+            QTableView:focus {
+                border: 2px solid #0078d4;
+                selection-background-color: #0078d4;
+            }
+
+            QLineEdit:focus {
+                border: 2px solid #0078d4;
+                outline: none;
+            }
+
+            QComboBox:focus {
+                border: 2px solid #0078d4;
+                outline: none;
+            }
+            """
+            app = QApplication.instance()
+            if app:
+                current_style = app.styleSheet()
+                app.setStyleSheet(current_style + "\n" + focus_stylesheet)
+            logger.info("✅ 포커스 표시 설정 완료")
+        except Exception as e:
+            logger.info("⚠️ 포커스 표시 설정 실패: %s", e)
+
+    def _verify_color_contrast(self):
+        """색상 대비 검증 (Phase 10.1)"""
+        try:
+            contrast_results = []
+            app = QApplication.instance()
+            if app:
+                palette = app.palette()
+                text_color = palette.color(QPalette.Text)
+                background_color = palette.color(QPalette.Base)
+                contrast_ratio = self._calculate_contrast_ratio(text_color, background_color)
+                contrast_results.append(
+                    {
+                        "element": "기본 텍스트/배경",
+                        "ratio": contrast_ratio,
+                        "passes_aa": contrast_ratio >= 4.5,
+                        "passes_aaa": contrast_ratio >= 7.0,
+                    }
+                )
+                button_text = palette.color(QPalette.ButtonText)
+                button_bg = palette.color(QPalette.Button)
+                button_contrast = self._calculate_contrast_ratio(button_text, button_bg)
+                contrast_results.append(
+                    {
+                        "element": "버튼 텍스트/배경",
+                        "ratio": button_contrast,
+                        "passes_aa": button_contrast >= 4.5,
+                        "passes_aaa": button_contrast >= 7.0,
+                    }
+                )
+            logger.info("📊 색상 대비 검증 결과:")
+            for result in contrast_results:
+                aa_status = "✅ AA 통과" if result["passes_aa"] else "❌ AA 실패"
+                aaa_status = "✅ AAA 통과" if result["passes_aaa"] else "❌ AAA 실패"
+                logger.info(
+                    "  - %s: %s:1 (%s, %s)",
+                    result["element"],
+                    result["ratio"],
+                    aa_status,
+                    aaa_status,
+                )
+            logger.info("✅ 색상 대비 검증 완료")
+        except Exception as e:
+            logger.info("⚠️ 색상 대비 검증 실패: %s", e)
+
+    def _calculate_contrast_ratio(self, color1: QColor, color2: QColor) -> float:
+        """두 색상 간의 대비비 계산 (WCAG 기준)"""
+
+        def luminance(color: QColor) -> float:
+            """색상의 상대 휘도 계산"""
+            r, g, b = color.red() / 255.0, color.green() / 255.0, color.blue() / 255.0
+
+            def adjust(c):
+                return c / 12.92 if c <= 0.03928 else pow((c + 0.055) / 1.055, 2.4)
+
+            return 0.2126 * adjust(r) + 0.7152 * adjust(g) + 0.0722 * adjust(b)
+
+        lum1 = luminance(color1)
+        lum2 = luminance(color2)
+        lighter = max(lum1, lum2)
+        darker = min(lum1, lum2)
+        return (lighter + 0.05) / (darker + 0.05)
+
+    def toggle_high_contrast_mode(self):
+        """고대비 모드 토글"""
+        self.high_contrast_mode = not self.high_contrast_mode
+        self._apply_high_contrast_mode()
+        self.high_contrast_changed.emit(self.high_contrast_mode)
+
+    def _apply_high_contrast_mode(self):
+        """고대비 모드 적용"""
+        app = QApplication.instance()
+        if not app:
+            return
+        if self.high_contrast_mode:
+            high_contrast_palette = QPalette()
+            high_contrast_palette.setColor(QPalette.Window, QColor(0, 0, 0))
+            high_contrast_palette.setColor(QPalette.WindowText, QColor(255, 255, 255))
+            high_contrast_palette.setColor(QPalette.Base, QColor(0, 0, 0))
+            high_contrast_palette.setColor(QPalette.AlternateBase, QColor(32, 32, 32))
+            high_contrast_palette.setColor(QPalette.ToolTipBase, QColor(255, 255, 255))
+            high_contrast_palette.setColor(QPalette.ToolTipText, QColor(0, 0, 0))
+            high_contrast_palette.setColor(QPalette.Text, QColor(255, 255, 255))
+            high_contrast_palette.setColor(QPalette.Button, QColor(32, 32, 32))
+            high_contrast_palette.setColor(QPalette.ButtonText, QColor(255, 255, 255))
+            high_contrast_palette.setColor(QPalette.BrightText, QColor(255, 255, 0))
+            high_contrast_palette.setColor(QPalette.Link, QColor(0, 255, 255))
+            high_contrast_palette.setColor(QPalette.Highlight, QColor(255, 255, 0))
+            high_contrast_palette.setColor(QPalette.HighlightedText, QColor(0, 0, 0))
+            app.setPalette(high_contrast_palette)
+            logger.info("🎨 고대비 모드 활성화")
+        else:
+            try:
+                if hasattr(self.main_window, "theme_manager"):
+                    current_theme = self.main_window.theme_manager.get_current_theme()
+                    logger.info("🔧 테마 관리자를 통해 '%s' 테마로 복원", current_theme)
+                    self.main_window.theme_manager.apply_theme(current_theme)
+                else:
+                    logger.info("🔧 기본 팔레트로 복원")
+                    default_palette = app.style().standardPalette()
+                    app.setPalette(default_palette)
+                    app.setStyleSheet("")
+            except Exception as e:
+                logger.info("⚠️ 테마 복원 실패, 기본 팔레트로 복원: %s", e)
+                default_palette = app.style().standardPalette()
+                app.setPalette(default_palette)
+                app.setStyleSheet("")
+            logger.info("🎨 고대비 모드 비활성화 및 원래 테마 복원 완료")
+
+    def get_accessibility_info(self) -> dict:
+        """접근성 정보 반환"""
+        return {
+            "screen_reader_support": self.accessibility_settings["screen_reader_support"],
+            "keyboard_navigation": self.accessibility_settings["keyboard_navigation"],
+            "high_contrast_mode": self.high_contrast_mode,
+            "focus_indicators": self.accessibility_settings["focus_indicators"],
+            "accessible_names": self.accessibility_settings["accessible_names"],
+            "color_contrast_ratio": self.accessibility_settings["color_contrast_ratio"],
+            "focusable_widgets_count": len(self.focus_order_widgets),
+        }
+
+    def enable_accessibility_features(self, features: list[str]):
+        """특정 접근성 기능 활성화"""
+        for feature in features:
+            if feature in self.accessibility_settings:
+                self.accessibility_settings[feature] = True
+        self._setup_accessibility()
+        self.accessibility_enabled.emit(True)
+
+    def disable_accessibility_features(self, features: list[str]):
+        """특정 접근성 기능 비활성화"""
+        for feature in features:
+            if feature in self.accessibility_settings:
+                self.accessibility_settings[feature] = False
+        self.accessibility_enabled.emit(False)
+
+    def set_keyboard_navigation(self, enabled: bool):
+        """키보드 네비게이션 설정"""
+        self.accessibility_settings["keyboard_navigation"] = enabled
+        if enabled:
+            self._setup_keyboard_navigation()
+        logger.info("✅ 키보드 네비게이션: %s", "활성화" if enabled else "비활성화")
+
+    def set_screen_reader_support(self, enabled: bool):
+        """스크린 리더 지원 설정"""
+        self.accessibility_settings["screen_reader_support"] = enabled
+        if enabled:
+            self._setup_screen_reader_support()
+        logger.info("✅ 스크린 리더 지원: %s", "활성화" if enabled else "비활성화")
+
+    def apply_high_contrast_mode(self, enabled: bool):
+        """고대비 모드 적용"""
+        if enabled != self.high_contrast_mode:
+            self.high_contrast_mode = enabled
+            self._apply_high_contrast_mode(enabled)
+            self.high_contrast_changed.emit(enabled)
+
+    def _apply_high_contrast_mode(self, enable: bool):
+        """고대비 모드 적용 (내부 메서드)"""
+        app = QApplication.instance()
+        if not app:
+            return
+        if enable:
+            app.setPalette(self._high_contrast_palette)
+            app.setStyleSheet(self._high_contrast_stylesheet)
+            self._high_contrast_mode = True
+            self.high_contrast_mode_changed.emit(True)
+            logger.info("🎨 고대비 모드 활성화")
+        else:
+            try:
+                if hasattr(self.main_window, "theme_manager"):
+                    current_theme = self.main_window.theme_manager.get_current_theme()
+                    logger.info("🔧 테마 관리자를 통해 '%s' 테마로 복원", current_theme)
+                    self.main_window.theme_manager.apply_theme(current_theme)
+                else:
+                    logger.info("🔧 기본 팔레트로 복원")
+                    default_palette = app.style().standardPalette()
+                    app.setPalette(default_palette)
+                    app.setStyleSheet("")
+            except Exception as e:
+                logger.info("⚠️ 테마 복원 실패, 기본 팔레트로 복원: %s", e)
+                default_palette = app.style().standardPalette()
+                app.setPalette(default_palette)
+                app.setStyleSheet("")
+            self._high_contrast_mode = False
+            self.high_contrast_mode_changed.emit(False)
+            logger.info("🎨 고대비 모드 비활성화 및 원래 테마 복원 완료")

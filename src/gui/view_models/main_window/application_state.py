@@ -3,6 +3,9 @@
 MainWindow ViewModel의 상태 관리 부분을 분리합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -11,32 +14,19 @@ from uuid import UUID
 class ApplicationState:
     """애플리케이션 전체 상태"""
 
-    # 스캔 상태
     is_scanning: bool = False
     current_scan_id: UUID | None = None
     scanned_directory: str | None = None
-
-    # 정리 상태
     is_organizing: bool = False
-
-    # TMDB 검색 상태
     is_searching_tmdb: bool = False
-
-    # 데이터 상태
     has_scanned_files: bool = False
     has_grouped_files: bool = False
     has_tmdb_matches: bool = False
-
-    # 선택 상태
     selected_files: set[UUID] = field(default_factory=set)
     selected_groups: set[UUID] = field(default_factory=set)
-
-    # 진행률
     scan_progress: int = 0
     organize_progress: int = 0
     tmdb_progress: int = 0
-
-    # 메시지
     status_message: str = "AnimeSorter가 준비되었습니다"
     last_error: str | None = None
 

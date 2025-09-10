@@ -5,6 +5,8 @@
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -16,10 +18,10 @@ from uuid import UUID, uuid4
 class PreflightSeverity(Enum):
     """프리플라이트 검사 문제의 심각도"""
 
-    INFO = "info"  # 정보성 (진행 가능)
-    WARNING = "warning"  # 경고 (주의 필요, 진행 가능)
-    ERROR = "error"  # 오류 (진행 위험, 사용자 확인 필요)
-    CRITICAL = "critical"  # 치명적 (진행 불가)
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
 
 
 @dataclass
@@ -30,14 +32,8 @@ class PreflightIssue:
     severity: PreflightSeverity
     title: str
     description: str
-
-    # 문제 관련 파일들
     affected_files: list[Path] = field(default_factory=list)
-
-    # 해결 방법 제안
     suggestions: list[str] = field(default_factory=list)
-
-    # 추가 메타데이터
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -57,18 +53,10 @@ class PreflightResult:
 
     checker_name: str
     check_id: UUID = field(default_factory=uuid4)
-
-    # 검사 결과
     success: bool = True
     issues: list[PreflightIssue] = field(default_factory=list)
-
-    # 검사 대상
     checked_files: list[Path] = field(default_factory=list)
-
-    # 성능 메트릭
     check_duration_ms: float = 0.0
-
-    # 추가 정보
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -143,36 +131,24 @@ class BasePreflightChecker(ABC):
     def check(self, source_path: Path, destination_path: Path | None = None) -> PreflightResult:
         """단일 파일/디렉토리 검사"""
         self.logger.debug(f"검사 시작: {source_path} -> {destination_path}")
-
         result = PreflightResult(checker_name=self.name)
         result.checked_files = [source_path]
         if destination_path:
             result.checked_files.append(destination_path)
-
         try:
             import time
 
             start_time = time.time()
-
-            # 적용 가능성 확인
             if not self.is_applicable(source_path, destination_path):
                 self.logger.debug(f"검사 적용 불가: {self.name}")
                 result.metadata["skipped"] = "not_applicable"
                 return result
-
-            # 실제 검사 수행
             self._check_impl(source_path, destination_path, result)
-
-            # 검사 시간 기록
             end_time = time.time()
             result.check_duration_ms = (end_time - start_time) * 1000
-
             self.logger.debug(f"검사 완료: {self.name} ({result.check_duration_ms:.1f}ms)")
-
         except Exception as e:
             self.logger.error(f"검사 중 오류: {self.name} - {e}")
-
-            # 검사 실패를 critical 문제로 처리
             result.add_issue(
                 PreflightIssue(
                     checker_name=self.name,
@@ -183,47 +159,34 @@ class BasePreflightChecker(ABC):
                     suggestions=["시스템 상태를 확인하고 다시 시도해주세요."],
                 )
             )
-
         return result
 
     def check_batch(self, operations: list[tuple[Path, Path | None]]) -> PreflightResult:
         """배치 작업 검사"""
         self.logger.debug(f"배치 검사 시작: {len(operations)}개 작업")
-
         result = PreflightResult(checker_name=f"{self.name}_batch")
-
-        # 모든 파일 수집
         for source, dest in operations:
             result.checked_files.append(source)
             if dest:
                 result.checked_files.append(dest)
-
         try:
             import time
 
             start_time = time.time()
-
-            # 배치 검사 구현이 있으면 사용, 없으면 개별 검사
             if hasattr(self, "_check_batch_impl"):
                 self._check_batch_impl(operations, result)
             else:
-                # 기본: 개별 검사 반복
                 for source, dest in operations:
                     if self.is_applicable(source, dest):
                         single_result = self.check(source, dest)
                         result.issues.extend(single_result.issues)
                         if single_result.has_blocking_issues:
                             result.success = False
-
-            # 검사 시간 기록
             end_time = time.time()
             result.check_duration_ms = (end_time - start_time) * 1000
-
             self.logger.debug(f"배치 검사 완료: {self.name} ({result.check_duration_ms:.1f}ms)")
-
         except Exception as e:
             self.logger.error(f"배치 검사 중 오류: {self.name} - {e}")
-
             result.add_issue(
                 PreflightIssue(
                     checker_name=self.name,
@@ -233,14 +196,11 @@ class BasePreflightChecker(ABC):
                     suggestions=["작업을 개별적으로 수행하거나 시스템 상태를 확인해주세요."],
                 )
             )
-
         return result
 
     def is_applicable(self, source_path: Path, destination_path: Path | None = None) -> bool:
         """이 검사기가 적용 가능한 작업인지 - 하위 클래스에서 오버라이드"""
         return True
-
-    # === 추상 메서드 ===
 
     @abstractmethod
     def _check_impl(
@@ -255,8 +215,6 @@ class BasePreflightChecker(ABC):
     @abstractmethod
     def _get_default_description(self) -> str:
         """기본 검사기 설명 - 하위 클래스에서 구현"""
-
-    # === 헬퍼 메서드 ===
 
     def _add_info(
         self,

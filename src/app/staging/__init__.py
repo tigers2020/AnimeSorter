@@ -5,12 +5,10 @@
 Phase 3 요구사항: 모든 파일 조작 전 스테이징 디렉토리에서 준비
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from .staging_manager import (IStagingManager, StagedFile,
                               StagingConfiguration, StagingManager)
 
-__all__ = [
-    "StagingManager",
-    "IStagingManager",
-    "StagingConfiguration",
-    "StagedFile",
-]
+__all__ = ["StagingManager", "IStagingManager", "StagingConfiguration", "StagedFile"]

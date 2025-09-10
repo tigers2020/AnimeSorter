@@ -4,6 +4,9 @@
 여러 모듈에서 공통으로 사용되는 타입들을 정의합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass
 
 
@@ -15,10 +18,10 @@ class FileOperationResult:
     source_path: str
     destination_path: str | None = None
     error_message: str | None = None
-    operation_type: str = ""  # copy, move, rename
+    operation_type: str = ""
     file_size: int | None = None
     processing_time: float | None = None
-    backup_path: str | None = None  # 백업 파일 경로
+    backup_path: str | None = None
 
     @property
     def error(self) -> str | None:
@@ -40,7 +43,7 @@ class FileValidationResult:
     is_valid: bool
     file_path: str
     error_message: str | None = None
-    validation_type: str = ""  # path, permissions, disk_space, etc.
+    validation_type: str = ""
 
 
 @dataclass

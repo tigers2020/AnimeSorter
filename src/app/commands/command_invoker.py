@@ -5,6 +5,8 @@ Command들을 실행하고 관리하는 중앙 관리자
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from typing import Protocol
 from uuid import UUID
 
@@ -18,7 +20,7 @@ from src.app.commands.command_events import (CommandExecutedEvent,
                                              CommandQueueUpdatedEvent,
                                              CommandRedoneEvent,
                                              CommandUndoneEvent)
-from src.app.events import TypedEventBus
+from src.app.events import get_event_bus
 
 
 class ICommandInvoker(Protocol):
@@ -52,39 +54,28 @@ class ICommandInvoker(Protocol):
 class CommandInvoker(QObject):
     """Command 실행 관리자"""
 
-    # Qt 시그널
-    command_executed = pyqtSignal(UUID, str)  # command_id, description
-    command_failed = pyqtSignal(UUID, str, str)  # command_id, description, error
-    command_undone = pyqtSignal(UUID, str)  # command_id, description
-    command_redone = pyqtSignal(UUID, str)  # command_id, description
-    queue_updated = pyqtSignal(int, int, int)  # pending, can_undo, can_redo
+    command_executed = pyqtSignal(UUID, str)
+    command_failed = pyqtSignal(UUID, str, str)
+    command_undone = pyqtSignal(UUID, str)
+    command_redone = pyqtSignal(UUID, str)
+    queue_updated = pyqtSignal(int, int, int)
 
-    def __init__(self, event_bus: TypedEventBus | None = None):
+    def __init__(self, event_bus=None):
         super().__init__()
-
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.event_bus = event_bus
-
-        # QUndoStack for Qt integration
+        self.event_bus = event_bus or get_event_bus()
         self.undo_stack = QUndoStack(self)
-
-        # Command 관리
         self._executed_commands: list[ICommand] = []
         self._command_history: dict[UUID, CommandResult] = {}
-        self._undo_index = -1  # 현재 undo 위치
-
-        # 통계
+        self._undo_index = -1
         self._total_executed = 0
         self._total_undone = 0
         self._total_failed = 0
-
-        # 시그널 연결
         self._setup_signals()
 
     def _setup_signals(self) -> None:
         """시그널 연결 설정"""
         if self.event_bus:
-            # Qt 시그널을 EventBus 이벤트로 변환
             self.command_executed.connect(self._on_command_executed_signal)
             self.command_failed.connect(self._on_command_failed_signal)
             self.command_undone.connect(self._on_command_undone_signal)
@@ -94,29 +85,18 @@ class CommandInvoker(QObject):
     def execute_command(self, command: ICommand) -> CommandResult:
         """Command 실행"""
         self.logger.info(f"Command 실행 요청: {command.description}")
-
-        # 통계 먼저 업데이트 (성공/실패 무관하게 실행 시도로 계산)
         self._total_executed += 1
-
         try:
-            # Command 실행
             result = command.execute()
-
-            # 실행 결과 처리
             if result.is_success:
                 self._on_command_success(command, result)
             else:
                 self._on_command_failure(command, result)
-
             return result
-
         except Exception as e:
             self.logger.error(f"Command 실행 중 예외: {command.description} - {e}")
-
-            # 예외 발생 시 실패 결과 생성
             result = CommandResult(command_id=command.command_id, status=CommandStatus.FAILED)
             result.error = CommandError(error_type=type(e).__name__, message=str(e), exception=e)
-
             self._on_command_failure(command, result)
             return result
 
@@ -125,24 +105,15 @@ class CommandInvoker(QObject):
         if not self.can_undo():
             self.logger.warning("취소할 Command가 없습니다")
             return False
-
-        # 가장 최근 실행된 Command 찾기
         command = self._executed_commands[self._undo_index]
-
         try:
             self.logger.info(f"Command 취소: {command.description}")
             command.undo()
-
-            # 취소 성공
             self._undo_index -= 1
             self._total_undone += 1
-
-            # 이벤트 발행
             self.command_undone.emit(command.command_id, command.description)
             self._update_queue_status()
-
             return True
-
         except Exception as e:
             self.logger.error(f"Command 취소 실패: {command.description} - {e}")
             return False
@@ -152,25 +123,17 @@ class CommandInvoker(QObject):
         if not self.can_redo():
             self.logger.warning("재실행할 Command가 없습니다")
             return False
-
-        # 다음 재실행할 Command
         command = self._executed_commands[self._undo_index + 1]
-
         try:
             self.logger.info(f"Command 재실행: {command.description}")
             result = command.execute()
-
             if result.is_success:
                 self._undo_index += 1
-
-                # 이벤트 발행
                 self.command_redone.emit(command.command_id, command.description)
                 self._update_queue_status()
-
                 return True
             self.logger.error(f"Command 재실행 실패: {command.description}")
             return False
-
         except Exception as e:
             self.logger.error(f"Command 재실행 중 예외: {command.description} - {e}")
             return False
@@ -190,11 +153,9 @@ class CommandInvoker(QObject):
     def clear_history(self) -> None:
         """Command 히스토리 지우기"""
         self.logger.info("Command 히스토리 지우기")
-
         self._executed_commands.clear()
         self._command_history.clear()
         self._undo_index = -1
-
         self.undo_stack.clear()
         self._update_queue_status()
 
@@ -215,45 +176,27 @@ class CommandInvoker(QObject):
             ),
         }
 
-    # === 내부 메서드 ===
-
     def _on_command_success(self, command: ICommand, result: CommandResult) -> None:
         """Command 실행 성공 처리"""
-        # 히스토리에 추가
         self._executed_commands.append(command)
         self._command_history[command.command_id] = result
         self._undo_index = len(self._executed_commands) - 1
-
-        # 이벤트 발행
         self.command_executed.emit(command.command_id, command.description)
         self._update_queue_status()
-
         self.logger.info(f"Command 실행 성공: {command.description}")
 
     def _on_command_failure(self, command: ICommand, result: CommandResult) -> None:
         """Command 실행 실패 처리"""
-        # 실패한 Command도 히스토리에 기록 (디버깅용)
         self._command_history[command.command_id] = result
-
-        # 통계 업데이트
         self._total_failed += 1
-
-        # 이벤트 발행
         error_msg = result.error.message if result.error else "알 수 없는 오류"
         self.command_failed.emit(command.command_id, command.description, error_msg)
-
         self.logger.error(f"Command 실행 실패: {command.description} - {error_msg}")
 
     def _update_queue_status(self) -> None:
         """큐 상태 업데이트 이벤트 발행"""
         stats = self.get_statistics()
-        self.queue_updated.emit(
-            0,
-            stats["can_undo_count"],
-            stats["can_redo_count"],  # pending (현재는 즉시 실행)
-        )
-
-    # === EventBus 연동 ===
+        self.queue_updated.emit(0, stats["can_undo_count"], stats["can_redo_count"])
 
     def _on_command_executed_signal(self, command_id: UUID, description: str) -> None:
         """Command 실행 완료 시그널 → EventBus 이벤트"""
@@ -293,7 +236,7 @@ class CommandInvoker(QObject):
                     command_type=type(result).__name__,
                     description=description,
                     result=result,
-                    undo_time_ms=0.0,  # 실제로는 측정 필요
+                    undo_time_ms=0.0,
                 )
             )
 
@@ -307,7 +250,7 @@ class CommandInvoker(QObject):
                     command_type=type(result).__name__,
                     description=description,
                     result=result,
-                    redo_time_ms=0.0,  # 실제로는 측정 필요
+                    redo_time_ms=0.0,
                 )
             )
 
@@ -318,7 +261,7 @@ class CommandInvoker(QObject):
                 CommandQueueUpdatedEvent(
                     queue_size=len(self._executed_commands),
                     pending_commands=pending,
-                    executing_commands=0,  # 현재는 동기 실행
+                    executing_commands=0,
                     can_undo_count=can_undo,
                     can_redo_count=can_redo,
                 )

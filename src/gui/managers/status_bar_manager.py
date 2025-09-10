@@ -4,11 +4,13 @@
 MainWindow의 상태바 관련 기능을 담당하는 매니저 클래스입니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import Any
 
 import psutil
 
-# 이벤트 import 수정
 from src.app.ui_events import (ErrorMessageEvent, FileCountUpdateEvent,
                                MemoryUsageUpdateEvent, ProgressUpdateEvent,
                                StatusBarUpdateEvent, SuccessMessageEvent)
@@ -20,44 +22,32 @@ class StatusBarManager(ManagerBase):
 
     def __init__(self, main_window, parent=None):
         """초기화"""
-        # Manager 설정 생성
         config = ManagerConfig(
             name="StatusBarManager", priority=ManagerPriority.LOW, auto_start=True, log_level="INFO"
         )
-
         super().__init__(config, parent)
-
         self.main_window = main_window
         self.event_bus = main_window.event_bus if hasattr(main_window, "event_bus") else None
 
     def update_status_bar(self, message: str, progress: int | None = None):
         """상태바 업데이트 - EventBus 기반으로 전환됨"""
-        # Progress bar는 직접 업데이트 (None 체크 추가)
         if (
             progress is not None
             and hasattr(self.main_window, "status_progress")
             and self.main_window.status_progress
         ):
             self.main_window.status_progress.setValue(progress)
-
         if not self.event_bus:
-            # EventBus가 없으면 기존 방식으로 fallback
             self._update_status_bar_direct(message, progress)
             return
-
         try:
-            # StatusBarUpdateEvent 발행
             self.event_bus.publish(StatusBarUpdateEvent(message=message, progress=progress))
-
-            # 파일 수 업데이트 (한 번만 호출)
             if hasattr(self.main_window, "anime_data_manager") and not hasattr(
                 self.main_window, "_last_stats_update"
             ):
                 stats = self.main_window.anime_data_manager.get_stats()
                 self.event_bus.publish(FileCountUpdateEvent(count=stats["total"]))
                 self.main_window._last_stats_update = True
-
-            # 메모리 사용량 계산 (간단한 추정) - 주기적으로만 업데이트
             if (
                 not hasattr(self.main_window, "_last_memory_update")
                 or not self.main_window._last_memory_update
@@ -66,26 +56,21 @@ class StatusBarManager(ManagerBase):
                     process = psutil.Process()
                     memory_mb = process.memory_info().rss / 1024 / 1024
                     cpu_percent = process.cpu_percent()
-
                     self.event_bus.publish(
                         MemoryUsageUpdateEvent(memory_mb=memory_mb, cpu_percent=cpu_percent)
                     )
                     self.main_window._last_memory_update = True
                 except Exception as e:
-                    print(f"메모리 사용량 계산 실패: {e}")
+                    logger.info("메모리 사용량 계산 실패: %s", e)
                     self.event_bus.publish(MemoryUsageUpdateEvent(memory_mb=0.0))
                     self.main_window._last_memory_update = True
-
         except Exception as e:
-            print(f"EventBus를 통한 상태바 업데이트 실패: {e}")
-            # Fallback to direct update
+            logger.info("EventBus를 통한 상태바 업데이트 실패: %s", e)
         self._update_status_bar_direct(message, progress)
 
-    # ManagerBase 추상 메서드 구현
     def _initialize_impl(self) -> bool:
         """구현체별 초기화 로직"""
         try:
-            # 기본 초기화 로직
             self.logger.info("StatusBarManager 초기화 완료")
             return True
         except Exception as e:
@@ -95,7 +80,6 @@ class StatusBarManager(ManagerBase):
     def _start_impl(self) -> bool:
         """구현체별 시작 로직"""
         try:
-            # 시작 시 필요한 로직
             self.logger.info("StatusBarManager 시작")
             return True
         except Exception as e:
@@ -105,7 +89,6 @@ class StatusBarManager(ManagerBase):
     def _stop_impl(self) -> bool:
         """구현체별 중지 로직"""
         try:
-            # 중지 시 필요한 로직
             self.logger.info("StatusBarManager 중지")
             return True
         except Exception as e:
@@ -115,7 +98,6 @@ class StatusBarManager(ManagerBase):
     def _pause_impl(self) -> bool:
         """구현체별 일시정지 로직"""
         try:
-            # 일시정지 시 필요한 로직
             self.logger.info("StatusBarManager 일시정지")
             return True
         except Exception as e:
@@ -125,7 +107,6 @@ class StatusBarManager(ManagerBase):
     def _resume_impl(self) -> bool:
         """구현체별 재개 로직"""
         try:
-            # 재개 시 필요한 로직
             self.logger.info("StatusBarManager 재개")
             return True
         except Exception as e:
@@ -155,16 +136,12 @@ class StatusBarManager(ManagerBase):
             and self.main_window.status_progress
         ):
             self.main_window.status_progress.setValue(progress)
-
-        # 파일 수 업데이트 (한 번만 호출)
         if hasattr(self.main_window, "anime_data_manager") and not hasattr(
             self.main_window, "_last_stats_update"
         ):
             stats = self.main_window.anime_data_manager.get_stats()
             self.main_window.status_file_count.setText(f"파일: {stats['total']}")
             self.main_window._last_stats_update = True
-
-        # 메모리 사용량 계산 (간단한 추정) - 주기적으로만 업데이트
         if (
             not hasattr(self.main_window, "_last_memory_update")
             or not self.main_window._last_memory_update
@@ -186,11 +163,9 @@ class StatusBarManager(ManagerBase):
                     ErrorMessageEvent(message=message, details=details, error_type=error_type)
                 )
             except Exception as e:
-                print(f"EventBus를 통한 오류 메시지 발행 실패: {e}")
-                # Fallback
+                logger.info("EventBus를 통한 오류 메시지 발행 실패: %s", e)
                 self.update_status_bar(f"❌ {message}")
         else:
-            # Fallback
             self.update_status_bar(f"❌ {message}")
 
     def show_success_message(self, message: str, details: str = "", auto_clear: bool = True):
@@ -201,11 +176,9 @@ class StatusBarManager(ManagerBase):
                     SuccessMessageEvent(message=message, details=details, auto_clear=auto_clear)
                 )
             except Exception as e:
-                print(f"EventBus를 통한 성공 메시지 발행 실패: {e}")
-                # Fallback
+                logger.info("EventBus를 통한 성공 메시지 발행 실패: %s", e)
                 self.update_status_bar(f"✅ {message}")
         else:
-            # Fallback
             self.update_status_bar(f"✅ {message}")
 
     def update_progress(self, current: int, total: int, message: str = ""):
@@ -216,17 +189,14 @@ class StatusBarManager(ManagerBase):
                     ProgressUpdateEvent(current=current, total=total, message=message)
                 )
             except Exception as e:
-                print(f"EventBus를 통한 진행률 업데이트 실패: {e}")
-                # Fallback
+                logger.info("EventBus를 통한 진행률 업데이트 실패: %s", e)
                 if total > 0:
-                    progress = int((current / total) * 100)
+                    progress = int(current / total * 100)
                     self.update_status_bar(f"{message} ({current}/{total})", progress)
                 else:
                     self.update_status_bar(message)
+        elif total > 0:
+            progress = int(current / total * 100)
+            self.update_status_bar(f"{message} ({current}/{total})", progress)
         else:
-            # Fallback
-            if total > 0:
-                progress = int((current / total) * 100)
-                self.update_status_bar(f"{message} ({current}/{total})", progress)
-            else:
-                self.update_status_bar(message)
+            self.update_status_bar(message)

@@ -5,6 +5,8 @@
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -25,16 +27,10 @@ class PreflightCheckResult:
     """전체 프리플라이트 검사 결과"""
 
     check_id: UUID = field(default_factory=uuid4)
-
-    # 검사 결과 통합
     success: bool = True
     checker_results: dict[str, PreflightResult] = field(default_factory=dict)
-
-    # 검사 대상
     total_operations: int = 0
     checked_files: list[Path] = field(default_factory=list)
-
-    # 성능 메트릭
     total_check_duration_ms: float = 0.0
 
     @property
@@ -75,7 +71,6 @@ class PreflightCheckResult:
         """검사 결과 요약"""
         if self.success and not self.all_issues:
             return "모든 검사 통과"
-
         parts = []
         if self.blocking_issues:
             parts.append(f"차단 문제 {len(self.blocking_issues)}개")
@@ -83,7 +78,6 @@ class PreflightCheckResult:
             parts.append(f"경고 {len(self.warning_issues)}개")
         if self.info_issues:
             parts.append(f"정보 {len(self.info_issues)}개")
-
         return ", ".join(parts)
 
 
@@ -120,12 +114,8 @@ class PreflightCoordinator:
 
     def __init__(self, enable_default_checkers: bool = True):
         self.logger = logging.getLogger(self.__class__.__name__)
-
-        # 검사기 관리
         self._checkers: dict[str, IPreflightChecker] = {}
         self._enabled_checkers: dict[str, bool] = {}
-
-        # 기본 검사기 등록
         if enable_default_checkers:
             self._register_default_checkers()
 
@@ -139,10 +129,8 @@ class PreflightCoordinator:
             CircularReferenceChecker(),
             FileLockChecker(),
         ]
-
         for checker in default_checkers:
             self.add_checker(checker)
-
         self.logger.info(f"기본 검사기 {len(default_checkers)}개 등록 완료")
 
     def add_checker(self, checker: IPreflightChecker) -> None:
@@ -177,44 +165,30 @@ class PreflightCoordinator:
     ) -> PreflightCheckResult:
         """단일 작업 검사"""
         self.logger.info(f"프리플라이트 검사 시작: {source_path} -> {destination_path}")
-
         result = PreflightCheckResult()
         result.total_operations = 1
         result.checked_files = [source_path]
         if destination_path:
             result.checked_files.append(destination_path)
-
         import time
 
         start_time = time.time()
-
         try:
-            # 각 검사기별로 검사 수행
             for checker_name in self.get_enabled_checkers():
                 checker = self._checkers[checker_name]
-
                 try:
-                    # 검사기 적용 가능성 확인
                     if not checker.is_applicable(source_path, destination_path):
                         self.logger.debug(f"검사기 적용 불가: {checker_name}")
                         continue
-
-                    # 검사 수행
                     checker_result = checker.check(source_path, destination_path)
                     result.checker_results[checker_name] = checker_result
-
-                    # 차단 문제가 있으면 전체 실패
                     if checker_result.has_blocking_issues:
                         result.success = False
-
                     self.logger.debug(
                         f"검사기 완료: {checker_name} - 문제 {len(checker_result.issues)}개"
                     )
-
                 except Exception as e:
                     self.logger.error(f"검사기 실행 실패: {checker_name} - {e}")
-
-                    # 검사기 실패를 치명적 문제로 처리
                     error_result = PreflightResult(checker_name=checker_name)
                     error_result.add_issue(
                         PreflightIssue(
@@ -228,15 +202,10 @@ class PreflightCoordinator:
                     )
                     result.checker_results[checker_name] = error_result
                     result.success = False
-
-            # 검사 시간 기록
             end_time = time.time()
             result.total_check_duration_ms = (end_time - start_time) * 1000
-
-            # 결과 로깅
             issue_count = len(result.all_issues)
             blocking_count = len(result.blocking_issues)
-
             if result.success:
                 if issue_count == 0:
                     self.logger.info("프리플라이트 검사 완료: 문제 없음")
@@ -244,12 +213,9 @@ class PreflightCoordinator:
                     self.logger.info(f"프리플라이트 검사 완료: 경고 {issue_count}개 (차단 없음)")
             else:
                 self.logger.warning(f"프리플라이트 검사 실패: 차단 문제 {blocking_count}개")
-
         except Exception as e:
             self.logger.error(f"프리플라이트 검사 중 예외: {e}")
             result.success = False
-
-            # 전체 검사 실패를 치명적 문제로 처리
             error_result = PreflightResult(checker_name="coordinator")
             error_result.add_issue(
                 PreflightIssue(
@@ -262,7 +228,6 @@ class PreflightCoordinator:
                 )
             )
             result.checker_results["coordinator"] = error_result
-
         return result
 
     def check_batch_operations(
@@ -270,53 +235,36 @@ class PreflightCoordinator:
     ) -> PreflightCheckResult:
         """배치 작업 검사"""
         self.logger.info(f"배치 프리플라이트 검사 시작: {len(operations)}개 작업")
-
         result = PreflightCheckResult()
         result.total_operations = len(operations)
-
-        # 모든 파일 수집
         for source, dest in operations:
             result.checked_files.append(source)
             if dest:
                 result.checked_files.append(dest)
-
         import time
 
         start_time = time.time()
-
         try:
-            # 각 검사기별로 배치 검사 수행
             for checker_name in self.get_enabled_checkers():
                 checker = self._checkers[checker_name]
-
                 try:
-                    # 적용 가능한 작업만 필터링
                     applicable_operations = [
                         (source, dest)
                         for source, dest in operations
                         if checker.is_applicable(source, dest)
                     ]
-
                     if not applicable_operations:
                         self.logger.debug(f"배치 검사기 적용 불가: {checker_name}")
                         continue
-
-                    # 배치 검사 수행
                     checker_result = checker.check_batch(applicable_operations)
                     result.checker_results[checker_name] = checker_result
-
-                    # 차단 문제가 있으면 전체 실패
                     if checker_result.has_blocking_issues:
                         result.success = False
-
                     self.logger.debug(
                         f"배치 검사기 완료: {checker_name} - 문제 {len(checker_result.issues)}개"
                     )
-
                 except Exception as e:
                     self.logger.error(f"배치 검사기 실행 실패: {checker_name} - {e}")
-
-                    # 검사기 실패를 치명적 문제로 처리
                     error_result = PreflightResult(checker_name=f"{checker_name}_batch")
                     error_result.add_issue(
                         PreflightIssue(
@@ -331,15 +279,10 @@ class PreflightCoordinator:
                     )
                     result.checker_results[f"{checker_name}_batch"] = error_result
                     result.success = False
-
-            # 검사 시간 기록
             end_time = time.time()
             result.total_check_duration_ms = (end_time - start_time) * 1000
-
-            # 결과 로깅
             issue_count = len(result.all_issues)
             blocking_count = len(result.blocking_issues)
-
             if result.success:
                 if issue_count == 0:
                     self.logger.info(
@@ -347,20 +290,15 @@ class PreflightCoordinator:
                     )
                 else:
                     self.logger.info(
-                        f"배치 프리플라이트 검사 완료: {len(operations)}개 작업, "
-                        f"경고 {issue_count}개 (차단 없음)"
+                        f"배치 프리플라이트 검사 완료: {len(operations)}개 작업, 경고 {issue_count}개 (차단 없음)"
                     )
             else:
                 self.logger.warning(
-                    f"배치 프리플라이트 검사 실패: {len(operations)}개 작업, "
-                    f"차단 문제 {blocking_count}개"
+                    f"배치 프리플라이트 검사 실패: {len(operations)}개 작업, 차단 문제 {blocking_count}개"
                 )
-
         except Exception as e:
             self.logger.error(f"배치 프리플라이트 검사 중 예외: {e}")
             result.success = False
-
-            # 전체 검사 실패를 치명적 문제로 처리
             error_result = PreflightResult(checker_name="batch_coordinator")
             error_result.add_issue(
                 PreflightIssue(
@@ -372,7 +310,6 @@ class PreflightCoordinator:
                 )
             )
             result.checker_results["batch_coordinator"] = error_result
-
         return result
 
     def get_checker_info(self) -> dict[str, dict[str, Any]]:

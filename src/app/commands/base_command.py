@@ -5,6 +5,8 @@ Command 패턴 기본 구현
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -51,27 +53,15 @@ class CommandResult:
     executed_at: datetime | None = None
     completed_at: datetime | None = None
     execution_time_ms: float | None = None
-
-    # 결과 데이터
     affected_files: list[Path] = field(default_factory=list)
     created_files: list[Path] = field(default_factory=list)
     deleted_files: list[Path] = field(default_factory=list)
     modified_files: list[Path] = field(default_factory=list)
-
-    # Phase 3: 스테이징 정보
     staged_files: list["StagedFile"] = field(default_factory=list)
     staging_directory: Path | None = None
-
-    # 오류 정보
     error: CommandError | None = None
-
-    # 메타데이터
     metadata: dict[str, Any] = field(default_factory=dict)
-
-    # 프리플라이트 검사 결과
     preflight_result: Optional["PreflightCheckResult"] = None
-
-    # 저널 엔트리 ID
     journal_entry_id: UUID | None = None
 
     @property
@@ -144,15 +134,13 @@ class BaseCommand(ABC):
         self._description = description
         self.skip_preflight = skip_preflight
         self.enable_journaling = enable_journaling
-        self.enable_staging = enable_staging  # Phase 3: 스테이징 활성화
+        self.enable_staging = enable_staging
         self.logger = logging.getLogger(f"{self.__class__.__name__}[{self._command_id.hex[:8]}]")
-
-        # 실행 상태
         self._result: CommandResult | None = None
         self._undo_data: dict[str, Any] = {}
         self._preflight_coordinator: IPreflightCoordinator | None = None
         self._journal_manager: IJournalManager | None = None
-        self._staging_manager: IStagingManager | None = None  # Phase 3: 스테이징 매니저
+        self._staging_manager: IStagingManager | None = None
         self._journal_entry: JournalEntry | None = None
 
     @property
@@ -193,12 +181,9 @@ class BaseCommand(ABC):
         """프리플라이트 검사 실행"""
         if self.skip_preflight or not self._preflight_coordinator:
             return None
-
-        # 하위 클래스에서 구현한 검사 대상 경로 가져오기
         paths = self._get_preflight_paths()
         if not paths:
             return None
-
         source_path, destination_path = paths
         return self._preflight_coordinator.check_operation(source_path, destination_path)
 
@@ -206,16 +191,12 @@ class BaseCommand(ABC):
         """저널 엔트리 생성"""
         if not self.enable_journaling or not self._journal_manager:
             return None
-
         from src.app.journal import JournalEntry
 
-        # 하위 클래스에서 구현한 저널 정보 가져오기
         journal_info = self._get_journal_info()
         if not journal_info:
             return None
-
         entry_type, operation_details = journal_info
-
         return JournalEntry(
             command_id=self._command_id, entry_type=entry_type, operation_details=operation_details
         )
@@ -223,13 +204,9 @@ class BaseCommand(ABC):
     def execute(self) -> CommandResult:
         """Command 실행"""
         self.logger.info(f"실행 시작: {self.description}")
-
-        # 결과 객체 초기화
         self._result = CommandResult(
             command_id=self._command_id, status=CommandStatus.PENDING, executed_at=datetime.now()
         )
-
-        # 저널 엔트리 생성 (실행 전에 미리 생성)
         if self.enable_journaling and self._journal_manager:
             self.logger.debug("저널 엔트리 생성")
             self._journal_entry = self.create_journal_entry()
@@ -237,33 +214,22 @@ class BaseCommand(ABC):
                 self._journal_entry.start_execution()
                 self._journal_manager.add_entry(self._journal_entry)
                 self._result.journal_entry_id = self._journal_entry.entry_id
-
         try:
-            # 프리플라이트 검사
             if not self.skip_preflight and self._preflight_coordinator:
                 self.logger.debug("프리플라이트 검사 시작")
                 preflight_result = self.run_preflight_check()
-
                 if preflight_result:
                     self._result.preflight_result = preflight_result
-
-                    # 차단 문제가 있으면 실행 중단
                     if preflight_result.has_blocking_issues:
                         blocking_count = len(preflight_result.blocking_issues)
                         raise ValueError(
                             f"프리플라이트 검사 실패: 차단 문제 {blocking_count}개 발견"
                         )
-
-                    # 경고가 있으면 로그 출력
                     if preflight_result.warning_issues:
                         warning_count = len(preflight_result.warning_issues)
                         self.logger.warning(f"프리플라이트 경고 {warning_count}개와 함께 진행")
-
-            # 기본 유효성 검사
             if not self.validate():
                 raise ValueError("Command 유효성 검사 실패")
-
-            # Phase 3: 스테이징 디렉토리에서 파일 준비
             if self.enable_staging and self._staging_manager:
                 self.logger.debug("스테이징 디렉토리에서 파일 준비")
                 staged_files = self._stage_files_for_operation()
@@ -271,103 +237,70 @@ class BaseCommand(ABC):
                     self._result.staged_files = staged_files
                     self._result.staging_directory = self._staging_manager.get_staging_directory()
                     self.logger.info(f"파일 {len(staged_files)}개 스테이징 완료")
-
-            # 실행 상태로 변경
             self._result.status = CommandStatus.EXECUTING
-
-            # 실제 실행
             execution_start = datetime.now()
             self._execute_impl()
             execution_end = datetime.now()
-
-            # 성공 처리
             self._result.status = CommandStatus.COMPLETED
             self._result.completed_at = execution_end
             self._result.execution_time_ms = (
                 execution_end - execution_start
             ).total_seconds() * 1000
-
-            # 저널 엔트리 완료 처리
             if self._journal_entry:
                 self._journal_entry.complete_execution(True)
                 self._update_journal_entry_rollback_data()
-
             self.logger.info(
                 f"실행 완료: {self.description} ({self._result.execution_time_ms:.1f}ms)"
             )
-
         except Exception as e:
-            # 실패 처리
             self._result.status = CommandStatus.FAILED
             self._result.error = CommandError(
                 error_type=type(e).__name__, message=str(e), exception=e
             )
             self._result.completed_at = datetime.now()
-
-            # 저널 엔트리 실패 처리
             if self._journal_entry:
                 self._journal_entry.complete_execution(False, str(e))
-
             self.logger.error(f"실행 실패: {self.description} - {e}")
-
         return self._result
 
     def undo(self) -> CommandResult:
         """Command 취소"""
         if not self.can_undo:
             raise RuntimeError(f"Command {self._command_id}는 취소할 수 없습니다")
-
         self.logger.info(f"취소 시작: {self.description}")
-
-        # 취소 결과를 위한 새로운 CommandResult 생성
         undo_result = CommandResult(
             command_id=self._command_id, status=CommandStatus.PENDING, executed_at=datetime.now()
         )
-
         try:
-            # 취소 실행
             undo_start = datetime.now()
             self._undo_impl()
             undo_end = datetime.now()
-
-            # 성공 상태 업데이트
             undo_result.status = CommandStatus.UNDONE
             undo_result.completed_at = undo_end
             undo_result.execution_time_ms = (undo_end - undo_start).total_seconds() * 1000
-
-            # 원본 결과 상태도 업데이트
             if self._result:
                 self._result.status = CommandStatus.UNDONE
-
             self.logger.info(
                 f"취소 완료: {self.description} ({undo_result.execution_time_ms:.1f}ms)"
             )
-
         except Exception as e:
-            # 취소 실패 상태 업데이트
             undo_result.status = CommandStatus.FAILED
             undo_result.error = CommandError(
                 error_type=type(e).__name__, message=str(e), exception=e
             )
             undo_result.completed_at = datetime.now()
-
             self.logger.error(f"취소 실패: {self.description} - {e}")
-
         return undo_result
 
     def redo(self) -> CommandResult:
         """Command 재실행 (취소 후 다시 실행)"""
         if not self.can_redo:
             raise RuntimeError(f"Command {self._command_id}는 재실행할 수 없습니다")
-
-        # 재실행은 기본적으로 execute()와 동일
         return self.execute()
 
     def validate(self) -> bool:
         """실행 전 유효성 검사 - 하위 클래스에서 구현"""
         return True
-
-    # === 추상 메서드 ===
 
     @abstractmethod
     def _execute_impl(self) -> None:
@@ -389,15 +322,11 @@ class BaseCommand(ABC):
         """저널 엔트리에 롤백 데이터 업데이트 - 하위 클래스에서 오버라이드"""
         if not self._journal_entry:
             return
-
-        # 기본 롤백 데이터 설정
         for key, value in self._undo_data.items():
             if isinstance(value, Path):
                 self._journal_entry.set_rollback_data(key, str(value))
             else:
                 self._journal_entry.set_rollback_data(key, value)
-
-    # === 오버라이드 가능한 메서드 ===
 
     def _supports_undo(self) -> bool:
         """취소 지원 여부 - 하위 클래스에서 오버라이드"""
@@ -406,8 +335,6 @@ class BaseCommand(ABC):
     def _undo_impl(self) -> None:
         """취소 구현 - 하위 클래스에서 오버라이드"""
         raise NotImplementedError("이 Command는 취소를 지원하지 않습니다")
-
-    # === 헬퍼 메서드 ===
 
     def _store_undo_data(self, key: str, value: Any) -> None:
         """취소용 데이터 저장"""
@@ -442,19 +369,14 @@ class BaseCommand(ABC):
         if self._result:
             self._result.metadata[key] = value
 
-    # === Phase 3: 스테이징 관련 메서드 ===
-
     def _stage_files_for_operation(self) -> list["StagedFile"]:
         """작업을 위한 파일 스테이징 (Phase 3, 기본 구현)"""
         if not self.enable_staging or not self._staging_manager:
             return []
-
         try:
-            # 하위 클래스에서 구현한 스테이징 대상 경로 가져오기
             staging_paths = self._get_staging_paths()
             if not staging_paths:
                 return []
-
             staged_files = []
             for source_path, operation_type in staging_paths:
                 try:
@@ -466,15 +388,11 @@ class BaseCommand(ABC):
                         )
                     else:
                         continue
-
                     staged_files.append(staged_file)
-
                 except Exception as e:
                     self.logger.warning(f"파일 스테이징 실패: {source_path} - {e}")
                     continue
-
             return staged_files
-
         except Exception as e:
             self.logger.error(f"파일 스테이징 중 오류: {e}")
             return []
@@ -507,23 +425,15 @@ class CompositeCommand(BaseCommand):
         for command in self.commands:
             result = command.execute()
             self._executed_commands.append(command)
-
-            # 하나라도 실패하면 중단
             if not result.is_success:
                 raise RuntimeError(f"하위 Command 실패: {command.description}")
-
-            # 결과 통합
             if self._result:
                 self._result.affected_files.extend(result.affected_files)
                 self._result.created_files.extend(result.created_files)
                 self._result.deleted_files.extend(result.deleted_files)
                 self._result.modified_files.extend(result.modified_files)
-
-                # Phase 3: 스테이징 정보 통합
                 if hasattr(result, "staged_files") and result.staged_files:
                     self._result.staged_files.extend(result.staged_files)
-
-                # 스테이징 디렉토리 설정 (첫 번째 결과에서)
                 if (
                     not self._result.staging_directory
                     and hasattr(result, "staging_directory")

@@ -5,12 +5,15 @@ This module provides various file naming strategies for different use cases
 and preferences in file organization.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 import re
 import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from src.core.interfaces.file_organization_interface import (
     FileConflictResolution, IFileNamingStrategy)
@@ -32,10 +35,8 @@ class NamingConfig:
     resolution_format: str = "[{resolution}]"
     year_format: str = "({year})"
     group_format: str = "[{group}]"
-
-    # Unique filename generation limits
-    max_unique_attempts: int = 1000  # Maximum attempts to generate unique filename
-    enable_timestamp_fallback: bool = True  # Use timestamp when counter limit reached
+    max_unique_attempts: int = 1000
+    enable_timestamp_fallback: bool = True
 
 
 class BaseNamingStrategy(IFileNamingStrategy):
@@ -48,53 +49,22 @@ class BaseNamingStrategy(IFileNamingStrategy):
     def generate_target_path(
         self, source_path: Path, metadata: dict[str, Any], destination_root: Path
     ) -> Path:
-        """Generate target path based on naming strategy"""
-        try:
-            # Extract metadata
-            title = metadata.get("title", "Unknown")
-            season = metadata.get("season", 1)
-            episode = metadata.get("episode", 1)
-            resolution = metadata.get("resolution", "")
-            year = metadata.get("year")
-            group = metadata.get("group", "")
-
-            # Sanitize title
-            safe_title = self._sanitize_title(title)
-
-            # Create directory structure
-            target_dir = self._create_directory_structure(
-                destination_root, safe_title, season, year
-            )
-
-            # Generate filename
-            filename = self._generate_filename(safe_title, season, episode, resolution, year, group)
-
-            # Add file extension
-            filename += source_path.suffix
-
-            return target_dir / filename
-
-        except Exception as e:
-            if self.logger:
-                self.logger.error(f"Target path generation failed: {e}")
-            return destination_root / source_path.name
+        """Generate target path - always preserve original filename"""
+        # 항상 원본 파일명을 유지하고 디렉토리만 변경
+        return destination_root / source_path.name
 
     def resolve_conflict(self, target_path: Path, resolution: FileConflictResolution) -> Path:
         """Resolve file naming conflicts"""
         if not target_path.exists():
             return target_path
-
-        if resolution == FileConflictResolution.SKIP:
+        if (
+            resolution == FileConflictResolution.SKIP
+            or resolution == FileConflictResolution.OVERWRITE
+        ):
             return target_path
-
-        elif resolution == FileConflictResolution.OVERWRITE:
-            return target_path
-
-        elif resolution == FileConflictResolution.RENAME:
+        if resolution == FileConflictResolution.RENAME:
             return self._generate_unique_name(target_path)
-
-        elif resolution == FileConflictResolution.BACKUP_AND_OVERWRITE:
-            # Create backup first
+        if resolution == FileConflictResolution.BACKUP_AND_OVERWRITE:
             backup_path = target_path.with_suffix(f"{target_path.suffix}.backup_{int(time.time())}")
             try:
                 import shutil
@@ -106,111 +76,71 @@ class BaseNamingStrategy(IFileNamingStrategy):
                 if self.logger:
                     self.logger.error(f"Backup creation failed: {e}")
             return target_path
-
         return target_path
 
     def _sanitize_title(self, title: str) -> str:
         """Sanitize title for filesystem compatibility"""
         if not self.config.sanitize_special_chars:
             return title
-
-        # Remove or replace invalid characters
         invalid_chars = ["<", ">", ":", '"', "/", "\\", "|", "?", "*"]
         sanitized = title
-
         for char in invalid_chars:
             sanitized = sanitized.replace(char, "_")
-
-        # Normalize whitespace
-        sanitized = re.sub(r"\s+", " ", sanitized).strip()
-
-        # Truncate if too long
+        sanitized = re.sub("\\s+", " ", sanitized).strip()
         if len(sanitized) > self.config.max_title_length:
             sanitized = sanitized[: self.config.max_title_length].rstrip()
-
         if not sanitized:
             sanitized = "Unknown"
-
         return sanitized
 
     def _create_directory_structure(
-        self, destination_root: Path, title: str, season: int, year: Optional[int]
+        self, destination_root: Path, title: str, season: int, year: int | None
     ) -> Path:
         """Create directory structure for the file"""
-        # Base directory
         base_dir = destination_root / title
-
-        # Add year if configured and available
         if self.config.use_year and year:
             base_dir = base_dir / str(year)
-
-        # Add season
         if self.config.use_season_episode:
             season_folder = self.config.season_format.format(season=season)
             base_dir = base_dir / season_folder
-
         return base_dir
 
     def _generate_filename(
-        self,
-        title: str,
-        season: int,
-        episode: int,
-        resolution: str,
-        year: Optional[int],
-        group: str,
+        self, title: str, season: int, episode: int, resolution: str, year: int | None, group: str
     ) -> str:
         """Generate filename based on strategy"""
         parts = []
-
-        # Title
         parts.append(title)
-
-        # Season and Episode
         if self.config.use_season_episode:
             season_part = self.config.season_format.format(season=season)
             episode_part = self.config.episode_format.format(episode=episode)
             parts.append(f"{season_part}{episode_part}")
-
-        # Resolution
         if self.config.use_resolution and resolution and resolution != "Unknown":
             parts.append(self.config.resolution_format.format(resolution=resolution))
-
-        # Year
         if self.config.use_year and year:
             parts.append(self.config.year_format.format(year=year))
-
-        # Group
         if self.config.use_group and group and group != "Unknown":
             parts.append(self.config.group_format.format(group=group))
-
         return " - ".join(parts)
 
     def _generate_unique_name(self, target_path: Path) -> Path:
         """Generate a unique name for the target path with safety limits"""
         if not target_path.exists():
             return target_path
-
         stem = target_path.stem
         suffix = target_path.suffix
         max_attempts = self.config.max_unique_attempts
-
-        # Try counter-based approach first
         for counter in range(1, max_attempts + 1):
             new_name = f"{stem}_{counter}{suffix}"
             new_path = target_path.parent / new_name
             if not new_path.exists():
                 return new_path
-
-        # If counter limit reached, try timestamp fallback
         if self.config.enable_timestamp_fallback:
             timestamp = int(time.time())
             new_name = f"{stem}_{timestamp}{suffix}"
             new_path = target_path.parent / new_name
             if not new_path.exists():
                 return new_path
-
-        # Last resort: use UUID
         from uuid import uuid4
 
         uuid_suffix = str(uuid4())[:8]
@@ -287,21 +217,15 @@ class AnimeNamingStrategy(BaseNamingStrategy):
         super().__init__(config, logger)
 
     def _create_directory_structure(
-        self, destination_root: Path, title: str, season: int, year: Optional[int]
+        self, destination_root: Path, title: str, season: int, year: int | None
     ) -> Path:
         """Create anime-specific directory structure"""
-        # Base directory
         base_dir = destination_root / title
-
-        # Add year if available
         if self.config.use_year and year:
             base_dir = base_dir / str(year)
-
-        # Add season with anime-specific format
         if self.config.use_season_episode:
             season_folder = self.config.season_format.format(season=season)
             base_dir = base_dir / season_folder
-
         return base_dir
 
     def get_strategy_name(self) -> str:
@@ -319,16 +243,12 @@ class MovieNamingStrategy(BaseNamingStrategy):
         super().__init__(config, logger)
 
     def _create_directory_structure(
-        self, destination_root: Path, title: str, season: int, year: Optional[int]
+        self, destination_root: Path, title: str, season: int, year: int | None
     ) -> Path:
         """Create movie-specific directory structure"""
-        # Movies go directly in the title folder
         base_dir = destination_root / title
-
-        # Add year if available
         if self.config.use_year and year:
             base_dir = base_dir / str(year)
-
         return base_dir
 
     def get_strategy_name(self) -> str:
@@ -350,11 +270,9 @@ class NamingStrategyFactory:
             "anime": AnimeNamingStrategy,
             "movie": MovieNamingStrategy,
         }
-
         strategy_class = strategies.get(strategy_name.lower())
         if not strategy_class:
             raise ValueError(f"Unknown naming strategy: {strategy_name}")
-
         return strategy_class(config, logger)
 
     @staticmethod

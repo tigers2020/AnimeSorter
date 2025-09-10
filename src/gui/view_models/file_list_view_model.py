@@ -4,6 +4,9 @@
 파일 목록과 그룹화된 데이터를 관리하는 뷰모델
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,56 +33,45 @@ class GroupInfo:
 class FileListViewModel(QObject):
     """파일 리스트 뷰모델"""
 
-    # 시그널 정의
-    data_changed = pyqtSignal()  # 데이터 변경
-    selection_changed = pyqtSignal()  # 선택 변경
-    group_updated = pyqtSignal(str)  # 그룹 업데이트 (그룹 키)
+    data_changed = pyqtSignal()
+    selection_changed = pyqtSignal()
+    group_updated = pyqtSignal(str)
 
     def __init__(self, event_bus: ITypedEventBus, parent=None):
         super().__init__(parent)
         self.event_bus = event_bus
-
-        # 데이터
         self._parsed_items: list[ParsedItem] = []
         self._grouped_items: dict[str, list[ParsedItem]] = {}
         self._group_info: dict[str, GroupInfo] = {}
         self._selected_items: set[str] = set()
         self._tmdb_matches: dict[str, TMDBAnimeInfo] = {}
-
-        # 필터링
         self._filter_text: str = ""
         self._filter_season: int | None = None
         self._show_only_selected: bool = False
-
-        # 정렬
         self._sort_by: str = "title"
         self._sort_ascending: bool = True
-
-        # 이벤트 버스 연결
         self._connect_event_bus()
 
     def initialize(self) -> bool:
         """뷰모델 초기화"""
         try:
-            print("✅ FileListViewModel 초기화 완료")
+            logger.info("✅ FileListViewModel 초기화 완료")
             return True
         except Exception as e:
-            print(f"❌ FileListViewModel 초기화 실패: {e}")
+            logger.info("❌ FileListViewModel 초기화 실패: %s", e)
             return False
 
     def cleanup(self):
         """뷰모델 정리"""
         try:
-            # 이벤트 버스 연결 해제
             self._disconnect_event_bus()
-            print("🧹 FileListViewModel 정리 완료")
+            logger.info("🧹 FileListViewModel 정리 완료")
         except Exception as e:
-            print(f"❌ FileListViewModel 정리 실패: {e}")
+            logger.info("❌ FileListViewModel 정리 실패: %s", e)
 
     def _connect_event_bus(self):
         """이벤트 버스 연결"""
         if self.event_bus:
-            # 데이터 업데이트 이벤트
             self.event_bus.subscribe("parsed_items_updated", self._on_parsed_items_updated)
             self.event_bus.subscribe("grouped_items_updated", self._on_grouped_items_updated)
             self.event_bus.subscribe("tmdb_matches_updated", self._on_tmdb_matches_updated)
@@ -92,8 +84,6 @@ class FileListViewModel(QObject):
             self.event_bus.unsubscribe("grouped_items_updated", self._on_grouped_items_updated)
             self.event_bus.unsubscribe("tmdb_matches_updated", self._on_tmdb_matches_updated)
             self.event_bus.unsubscribe("selected_items_updated", self._on_selected_items_updated)
-
-    # === 이벤트 핸들러 ===
 
     def _on_parsed_items_updated(self, items: list[ParsedItem]):
         """파싱된 아이템 업데이트"""
@@ -118,20 +108,13 @@ class FileListViewModel(QObject):
         self._selected_items = selected
         self.selection_changed.emit()
 
-    # === 데이터 관리 ===
-
     def _update_group_info(self):
         """그룹 정보 업데이트"""
         self._group_info.clear()
-
         for group_key, items in self._grouped_items.items():
             if not items:
                 continue
-
-            # 첫 번째 아이템에서 기본 정보 추출
             first_item = items[0]
-
-            # 그룹 정보 생성
             group_info = GroupInfo(
                 key=group_key,
                 title=first_item.title,
@@ -140,45 +123,29 @@ class FileListViewModel(QObject):
                 total_size=sum(item.file_size for item in items if item.file_size),
                 tmdb_match=self._tmdb_matches.get(group_key),
             )
-
-            # 최종 경로 계산
             group_info.final_path = self._calculate_final_path(group_info)
-
             self._group_info[group_key] = group_info
 
     def _calculate_final_path(self, group_info: GroupInfo) -> str:
         """최종 경로 계산"""
         try:
-            # TMDB 매치가 있으면 한글 제목 사용, 없으면 파싱된 제목 사용
             title = group_info.tmdb_match.name if group_info.tmdb_match else group_info.title
-
-            # 제목 정제 (특수문자 제거, 공백 정규화)
             sanitized_title = self._sanitize_title(title)
-
-            # 시즌 정보 추가
             if group_info.season:
                 season_str = f"Season{group_info.season:02d}"
                 return f"{sanitized_title}/{season_str}"
             return sanitized_title
-
         except Exception as e:
-            print(f"❌ 최종 경로 계산 실패: {e}")
+            logger.info("❌ 최종 경로 계산 실패: %s", e)
             return group_info.title
 
     def _sanitize_title(self, title: str) -> str:
         """제목 정제 (특수문자 제거, 공백 정규화)"""
         import re
 
-        # 특수문자 제거 (한글, 영문, 숫자, 공백만 허용)
-        sanitized = re.sub(r"[^\w\s가-힣]", "", title)
-
-        # 연속된 공백을 하나로 정규화
-        sanitized = re.sub(r"\s+", " ", sanitized)
-
-        # 앞뒤 공백 제거
+        sanitized = re.sub("[^\\w\\s가-힣]", "", title)
+        sanitized = re.sub("\\s+", " ", sanitized)
         return sanitized.strip()
-
-    # === 필터링 ===
 
     def set_filter_text(self, text: str):
         """필터 텍스트 설정"""
@@ -198,9 +165,7 @@ class FileListViewModel(QObject):
     def get_filtered_groups(self) -> list[GroupInfo]:
         """필터링된 그룹 목록 반환"""
         filtered_groups = []
-
         for group_info in self._group_info.values():
-            # 텍스트 필터
             if (
                 self._filter_text
                 and self._filter_text not in group_info.title.lower()
@@ -210,26 +175,17 @@ class FileListViewModel(QObject):
                 )
             ):
                 continue
-
-            # 시즌 필터
             if self._filter_season is not None and group_info.season != self._filter_season:
                 continue
-
-            # 선택된 항목만 표시
             if self._show_only_selected and group_info.key not in self._selected_items:
                 continue
-
             filtered_groups.append(group_info)
-
-        # 정렬
         self._sort_groups(filtered_groups)
-
         return filtered_groups
 
     def _sort_groups(self, groups: list[GroupInfo]):
         """그룹 정렬"""
         reverse = not self._sort_ascending
-
         if self._sort_by == "title":
             groups.sort(key=lambda g: g.title.lower(), reverse=reverse)
         elif self._sort_by == "season":
@@ -240,8 +196,6 @@ class FileListViewModel(QObject):
             groups.sort(key=lambda g: g.total_size, reverse=reverse)
         elif self._sort_by == "final_path":
             groups.sort(key=lambda g: g.final_path.lower(), reverse=reverse)
-
-    # === 선택 관리 ===
 
     def select_group(self, group_key: str):
         """그룹 선택"""
@@ -269,8 +223,6 @@ class FileListViewModel(QObject):
             self.deselect_group(group_key)
         else:
             self.select_group(group_key)
-
-    # === 프로퍼티 (PyQt 바인딩용) ===
 
     @pyqtProperty(int, notify=data_changed)
     def total_groups(self) -> int:
@@ -307,8 +259,6 @@ class FileListViewModel(QObject):
         """선택된 항목만 표시 여부"""
         return self._show_only_selected
 
-    # === IViewModel 인터페이스 구현 ===
-
     def set_property(self, name: str, value: Any, validate: bool = True) -> bool:
         """프로퍼티 설정"""
         try:
@@ -317,7 +267,7 @@ class FileListViewModel(QObject):
                 return True
             return False
         except Exception as e:
-            print(f"❌ 프로퍼티 설정 실패: {name} = {value} - {e}")
+            logger.info("❌ 프로퍼티 설정 실패: %s = %s - %s", name, value, e)
             return False
 
     def get_property(self, name: str) -> Any:
@@ -327,7 +277,7 @@ class FileListViewModel(QObject):
                 return getattr(self, f"_{name}")
             return None
         except Exception as e:
-            print(f"❌ 프로퍼티 가져오기 실패: {name} - {e}")
+            logger.info("❌ 프로퍼티 가져오기 실패: %s - %s", name, e)
             return None
 
     def get_all_properties(self) -> dict[str, Any]:
@@ -335,11 +285,9 @@ class FileListViewModel(QObject):
         properties = {}
         for attr_name in dir(self):
             if attr_name.startswith("_") and not attr_name.startswith("__"):
-                prop_name = attr_name[1:]  # 언더스코어 제거
+                prop_name = attr_name[1:]
                 properties[prop_name] = getattr(self, attr_name)
         return properties
-
-    # === 공개 메서드 ===
 
     def get_group_info(self, group_key: str) -> GroupInfo | None:
         """그룹 정보 가져오기"""

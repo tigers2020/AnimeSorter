@@ -4,40 +4,36 @@ AnimeSorter Application Core
 애플리케이션 레벨의 핵심 컴포넌트들을 제공합니다.
 """
 
-# 백그라운드 작업 이벤트
-# Core 모듈
-from src.core import (  # type: ignore[import-untyped]; FileManager,  # Legacy - using UnifiedFileOrganizationService instead
-    FileOperationResult, FileParser, ParsedMetadata, TMDBAnimeInfo, TMDBClient)
+import logging
+
+logger = logging.getLogger(__name__)
+from src.core import (FileOperationResult, FileParser, ParsedMetadata,
+                      TMDBAnimeInfo, TMDBClient)
 from src.core.unified_config import unified_config_manager
 
-# 애플리케이션 이벤트
 from .application_events import (FileOperationAppliedEvent,
                                  FileOperationPlannedEvent, FilesScannedEvent,
                                  MediaFileCreatedEvent, MediaFileDeletedEvent,
-                                 MediaFileMovedEvent, MediaFileRenamedEvent,
-                                 MediaGroupCreatedEvent, MetadataSyncedEvent,
-                                 OperationFailedEvent, OperationStatus,
-                                 OperationType, ScanStatus,
+                                 MediaFileMovedEvent, MediaGroupCreatedEvent,
+                                 MetadataSyncedEvent, OperationFailedEvent,
+                                 OperationStatus, OperationType, ScanStatus,
                                  SettingsChangedEvent)
 from .background_events import (TaskCancelledEvent, TaskCompletedEvent,
                                 TaskFailedEvent, TaskPriority,
                                 TaskProgressEvent, TaskQueueStatusEvent,
                                 TaskRetryEvent, TaskStartedEvent, TaskStatus)
-# 백그라운드 작업 클래스
 from .background_task import BaseTask, TaskResult, TaskSignals
-# Command 패턴
 from .commands import (BaseCommand, BatchCommandCompletedEvent,
                        BatchCommandStartedEvent, BatchFileCommand,
                        CommandError, CommandExecutedEvent, CommandFailedEvent,
                        CommandInvoker, CommandRedoneEvent, CommandResult,
                        CommandStatus, CommandUndoneEvent, CopyFileCommand,
                        CreateDirectoryCommand, DeleteFileCommand, ICommand,
-                       ICommandInvoker, MoveFileCommand, RenameFileCommand)
+                       ICommandInvoker, MoveFileCommand)
 from .container import DIContainer, get_container
 from .domain import (MediaFile, MediaGroup, MediaLibrary, MediaMetadata,
                      MediaQuality, MediaSource, MediaType, ProcessingFlag)
-from .events import BaseEvent, TypedEventBus, get_event_bus
-# 파일 처리 진행률 이벤트
+from .events import BaseEvent, get_event_bus
 from .file_processing_events import (DetailedProgressCallback,
                                      FileOperationType,
                                      FileProcessingBatchEvent,
@@ -56,18 +52,7 @@ from .file_processing_events import (DetailedProgressCallback,
                                      calculate_processing_speed,
                                      calculate_progress_percentage,
                                      estimate_remaining_time)
-# 저널링 시스템
-from .journal import (FileOperationDetails, IJournalEntry, IJournalManager,
-                      IRollbackEngine, ITransaction, JournalCleanupEvent,
-                      JournalConfiguration, JournalEntry,
-                      JournalEntryCreatedEvent, JournalEntryStatus,
-                      JournalEntryType, JournalEntryUpdatedEvent,
-                      JournalManager, RollbackCompletedEvent, RollbackEngine,
-                      RollbackResult, RollbackStartedEvent, RollbackStrategy,
-                      Transaction, TransactionCommittedEvent,
-                      TransactionRolledBackEvent, TransactionStartedEvent,
-                      TransactionStatus)
-# 미디어 데이터 이벤트
+# Journal 시스템 제거됨
 from .media_data_events import (FilterCriteria, GroupingStrategy,
                                 MediaDataClearedEvent, MediaDataErrorEvent,
                                 MediaDataExportCompletedEvent,
@@ -82,7 +67,6 @@ from .media_data_events import (FilterCriteria, GroupingStrategy,
                                 MediaDataParsingProgressEvent,
                                 MediaDataReadyEvent, MediaDataStatistics,
                                 MediaDataStatus, MediaDataUpdatedEvent)
-# 파일 정리 이벤트
 from .organization_events import (OrganizationCancelledEvent,
                                   OrganizationCompletedEvent,
                                   OrganizationErrorType,
@@ -97,7 +81,6 @@ from .organization_events import (OrganizationCancelledEvent,
                                   OrganizationValidationFailedEvent,
                                   OrganizationValidationResult,
                                   OrganizationValidationStartedEvent)
-# 프리플라이트 검사
 from .preflight import (BasePreflightChecker, BatchPreflightCompletedEvent,
                         BatchPreflightStartedEvent, CircularReferenceChecker,
                         DiskSpaceChecker, FileConflictChecker, FileLockChecker,
@@ -108,7 +91,6 @@ from .preflight import (BasePreflightChecker, BatchPreflightCompletedEvent,
                         PreflightIssue, PreflightIssueFoundEvent,
                         PreflightResult, PreflightSeverity,
                         PreflightStartedEvent)
-# Safety 시스템
 from .safety import (BackupConfiguration, BackupInfo, BackupManager,
                      BackupStrategy, ConfirmationManager, ConfirmationRequest,
                      ConfirmationResponse, IBackupManager,
@@ -116,7 +98,6 @@ from .safety import (BackupConfiguration, BackupInfo, BackupManager,
                      InterruptionManager, InterruptionRequest,
                      InterruptionResult, ISafetyManager, SafetyConfiguration,
                      SafetyManager, SafetyMode, SafetyStatus)
-# Safety System 이벤트들
 from .safety_events import (BackupCleanupEvent, BackupCompletedEvent,
                             BackupFailedEvent, BackupStartedEvent,
                             BatchOperationWarningEvent,
@@ -132,9 +113,6 @@ from .services import (BackgroundTaskService, FileScanService,
                        IMediaDataService, ITMDBSearchService, IUIUpdateService,
                        MediaDataService, TMDBSearchService, UIUpdateService)
 from .setup import cleanup_application, get_service, initialize_application
-# Note: simple_events.py has been removed due to duplication with application_events.py
-# All event classes are now imported from application_events.py
-# TMDB 검색 이벤트
 from .tmdb_search_events import (TMDBBulkSearchCompletedEvent,
                                  TMDBBulkSearchProgressEvent,
                                  TMDBBulkSearchStartedEvent,
@@ -150,8 +128,7 @@ from .tmdb_search_events import (TMDBBulkSearchCompletedEvent,
                                  TMDBSearchResult, TMDBSearchResultsEvent,
                                  TMDBSearchStartedEvent, TMDBSearchStatistics,
                                  TMDBSearchStatus, TMDBSearchType)
-# UI 이벤트
-from .ui_events import (ErrorMessageEvent, FileCountUpdateEvent,  # UI 업데이트 이벤트
+from .ui_events import (ErrorMessageEvent, FileCountUpdateEvent,
                         MemoryUsageUpdateEvent, MenuStateUpdateEvent,
                         ProgressUpdateEvent, SettingsExportEvent,
                         SettingsImportEvent, SettingsResetEvent,
@@ -159,12 +136,10 @@ from .ui_events import (ErrorMessageEvent, FileCountUpdateEvent,  # UI 업데이
                         SuccessMessageEvent, TableDataUpdateEvent,
                         ThemeUpdateEvent, UIStateUpdateEvent,
                         WindowTitleUpdateEvent)
-# Undo/Redo 시스템
 from .undo_redo import (CommandPushedToStackEvent, IUndoRedoManager,
-                        QtBatchFileCommand, QtCommandWrapper,
-                        QtCopyFileCommand, QtCreateDirectoryCommand,
-                        QtDeleteFileCommand, QtMoveFileCommand,
-                        QtRenameFileCommand, RedoExecutedEvent,
+                        QtBatchFileCommand, QtCopyFileCommand,
+                        QtCreateDirectoryCommand, QtDeleteFileCommand,
+                        QtMoveFileCommand, RedoExecutedEvent,
                         StackClearedEvent, UndoExecutedEvent,
                         UndoRedoConfiguration, UndoRedoEnabledEvent,
                         UndoRedoErrorEvent, UndoRedoManager,
@@ -186,8 +161,6 @@ __all__ = [
     "MediaQuality",
     "MediaSource",
     "MediaMetadata",
-    # Core 모듈
-    # "FileManager",  # Legacy - using UnifiedFileOrganizationService instead
     "FileOperationResult",
     "FileParser",
     "ParsedMetadata",
@@ -195,7 +168,6 @@ __all__ = [
     "AppSettings",
     "TMDBClient",
     "TMDBAnimeInfo",
-    # 애플리케이션 이벤트
     "FilesScannedEvent",
     "MetadataSyncedEvent",
     "FileOperationPlannedEvent",
@@ -206,7 +178,6 @@ __all__ = [
     "ScanStatus",
     "OperationType",
     "OperationStatus",
-    # UI 이벤트
     "StatusBarUpdateEvent",
     "ProgressUpdateEvent",
     "FileCountUpdateEvent",
@@ -223,7 +194,6 @@ __all__ = [
     "SettingsResetEvent",
     "SettingsImportEvent",
     "SettingsExportEvent",
-    # 백그라운드 작업 이벤트
     "TaskStatus",
     "TaskPriority",
     "TaskStartedEvent",
@@ -233,7 +203,6 @@ __all__ = [
     "TaskCancelledEvent",
     "TaskQueueStatusEvent",
     "TaskRetryEvent",
-    # Command 패턴
     "BaseCommand",
     "CommandResult",
     "CommandStatus",
@@ -242,7 +211,6 @@ __all__ = [
     "MoveFileCommand",
     "CopyFileCommand",
     "DeleteFileCommand",
-    "RenameFileCommand",
     "CreateDirectoryCommand",
     "BatchFileCommand",
     "CommandInvoker",
@@ -253,7 +221,6 @@ __all__ = [
     "CommandFailedEvent",
     "BatchCommandStartedEvent",
     "BatchCommandCompletedEvent",
-    # 프리플라이트 검사
     "BasePreflightChecker",
     "PreflightResult",
     "PreflightSeverity",
@@ -274,36 +241,10 @@ __all__ = [
     "PreflightCheckFailedEvent",
     "BatchPreflightStartedEvent",
     "BatchPreflightCompletedEvent",
-    # 저널링 시스템
-    "JournalEntry",
-    "JournalEntryType",
-    "JournalEntryStatus",
-    "FileOperationDetails",
-    "IJournalEntry",
-    "Transaction",
-    "TransactionStatus",
-    "ITransaction",
-    "JournalManager",
-    "IJournalManager",
-    "JournalConfiguration",
-    "RollbackEngine",
-    "IRollbackEngine",
-    "RollbackResult",
-    "RollbackStrategy",
-    "JournalEntryCreatedEvent",
-    "JournalEntryUpdatedEvent",
-    "TransactionStartedEvent",
-    "TransactionCommittedEvent",
-    "TransactionRolledBackEvent",
-    "RollbackStartedEvent",
-    "RollbackCompletedEvent",
-    "JournalCleanupEvent",
-    # Undo/Redo 시스템
-    "QtCommandWrapper",
+    # Journal 시스템 제거됨 'QtCommandWrapper',
     "QtMoveFileCommand",
     "QtCopyFileCommand",
     "QtDeleteFileCommand",
-    "QtRenameFileCommand",
     "QtCreateDirectoryCommand",
     "QtBatchFileCommand",
     "UndoRedoManager",
@@ -321,7 +262,6 @@ __all__ = [
     "UndoRedoMenuManager",
     "UndoRedoToolbarManager",
     "UndoRedoShortcutManager",
-    # Safety 시스템
     "BackupManager",
     "IBackupManager",
     "BackupConfiguration",
@@ -340,7 +280,6 @@ __all__ = [
     "SafetyConfiguration",
     "SafetyMode",
     "SafetyStatus",
-    # Safety System 이벤트들
     "BackupStartedEvent",
     "BackupCompletedEvent",
     "BackupFailedEvent",
@@ -355,7 +294,6 @@ __all__ = [
     "TestModeOperationEvent",
     "SafetyStatusUpdateEvent",
     "SafetyAlertEvent",
-    # 파일 정리 이벤트
     "OrganizationStatus",
     "OrganizationErrorType",
     "OrganizationValidationResult",
@@ -371,7 +309,6 @@ __all__ = [
     "OrganizationCompletedEvent",
     "OrganizationFailedEvent",
     "OrganizationCancelledEvent",
-    # 미디어 데이터 이벤트
     "MediaDataStatus",
     "GroupingStrategy",
     "FilterCriteria",
@@ -391,7 +328,6 @@ __all__ = [
     "MediaDataClearedEvent",
     "MediaDataExportStartedEvent",
     "MediaDataExportCompletedEvent",
-    # TMDB 검색 이벤트
     "TMDBSearchStatus",
     "TMDBMediaType",
     "TMDBSearchType",
@@ -415,7 +351,6 @@ __all__ = [
     "TMDBBulkSearchStartedEvent",
     "TMDBBulkSearchProgressEvent",
     "TMDBBulkSearchCompletedEvent",
-    # 파일 처리 진행률 이벤트
     "FileProcessingStatus",
     "FileOperationType",
     "FileProcessingStartedEvent",
@@ -435,30 +370,22 @@ __all__ = [
     "calculate_progress_percentage",
     "calculate_processing_speed",
     "estimate_remaining_time",
-    # 백그라운드 작업 클래스
     "BaseTask",
     "TaskResult",
     "TaskSignals",
-    # 서비스
     "IFileScanService",
     "FileScanService",
     "IUIUpdateService",
     "UIUpdateService",
     "IBackgroundTaskService",
     "BackgroundTaskService",
-    # "IFileOrganizationService",  # Legacy - using UnifiedFileOrganizationService instead
-    # "FileOrganizationService",  # Legacy - using UnifiedFileOrganizationService instead
     "IMediaDataService",
     "MediaDataService",
     "ITMDBSearchService",
     "TMDBSearchService",
-    # 초기화
     "initialize_application",
     "cleanup_application",
     "get_service",
 ]
-
-# 별칭 설정
 FileDeletedEvent = MediaFileDeletedEvent
 FileMovedEvent = MediaFileMovedEvent
-FileRenamedEvent = MediaFileRenamedEvent

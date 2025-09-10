@@ -90,7 +90,7 @@ class PerformanceThreshold:
     metric_name: str
     warning_threshold: float
     critical_threshold: float
-    operator: str = ">"  # >, <, >=, <=, ==, !=
+    operator: str = ">"
 
     def check_threshold(self, value: float) -> PerformanceLevel:
         """임계값을 확인합니다"""
@@ -125,14 +125,12 @@ class PerformanceThreshold:
                     return PerformanceLevel.CRITICAL
                 elif value != self.warning_threshold:
                     return PerformanceLevel.POOR
-
             if value > self.warning_threshold * 0.8:
                 return PerformanceLevel.ACCEPTABLE
             elif value > self.warning_threshold * 0.6:
                 return PerformanceLevel.GOOD
             else:
                 return PerformanceLevel.EXCELLENT
-
         except Exception as e:
             logger.error(f"임계값 확인 실패: {str(e)}")
             return PerformanceLevel.ACCEPTABLE
@@ -149,33 +147,23 @@ class PerformanceMonitor:
             theme_manager: ThemeManager 인스턴스 (선택사항)
         """
         self.theme_manager = theme_manager
-
-        # 성능 메트릭 저장소
         self.metrics: list[PerformanceMetric] = []
         self.snapshots: list[PerformanceSnapshot] = []
-
-        # 임계값 설정
         self.thresholds: dict[str, PerformanceThreshold] = {}
         self._setup_default_thresholds()
-
-        # 모니터링 설정
         self.settings = {
             "enabled": True,
             "auto_monitoring": True,
-            "monitoring_interval": 5.0,  # 5초
+            "monitoring_interval": 5.0,
             "max_metrics_history": 10000,
             "max_snapshots_history": 1000,
             "enable_system_monitoring": True,
             "enable_performance_alerts": True,
             "performance_alert_callbacks": [],
         }
-
-        # 모니터링 상태
         self.is_monitoring = False
         self.monitoring_thread = None
         self.stop_monitoring_event = threading.Event()
-
-        # 성능 통계
         self.performance_stats = {
             "total_operations": 0,
             "successful_operations": 0,
@@ -184,55 +172,42 @@ class PerformanceMonitor:
             "peak_memory_usage": 0,
             "peak_cpu_usage": 0.0,
         }
-
-        # 시작 시간
         self.start_time = time.time()
 
     def _setup_default_thresholds(self) -> None:
         """기본 임계값을 설정합니다"""
         try:
-            # 응답 시간 임계값 (밀리초)
             self.thresholds["response_time"] = PerformanceThreshold(
                 metric_name="response_time",
-                warning_threshold=100.0,  # 100ms
-                critical_threshold=500.0,  # 500ms
+                warning_threshold=100.0,
+                critical_threshold=500.0,
                 operator=">",
             )
-
-            # 메모리 사용량 임계값 (MB)
             self.thresholds["memory_usage"] = PerformanceThreshold(
                 metric_name="memory_usage",
-                warning_threshold=100.0,  # 100MB
-                critical_threshold=500.0,  # 500MB
+                warning_threshold=100.0,
+                critical_threshold=500.0,
                 operator=">",
             )
-
-            # CPU 사용률 임계값 (%)
             self.thresholds["cpu_usage"] = PerformanceThreshold(
                 metric_name="cpu_usage",
-                warning_threshold=70.0,  # 70%
-                critical_threshold=90.0,  # 90%
+                warning_threshold=70.0,
+                critical_threshold=90.0,
                 operator=">",
             )
-
-            # 캐시 히트율 임계값 (%)
             self.thresholds["cache_hit_rate"] = PerformanceThreshold(
                 metric_name="cache_hit_rate",
-                warning_threshold=80.0,  # 80%
-                critical_threshold=60.0,  # 60%
+                warning_threshold=80.0,
+                critical_threshold=60.0,
                 operator="<",
             )
-
-            # 처리량 임계값 (ops/sec)
             self.thresholds["throughput"] = PerformanceThreshold(
                 metric_name="throughput",
-                warning_threshold=100.0,  # 100 ops/sec
-                critical_threshold=50.0,  # 50 ops/sec
+                warning_threshold=100.0,
+                critical_threshold=50.0,
                 operator="<",
             )
-
             logger.info("기본 성능 임계값 설정 완료")
-
         except Exception as e:
             logger.error(f"기본 임계값 설정 실패: {str(e)}")
 
@@ -242,21 +217,15 @@ class PerformanceMonitor:
             if self.is_monitoring:
                 logger.warning("이미 모니터링이 실행 중입니다")
                 return False
-
             if not self.settings["enabled"]:
                 logger.warning("성능 모니터링이 비활성화되어 있습니다")
                 return False
-
             self.is_monitoring = True
             self.stop_monitoring_event.clear()
-
-            # 모니터링 스레드 시작
             self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
             self.monitoring_thread.start()
-
             logger.info("성능 모니터링이 시작되었습니다")
             return True
-
         except Exception as e:
             logger.error(f"성능 모니터링 시작 실패: {str(e)}")
             return False
@@ -267,17 +236,12 @@ class PerformanceMonitor:
             if not self.is_monitoring:
                 logger.warning("모니터링이 실행 중이 아닙니다")
                 return False
-
             self.is_monitoring = False
             self.stop_monitoring_event.set()
-
-            # 모니터링 스레드 종료 대기
             if self.monitoring_thread and self.monitoring_thread.is_alive():
                 self.monitoring_thread.join(timeout=5.0)
-
             logger.info("성능 모니터링이 중지되었습니다")
             return True
-
         except Exception as e:
             logger.error(f"성능 모니터링 중지 실패: {str(e)}")
             return False
@@ -286,15 +250,9 @@ class PerformanceMonitor:
         """모니터링 루프"""
         try:
             while self.is_monitoring and not self.stop_monitoring_event.is_set():
-                # 성능 스냅샷 생성
                 self._create_performance_snapshot()
-
-                # 임계값 확인 및 알림
                 self._check_thresholds_and_alert()
-
-                # 대기
                 self.stop_monitoring_event.wait(self.settings["monitoring_interval"])
-
         except Exception as e:
             logger.error(f"모니터링 루프 실행 실패: {str(e)}")
             self.is_monitoring = False
@@ -304,13 +262,8 @@ class PerformanceMonitor:
         try:
             timestamp = time.time()
             metrics = []
-
-            # 시스템 정보 수집
             system_info = self._collect_system_info()
-
-            # 기본 성능 메트릭 수집
             if self.theme_manager:
-                # ThemeManager 성능 메트릭
                 compiler_metrics = self.theme_manager.get_compiler_performance_metrics()
                 for component, component_metrics in compiler_metrics.items():
                     for metric_name, metric_value in component_metrics.items():
@@ -324,33 +277,19 @@ class PerformanceMonitor:
                                 tags={"component": component},
                             )
                             metrics.append(metric)
-
-            # 시스템 성능 메트릭
             if self.settings["enable_system_monitoring"]:
                 system_metrics = self._collect_system_metrics()
                 metrics.extend(system_metrics)
-
-            # 스냅샷 생성
             snapshot = PerformanceSnapshot(
                 timestamp=timestamp, metrics=metrics, system_info=system_info
             )
-
-            # 스냅샷 저장
             self.snapshots.append(snapshot)
-
-            # 히스토리 크기 제한
             if len(self.snapshots) > self.settings["max_snapshots_history"]:
                 self.snapshots.pop(0)
-
-            # 메트릭 저장
             self.metrics.extend(metrics)
-
-            # 히스토리 크기 제한
             if len(self.metrics) > self.settings["max_metrics_history"]:
                 self.metrics = self.metrics[-self.settings["max_metrics_history"] :]
-
             logger.debug(f"성능 스냅샷 생성 완료: {len(metrics)}개 메트릭")
-
         except Exception as e:
             logger.error(f"성능 스냅샷 생성 실패: {str(e)}")
 
@@ -366,9 +305,7 @@ class PerformanceMonitor:
                     psutil.disk_usage("/").percent if hasattr(psutil, "disk_usage") else 0
                 ),
             }
-
             return info
-
         except Exception as e:
             logger.error(f"시스템 정보 수집 실패: {str(e)}")
             return {}
@@ -378,8 +315,6 @@ class PerformanceMonitor:
         try:
             metrics = []
             timestamp = time.time()
-
-            # CPU 사용률
             try:
                 cpu_percent = psutil.cpu_percent(interval=0.1)
                 metrics.append(
@@ -391,10 +326,8 @@ class PerformanceMonitor:
                         metric_type=MetricType.CPU,
                     )
                 )
-            except Exception:
-                pass
-
-            # 메모리 사용량
+            except (OSError, RuntimeError) as e:
+                logger.warning(f"성능 메트릭 수집 실패: {e}")
             try:
                 memory = psutil.virtual_memory()
                 memory_mb = memory.used / (1024 * 1024)
@@ -407,16 +340,13 @@ class PerformanceMonitor:
                         metric_type=MetricType.MEMORY,
                     )
                 )
-            except Exception:
-                pass
-
-            # 디스크 I/O
+            except (OSError, RuntimeError) as e:
+                logger.warning(f"성능 메트릭 수집 실패: {e}")
             try:
                 disk_io = psutil.disk_io_counters()
                 if disk_io:
                     read_mb = disk_io.read_bytes / (1024 * 1024)
                     write_mb = disk_io.write_bytes / (1024 * 1024)
-
                     metrics.append(
                         PerformanceMetric(
                             name="disk_read",
@@ -426,7 +356,6 @@ class PerformanceMonitor:
                             metric_type=MetricType.THROUGHPUT,
                         )
                     )
-
                     metrics.append(
                         PerformanceMetric(
                             name="disk_write",
@@ -436,11 +365,9 @@ class PerformanceMonitor:
                             metric_type=MetricType.THROUGHPUT,
                         )
                     )
-            except Exception:
-                pass
-
+            except (OSError, RuntimeError) as e:
+                logger.warning(f"성능 메트릭 수집 실패: {e}")
             return metrics
-
         except Exception as e:
             logger.error(f"시스템 메트릭 수집 실패: {str(e)}")
             return []
@@ -464,13 +391,10 @@ class PerformanceMonitor:
                 "styles_generated": "count",
                 "conditions_evaluated": "count",
             }
-
             for key, unit in unit_mapping.items():
                 if key in metric_name.lower():
                     return unit
-
             return "count"
-
         except Exception:
             return "count"
 
@@ -489,7 +413,6 @@ class PerformanceMonitor:
                 return MetricType.THROUGHPUT
             else:
                 return MetricType.THROUGHPUT
-
         except Exception:
             return MetricType.THROUGHPUT
 
@@ -498,22 +421,15 @@ class PerformanceMonitor:
         try:
             if not self.settings["enable_performance_alerts"]:
                 return
-
-            # 최신 스냅샷의 메트릭들 확인
             if not self.snapshots:
                 return
-
             latest_snapshot = self.snapshots[-1]
-
             for metric in latest_snapshot.metrics:
                 if metric.name in self.thresholds:
                     threshold = self.thresholds[metric.name]
                     performance_level = threshold.check_threshold(metric.value)
-
-                    # 경고 수준 이상인 경우 알림
                     if performance_level in [PerformanceLevel.POOR, PerformanceLevel.CRITICAL]:
                         self._trigger_performance_alert(metric, threshold, performance_level)
-
         except Exception as e:
             logger.error(f"임계값 확인 및 알림 실패: {str(e)}")
 
@@ -530,20 +446,14 @@ class PerformanceMonitor:
                 "unit": metric.unit,
                 "warning_threshold": threshold.warning_threshold,
                 "critical_threshold": threshold.critical_threshold,
-                "message": f"성능 메트릭 '{metric.name}'이 임계값을 초과했습니다: "
-                f"{metric.value}{metric.unit} (경고: {threshold.warning_threshold}, "
-                f"위험: {threshold.critical_threshold})",
+                "message": f"성능 메트릭 '{metric.name}'이 임계값을 초과했습니다: {metric.value}{metric.unit} (경고: {threshold.warning_threshold}, 위험: {threshold.critical_threshold})",
             }
-
             logger.warning(f"성능 알림: {alert_message['message']}")
-
-            # 콜백 함수들 호출
             for callback in self.settings["performance_alert_callbacks"]:
                 try:
                     callback(alert_message)
                 except Exception as e:
                     logger.error(f"성능 알림 콜백 실행 실패: {str(e)}")
-
         except Exception as e:
             logger.error(f"성능 알림 발생 실패: {str(e)}")
 
@@ -553,7 +463,6 @@ class PerformanceMonitor:
             if callback not in self.settings["performance_alert_callbacks"]:
                 self.settings["performance_alert_callbacks"].append(callback)
                 logger.info("성능 알림 콜백이 추가되었습니다")
-
         except Exception as e:
             logger.error(f"성능 알림 콜백 추가 실패: {str(e)}")
 
@@ -563,7 +472,6 @@ class PerformanceMonitor:
             if callback in self.settings["performance_alert_callbacks"]:
                 self.settings["performance_alert_callbacks"].remove(callback)
                 logger.info("성능 알림 콜백이 제거되었습니다")
-
         except Exception as e:
             logger.error(f"성능 알림 콜백 제거 실패: {str(e)}")
 
@@ -573,9 +481,7 @@ class PerformanceMonitor:
         """작업을 기록합니다"""
         try:
             end_time = time.time()
-            duration = (end_time - start_time) * 1000  # 밀리초로 변환
-
-            # 메트릭 생성
+            duration = (end_time - start_time) * 1000
             metric = PerformanceMetric(
                 name=f"{operation_name}_duration",
                 value=duration,
@@ -584,31 +490,21 @@ class PerformanceMonitor:
                 metric_type=MetricType.TIMING,
                 tags={"operation": operation_name, "success": success},
             )
-
             self.metrics.append(metric)
-
-            # 통계 업데이트
             self.performance_stats["total_operations"] += 1
             if success:
                 self.performance_stats["successful_operations"] += 1
             else:
                 self.performance_stats["failed_operations"] += 1
-
-            # 평균 응답 시간 업데이트
             total_successful = self.performance_stats["successful_operations"]
             if total_successful > 0:
                 current_avg = self.performance_stats["average_response_time"]
                 new_avg = (current_avg * (total_successful - 1) + duration) / total_successful
                 self.performance_stats["average_response_time"] = new_avg
-
-            # 피크 값 업데이트
             if duration > self.performance_stats.get("peak_response_time", 0):
                 self.performance_stats["peak_response_time"] = duration
-
-            # 히스토리 크기 제한
             if len(self.metrics) > self.settings["max_metrics_history"]:
                 self.metrics = self.metrics[-self.settings["max_metrics_history"] :]
-
         except Exception as e:
             logger.error(f"작업 기록 실패: {str(e)}")
 
@@ -617,12 +513,9 @@ class PerformanceMonitor:
         try:
             if not self.metrics:
                 return {}
-
-            # 메트릭별 통계
             metric_stats = defaultdict(list)
             for metric in self.metrics:
                 metric_stats[metric.name].append(metric.value)
-
             summary = {
                 "monitoring_duration": time.time() - self.start_time,
                 "total_metrics": len(self.metrics),
@@ -630,8 +523,6 @@ class PerformanceMonitor:
                 "performance_stats": self.performance_stats.copy(),
                 "metric_summaries": {},
             }
-
-            # 각 메트릭의 통계 계산
             for metric_name, values in metric_stats.items():
                 if values:
                     summary["metric_summaries"][metric_name] = {
@@ -641,9 +532,7 @@ class PerformanceMonitor:
                         "average": sum(values) / len(values),
                         "latest": values[-1] if values else 0,
                     }
-
             return summary
-
         except Exception as e:
             logger.error(f"성능 요약 생성 실패: {str(e)}")
             return {}
@@ -654,9 +543,7 @@ class PerformanceMonitor:
             report = {
                 "timestamp": datetime.now().isoformat(),
                 "performance_summary": self.get_performance_summary(),
-                "recent_snapshots": [
-                    snapshot.to_dict() for snapshot in self.snapshots[-10:]
-                ],  # 최근 10개
+                "recent_snapshots": [snapshot.to_dict() for snapshot in self.snapshots[-10:]],
                 "thresholds": {
                     name: {
                         "warning_threshold": threshold.warning_threshold,
@@ -667,15 +554,11 @@ class PerformanceMonitor:
                 },
                 "settings": self.settings.copy(),
             }
-
             report_json = json.dumps(report, indent=2, ensure_ascii=False)
-
             if output_path:
                 output_path.write_text(report_json, encoding="utf-8")
                 logger.info(f"성능 리포트가 내보내졌습니다: {output_path}")
-
             return report_json
-
         except Exception as e:
             logger.error(f"성능 리포트 내보내기 실패: {str(e)}")
             return ""
@@ -693,9 +576,7 @@ class PerformanceMonitor:
                 "peak_memory_usage": 0,
                 "peak_cpu_usage": 0.0,
             }
-
             logger.info("성능 히스토리가 정리되었습니다")
-
         except Exception as e:
             logger.error(f"성능 히스토리 정리 실패: {str(e)}")
 
@@ -704,12 +585,10 @@ class PerformanceMonitor:
         try:
             self.settings.update(new_settings)
             logger.info("성능 모니터링 설정이 업데이트되었습니다")
-
         except Exception as e:
             logger.error(f"설정 업데이트 실패: {str(e)}")
 
 
-# 편의 함수들
 def create_performance_monitor(theme_manager=None) -> PerformanceMonitor:
     """PerformanceMonitor 인스턴스를 생성합니다"""
     return PerformanceMonitor(theme_manager)

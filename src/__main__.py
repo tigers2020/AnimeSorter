@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 src 패키지 실행 진입점
 
@@ -6,6 +5,9 @@ src 패키지 실행 진입점
 python -m src 명령으로 실행할 수 있습니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from src.main import main
 
 if __name__ == "__main__":

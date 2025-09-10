@@ -5,6 +5,9 @@ TMDB 서비스 인터페이스 정의
 기존 서비스들을 인터페이스로 추상화하여 테스트 가능하고 확장 가능한 구조를 만듭니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -183,7 +186,6 @@ class TMDBClientFactory(ABC):
 class TMDBClientProtocol(Protocol):
     """TMDB 클라이언트 프로토콜 - 기존 TMDBClient와 호환"""
 
-    # 서비스 메서드들
     def search_anime(
         self,
         query: str,
@@ -214,7 +216,6 @@ class TMDBClientProtocol(Protocol):
         """에피소드 정보 조회"""
         ...
 
-    # 이미지 관련 메서드들
     def download_poster(self, poster_path: str, size: str = "w185") -> str | None:
         """TMDB 포스터 이미지 다운로드"""
         ...
@@ -243,7 +244,6 @@ class TMDBClientProtocol(Protocol):
         """TMDB 이미지 URL 생성"""
         ...
 
-    # 캐시 관련 메서드들
     def clear_cache(self) -> None:
         """캐시 초기화"""
         ...
@@ -264,7 +264,6 @@ class TMDBClientProtocol(Protocol):
         """메모리 캐시 크기 설정"""
         ...
 
-    # 설정 관련 메서드들
     def set_language(self, language: str) -> None:
         """언어 설정 변경"""
         ...
@@ -277,7 +276,6 @@ class TMDBClientProtocol(Protocol):
         """현재 API 키 반환"""
         ...
 
-    # 속도 제한 관련 메서드들
     def get_rate_limiter_status(self) -> dict:
         """속도 제한 관리자 상태 반환"""
         ...
@@ -290,7 +288,6 @@ class TMDBClientProtocol(Protocol):
         """속도 제한 관리자 초기화"""
         ...
 
-    # 비동기 메서드들
     async def download_poster_async(self, poster_path: str, size: str = "w185") -> str | None:
         """TMDB 포스터 이미지 비동기 다운로드"""
         ...

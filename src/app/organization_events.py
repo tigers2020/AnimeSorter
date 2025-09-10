@@ -4,6 +4,9 @@
 파일 정리 프로세스의 각 단계별 이벤트를 정의합니다.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -19,11 +22,9 @@ class OrganizationStatus(Enum):
     VALIDATION_STARTED = "validation_started"
     VALIDATION_COMPLETED = "validation_completed"
     VALIDATION_FAILED = "validation_failed"
-
     PREFLIGHT_STARTED = "preflight_started"
     PREFLIGHT_COMPLETED = "preflight_completed"
     PREFLIGHT_CANCELLED = "preflight_cancelled"
-
     ORGANIZATION_STARTED = "organization_started"
     ORGANIZATION_PROGRESS = "organization_progress"
     ORGANIZATION_COMPLETED = "organization_completed"
@@ -71,8 +72,8 @@ class OrganizationResult:
     errors: list[str] = field(default_factory=list)
     operation_duration_seconds: float = 0.0
     created_directories: list[Path] = field(default_factory=list)
-    cleaned_directories: int = 0  # 정리된 빈 디렉토리 수
-    _processed_sources: set[str] = field(default_factory=set)  # 중복 처리 방지용
+    cleaned_directories: int = 0
+    _processed_sources: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -80,15 +81,12 @@ class OrganizationPreflightData:
     """프리플라이트 체크 데이터"""
 
     destination_directory: Path
-    grouped_items: dict[str, Any]  # AnimeDataManager의 그룹 데이터
+    grouped_items: dict[str, Any]
     estimated_operations: int = 0
     estimated_size_mb: float = 0.0
     disk_space_available_mb: float = 0.0
     will_create_directories: list[Path] = field(default_factory=list)
     potential_conflicts: list[str] = field(default_factory=list)
-
-
-# ===== 이벤트 정의 =====
 
 
 @dataclass
@@ -154,7 +152,7 @@ class OrganizationProgressEvent(BaseEvent):
     current_file: int = 0
     total_files: int = 0
     current_group: str = ""
-    operation_type: str = ""  # "copy", "move", "create_directory" 등
+    operation_type: str = ""
     current_file_path: Path | None = None
     progress_percent: int = 0
 
