@@ -10,13 +10,9 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
-from src.app.tmdb_search_events import (
-    TMDBMatch,
-    TMDBMatchConfidence,
-    TMDBSearchStatistics,
-    TMDBSearchStatus,
-    TMDBSearchType,
-)
+from src.app.tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
+                                        TMDBSearchStatistics, TMDBSearchStatus,
+                                        TMDBSearchType)
 
 
 class SearchStatisticsCollector:

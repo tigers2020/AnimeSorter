@@ -9,23 +9,10 @@ from pathlib import Path
 
 from PyQt5.QtCore import QDateTime, Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
-from PyQt5.QtWidgets import (
-    QApplication,
-    QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QHeaderView,
-    QLabel,
-    QProgressBar,
-    QPushButton,
-    QTableView,
-    QTableWidget,
-    QTableWidgetItem,
-    QTabWidget,
-    QTextEdit,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QApplication, QFileDialog, QGroupBox, QHBoxLayout,
+                             QHeaderView, QLabel, QProgressBar, QPushButton,
+                             QTableView, QTableWidget, QTableWidgetItem,
+                             QTabWidget, QTextEdit, QVBoxLayout, QWidget)
 
 from src.gui.theme.engine.theme_manager import ThemeManager
 from src.theme_consistency_validator import ThemeConsistencyValidator
@@ -100,7 +87,7 @@ class ThemeMonitorWorker(QThread):
                     for i, table in enumerate(table_views):
                         table_styles = table.styleSheet()
                         has_table_styles = len(table_styles.strip()) > 0
-                        self.style_applied.emit(f"테이블 {i+1}", has_table_styles)
+                        self.style_applied.emit(f"테이블 {i + 1}", has_table_styles)
 
         except Exception as e:
             self.error_occurred.emit(f"스타일 확인 오류: {e}")

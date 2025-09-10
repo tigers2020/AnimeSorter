@@ -9,14 +9,9 @@ from typing import Any
 import psutil
 
 # 이벤트 import 수정
-from src.app.ui_events import (
-    ErrorMessageEvent,
-    FileCountUpdateEvent,
-    MemoryUsageUpdateEvent,
-    ProgressUpdateEvent,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-)
+from src.app.ui_events import (ErrorMessageEvent, FileCountUpdateEvent,
+                               MemoryUsageUpdateEvent, ProgressUpdateEvent,
+                               StatusBarUpdateEvent, SuccessMessageEvent)
 from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
 
 

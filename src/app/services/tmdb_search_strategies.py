@@ -9,10 +9,9 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from src.core import (
-    TMDBAnimeInfoModel as TMDBAnimeInfo,  # type: ignore[import-untyped]
-    TMDBClient,  # type: ignore[import-untyped]
-)
+from src.core import \
+    TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
+from src.core import TMDBClient  # type: ignore[import-untyped]
 
 
 class SearchStrategy(ABC):

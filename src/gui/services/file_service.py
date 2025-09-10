@@ -2,6 +2,7 @@
 파일 서비스
 
 파일 시스템 관련 작업을 담당하는 서비스
+리팩토링: 통합된 파일 조직화 서비스를 사용하여 중복 코드 제거
 """
 
 import logging
@@ -10,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.core.services.unified_file_organization_service import (
+    FileOperationType, FileOrganizationConfig, UnifiedFileOrganizationService)
 from src.interfaces.i_event_bus import IEventBus
 from src.interfaces.i_service import IService
 
@@ -42,56 +45,42 @@ class MoveOperation:
 
 class FileService(IService):
     """
-    파일 서비스
+    파일 서비스 - 리팩토링된 버전
 
     파일 시스템 작업, 유효성 검사, 경로 처리 등을 담당
+    통합된 파일 조직화 서비스를 사용하여 중복 코드 제거
     """
 
     def __init__(self, event_bus: IEventBus):
         super().__init__(event_bus)
         self.logger = logging.getLogger(__name__)
 
-        # 파일 확장자 정의
-        self.video_extensions = {
-            ".mkv",
-            ".mp4",
-            ".avi",
-            ".mov",
-            ".wmv",
-            ".flv",
-            ".webm",
-            ".m4v",
-            ".mpg",
-            ".mpeg",
-            ".ts",
-            ".m2ts",
-        }
+        # 통합된 파일 조직화 서비스 초기화
+        config = FileOrganizationConfig(
+            safe_mode=True,
+            backup_before_operation=False,
+            overwrite_existing=False,
+            create_directories=True,
+        )
+        self.unified_service = UnifiedFileOrganizationService(config)
 
-        self.subtitle_extensions = {
-            ".srt",
-            ".ass",
-            ".ssa",
-            ".sub",
-            ".vtt",
-            ".idx",
-            ".smi",
-            ".sami",
-            ".txt",
-        }
+        # 파일 확장자 정의 (하위 호환성을 위해 유지)
+        self.video_extensions = config.video_extensions
+        self.subtitle_extensions = config.subtitle_extensions
 
         # 기본 설정
         self.default_config = {
-            "min_file_size": 1024 * 1024,  # 1MB
-            "max_path_length": 260,  # Windows 경로 길이 제한
-            "safe_mode": True,
-            "backup_before_move": False,
-            "overwrite_existing": False,
-            "create_directories": True,
+            "min_file_size": config.min_file_size,
+            "max_path_length": config.max_path_length,
+            "safe_mode": config.safe_mode,
+            "backup_before_move": config.backup_before_operation,
+            "overwrite_existing": config.overwrite_existing,
+            "create_directories": config.create_directories,
         }
 
         self.configure(self.default_config)
 
-        self.logger.info("FileService 초기화 완료")
+        self.logger.info("FileService 초기화 완료 (리팩토링된 버전)")
 
     def start(self) -> None:
         """서비스 시작"""
@@ -266,7 +255,7 @@ class FileService(IService):
             }
 
     def scan_directory(self, directory: str, file_types: list[str] = None) -> list[FileInfo]:
-        """디렉토리 스캔"""
+        """디렉토리 스캔 - 리팩토링된 버전"""
         try:
             if not Path(directory).exists():
                 self.logger.warning(f"디렉토리가 존재하지 않습니다: {directory}")
@@ -275,26 +264,28 @@ class FileService(IService):
             if file_types is None:
                 file_types = ["video"]
 
+            # 통합된 서비스를 사용하여 스캔
+            scan_result = self.unified_service.scanner.scan_directory(
+                Path(directory), recursive=True
+            )
+
             files = []
+            for file_path in scan_result.files_found:
+                file_info = self.get_file_info(str(file_path))
 
-            for file_path_obj in Path(directory).rglob("*"):
-                if file_path_obj.is_file():
-                    file_path = str(file_path_obj)
-                    file_info = self.get_file_info(file_path)
+                # 파일 타입 필터링
+                include_file = False
+                if (
+                    "video" in file_types
+                    and file_info.is_video
+                    or "subtitle" in file_types
+                    and file_info.is_subtitle
+                    or "all" in file_types
+                ):
+                    include_file = True
 
-                    # 파일 타입 필터링
-                    include_file = False
-                    if (
-                        "video" in file_types
-                        and file_info.is_video
-                        or "subtitle" in file_types
-                        and file_info.is_subtitle
-                        or "all" in file_types
-                    ):
-                        include_file = True
-
-                    if include_file:
-                        files.append(file_info)
+                if include_file:
+                    files.append(file_info)
 
             self.logger.info(f"디렉토리 스캔 완료: {directory} - {len(files)}개 파일")
             return files
@@ -328,7 +319,7 @@ class FileService(IService):
     def move_file(
         self, source_path: str, destination_path: str, move_subtitles: bool = True
     ) -> MoveOperation:
-        """파일 이동"""
+        """파일 이동 - 리팩토링된 버전"""
         try:
             operation = MoveOperation(
                 source_path=source_path,
@@ -337,36 +328,40 @@ class FileService(IService):
                 file_type="video" if self.get_file_info(source_path).is_video else "subtitle",
             )
 
-            # 대상 디렉토리 생성
-            if self.get_config("create_directories", True):
-                Path(destination_path).parent.mkdir(parents=True, exist_ok=True)
+            # 통합된 서비스를 사용하여 파일 이동
+            from src.core.interfaces.file_organization_interface import \
+                FileOperationPlan
 
-            # 기존 파일 확인
-            if Path(destination_path).exists() and not self.get_config("overwrite_existing", False):
-                operation.error_message = "대상 파일이 이미 존재합니다"
-                return operation
+            plan = FileOperationPlan(
+                source_path=Path(source_path),
+                target_path=Path(destination_path),
+                operation_type=FileOperationType.MOVE,
+            )
 
-            # 백업 생성
-            if self.get_config("backup_before_move", False):
-                self._create_backup(source_path)
+            result = self.unified_service.operation_executor.execute_operation(plan)
 
-            # 파일 이동
-            shutil.move(source_path, destination_path)
-            operation.success = True
+            if result.success:
+                operation.success = True
 
-            # 자막 파일도 함께 이동
-            if move_subtitles and operation.file_type == "video":
-                subtitle_files = self.find_subtitle_files(source_path)
-                for subtitle_file in subtitle_files:
-                    try:
-                        subtitle_name = Path(subtitle_file).name
-                        subtitle_dest = str(Path(destination_path).parent / subtitle_name)
-                        shutil.move(subtitle_file, subtitle_dest)
-                        self.logger.debug(f"자막 파일 이동: {subtitle_file} -> {subtitle_dest}")
-                    except Exception as e:
-                        self.logger.warning(f"자막 파일 이동 실패: {subtitle_file} - {e}")
+                # 자막 파일도 함께 이동
+                if move_subtitles and operation.file_type == "video":
+                    subtitle_files = self.find_subtitle_files(source_path)
+                    for subtitle_file in subtitle_files:
+                        try:
+                            subtitle_name = Path(subtitle_file).name
+                            subtitle_dest = str(Path(destination_path).parent / subtitle_name)
+                            shutil.move(subtitle_file, subtitle_dest)
+                            self.logger.debug(f"자막 파일 이동: {subtitle_file} -> {subtitle_dest}")
+                        except Exception as e:
+                            self.logger.warning(f"자막 파일 이동 실패: {subtitle_file} - {e}")
 
-            self.logger.info(f"파일 이동 성공: {source_path} -> {destination_path}")
+                self.logger.info(f"파일 이동 성공: {source_path} -> {destination_path}")
+            else:
+                operation.error_message = result.error_message
+                self.logger.error(
+                    f"파일 이동 실패: {source_path} -> {destination_path} - {result.error_message}"
+                )
+
             return operation
 
         except Exception as e:
@@ -375,7 +370,7 @@ class FileService(IService):
             return operation
 
     def copy_file(self, source_path: str, destination_path: str) -> MoveOperation:
-        """파일 복사"""
+        """파일 복사 - 리팩토링된 버전"""
         try:
             operation = MoveOperation(
                 source_path=source_path,
@@ -384,15 +379,27 @@ class FileService(IService):
                 file_type="video" if self.get_file_info(source_path).is_video else "subtitle",
             )
 
-            # 대상 디렉토리 생성
-            if self.get_config("create_directories", True):
-                Path(destination_path).parent.mkdir(parents=True, exist_ok=True)
+            # 통합된 서비스를 사용하여 파일 복사
+            from src.core.interfaces.file_organization_interface import \
+                FileOperationPlan
 
-            # 파일 복사
-            shutil.copy2(source_path, destination_path)
-            operation.success = True
+            plan = FileOperationPlan(
+                source_path=Path(source_path),
+                target_path=Path(destination_path),
+                operation_type=FileOperationType.COPY,
+            )
 
-            self.logger.info(f"파일 복사 성공: {source_path} -> {destination_path}")
+            result = self.unified_service.operation_executor.execute_operation(plan)
+
+            if result.success:
+                operation.success = True
+                self.logger.info(f"파일 복사 성공: {source_path} -> {destination_path}")
+            else:
+                operation.error_message = result.error_message
+                self.logger.error(
+                    f"파일 복사 실패: {source_path} -> {destination_path} - {result.error_message}"
+                )
+
             return operation
 
         except Exception as e:

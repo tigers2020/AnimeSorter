@@ -9,16 +9,8 @@ from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (
-    QAction,
-    QFrame,
-    QLabel,
-    QMainWindow,
-    QProgressBar,
-    QSplitter,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QAction, QFrame, QLabel, QMainWindow,
+                             QProgressBar, QSplitter, QVBoxLayout, QWidget)
 
 from src.interfaces.i_controller import IController
 from src.interfaces.i_event_bus import Event, IEventBus

@@ -15,29 +15,23 @@ from src.app.events import TypedEventBus
 from src.app.services.tmdb_search_matcher import SearchResultMatcher
 from src.app.services.tmdb_search_statistics import SearchStatisticsCollector
 from src.app.services.tmdb_search_strategies import SearchStrategyFactory
-from src.app.tmdb_search_events import (
-    TMDBBulkSearchCompletedEvent,
-    TMDBBulkSearchProgressEvent,
-    TMDBBulkSearchStartedEvent,
-    TMDBCacheUpdatedEvent,
-    TMDBManualSelectionCompletedEvent,
-    TMDBManualSelectionRequestedEvent,
-    TMDBMatch,
-    TMDBMatchConfidence,
-    TMDBMatchFoundEvent,
-    TMDBMediaType,
-    TMDBSearchCancelledEvent,
-    TMDBSearchCompletedEvent,
-    TMDBSearchFailedEvent,
-    TMDBSearchProgressEvent,
-    TMDBSearchQuery,
-    TMDBSearchResult,
-    TMDBSearchResultsEvent,
-    TMDBSearchStartedEvent,
-    TMDBSearchStatistics,
-    TMDBSearchStatus,
-    TMDBSearchType,
-)
+from src.app.tmdb_search_events import (TMDBBulkSearchCompletedEvent,
+                                        TMDBBulkSearchProgressEvent,
+                                        TMDBBulkSearchStartedEvent,
+                                        TMDBCacheUpdatedEvent,
+                                        TMDBManualSelectionCompletedEvent,
+                                        TMDBManualSelectionRequestedEvent,
+                                        TMDBMatch, TMDBMatchConfidence,
+                                        TMDBMatchFoundEvent, TMDBMediaType,
+                                        TMDBSearchCancelledEvent,
+                                        TMDBSearchCompletedEvent,
+                                        TMDBSearchFailedEvent,
+                                        TMDBSearchProgressEvent,
+                                        TMDBSearchQuery, TMDBSearchResult,
+                                        TMDBSearchResultsEvent,
+                                        TMDBSearchStartedEvent,
+                                        TMDBSearchStatistics, TMDBSearchStatus,
+                                        TMDBSearchType)
 
 
 class ITMDBSearchService(ABC):

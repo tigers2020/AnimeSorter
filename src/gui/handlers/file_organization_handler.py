@@ -1,23 +1,38 @@
 """
 파일 정리 관련 로직을 담당하는 핸들러
+리팩토링: 통합된 파일 조직화 서비스를 사용하여 중복 코드 제거
 """
 
 import os
 from pathlib import Path
-from typing import Any
 
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
-from src.gui.components.organize_preflight_dialog import OrganizePreflightDialog
+from src.app.file_processing_events import (FileProcessingCompletedEvent,
+                                            FileProcessingFailedEvent,
+                                            FileProcessingProgressEvent,
+                                            FileProcessingStartedEvent)
+from src.core.services.unified_file_organization_service import (
+    FileOperationType, FileOrganizationConfig, UnifiedFileOrganizationService)
+from src.gui.components.organize_preflight_dialog import \
+    OrganizePreflightDialog
 
 
 class FileOrganizationHandler(QObject):
-    """파일 정리 관련 로직을 담당하는 핸들러"""
+    """파일 정리 관련 로직을 담당하는 핸들러 - 리팩토링된 버전"""
 
-    def __init__(self, main_window):
+    def __init__(self, main_window, event_bus=None):
         super().__init__()
         self.main_window = main_window
+        self.event_bus = event_bus
+        self.current_operation_id = None
+
+        # 통합된 파일 조직화 서비스 초기화
+        config = FileOrganizationConfig(
+            safe_mode=True, backup_before_operation=True, overwrite_existing=False
+        )
+        self.unified_service = UnifiedFileOrganizationService(config)
 
     def init_preflight_system(self):
         """Preflight System 초기화"""
@@ -119,8 +134,8 @@ class FileOrganizationHandler(QObject):
             self.main_window.update_status_bar(f"파일 정리 실행 실패: {str(e)}")
 
     def _execute_file_organization_simple(self, grouped_items):
-        """FileOrganizationService의 로직을 간단하게 구현"""
-        from pathlib import Path
+        """통합된 파일 조직화 서비스를 사용한 간소화된 구현"""
+        from uuid import uuid4
 
         from src.app.organization_events import OrganizationResult
 
@@ -137,144 +152,181 @@ class FileOrganizationHandler(QObject):
         ]:
             if not hasattr(result, name):
                 setattr(result, name, default)
-        result._processed_sources = set()  # 중복 처리용 집합
-        source_directories = set()  # 빈 디렉토리 정리용
-        group_qualities: dict[str, Any] = {}  # 그룹별 화질 정보 수집용
+
+        # Emit processing started event
+        self.current_operation_id = uuid4()
+        if self.event_bus:
+            started_event = FileProcessingStartedEvent(
+                operation_id=self.current_operation_id,
+                operation_type="file_organization",
+                total_files=sum(
+                    len(items) for items in grouped_items.values() if isinstance(items, list)
+                ),
+                processing_mode="normal",
+            )
+            self.event_bus.publish(started_event)
 
         print("=" * 50)
-        print("🔍 DEBUG: 간단한 파일 정리 시작!")
+        print("🔍 DEBUG: 통합된 파일 정리 시작!")
         print(f"🔍 DEBUG: 총 그룹 수: {len(grouped_items)}")
-        print(f"🔍 DEBUG: _processed_sources 초기화됨: {len(result._processed_sources)}")
         print("=" * 50)
 
-        total_files = 0
-        for group_data in grouped_items.values():
-            if isinstance(group_data, list):
-                total_files += len(group_data)
-        result.total_count = total_files
+        try:
+            # 그룹화된 아이템들을 파일 경로 리스트로 변환
+            file_paths = []
+            for group_items in grouped_items.values():
+                if isinstance(group_items, list):
+                    for item in group_items:
+                        if hasattr(item, "sourcePath") and Path(item.sourcePath).exists():
+                            file_paths.append(Path(item.sourcePath))
 
-        # 각 그룹별로 파일 처리
-        for group_id, group_items in grouped_items.items():
-            if group_id == "ungrouped":
-                continue
+            if not file_paths:
+                print("⚠️ 처리할 파일이 없습니다")
+                return result
 
-            print(f"🔍 DEBUG: 그룹 '{group_id}' 처리 시작 - 파일 수: {len(group_items)}")
+            # 통합된 서비스를 사용하여 조직화 계획 생성
+            # 모든 파일의 부모 디렉토리들을 고려하여 계획 생성
+            destination_root = Path(self.main_window.destination_directory)
 
-            # 그룹 내 파일들을 처리
-            for item in group_items:
-                try:
-                    # 파일 경로 추출
-                    if hasattr(item, "sourcePath"):
-                        source_path = item.sourcePath
-                    else:
-                        continue
+            # 각 파일에 대해 개별적으로 계획 생성
+            organization_plans = []
+            for file_path in file_paths:
+                source_directory = file_path.parent
+                print(f"🔍 파일명 파싱 시작: {file_path}")
 
-                    # 그룹 수집 시 전역 dedup 강제
-                    norm = self._norm(source_path)  # 위와 동일한 _norm 함수 재사용
-                    if norm in result._processed_sources:
-                        print(f"⏭️ [중복파일] pre-collect skip: {norm}")
-                        result.skip_count += 1
-                        result.skipped_files.append(norm)
-                        continue
+                # 개별 파일에 대한 계획 생성
+                file_plans = self.unified_service.scan_and_plan_organization(
+                    source_directory, destination_root, "standard", FileOperationType.MOVE
+                )
 
-                    # 파일 존재 확인
-                    if not Path(source_path).exists():
-                        print(f"🛑 [파일없음] 파일 존재하지 않음: {source_path}")
-                        result.skip_count += 1
-                        result.skipped_files.append(source_path)
-                        result._processed_sources.add(norm)
-                        continue
+                # 해당 파일과 관련된 계획만 필터링
+                for plan in file_plans:
+                    if plan.source_path == file_path:
+                        organization_plans.append(plan)
+                        break
 
-                    # 그룹 내 화질 분석 및 분류
-                    import re
-                    from pathlib import Path
+            print(f"🔍 DEBUG: 생성된 조직화 계획 수: {len(organization_plans)}")
 
-                    # TMDB 매치 정보에서 제목 추출
-                    safe_title = "Unknown"
-                    season = 1
+            # 계획 검증
+            validation_result = self.unified_service.validate_organization_plan(organization_plans)
+            if not validation_result["valid"]:
+                print(f"⚠️ 조직화 계획 검증 실패: {validation_result['errors']}개 오류")
+                result.error_count = validation_result["errors"]
+                result.errors = [issue["issues"] for issue in validation_result["issues"]]
+                return result
 
-                    if hasattr(item, "tmdbMatch") and item.tmdbMatch and item.tmdbMatch.name:
-                        raw_title = item.tmdbMatch.name
-                    else:
-                        raw_title = item.title or item.detectedTitle or "Unknown"
+            # 조직화 실행
+            print("🚀 파일 조직화 실행 중...")
 
-                    # 제목 정제 (특수문자 제거)
-                    safe_title = re.sub(r"[^a-zA-Z0-9가-힣\s]", "", raw_title)
-                    safe_title = re.sub(r"\s+", " ", safe_title).strip()
+            # Create detailed progress callback
+            def detailed_progress_callback(progress_event: FileProcessingProgressEvent):
+                if self.event_bus:
+                    self.event_bus.publish(progress_event)
+                # Update status bar with progress
+                self.main_window.update_status_bar(
+                    f"파일 정리 중... {progress_event.current_step} ({progress_event.current_file_index + 1}/{progress_event.total_files})",
+                    int(progress_event.progress_percentage),
+                )
 
-                    if not safe_title:
-                        safe_title = "Unknown"
+            execution_results = self.unified_service.execute_organization_plan(
+                organization_plans,
+                dry_run=False,
+                detailed_progress_callback=detailed_progress_callback,
+            )
 
-                    # 시즌 정보 추출
-                    if hasattr(item, "season") and item.season:
-                        season = item.season
-
-                    # 그룹 내 화질 분석 및 분류
-                    group_key = f"{safe_title}_S{season}"
-                    if group_key not in group_qualities:
-                        group_qualities[group_key] = []
-
-                    # 그룹 내부 dedup도 정규화 경로로
-                    seen_in_group = {
-                        self._norm(fi["normalized_path"])
-                        for fi in group_qualities.get(group_key, [])
-                    }
-                    if norm in seen_in_group:
-                        print(f"⏭️ [그룹중복] group-dup skip: {norm}")
-                        result.skip_count += 1
-                        result.skipped_files.append(norm)
-                        continue
-
-                    resolution = (
-                        getattr(item, "resolution", "") or getattr(item, "fileResolution", "") or ""
-                    )
-                    resolution = resolution.lower()
-
-                    # 그룹 내 파일들의 화질 정보 수집
-                    group_qualities[group_key].append(
-                        {
-                            "item": item,
-                            "resolution": resolution,
-                            "source_path": source_path,
-                            "normalized_path": norm,
-                        }
-                    )
-
-                    # 이 파일은 나중에 그룹별로 처리하므로 여기서는 건너뜀
-                    continue
-
-                except Exception as e:
-                    print(f"❌ 파일 처리 실패: {source_path} - {e}")
+            # 결과 처리
+            for exec_result in execution_results:
+                if exec_result.success:
+                    result.success_count += 1
+                    print(f"✅ 파일 이동 성공: {exec_result.source_path.name}")
+                else:
                     result.error_count += 1
-                    result.errors.append(f"{source_path}: {e}")
-                    result._processed_sources.add(norm)
+                    result.errors.append(f"{exec_result.source_path}: {exec_result.error_message}")
+                    print(
+                        f"❌ 파일 이동 실패: {exec_result.source_path.name} - {exec_result.error_message}"
+                    )
+
+            # 빈 디렉토리 정리
+            print("🧹 빈 디렉토리 정리를 시작합니다...")
+            cleaned_dirs = self._cleanup_empty_directories_from_plans(organization_plans)
+            result.cleaned_directories = cleaned_dirs
+            print(f"✅ 빈 디렉토리 정리 완료: {cleaned_dirs}개 디렉토리 삭제")
+
+            # 애니 폴더 전체 정리
+            print("🗂️ 애니 폴더 전체 빈 디렉토리 정리를 시작합니다...")
+            anime_cleaned = self._cleanup_anime_directories()
+            print(f"🗑️ 애니 폴더 빈 디렉토리 정리 완료: {anime_cleaned}개 디렉토리 삭제")
+            result.cleaned_directories += anime_cleaned
+
+            result.total_count = len(organization_plans)
+
+        except Exception as e:
+            print(f"❌ 파일 조직화 실행 실패: {e}")
+            result.error_count += 1
+            result.errors.append(f"조직화 실행 실패: {str(e)}")
+
+            # Emit processing failed event
+            if self.event_bus:
+                failed_event = FileProcessingFailedEvent(
+                    operation_id=self.current_operation_id,
+                    error_message=str(e),
+                    error_type="organization_error",
+                    failed_at_step="file_organization_execution",
+                    processed_files_before_failure=result.success_count,
+                    total_files=sum(
+                        len(items) for items in grouped_items.values() if isinstance(items, list)
+                    ),
+                    can_retry=True,
+                )
+                self.event_bus.publish(failed_event)
 
         print("=" * 50)
         print("🔍 DEBUG: 파일 정리 최종 결과")
         print(f"   ✅ 성공: {result.success_count}개")
         print(f"   ❌ 실패: {result.error_count}개")
         print(f"   ⏭️  건너뜀: {result.skip_count}개")
-        print(f"   📊 _processed_sources 최종 크기: {len(result._processed_sources)}개")
         print("=" * 50)
 
-        # 그룹별 화질 분석 및 분류
-        print("🎬 그룹별 화질 분석 시작...")
-        self._process_groups_by_quality(group_qualities, result, source_directories)
-
-        # 빈 디렉토리 정리
-        if source_directories:
-            print("🧹 빈 디렉토리 정리를 시작합니다...")
-            cleaned_dirs = self._cleanup_empty_directories(source_directories)
-            result.cleaned_directories = cleaned_dirs
-            print(f"✅ 빈 디렉토리 정리 완료: {cleaned_dirs}개 디렉토리 삭제")
-
-        # 애니 폴더 전체 정리 (추가)
-        print("🗂️ 애니 폴더 전체 빈 디렉토리 정리를 시작합니다...")
-        anime_cleaned = self._cleanup_anime_directories()
-        print(f"🗑️ 애니 폴더 빈 디렉토리 정리 완료: {anime_cleaned}개 디렉토리 삭제")
-        result.cleaned_directories += anime_cleaned
+        # Emit processing completed event
+        if self.event_bus:
+            completed_event = FileProcessingCompletedEvent(
+                operation_id=self.current_operation_id,
+                total_files=(
+                    result.total_count
+                    if hasattr(result, "total_count")
+                    else result.success_count + result.error_count
+                ),
+                successful_files=result.success_count,
+                failed_files=result.error_count,
+                skipped_files=result.skip_count,
+                total_size_bytes=0,  # Could be calculated if needed
+                processed_size_bytes=0,  # Could be calculated if needed
+                total_processing_time_seconds=0.0,  # Could be calculated if needed
+                errors=result.errors if hasattr(result, "errors") else [],
+            )
+            self.event_bus.publish(completed_event)
 
         return result
+
+    def _cleanup_empty_directories_from_plans(self, organization_plans) -> int:
+        """조직화 계획에서 소스 디렉토리들을 정리"""
+        cleaned_count = 0
+        source_directories = set()
+
+        # 소스 디렉토리 수집
+        for plan in organization_plans:
+            source_directories.add(str(plan.source_path.parent))
+
+        # 빈 디렉토리 정리
+        for source_dir in source_directories:
+            try:
+                if Path(source_dir).exists():
+                    cleaned_count += self._remove_empty_dirs_recursive(source_dir)
+                    cleaned_count += self._cleanup_parent_directories(source_dir)
+            except Exception as e:
+                print(f"⚠️ 디렉토리 정리 중 오류 ({source_dir}): {e}")
+
+        return cleaned_count
 
     def _process_subtitle_files(self, video_path: str, target_dir: Path, result):
         """비디오 파일과 연관된 자막 파일들을 처리합니다"""

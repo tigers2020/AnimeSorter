@@ -4,17 +4,9 @@
 """
 
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (
-    QFormLayout,
-    QFrame,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QFormLayout, QFrame, QGroupBox, QHBoxLayout,
+                             QLabel, QPushButton, QSizePolicy, QVBoxLayout,
+                             QWidget)
 
 
 class LeftPanel(QWidget):

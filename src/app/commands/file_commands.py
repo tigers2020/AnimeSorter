@@ -9,7 +9,8 @@ from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from src.app.commands.base_command import BaseCommand, CompositeCommand, ICommand
+from src.app.commands.base_command import (BaseCommand, CompositeCommand,
+                                           ICommand)
 
 if TYPE_CHECKING:
     from src.app.journal import FileOperationDetails, JournalEntryType

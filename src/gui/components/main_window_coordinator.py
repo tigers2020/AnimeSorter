@@ -10,7 +10,6 @@ from PyQt5.QtWidgets import QMainWindow
 
 from src.gui.components.event_handler_manager_ui import EventHandlerManagerUI
 from src.gui.components.main_window_initializer import MainWindowInitializer
-
 # from .menu_toolbar_manager import MenuToolbarManager  # 중복 메뉴 생성 방지
 from src.gui.components.ui_component_manager import UIComponentManager
 

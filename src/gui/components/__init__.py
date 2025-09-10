@@ -3,13 +3,9 @@ GUI 컴포넌트 모듈
 """
 
 from .advanced_splitter import AdvancedSplitter, SplitterControlPanel
-from .cell_delegates import (
-                             BaseCellDelegate,
-                             IconCellDelegate,
-                             ProgressCellDelegate,
-                             StatusCellDelegate,
-                             TextPreviewCellDelegate,
-)
+from .cell_delegates import (BaseCellDelegate, IconCellDelegate,
+                             ProgressCellDelegate, StatusCellDelegate,
+                             TextPreviewCellDelegate)
 from .left_panel import LeftPanel
 from .left_panel_dock import LeftPanelDock
 from .log_dock import LogDock

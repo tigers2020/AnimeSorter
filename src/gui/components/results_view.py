@@ -5,24 +5,14 @@
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (
-    QHBoxLayout,
-    QHeaderView,
-    QLabel,
-    QSizePolicy,
-    QSplitter,
-    QTableView,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QHBoxLayout, QHeaderView, QLabel, QSizePolicy,
+                             QSplitter, QTableView, QTabWidget, QVBoxLayout,
+                             QWidget)
 
 # Phase 6: 셀 표현 Delegate 추가
-from src.gui.components.cell_delegates import (
-    ProgressCellDelegate,
-    StatusCellDelegate,
-    TextPreviewCellDelegate,
-)
+from src.gui.components.cell_delegates import (ProgressCellDelegate,
+                                               StatusCellDelegate,
+                                               TextPreviewCellDelegate)
 
 
 class ResultsView(QTabWidget):
@@ -845,7 +835,8 @@ class ResultsView(QTabWidget):
                             if group_info:
                                 group_items = group_info.get("items", [])
                                 if group_items:
-                                    from src.gui.table_models import DetailFileModel
+                                    from src.gui.table_models import \
+                                        DetailFileModel
 
                                     file_model = DetailFileModel()
                                     file_model.set_items(group_items)

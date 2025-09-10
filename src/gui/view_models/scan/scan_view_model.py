@@ -9,18 +9,10 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (
-    ErrorMessageEvent,
-    FileCountUpdateEvent,
-    FilesScannedEvent,
-    IFileScanService,
-    IUIUpdateService,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TypedEventBus,
-    get_event_bus,
-    get_service,
-)
+from src.app import (ErrorMessageEvent, FileCountUpdateEvent,
+                     FilesScannedEvent, IFileScanService, IUIUpdateService,
+                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
+                     get_event_bus, get_service)
 
 from .scan_state import ScanCapabilities, ScanState
 

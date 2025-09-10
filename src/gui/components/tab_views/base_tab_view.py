@@ -4,7 +4,8 @@ Tab View 베이스 클래스 - 중복 코드 제거를 위한 공통 기능 제�
 
 from PyQt5.QtCore import QModelIndex, Qt, pyqtSignal
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QTableView, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import (QLabel, QSizePolicy, QTableView, QVBoxLayout,
+                             QWidget)
 
 from src.advanced_splitter import AdvancedSplitter, SplitterControlPanel
 

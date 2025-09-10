@@ -11,31 +11,17 @@ from typing import TypeVar
 from src.app.commands import ICommandInvoker
 from src.app.container import get_container
 from src.app.events import TypedEventBus, set_event_bus
-from src.app.journal import IJournalManager, IRollbackEngine, JournalConfiguration, JournalManager
+from src.app.journal import (IJournalManager, IRollbackEngine,
+                             JournalConfiguration, JournalManager)
 from src.app.preflight import IPreflightCoordinator, PreflightCoordinator
-from src.app.safety import (
-    IBackupManager,
-    IConfirmationManager,
-    IInterruptionManager,
-    InterruptionManager,
-    ISafetyManager,
-    SafetyConfiguration,
-    SafetyManager,
-)
-from src.app.services import (
-    BackgroundTaskService,
-    FileOrganizationService,
-    FileScanService,
-    IBackgroundTaskService,
-    IFileOrganizationService,
-    IFileScanService,
-    IMediaDataService,
-    ITMDBSearchService,
-    IUIUpdateService,
-    MediaDataService,
-    TMDBSearchService,
-    UIUpdateService,
-)
+from src.app.safety import (IBackupManager, IConfirmationManager,
+                            IInterruptionManager, InterruptionManager,
+                            ISafetyManager, SafetyConfiguration, SafetyManager)
+from src.app.services import (BackgroundTaskService, FileScanService,
+                              IBackgroundTaskService, IFileScanService,
+                              IMediaDataService, ITMDBSearchService,
+                              IUIUpdateService, MediaDataService,
+                              TMDBSearchService, UIUpdateService)
 from src.app.undo_redo import IUndoRedoManager
 
 
@@ -69,10 +55,7 @@ def setup_application_services() -> None:
             container.register_singleton(IUIUpdateService, UIUpdateService)
             logger.info("IUIUpdateService가 UIUpdateService로 등록되었습니다")
 
-        # FileOrganizationService 등록 (Singleton)
-        if not container.is_registered(IFileOrganizationService):
-            container.register_singleton(IFileOrganizationService, FileOrganizationService)
-            logger.info("IFileOrganizationService가 FileOrganizationService로 등록되었습니다")
+        # Legacy FileOrganizationService registration removed - using UnifiedFileOrganizationService instead
 
         # MediaDataService 등록 (Singleton)
         if not container.is_registered(IMediaDataService):
@@ -221,8 +204,7 @@ def initialize_application() -> None:
         ui_update_service = get_service(IUIUpdateService)
         logger.info(f"UIUpdateService 인스턴스 생성: {id(ui_update_service)}")
 
-        file_organization_service = get_service(IFileOrganizationService)
-        logger.info(f"FileOrganizationService 인스턴스 생성: {id(file_organization_service)}")
+        # Legacy FileOrganizationService instantiation removed - using UnifiedFileOrganizationService instead
 
         media_data_service = get_service(IMediaDataService)
         logger.info(f"MediaDataService 인스턴스 생성: {id(media_data_service)}")

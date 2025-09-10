@@ -9,16 +9,13 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from src.core.tmdb.adapters import TMDBCacheAdapter, TMDBImageAdapter, TMDBRateLimiterAdapter
-from src.core.tmdb.interfaces import (
-    TMDBCacheProtocol,
-    TMDBClientFactory,
-    TMDBClientProtocol,
-    TMDBConfig,
-    TMDBImageProtocol,
-    TMDBRateLimiterProtocol,
-    TMDBServiceProtocol,
-)
+from src.core.tmdb.adapters import (TMDBCacheAdapter, TMDBImageAdapter,
+                                    TMDBRateLimiterAdapter)
+from src.core.tmdb.interfaces import (TMDBCacheProtocol, TMDBClientFactory,
+                                      TMDBClientProtocol, TMDBConfig,
+                                      TMDBImageProtocol,
+                                      TMDBRateLimiterProtocol,
+                                      TMDBServiceProtocol)
 from src.core.tmdb.tmdbsimple_service import TMDBSimpleService
 from src.core.tmdb_cache import TMDBCacheManager
 from src.core.tmdb_image import TMDBImageManager

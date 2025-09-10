@@ -16,13 +16,11 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoStack
 
 from src.app.undo_redo.qt_command_wrapper import QtCommandWrapper
-from src.app.undo_redo.undo_redo_events import (
-    CommandPushedToStackEvent,
-    RedoExecutedEvent,
-    UndoExecutedEvent,
-    UndoRedoErrorEvent,
-    UndoRedoStackChangedEvent,
-)
+from src.app.undo_redo.undo_redo_events import (CommandPushedToStackEvent,
+                                                RedoExecutedEvent,
+                                                UndoExecutedEvent,
+                                                UndoRedoErrorEvent,
+                                                UndoRedoStackChangedEvent)
 
 
 @dataclass

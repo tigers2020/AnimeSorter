@@ -11,13 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from src.app.commands.base_command import BaseCommand, CommandResult
-from src.app.commands.file_commands import (
-    CopyFileCommand,
-    CreateDirectoryCommand,
-    DeleteFileCommand,
-    MoveFileCommand,
-    RenameFileCommand,
-)
+from src.app.commands.file_commands import (CopyFileCommand,
+                                            CreateDirectoryCommand,
+                                            DeleteFileCommand, MoveFileCommand,
+                                            RenameFileCommand)
 from src.app.journal import JournalEntryType
 
 

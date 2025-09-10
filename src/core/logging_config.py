@@ -7,13 +7,9 @@ AnimeSorter 애플리케이션의 전역 로깅 시스템을 설정하고 관리
 import logging
 from pathlib import Path
 
-from src.core.structured_logging import (
-    LogCategory,
-    LogLevel,
-    StructuredLogger,
-    get_logger,
-    initialize_logging,
-)
+from src.core.structured_logging import (LogCategory, LogLevel,
+                                         StructuredLogger, get_logger,
+                                         initialize_logging)
 
 # 전역 로거 인스턴스
 _global_logger: StructuredLogger | None = None

@@ -241,49 +241,7 @@ class MainWindowFileHandler:
             # Service 실패 시 사용자에게 알림
             self.main_window.update_status_bar("파일 스캔에 실패했습니다", 0)
 
-    def _scan_directory_legacy_deprecated(self, directory_path: str) -> None:
-        """
-        기존 방식 디렉토리 스캔 (더 이상 사용되지 않음)
-
-        DEPRECATED: FileScanService를 사용하세요.
-        이 메서드는 향후 제거될 예정입니다.
-
-        Args:
-            directory_path: 스캔할 디렉토리 경로
-        """
-        try:
-            video_extensions = (".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm")
-            video_files = []
-
-            for file_path in Path(directory_path).rglob("*"):
-                if file_path.is_file() and file_path.suffix.lower() in video_extensions:
-                    # 비디오 파일 크기 확인 (1MB 미만 제외 - 더미 파일 방지)
-                    try:
-                        file_size = file_path.stat().st_size
-                        if file_size < 1024 * 1024:  # 1MB 미만
-                            print(
-                                f"⚠️ 비디오 파일 크기가 너무 작음 (제외): {file_path.name} ({file_size} bytes)"
-                            )
-                            print(f"⚠️ 제외됨: {file_path.name} (크기: {file_size} bytes)")
-                            continue
-                    except OSError:
-                        print(f"⚠️ 파일 크기 확인 실패 (제외): {file_path.name}")
-                        print(f"⚠️ 제외됨: {file_path.name} (파일 접근 불가)")
-                        continue
-
-                    video_files.append(str(file_path))
-
-            if video_files:
-                self.main_window.update_status_bar(
-                    f"디렉토리에서 {len(video_files)}개 비디오 파일 발견"
-                )
-                self.process_selected_files(video_files)
-            else:
-                self.main_window.update_status_bar("디렉토리에서 비디오 파일을 찾을 수 없습니다")
-
-        except Exception as e:
-            self.main_window.update_status_bar(f"디렉토리 스캔 오류: {str(e)}")
-            print(f"디렉토리 스캔 오류: {e}")
+    # Legacy deprecated scan method removed - using FileScanService instead
 
     def stop_scan(self) -> None:
         """

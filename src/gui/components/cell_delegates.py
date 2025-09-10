@@ -4,19 +4,10 @@
 """
 
 from PyQt5.QtCore import QRect, QRectF, QSize, Qt
-from PyQt5.QtGui import (
-    QBrush,
-    QColor,
-    QFont,
-    QFontMetrics,
-    QIcon,
-    QPainter,
-    QPainterPath,
-    QPalette,
-    QPen,
-    QPixmap,
-)
-from PyQt5.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
+from PyQt5.QtGui import (QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter,
+                         QPainterPath, QPalette, QPen, QPixmap)
+from PyQt5.QtWidgets import (QApplication, QStyle, QStyledItemDelegate,
+                             QStyleOptionViewItem)
 
 
 class BaseCellDelegate(QStyledItemDelegate):

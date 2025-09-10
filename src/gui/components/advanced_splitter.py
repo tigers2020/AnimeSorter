@@ -8,7 +8,8 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt5.QtCore import QSettings, Qt, QTimer, pyqtSignal
-from PyQt5.QtWidgets import QFrame, QHBoxLayout, QLabel, QSplitter, QStyle, QToolButton, QWidget
+from PyQt5.QtWidgets import (QFrame, QHBoxLayout, QLabel, QSplitter, QStyle,
+                             QToolButton, QWidget)
 
 
 class AdvancedSplitter(QSplitter):

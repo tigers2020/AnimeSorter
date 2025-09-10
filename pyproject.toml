@@ -170,7 +170,7 @@ warn_unused_ignores = false
 warn_no_return = false
 warn_unreachable = false
 strict_equality = false
-# plugins = ["pydantic"]  # pydantic 2.x에서는 별도 플러그인 불필요
+# plugins = ["pydantic.mypy"]  # Pydantic v2 Mypy plugin - not available in current environment
 
 
 # Ignore missing imports for external libraries

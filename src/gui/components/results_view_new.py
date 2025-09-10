@@ -8,13 +8,8 @@ from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 
 from src.tab_delegates import StatusDelegate, TextPreviewDelegate
 from src.tab_models import BaseDetailModel, BaseGroupModel
-from src.tab_views import (
-    AllTabView,
-    CompletedTabView,
-    ConflictTabView,
-    DuplicateTabView,
-    UnmatchedTabView,
-)
+from src.tab_views import (AllTabView, CompletedTabView, ConflictTabView,
+                           DuplicateTabView, UnmatchedTabView)
 
 
 class ResultsViewNew(QTabWidget):

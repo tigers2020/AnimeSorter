@@ -3,6 +3,7 @@
 
 MainWindow의 파일 스캔 로직을 분리한 서비스입니다.
 백그라운드 작업을 통해 UI를 블로킹하지 않고 스캔을 수행합니다.
+리팩토링: 통합된 파일 조직화 서비스를 사용하여 중복 코드 제거
 """
 
 import logging
@@ -13,6 +14,8 @@ from uuid import UUID, uuid4
 from src.app.events import TypedEventBus
 from src.app.services.background_task_service import IBackgroundTaskService
 from src.app.services.file_scan_task import FileScanTask
+from src.core.services.unified_file_organization_service import (
+    FileOrganizationConfig, UnifiedFileOrganizationService)
 
 
 class IFileScanService(ABC):
@@ -49,7 +52,7 @@ class IFileScanService(ABC):
 
 
 class FileScanService(IFileScanService):
-    """파일 스캔 서비스 구현 (백그라운드 작업 기반)"""
+    """파일 스캔 서비스 구현 (백그라운드 작업 기반) - 리팩토링된 버전"""
 
     def __init__(self, event_bus: TypedEventBus, background_task_service: IBackgroundTaskService):
         self.event_bus = event_bus
@@ -57,7 +60,13 @@ class FileScanService(IFileScanService):
         self.logger = logging.getLogger(self.__class__.__name__)
         self._active_scans: dict[UUID, str] = {}  # scan_id -> background_task_id
 
-        self.logger.info("FileScanService 초기화 완료 (백그라운드 처리)")
+        # 통합된 파일 조직화 서비스 초기화
+        config = FileOrganizationConfig(
+            safe_mode=True, backup_before_operation=False, overwrite_existing=False
+        )
+        self.unified_service = UnifiedFileOrganizationService(config)
+
+        self.logger.info("FileScanService 초기화 완료 (리팩토링된 버전)")
 
     def scan_directory(
         self,

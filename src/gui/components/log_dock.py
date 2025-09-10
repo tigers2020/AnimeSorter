@@ -6,18 +6,9 @@
 from pathlib import Path
 
 from PyQt5.QtCore import QSettings, Qt
-from PyQt5.QtWidgets import (
-    QDockWidget,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QSizePolicy,
-    QTabWidget,
-    QTextEdit,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QDockWidget, QFrame, QHBoxLayout, QLabel,
+                             QSizePolicy, QTabWidget, QTextEdit, QToolButton,
+                             QVBoxLayout, QWidget)
 
 
 class LogDock(QDockWidget):

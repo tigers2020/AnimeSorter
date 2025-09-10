@@ -13,18 +13,9 @@ from datetime import datetime
 from typing import Any
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
-from PyQt5.QtWidgets import (
-    QDockWidget,
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QMessageBox,
-    QProgressBar,
-    QPushButton,
-    QTextEdit,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QDockWidget, QHBoxLayout, QLabel, QMainWindow,
+                             QMessageBox, QProgressBar, QPushButton, QTextEdit,
+                             QVBoxLayout, QWidget)
 
 logger = logging.getLogger(__name__)
 

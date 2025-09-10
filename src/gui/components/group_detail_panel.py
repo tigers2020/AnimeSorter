@@ -7,15 +7,8 @@
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (
-    QFrame,
-    QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel,
+                             QSizePolicy, QVBoxLayout, QWidget)
 
 
 class GroupDetailPanel(QWidget):

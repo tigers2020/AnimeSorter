@@ -1,22 +1,33 @@
 """
 파일 처리 관리자
 파일 스캔, 파싱, 정리 계획 수립 등을 관리합니다.
+리팩토링: 통합된 파일 조직화 서비스를 사용하여 중복 코드 제거
 """
 
 import os
 import shutil
 import sys
-import threading
 import time
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from src.core.file_manager import FileManager
+# Legacy FileManager import removed - using UnifiedFileOrganizationService instead
+from src.app.file_processing_events import (FileOperationType,
+                                            FileProcessingCompletedEvent,
+                                            FileProcessingFailedEvent,
+                                            FileProcessingProgressEvent,
+                                            FileProcessingStartedEvent,
+                                            calculate_progress_percentage)
 from src.core.file_parser import FileParser
+from src.core.interfaces.file_organization_interface import \
+    FileConflictResolution
+from src.core.services.unified_file_organization_service import (
+    FileOperationPlan, FileOperationType, FileOrganizationConfig,
+    UnifiedFileOrganizationService)
 from src.core.video_metadata_extractor import VideoMetadataExtractor
 from src.gui.managers.anime_data_manager import ParsedItem
 
@@ -50,42 +61,47 @@ class ProcessingStats:
 
 
 class FileProcessingManager:
-    """파일 처리 관리자"""
+    """파일 처리 관리자 - 리팩토링된 버전"""
 
-    def __init__(self, destination_root: str = "", safe_mode: bool = True):
+    def __init__(self, destination_root: str = "", safe_mode: bool = True, event_bus=None):
         """초기화"""
         self.destination_root = destination_root
         self.safe_mode = safe_mode
+        self.event_bus = event_bus
+        self.current_operation_id = None
+
+        # 기존 컴포넌트들 (하위 호환성을 위해 유지)
         self.file_parser = FileParser()
-        self.file_manager = FileManager(destination_root=destination_root, safe_mode=safe_mode)
+        # Legacy FileManager removed - using UnifiedFileOrganizationService instead
         self.video_metadata_extractor = VideoMetadataExtractor()
 
-        # 처리 계획 저장
+        # 통합된 파일 조직화 서비스 초기화
+        config = FileOrganizationConfig(
+            safe_mode=safe_mode, backup_before_operation=safe_mode, overwrite_existing=not safe_mode
+        )
+        self.unified_service = UnifiedFileOrganizationService(config)
+
+        # 처리 계획 저장 (기존 호환성 유지)
         self.processing_plans: list[FileProcessingPlan] = []
         self.processing_stats = ProcessingStats()
 
-        print("✅ FileProcessingManager 초기화 완료")
+        print("✅ FileProcessingManager 초기화 완료 (리팩토링된 버전)")
 
     def scan_directory(self, directory_path: str, recursive: bool = True) -> list[str]:
-        """디렉토리 스캔하여 비디오 파일 찾기"""
-        if not Path(directory_path).exists():
-            print(f"❌ 디렉토리가 존재하지 않습니다: {directory_path}")
-            return []
-
-        video_extensions = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v"}
-        video_files = []
-
+        """디렉토리 스캔하여 비디오 파일 찾기 - 리팩토링된 버전"""
         try:
-            if recursive:
-                for root, _dirs, _files in Path(directory_path).rglob("*"):
-                    if root.is_file() and root.suffix.lower() in video_extensions:
-                        video_files.append(str(root))
-            else:
-                for file_path in Path(directory_path).iterdir():
-                    if file_path.is_file() and file_path.suffix.lower() in video_extensions:
-                        video_files.append(str(file_path))
+            # 통합된 서비스를 사용하여 스캔
+            scan_result = self.unified_service.scanner.scan_directory(
+                Path(directory_path), recursive=recursive
+            )
+
+            # 결과를 문자열 리스트로 변환 (기존 API 호환성 유지)
+            video_files = [str(file_path) for file_path in scan_result.files_found]
 
             print(f"🔍 디렉토리 스캔 완료: {len(video_files)}개 비디오 파일 발견")
+            if scan_result.errors:
+                print(f"⚠️ 스캔 중 {len(scan_result.errors)}개 오류 발생")
+
             return video_files
 
         except Exception as e:
@@ -99,12 +115,46 @@ class FileProcessingManager:
 
         print(f"🔍 파일 파싱 시작: {len(file_paths)}개 파일")
 
+        # Emit processing started event
+        self.current_operation_id = uuid4()
+        if self.event_bus:
+            started_event = FileProcessingStartedEvent(
+                operation_id=self.current_operation_id,
+                operation_type="file_parsing",
+                total_files=len(file_paths),
+                total_size_bytes=sum(
+                    Path(fp).stat().st_size for fp in file_paths if Path(fp).exists()
+                ),
+                processing_mode="normal",
+            )
+            self.event_bus.publish(started_event)
+
         parsed_items = []
         for i, file_path in enumerate(file_paths):
             try:
                 # 진행률 표시
                 progress = int((i / len(file_paths)) * 100)
                 print(f"진행률: {progress}% - {Path(file_path).name}")
+
+                # Emit progress event
+                if self.event_bus:
+                    progress_event = FileProcessingProgressEvent(
+                        operation_id=self.current_operation_id,
+                        current_file_index=i,
+                        total_files=len(file_paths),
+                        current_file_path=Path(file_path),
+                        current_file_size=(
+                            Path(file_path).stat().st_size if Path(file_path).exists() else 0
+                        ),
+                        progress_percentage=calculate_progress_percentage(i, len(file_paths)),
+                        current_operation=FileOperationType.PARSE,
+                        current_step=f"Parsing {Path(file_path).name}",
+                        success_count=len(
+                            [item for item in parsed_items if item.status != "error"]
+                        ),
+                        error_count=len([item for item in parsed_items if item.status == "error"]),
+                    )
+                    self.event_bus.publish(progress_event)
 
                 # 파일 파싱
                 parsed_metadata = self.file_parser.parse_filename(file_path)
@@ -114,17 +164,8 @@ class FileProcessingManager:
                     file_size = Path(file_path).stat().st_size
                     size_mb = file_size // (1024 * 1024)
 
-                    # 해상도가 Unknown인 경우 파일에서 직접 추출 시도
+                    # 해상도 정보 사용 (TMDB에서 이미 가져온 정보가 있다면 그것을 사용)
                     resolution = parsed_metadata.resolution or "Unknown"
-                    if resolution == "Unknown":
-                        extracted_resolution = self.video_metadata_extractor.extract_resolution(
-                            file_path
-                        )
-                        if extracted_resolution:
-                            resolution = self.video_metadata_extractor.normalize_resolution(
-                                extracted_resolution
-                            )
-                            print(f"🔍 파일에서 해상도 추출: {resolution}")
 
                     # ParsedItem 생성
                     parsed_item = ParsedItem(
@@ -172,65 +213,99 @@ class FileProcessingManager:
                 parsed_items.append(parsed_item)
 
         print(f"✅ 파일 파싱 완료: {len(parsed_items)}개 아이템 생성")
+
+        # Emit processing completed event
+        if self.event_bus:
+            completed_event = FileProcessingCompletedEvent(
+                operation_id=self.current_operation_id,
+                total_files=len(file_paths),
+                successful_files=len([item for item in parsed_items if item.status != "error"]),
+                failed_files=len([item for item in parsed_items if item.status == "error"]),
+                skipped_files=0,
+                total_size_bytes=sum(
+                    Path(fp).stat().st_size for fp in file_paths if Path(fp).exists()
+                ),
+                processed_size_bytes=sum(
+                    Path(fp).stat().st_size for fp in file_paths if Path(fp).exists()
+                ),
+                total_processing_time_seconds=0.0,  # Could be calculated if needed
+                errors=[item.sourcePath for item in parsed_items if item.status == "error"],
+            )
+            self.event_bus.publish(completed_event)
+
         return parsed_items
 
     def create_processing_plans(
         self, parsed_items: list[ParsedItem], naming_scheme: str = "standard"
     ) -> list[FileProcessingPlan]:
-        """파일 처리 계획 생성"""
+        """파일 처리 계획 생성 - 리팩토링된 버전"""
         if not parsed_items:
             return []
 
         print(f"📋 처리 계획 생성 시작: {len(parsed_items)}개 아이템")
 
-        self.processing_plans = []
-        total_size = 0
+        try:
+            # 통합된 서비스를 사용하여 계획 생성
+            source_paths = [
+                Path(item.sourcePath) for item in parsed_items if item.status != "error"
+            ]
 
-        for item in parsed_items:
-            if item.status == "error":
-                continue
+            if not source_paths:
+                print("⚠️ 처리 가능한 파일이 없습니다")
+                return []
 
-            try:
-                # 대상 경로 생성
-                target_path = self._generate_target_path(item, naming_scheme)
+            # 통합된 서비스로 조직화 계획 생성
+            unified_plans = self.unified_service.scan_and_plan_organization(
+                source_paths[0].parent,  # 소스 디렉토리
+                Path(self.destination_root),
+                naming_scheme,
+                FileOperationType.COPY if self.safe_mode else FileOperationType.MOVE,
+            )
 
-                # 백업 경로 생성 (안전 모드인 경우)
-                backup_path = None
-                if self.safe_mode and Path(target_path).exists():
-                    backup_path = self._generate_backup_path(target_path)
+            # 기존 FileProcessingPlan 형식으로 변환 (하위 호환성)
+            self.processing_plans = []
+            total_size = 0
 
-                # 파일 크기 계산
-                file_size = (
-                    Path(item.sourcePath).stat().st_size if Path(item.sourcePath).exists() else 0
-                )
-                size_mb = file_size // (1024 * 1024)
-                total_size += size_mb
+            for unified_plan in unified_plans:
+                # ParsedItem에서 해당 파일 찾기
+                matching_item = None
+                for item in parsed_items:
+                    if Path(item.sourcePath) == unified_plan.source_path:
+                        matching_item = item
+                        break
+
+                if not matching_item:
+                    continue
 
                 # 충돌 확인
-                conflicts = self._check_conflicts(target_path)
+                conflicts = self._check_conflicts(str(unified_plan.target_path))
 
-                # 처리 계획 생성
+                # 기존 형식으로 변환
                 plan = FileProcessingPlan(
-                    source_path=item.sourcePath,
-                    target_path=target_path,
+                    source_path=str(unified_plan.source_path),
+                    target_path=str(unified_plan.target_path),
                     action="copy" if self.safe_mode else "move",
-                    backup_path=backup_path,
-                    estimated_size=size_mb,
+                    backup_path=str(unified_plan.backup_path) if unified_plan.backup_path else None,
+                    estimated_size=unified_plan.estimated_size // (1024 * 1024),  # MB로 변환
                     conflicts=conflicts,
                 )
 
                 self.processing_plans.append(plan)
+                total_size += unified_plan.estimated_size
 
-            except Exception as e:
-                print(f"❌ 계획 생성 오류: {item.sourcePath} - {e}")
+            # 통계 업데이트
+            self.processing_stats.total_files = len(self.processing_plans)
+            self.processing_stats.total_size_mb = total_size // (1024 * 1024)
+            self.processing_stats.estimated_time_seconds = self._estimate_processing_time(
+                total_size // (1024 * 1024)
+            )
 
-        # 통계 업데이트
-        self.processing_stats.total_files = len(self.processing_plans)
-        self.processing_stats.total_size_mb = total_size
-        self.processing_stats.estimated_time_seconds = self._estimate_processing_time(total_size)
+            print(f"✅ 처리 계획 생성 완료: {len(self.processing_plans)}개 계획")
+            return self.processing_plans
 
-        print(f"✅ 처리 계획 생성 완료: {len(self.processing_plans)}개 계획")
-        return self.processing_plans
+        except Exception as e:
+            print(f"❌ 처리 계획 생성 실패: {e}")
+            return []
 
     def _generate_target_path(self, item: ParsedItem, naming_scheme: str) -> str:
         """대상 경로 생성"""
@@ -332,66 +407,153 @@ class FileProcessingManager:
         progress_callback: Callable[[int], None] | None = None,
         max_workers: int = 4,
     ) -> dict[str, any]:
-        """파일 처리 실행 (병렬 처리 및 진행 콜백 지원)"""
+        """파일 처리 실행 - 리팩토링된 버전"""
         if not self.processing_plans:
             return {"error": "처리 계획이 없습니다"}
 
-        if dry_run:
-            print("🎭 드라이 런 모드로 파일 처리 실행")
-        else:
-            print("🚀 실제 파일 처리 실행")
+        try:
+            # Emit processing started event
+            self.current_operation_id = uuid4()
+            if self.event_bus:
+                started_event = FileProcessingStartedEvent(
+                    operation_id=self.current_operation_id,
+                    operation_type="file_organization",
+                    total_files=len(self.processing_plans),
+                    total_size_bytes=sum(
+                        plan.estimated_size * 1024 * 1024
+                        for plan in self.processing_plans
+                        if plan.estimated_size
+                    ),
+                    processing_mode="dry_run" if dry_run else "normal",
+                )
+                self.event_bus.publish(started_event)
 
-        results = {"processed": [], "errors": [], "total_processed": 0, "total_errors": 0}
-
-        total = len(self.processing_plans)
-        processed_counter = 0
-        lock = threading.Lock()
-
-        def process_one(plan: FileProcessingPlan) -> tuple[bool, FileProcessingPlan, str | None]:
-            try:
+            # FileProcessingPlan을 FileOperationPlan으로 변환
+            unified_plans = []
+            for plan in self.processing_plans:
                 if plan.conflicts:
-                    return (False, plan, "충돌이 발생했습니다")
-                if dry_run:
-                    return (True, plan, None)
-                ok = self._execute_single_plan(plan)
-                return (ok, plan, None if ok else "파일 처리 실패")
-            except Exception as e:
-                return (False, plan, str(e))
+                    continue  # 충돌이 있는 계획은 건너뜀
 
-        # 병렬 처리
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_plan = {
-                executor.submit(process_one, plan): plan for plan in self.processing_plans
-            }
-            for future in as_completed(future_to_plan):
-                success, plan, error = future.result()
-                with lock:
-                    processed_counter += 1
-                    progress = int((processed_counter / total) * 100)
-                    if progress_callback:
-                        progress_callback(progress)
-                if success:
-                    results["processed"].append(plan)
-                    results["total_processed"] += 1
-                else:
-                    results["errors"].append(
+                operation_type = (
+                    FileOperationType.COPY if plan.action == "copy" else FileOperationType.MOVE
+                )
+
+                unified_plan = FileOperationPlan(
+                    source_path=Path(plan.source_path),
+                    target_path=Path(plan.target_path),
+                    operation_type=operation_type,
+                    backup_path=Path(plan.backup_path) if plan.backup_path else None,
+                    estimated_size=plan.estimated_size * 1024 * 1024,  # MB를 바이트로 변환
+                    conflict_resolution=FileConflictResolution.RENAME,
+                )
+                unified_plans.append(unified_plan)
+
+            # Create detailed progress callback
+            def detailed_progress_callback(progress_event: FileProcessingProgressEvent):
+                if self.event_bus:
+                    self.event_bus.publish(progress_event)
+                # Also call simple callback for backward compatibility
+                if progress_callback:
+                    progress_callback(int(progress_event.progress_percentage))
+
+            # 통합된 서비스를 사용하여 실행
+            if dry_run:
+                print("🎭 드라이 런 모드로 파일 처리 실행")
+                results = self.unified_service.execute_organization_plan(
+                    unified_plans,
+                    dry_run=True,
+                    progress_callback=progress_callback,
+                    detailed_progress_callback=detailed_progress_callback,
+                )
+            else:
+                print("🚀 실제 파일 처리 실행")
+                results = self.unified_service.execute_organization_plan(
+                    unified_plans,
+                    dry_run=False,
+                    progress_callback=progress_callback,
+                    detailed_progress_callback=detailed_progress_callback,
+                )
+
+            # 결과를 기존 형식으로 변환 (하위 호환성)
+            processed = []
+            errors = []
+            total_processed = 0
+            total_errors = 0
+
+            for result in results:
+                if result.success:
+                    processed.append(
                         {
-                            "source": plan.source_path,
-                            "target": plan.target_path,
-                            "error": error or "알 수 없는 오류",
+                            "source": str(result.source_path),
+                            "target": str(result.target_path),
+                            "operation": result.operation_type.value,
                         }
                     )
-                    results["total_errors"] += 1
+                    total_processed += 1
+                else:
+                    errors.append(
+                        {
+                            "source": str(result.source_path),
+                            "target": str(result.target_path),
+                            "error": result.error_message or "알 수 없는 오류",
+                        }
+                    )
+                    total_errors += 1
 
-        # 통계 업데이트
-        if not dry_run:
-            self.processing_stats.processed_files = results["total_processed"]
-            self.processing_stats.error_files = results["total_errors"]
+            # 통계 업데이트
+            if not dry_run:
+                self.processing_stats.processed_files = total_processed
+                self.processing_stats.error_files = total_errors
 
-        print(
-            f"✅ 파일 처리 완료: {results['total_processed']}개 성공, {results['total_errors']}개 오류"
-        )
-        return results
+            print(f"✅ 파일 처리 완료: {total_processed}개 성공, {total_errors}개 오류")
+
+            # Emit processing completed event
+            if self.event_bus:
+                completed_event = FileProcessingCompletedEvent(
+                    operation_id=self.current_operation_id,
+                    total_files=len(unified_plans),
+                    successful_files=total_processed,
+                    failed_files=total_errors,
+                    skipped_files=0,
+                    total_size_bytes=sum(
+                        plan.estimated_size for plan in self.processing_plans if plan.estimated_size
+                    )
+                    * 1024
+                    * 1024,
+                    processed_size_bytes=sum(
+                        plan.estimated_size for plan in self.processing_plans if plan.estimated_size
+                    )
+                    * 1024
+                    * 1024,
+                    total_processing_time_seconds=0.0,  # Could be calculated if needed
+                    errors=[error.get("error", "Unknown error") for error in errors],
+                )
+                self.event_bus.publish(completed_event)
+
+            return {
+                "processed": processed,
+                "errors": errors,
+                "total_processed": total_processed,
+                "total_errors": total_errors,
+            }
+
+        except Exception as e:
+            print(f"❌ 파일 처리 실행 실패: {e}")
+
+            # Emit processing failed event
+            if self.event_bus:
+                failed_event = FileProcessingFailedEvent(
+                    operation_id=self.current_operation_id,
+                    error_message=str(e),
+                    error_type="execution_error",
+                    failed_at_step="file_processing_execution",
+                    processed_files_before_failure=0,
+                    total_files=len(self.processing_plans),
+                    can_retry=True,
+                )
+                self.event_bus.publish(failed_event)
+
+            return {"error": f"파일 처리 실행 실패: {str(e)}"}
 
     def _execute_single_plan(self, plan: FileProcessingPlan) -> bool:
         """단일 처리 계획 실행"""

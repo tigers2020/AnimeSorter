@@ -4,16 +4,8 @@
 """
 
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtWidgets import (
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QSizePolicy,
-    QSplitter,
-    QTableView,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import (QFrame, QHBoxLayout, QLabel, QSizePolicy,
+                             QSplitter, QTableView, QVBoxLayout, QWidget)
 
 # 상세 패널 컴포넌트 import
 from src.gui.components.group_detail_panel import GroupDetailPanel

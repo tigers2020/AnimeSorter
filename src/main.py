@@ -9,7 +9,6 @@ PyQt5 기반 GUI 애플리케이션을 초기화하고 실행합니다.
 import sys
 from pathlib import Path
 
-# 절대 import로 변경 (런타임에서 상대 import 문제 해결)
 from PyQt5.QtWidgets import QApplication
 
 import src.app.setup as setup_module

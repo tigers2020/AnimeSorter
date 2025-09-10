@@ -12,12 +12,9 @@ from typing import Any
 
 import tmdbsimple as tmdb
 
-from src.core.tmdb.interfaces import (
-    TMDBCacheProtocol,
-    TMDBConfig,
-    TMDBRateLimiterProtocol,
-    TMDBServiceProtocol,
-)
+from src.core.tmdb.interfaces import (TMDBCacheProtocol, TMDBConfig,
+                                      TMDBRateLimiterProtocol,
+                                      TMDBServiceProtocol)
 from src.core.tmdb_models import TMDBAnimeInfo
 
 

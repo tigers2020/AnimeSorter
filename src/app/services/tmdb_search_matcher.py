@@ -8,13 +8,10 @@ import logging
 import re
 from typing import Any
 
-from src.app.tmdb_search_events import (
-    TMDBMatch,
-    TMDBMatchConfidence,
-    TMDBMediaType,
-    TMDBSearchResult,
-)
-from src.core import TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
+from src.app.tmdb_search_events import (TMDBMatch, TMDBMatchConfidence,
+                                        TMDBMediaType, TMDBSearchResult)
+from src.core import \
+    TMDBAnimeInfoModel as TMDBAnimeInfo  # type: ignore[import-untyped]
 
 
 class SearchResultMatcher:

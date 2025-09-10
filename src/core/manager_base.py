@@ -19,12 +19,9 @@ from typing import Any, Protocol, runtime_checkable
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from src.core.unified_event_system import (
-    BaseEvent,
-    EventCategory,
-    EventPriority,
-    get_unified_event_bus,
-)
+from src.core.unified_event_system import (BaseEvent, EventCategory,
+                                           EventPriority,
+                                           get_unified_event_bus)
 
 
 class ManagerState(Enum):

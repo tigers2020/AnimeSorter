@@ -3,6 +3,7 @@
 
 FileScanService의 로직을 BaseTask 기반으로 재구현하여
 백그라운드에서 실행되도록 합니다.
+리팩토링: 통합된 파일 조직화 서비스를 사용하여 중복 코드 제거
 """
 
 import logging
@@ -14,6 +15,8 @@ from src.app.application_events import FilesScannedEvent, ScanStatus
 from src.app.background_events import TaskPriority
 from src.app.background_task import BaseTask, TaskResult
 from src.app.events import TypedEventBus
+from src.core.services.unified_file_organization_service import (
+    FileOrganizationConfig, UnifiedFileOrganizationService)
 
 
 class FileScanTask(BaseTask):
@@ -56,6 +59,15 @@ class FileScanTask(BaseTask):
         }
         self.min_size_bytes = int(min_size_mb * 1024 * 1024)
         self.max_size_bytes = int(max_size_gb * 1024 * 1024 * 1024)
+
+        # 통합된 파일 조직화 서비스 초기화
+        config = FileOrganizationConfig(
+            safe_mode=True,
+            backup_before_operation=False,
+            overwrite_existing=False,
+            min_file_size=self.min_size_bytes,
+        )
+        self.unified_service = UnifiedFileOrganizationService(config)
 
         self.logger = logging.getLogger(f"FileScanTask_{self.task_id[:8]}")
 

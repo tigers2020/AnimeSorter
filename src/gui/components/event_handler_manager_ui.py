@@ -393,8 +393,7 @@ class EventHandlerManagerUI:
             # TMDB 클라이언트 재초기화 (API 키가 변경된 경우)
             self._reinitialize_tmdb_client()
 
-            # FileManager 설정 업데이트
-            self._update_file_manager_settings()
+            # Legacy FileManager configuration removed - using FileProcessingManager's unified service instead
 
         except Exception as e:
             print(f"⚠️ 설정 변경 처리 실패: {e}")
@@ -415,22 +414,7 @@ class EventHandlerManagerUI:
         except Exception as e:
             print(f"⚠️ TMDB 클라이언트 재초기화 실패: {e}")
 
-    def _update_file_manager_settings(self):
-        """FileManager 설정 업데이트"""
-        try:
-            if self.main_window.settings_manager and self.main_window.file_manager:
-                dest_root = self.main_window.settings_manager.settings.destination_root
-                safe_mode = self.main_window.settings_manager.settings.safe_mode
-                naming_scheme = self.main_window.settings_manager.settings.naming_scheme
-
-                if dest_root:
-                    self.main_window.file_manager.destination_root = dest_root
-                self.main_window.file_manager.safe_mode = safe_mode
-                self.main_window.file_manager.set_naming_scheme(naming_scheme)
-
-                print("✅ FileManager 설정 업데이트 완료")
-        except Exception as e:
-            print(f"⚠️ FileManager 설정 업데이트 실패: {e}")
+    # Legacy FileManager settings update method removed - using FileProcessingManager's unified service instead
 
     # ==================== 접근성 및 국제화 관련 메서드들 ====================
 

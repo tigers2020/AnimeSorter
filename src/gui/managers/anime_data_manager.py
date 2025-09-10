@@ -17,7 +17,8 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 # 절대 import로 변경 (런타임에서 상대 import 문제 해결)
 from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
 from src.core.tmdb_client import TMDBAnimeInfo
-from src.core.unified_event_system import EventCategory, EventPriority, get_unified_event_bus
+from src.core.unified_event_system import (EventCategory, EventPriority,
+                                           get_unified_event_bus)
 
 
 @dataclass

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from PyQt5.QtWidgets import QMainWindow
 
-from src.core.file_manager import FileManager
+# Legacy FileManager import removed - using FileProcessingManager's unified service instead
 from src.core.file_parser import FileParser
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
@@ -33,7 +33,7 @@ class MainWindowInitializer:
         self.settings_manager: Any | None = None
         self.file_parser: FileParser | None = None
         self.tmdb_client: TMDBClient | None = None
-        self.file_manager: FileManager | None = None
+        # Legacy FileManager removed - using FileProcessingManager's unified service instead
         self.anime_data_manager: AnimeDataManager | None = None
         self.file_processing_manager: FileProcessingManager | None = None
         self.tmdb_manager: TMDBManager | None = None
@@ -106,17 +106,8 @@ class MainWindowInitializer:
             self.main_window.tmdb_client = self.tmdb_client
             print(f"✅ TMDBClient 초기화 성공 (API 키: {api_key[:8]}...)")
 
-            # FileManager 초기화
-            dest_root = getattr(self.settings_manager.config.application, "destination_root", "")
-            safe_mode = getattr(self.settings_manager.config.application, "safe_mode", True)
-            self.file_manager = FileManager(destination_root=dest_root, safe_mode=safe_mode)
-            self.main_window.file_manager = self.file_manager
-
-            # FileManager 설정 적용
-            naming_scheme = getattr(
-                self.settings_manager.config.application, "naming_scheme", "standard"
-            )
-            self.file_manager.set_naming_scheme(naming_scheme)
+            # Legacy FileManager initialization removed - using FileProcessingManager's unified service instead
+            # FileProcessingManager is initialized below and contains the unified file organization service
 
             print("✅ 핵심 컴포넌트 초기화 완료")
 
@@ -157,15 +148,9 @@ class MainWindowInitializer:
             print("✅ 애플리케이션 서비스 설정 완료")
 
             # EventBus 가져오기 (전역 인스턴스)
-            from src.app import (
-                IFileOrganizationService,
-                IFileScanService,
-                IMediaDataService,
-                ITMDBSearchService,
-                IUIUpdateService,
-                get_event_bus,
-                get_service,
-            )
+            from src.app import (IFileScanService, IMediaDataService,
+                                 ITMDBSearchService, IUIUpdateService,
+                                 get_event_bus, get_service)
 
             self.event_bus = get_event_bus()
             self.main_window.event_bus = self.event_bus
@@ -176,9 +161,7 @@ class MainWindowInitializer:
             self.main_window.file_scan_service = self.file_scan_service
             print(f"✅ FileScanService 연결됨: {id(self.file_scan_service)}")
 
-            self.file_organization_service = get_service(IFileOrganizationService)
-            self.main_window.file_organization_service = self.file_organization_service
-            print(f"✅ FileOrganizationService 연결됨: {id(self.file_organization_service)}")
+            # Legacy FileOrganizationService removed - using FileProcessingManager's unified service instead
 
             self.media_data_service = get_service(IMediaDataService)
             self.main_window.media_data_service = self.media_data_service
@@ -259,7 +242,8 @@ class MainWindowInitializer:
 
                 # 방법 1: 직접 import
                 try:
-                    from src.gui.handlers.file_organization_handler import FileOrganizationHandler
+                    from src.gui.handlers.file_organization_handler import \
+                        FileOrganizationHandler
 
                     print("✅ 방법 1: 직접 import 성공")
                 except ImportError as ie1:
@@ -271,7 +255,8 @@ class MainWindowInitializer:
 
                         if "src" not in sys.path:
                             sys.path.insert(0, "src")
-                        from gui.handlers.file_organization_handler import FileOrganizationHandler
+                        from gui.handlers.file_organization_handler import \
+                            FileOrganizationHandler
 
                         print("✅ 방법 2: sys.path 추가 후 import 성공")
                     except ImportError as ie2:
@@ -347,7 +332,8 @@ class MainWindowInitializer:
     def _init_safety_system(self) -> None:
         """Safety System 초기화"""
         try:
-            from src.gui.managers.safety_system_manager import SafetySystemManager
+            from src.gui.managers.safety_system_manager import \
+                SafetySystemManager
 
             self.main_window.safety_system_manager = SafetySystemManager(self.main_window)
             print("✅ Safety System Manager 초기화 완료")
@@ -358,7 +344,8 @@ class MainWindowInitializer:
     def _init_command_system(self) -> None:
         """Command System 초기화"""
         try:
-            from src.gui.managers.command_system_manager import CommandSystemManager
+            from src.gui.managers.command_system_manager import \
+                CommandSystemManager
 
             self.main_window.command_system_manager = CommandSystemManager(self.main_window)
             print("✅ Command System Manager 초기화 완료")

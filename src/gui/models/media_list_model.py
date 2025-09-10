@@ -10,17 +10,10 @@ from typing import Any
 from PyQt5.QtCore import QAbstractListModel, QModelIndex, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
 
-from src.app import (  # 이벤트; 도메인 모델; 인프라
-    FilesScannedEvent,
-    MediaFile,
-    MediaFileDeletedEvent,
-    MediaFileUpdatedEvent,
-    MediaQuality,
-    MediaType,
-    ProcessingFlag,
-    TypedEventBus,
-    get_event_bus,
-)
+from src.app import (FilesScannedEvent, MediaFile,  # 이벤트; 도메인 모델; 인프라
+                     MediaFileDeletedEvent, MediaFileUpdatedEvent,
+                     MediaQuality, MediaType, ProcessingFlag, TypedEventBus,
+                     get_event_bus)
 
 
 class MediaListModel(QAbstractListModel):

@@ -8,7 +8,8 @@ import os
 import shutil
 from pathlib import Path
 
-from src.app.preflight.base_checker import BasePreflightChecker, PreflightResult
+from src.app.preflight.base_checker import (BasePreflightChecker,
+                                            PreflightResult)
 
 
 class FileConflictChecker(BasePreflightChecker):

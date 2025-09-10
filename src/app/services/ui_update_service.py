@@ -11,16 +11,10 @@ from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QMainWindow, QProgressBar, QStatusBar
 
 from src.app.events import TypedEventBus
-from src.app.ui_events import (
-    ErrorMessageEvent,
-    FileCountUpdateEvent,
-    MemoryUsageUpdateEvent,
-    MenuStateUpdateEvent,
-    ProgressUpdateEvent,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    WindowTitleUpdateEvent,
-)
+from src.app.ui_events import (ErrorMessageEvent, FileCountUpdateEvent,
+                               MemoryUsageUpdateEvent, MenuStateUpdateEvent,
+                               ProgressUpdateEvent, StatusBarUpdateEvent,
+                               SuccessMessageEvent, WindowTitleUpdateEvent)
 
 
 class IUIUpdateService(Protocol):

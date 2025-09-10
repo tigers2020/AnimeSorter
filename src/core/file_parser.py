@@ -256,10 +256,21 @@ class FileParser:
             if match:
                 metadata = self._extract_metadata(match, pattern_type, base_confidence, container)
                 if metadata:
+                    # 해상도가 없으면 전체 경로에서 추출 시도
+                    if not metadata.resolution:
+                        full_path_resolution = self._extract_resolution_cached(str(path))
+                        if full_path_resolution:
+                            metadata.resolution = full_path_resolution
                     return metadata
 
         # 패턴 매칭 실패 시 fallback 파싱
-        return self._improved_fallback_parse(name_without_ext, container)
+        fallback_metadata = self._improved_fallback_parse(name_without_ext, container)
+        if fallback_metadata and not fallback_metadata.resolution:
+            # 해상도가 없으면 전체 경로에서 추출 시도
+            full_path_resolution = self._extract_resolution_cached(str(path))
+            if full_path_resolution:
+                fallback_metadata.resolution = full_path_resolution
+        return fallback_metadata
 
     def _extract_metadata(
         self, match: re.Match[str], pattern_type: str, base_confidence: float, container: str
@@ -595,10 +606,13 @@ class FileParser:
                     return resolution
 
                 if res_type == "1080p":
+                    print(f"  🎯 1080p 반환: {resolution}")
                     return "1080p"
                 if res_type == "720p":
+                    print(f"  🎯 720p 반환: {resolution}")
                     return "720p"
                 if res_type == "480p":
+                    print(f"  🎯 480p 반환: {resolution}")
                     return "480p"
 
                 if res_type == "p":
@@ -619,7 +633,7 @@ class FileParser:
                     return resolution
                 return resolution
 
-        print("  ❌ 해상도 추출 실패")
+        # print("  ❌ 해상도 추출 실패")  # 로그 제거 - 정상적인 fallback 과정
         return None
 
     def _clean_title_cached(self, title: str) -> str:

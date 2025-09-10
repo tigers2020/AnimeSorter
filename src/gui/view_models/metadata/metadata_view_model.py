@@ -8,16 +8,9 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (
-    ErrorMessageEvent,
-    IMediaDataService,
-    IUIUpdateService,
-    StatusBarUpdateEvent,
-    SuccessMessageEvent,
-    TypedEventBus,
-    get_event_bus,
-    get_service,
-)
+from src.app import (ErrorMessageEvent, IMediaDataService, IUIUpdateService,
+                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
+                     get_event_bus, get_service)
 
 from .metadata_state import MetadataCapabilities, MetadataState
 
