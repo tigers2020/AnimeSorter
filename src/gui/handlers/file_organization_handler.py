@@ -262,6 +262,11 @@ class FileOrganizationHandler(QObject):
                     subtitle_target_path = target_dir / subtitle_filename
                     import shutil
 
+                    # 대상 자막 파일이 이미 존재하면 삭제 (오버라이팅)
+                    if subtitle_target_path.exists():
+                        logger.info("🔄 기존 자막 파일 덮어쓰기: %s", subtitle_filename)
+                        subtitle_target_path.unlink()
+
                     shutil.move(subtitle_path, subtitle_target_path)
                     result.subtitle_count += 1
                     logger.info("✅ 자막 이동 성공: %s", subtitle_filename)
@@ -404,6 +409,12 @@ class FileOrganizationHandler(QObject):
                                 "🚚 [%s] 파일 이동 시도: %s", quality_type, Path(source_path).name
                             )
                             self._process_subtitle_files(source_path, target_base_dir, result)
+
+                            # 대상 파일이 이미 존재하면 삭제 (오버라이팅)
+                            if target_path.exists():
+                                logger.info("🔄 기존 파일 덮어쓰기: %s", target_path.name)
+                                target_path.unlink()
+
                             shutil.move(source_path, target_path)
                             logger.info(
                                 "✅ [%s] 이동 성공: %s → %s/",

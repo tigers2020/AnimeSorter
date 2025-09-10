@@ -207,11 +207,19 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
                 logger.info("🔍 해상도 추출 시도: %s", plan.source_path.name)
                 logger.info("  ✅ 패턴 매칭: (충돌 해결) -> %s", plan.target_path.name)
             backup_path = None
-            if self.config.backup_before_operation and plan.target_path.exists():
-                backup_path = plan.target_path.with_suffix(
-                    f"{plan.target_path.suffix}.backup_{int(time.time())}"
-                )
-                shutil.copy2(plan.target_path, backup_path)
+            # 대상 파일이 이미 존재하면 백업 또는 삭제 처리
+            if plan.target_path.exists():
+                if self.config.backup_before_operation:
+                    backup_path = plan.target_path.with_suffix(
+                        f"{plan.target_path.suffix}.backup_{int(time.time())}"
+                    )
+                    shutil.copy2(plan.target_path, backup_path)
+                    logger.info("💾 기존 파일 백업: %s", backup_path.name)
+                else:
+                    # 백업이 비활성화된 경우 기존 파일 삭제 (오버라이팅)
+                    plan.target_path.unlink()
+                    logger.info("🔄 기존 파일 덮어쓰기: %s", plan.target_path.name)
+
             if plan.operation_type == FileOperationType.COPY:
                 shutil.copy2(plan.source_path, plan.target_path)
             elif plan.operation_type == FileOperationType.MOVE:
@@ -732,11 +740,17 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                     subtitle_filename = Path(subtitle_path).name
                     subtitle_target_path = target_path.parent / subtitle_filename
 
-                    # 자막 파일이 이미 존재하는 경우 충돌 해결
-                    if subtitle_target_path.exists() and not self.config.overwrite_existing:
-                        subtitle_target_path = self.naming_strategy.resolve_conflict(
-                            subtitle_target_path, FileConflictResolution.RENAME
-                        )
+                    # 자막 파일이 이미 존재하는 경우 처리
+                    if subtitle_target_path.exists():
+                        if self.config.overwrite_existing:
+                            # 오버라이팅 모드: 기존 파일 삭제
+                            subtitle_target_path.unlink()
+                            self.logger.info(f"🔄 기존 자막 파일 덮어쓰기: {subtitle_filename}")
+                        else:
+                            # 충돌 해결 모드: 파일명 변경
+                            subtitle_target_path = self.naming_strategy.resolve_conflict(
+                                subtitle_target_path, FileConflictResolution.RENAME
+                            )
 
                     # 자막 파일 이동/복사
                     if self.config.backup_before_operation and subtitle_target_path.exists():
@@ -744,6 +758,7 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                             f"{subtitle_target_path.suffix}.backup_{int(time.time())}"
                         )
                         shutil.copy2(subtitle_target_path, backup_path)
+                        self.logger.info(f"💾 기존 자막 파일 백업: {backup_path.name}")
 
                     shutil.move(subtitle_path, subtitle_target_path)
                     self.logger.info(f"✅ 자막 파일 처리 완료: {subtitle_filename}")
