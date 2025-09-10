@@ -21,9 +21,8 @@ from src.app import (BackupCompletedEvent, BackupFailedEvent,
                      PreflightStartedEvent, RedoExecutedEvent,
                      SafetyAlertEvent, SafetyStatusUpdateEvent, ScanStatus,
                      TaskCancelledEvent, TaskCompletedEvent, TaskFailedEvent,
-                     TaskProgressEvent, TaskStartedEvent, TMDBMatchFoundEvent,
-                     TMDBSearchCompletedEvent, TMDBSearchStartedEvent,
-                     UndoExecutedEvent, UndoRedoStackChangedEvent)
+                     TaskProgressEvent, TaskStartedEvent, UndoExecutedEvent,
+                     UndoRedoStackChangedEvent)
 
 
 class EventHandlerManager:
@@ -77,12 +76,7 @@ class EventHandlerManager:
                 weak_ref=False,
             )
             self.logger.info("✅ Media Data System 이벤트 구독 설정")
-            event_bus.subscribe(TMDBSearchStartedEvent, self.on_tmdb_search_started, weak_ref=False)
-            event_bus.subscribe(
-                TMDBSearchCompletedEvent, self.on_tmdb_search_completed, weak_ref=False
-            )
-            event_bus.subscribe(TMDBMatchFoundEvent, self.on_tmdb_match_found, weak_ref=False)
-            self.logger.info("✅ TMDB Search System 이벤트 구독 설정")
+            self.logger.info("✅ TMDB Search System 이벤트 구독 설정 (제거됨)")
             event_bus.subscribe(
                 SafetyStatusUpdateEvent, self.on_safety_status_update, weak_ref=False
             )
@@ -246,33 +240,6 @@ class EventHandlerManager:
         """미디어 데이터 그룹화 완료 이벤트 핸들러"""
         self.logger.info(f"📁 [MainWindow] 미디어 데이터 그룹화 완료: {len(event.groups)}개 그룹")
         self.main_window.update_status_bar("미디어 데이터 그룹화 완료")
-
-    def on_tmdb_search_started(self, event: TMDBSearchStartedEvent):
-        """TMDB 검색 시작 이벤트 핸들러"""
-        self._delegate_or_log(
-            "tmdb_search_handler",
-            "handle_search_started",
-            event,
-            f"🔍 [MainWindow] TMDB 검색 시작: {event.search_id}",
-        )
-
-    def on_tmdb_search_completed(self, event: TMDBSearchCompletedEvent):
-        """TMDB 검색 완료 이벤트 핸들러"""
-        self._delegate_or_log(
-            "tmdb_search_handler",
-            "handle_search_completed",
-            event,
-            f"✅ [MainWindow] TMDB 검색 완료: {event.search_id} - {len(event.results)}개 결과",
-        )
-
-    def on_tmdb_match_found(self, event: TMDBMatchFoundEvent):
-        """TMDB 매치 발견 이벤트 핸들러"""
-        self._delegate_or_log(
-            "tmdb_search_handler",
-            "handle_match_found",
-            event,
-            f"🎯 [MainWindow] TMDB 매치 발견: {event.anime_title} (ID: {event.tmdb_id})",
-        )
 
     def on_safety_status_update(self, event: SafetyStatusUpdateEvent):
         """안전 시스템 상태 업데이트 이벤트 핸들러"""

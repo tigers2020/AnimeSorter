@@ -1384,7 +1384,9 @@ class MainWindow(QMainWindow):
     def _try_progressive_search(self, group_id: str, original_title: str):
         """제목을 단어별로 줄여가며 재검색"""
         try:
-            words = original_title.split()
+            # 제목 정규화 (괄호 안의 연도 정보 제거 등)
+            normalized_title = self._normalize_title_for_search(original_title)
+            words = normalized_title.split()
             if len(words) <= 1:
                 logger.info("❌ 더 이상 줄일 단어가 없습니다")
                 self._show_final_dialog(group_id, original_title, [])
@@ -1415,6 +1417,29 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.info(f"❌ 단계적 검색 실패: {e}")
             self._show_final_dialog(group_id, original_title, [])
+
+    def _normalize_title_for_search(self, title: str) -> str:
+        """TMDB 검색을 위한 제목 정규화"""
+        import re
+
+        if not title:
+            return ""
+
+        # 괄호 안의 연도 정보 제거 (예: (2010Q3), (2023), (2024Q1) 등)
+        title = re.sub(r"\(\d{4}(?:Q[1-4])?\)\s*", "", title)
+
+        # 추가 정보 제거 (ext, special, ova, oad 등)
+        additional_patterns = [
+            r"\b(?:ext|special|ova|oad|movie|film)\b",
+            r"\b(?:complete|full|uncut|director's cut)\b",
+        ]
+        for pattern in additional_patterns:
+            title = re.sub(pattern, "", title, flags=re.IGNORECASE)
+
+        # 공백 정리
+        title = re.sub(r"\s+", " ", title).strip()
+
+        return title
 
     def _show_final_dialog(self, group_id: str, title: str, search_results: list):
         """최종 다이얼로그 표시"""

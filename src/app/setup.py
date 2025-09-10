@@ -18,9 +18,8 @@ from src.app.safety import (IInterruptionManager, InterruptionManager,
                             ISafetyManager, SafetyConfiguration, SafetyManager)
 from src.app.services import (BackgroundTaskService, FileScanService,
                               IBackgroundTaskService, IFileScanService,
-                              IMediaDataService, ITMDBSearchService,
-                              IUIUpdateService, MediaDataService,
-                              TMDBSearchService, UIUpdateService)
+                              IMediaDataService, IUIUpdateService,
+                              MediaDataService, UIUpdateService)
 
 
 def setup_application_services() -> None:
@@ -46,9 +45,6 @@ def setup_application_services() -> None:
         if not container.is_registered(IMediaDataService):
             container.register_singleton(IMediaDataService, MediaDataService)
             logger.info("IMediaDataService가 MediaDataService로 등록되었습니다")
-        if not container.is_registered(ITMDBSearchService):
-            container.register_singleton(ITMDBSearchService, TMDBSearchService)
-            logger.info("ITMDBSearchService가 TMDBSearchService로 등록되었습니다")
         # Journal 시스템 제거됨
         if not container.is_registered(ISafetyManager):
 
@@ -113,8 +109,6 @@ def initialize_application() -> None:
         logger.info(f"UIUpdateService 인스턴스 생성: {id(ui_update_service)}")
         media_data_service = get_service(IMediaDataService)
         logger.info(f"MediaDataService 인스턴스 생성: {id(media_data_service)}")
-        tmdb_search_service = get_service(ITMDBSearchService)
-        logger.info(f"TMDBSearchService 인스턴스 생성: {id(tmdb_search_service)}")
         logger.info("애플리케이션 초기화 완료")
     except Exception as e:
         logger.error(f"애플리케이션 초기화 실패: {e}")

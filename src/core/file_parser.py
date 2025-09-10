@@ -685,15 +685,26 @@ class FileParser:
             return ""
         # 최우선: '.'을 공백으로 변환 (파일명의 점을 공백으로)
         title = re.sub("\\.", " ", title)
+
+        # 괄호 안의 연도 정보 제거 (예: (2010Q3), (2023), (2024Q1) 등)
+        title = re.sub("\\(\\d{4}(?:Q[1-4])?\\)\\s*", "", title)
+
+        # 기존 괄호 패턴들
         title = re.sub("^\\[([^\\]]+)\\]\\s*", "", title)
         title = re.sub("\\[([^\\]]+)\\]$", "", title)
+
+        # 에피소드/시즌 패턴 제거
         title = re.sub("\\.(?=S\\d+E\\d+|E\\d+|EP\\d+)", " ", title)
         title = re.sub("_+", " ", title)
         title = re.sub("\\s+", " ", title)
         title = re.sub("\\b(?:E\\d+|EP\\d+|Episode\\s*\\d+)\\b", "", title, flags=re.IGNORECASE)
         title = re.sub("\\b(?:S\\d+|Season\\s*\\d+)\\b", "", title, flags=re.IGNORECASE)
         title = re.sub("\\b\\d{6,8}\\b", "", title)
+
+        # 기술적 정보 제거
         title = self._remove_technical_info_cached(title)
+
+        # 최종 정리
         title = title.strip()
         return re.sub("\\s+", " ", title)
 
@@ -725,6 +736,15 @@ class FileParser:
         ]
         for pattern in language_patterns:
             title = re.sub(pattern, "", title, flags=re.IGNORECASE)
+
+        # 추가 정보 제거 (ext, special, ova, oad 등)
+        additional_patterns = [
+            "\\b(?:ext|special|ova|oad|movie|film)\\b",
+            "\\b(?:complete|full|uncut|director\\'s cut)\\b",
+        ]
+        for pattern in additional_patterns:
+            title = re.sub(pattern, "", title, flags=re.IGNORECASE)
+
         return title
 
     def _extract_resolution(self, text: str) -> str | None:

@@ -42,12 +42,16 @@ class TMDBSearchHandler:
                 self.logger.error(f"❌ 그룹 {group_id}에 아이템이 없습니다")
                 return
             group_title = group_items[0].title or group_items[0].detectedTitle or "Unknown"
-            self.logger.info(f"🔍 TMDB 검색 시작: {group_title} (그룹 {group_id})")
+            # 제목 정규화 적용
+            normalized_title = self._normalize_title_for_search(group_title)
+            self.logger.info(
+                f"🔍 TMDB 검색 시작: {normalized_title} (원본: {group_title}) (그룹 {group_id})"
+            )
             if not self.main_window.tmdb_client:
                 self.logger.error("❌ TMDB 클라이언트가 초기화되지 않았습니다")
                 return
-            self.logger.info(f"🔍 TMDB API 호출 시작: {group_title}")
-            search_results = self.main_window.tmdb_client.search_anime(group_title)
+            self.logger.info(f"🔍 TMDB API 호출 시작: {normalized_title}")
+            search_results = self.main_window.tmdb_client.search_anime(normalized_title)
             self.logger.info(f"🔍 TMDB API 호출 완료: {len(search_results)}개 결과")
             if len(search_results) == 1:
                 selected_anime = search_results[0]
@@ -60,6 +64,29 @@ class TMDBSearchHandler:
             self._show_search_dialog(group_id, group_title, search_results)
         except Exception as e:
             self.logger.error(f"❌ TMDB 검색 실패: {e}")
+
+    def _normalize_title_for_search(self, title: str) -> str:
+        """TMDB 검색을 위한 제목 정규화"""
+        import re
+
+        if not title:
+            return ""
+
+        # 괄호 안의 연도 정보 제거 (예: (2010Q3), (2023), (2024Q1) 등)
+        title = re.sub(r"\(\d{4}(?:Q[1-4])?\)\s*", "", title)
+
+        # 추가 정보 제거 (ext, special, ova, oad 등)
+        additional_patterns = [
+            r"\b(?:ext|special|ova|oad|movie|film)\b",
+            r"\b(?:complete|full|uncut|director's cut)\b",
+        ]
+        for pattern in additional_patterns:
+            title = re.sub(pattern, "", title, flags=re.IGNORECASE)
+
+        # 공백 정리
+        title = re.sub(r"\s+", " ", title).strip()
+
+        return title
 
     def _show_search_dialog(self, group_id: str, group_title: str, search_results: list = None):
         """검색 다이얼로그 표시"""

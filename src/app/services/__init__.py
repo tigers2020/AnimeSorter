@@ -25,10 +25,6 @@ class MediaDataService:
     """미디어 데이터 서비스 - 플레이스홀더"""
 
 
-class TMDBSearchService:
-    """TMDB 검색 서비스 - 플레이스홀더"""
-
-
 class UIUpdateService:
     """UI 업데이트 서비스 - 플레이스홀더"""
 
@@ -46,10 +42,6 @@ class IMediaDataService:
     """미디어 데이터 서비스 인터페이스 - 플레이스홀더"""
 
 
-class ITMDBSearchService:
-    """TMDB 검색 서비스 인터페이스 - 플레이스홀더"""
-
-
 class IUIUpdateService:
     """UI 업데이트 서비스 인터페이스 - 플레이스홀더"""
 
@@ -61,11 +53,9 @@ __all__ = [
     "BackgroundTaskService",
     "FileScanService",
     "MediaDataService",
-    "TMDBSearchService",
     "UIUpdateService",
     "IBackgroundTaskService",
     "IFileScanService",
     "IMediaDataService",
-    "ITMDBSearchService",
     "IUIUpdateService",
 ]

@@ -121,8 +121,7 @@ class MainWindowInitializer:
             setup_application_services()
             logger.info("✅ 애플리케이션 서비스 설정 완료")
             from src.app import (IFileScanService, IMediaDataService,
-                                 ITMDBSearchService, IUIUpdateService,
-                                 get_event_bus, get_service)
+                                 IUIUpdateService, get_event_bus, get_service)
 
             self.event_bus = get_event_bus()
             self.main_window.event_bus = self.event_bus
@@ -133,9 +132,6 @@ class MainWindowInitializer:
             self.media_data_service = get_service(IMediaDataService)
             self.main_window.media_data_service = self.media_data_service
             logger.info(f"✅ MediaDataService 연결됨: {id(self.media_data_service)}")
-            self.tmdb_search_service = get_service(ITMDBSearchService)
-            self.main_window.tmdb_search_service = self.tmdb_search_service
-            logger.info(f"✅ TMDBSearchService 연결됨: {id(self.tmdb_search_service)}")
             self.ui_update_service = get_service(IUIUpdateService)
             self.main_window.ui_update_service = self.ui_update_service
             logger.info(f"✅ UIUpdateService 연결됨: {id(self.ui_update_service)}")
