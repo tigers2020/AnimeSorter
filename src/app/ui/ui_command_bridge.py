@@ -12,7 +12,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QProgressDialog
 
 from src.app.commands import CommandResult, ICommand
-from src.app.journal import IJournalManager
 from src.app.staging import IStagingManager
 from src.app.undo_redo import QUndoStackBridge
 
@@ -25,20 +24,17 @@ class UICommandBridge(QObject):
     command_progress = pyqtSignal(int, int, str)
     staging_progress = pyqtSignal(int, int, str)
     staging_completed = pyqtSignal(list)
-    journal_updated = pyqtSignal(str, str)
 
     def __init__(
         self,
         main_window: QMainWindow,
         undo_stack_bridge: QUndoStackBridge,
         staging_manager: IStagingManager | None = None,
-        journal_manager: IJournalManager | None = None,
     ):
         super().__init__(main_window)
         self.main_window = main_window
         self.undo_stack_bridge = undo_stack_bridge
         self.staging_manager = staging_manager
-        self.journal_manager = journal_manager
         self.logger = logging.getLogger(self.__class__.__name__)
         self._is_processing = False
         self._current_operation = ""
@@ -55,7 +51,6 @@ class UICommandBridge(QObject):
             self.undo_stack_bridge.command_failed.connect(self._on_command_failed)
             self.undo_stack_bridge.staging_started.connect(self._on_staging_started)
             self.undo_stack_bridge.staging_completed.connect(self._on_staging_completed)
-            self.undo_stack_bridge.journal_entry_created.connect(self._on_journal_entry_created)
 
     def execute_command(self, command: ICommand, show_progress: bool = True) -> bool:
         """Command 실행 (UI 통합)"""
@@ -349,14 +344,6 @@ class UICommandBridge(QObject):
         except Exception as e:
             self.logger.error(f"스테이징 완료 처리 중 오류: {e}")
 
-    def _on_journal_entry_created(self, command_id: str, journal_entry_id: str):
-        """저널 엔트리 생성 처리"""
-        try:
-            self.logger.debug(f"저널 엔트리 생성: {command_id} -> {journal_entry_id}")
-            self.journal_updated.emit(command_id, journal_entry_id)
-        except Exception as e:
-            self.logger.error(f"저널 엔트리 생성 처리 중 오류: {e}")
-
     @property
     def is_processing(self) -> bool:
         """작업 진행 중 여부"""
@@ -390,8 +377,3 @@ class UICommandBridge(QObject):
         """스테이징 매니저 설정"""
         self.staging_manager = staging_manager
         self.logger.info("스테이징 매니저 설정됨")
-
-    def set_journal_manager(self, journal_manager: IJournalManager):
-        """저널 매니저 설정"""
-        self.journal_manager = journal_manager
-        self.logger.info("저널 매니저 설정됨")

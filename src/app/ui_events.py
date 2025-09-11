@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 
-from src.app.events import BaseEvent
+from src.core.unified_event_system import BaseEvent
 
 
 @dataclass
@@ -79,7 +79,7 @@ class TableDataUpdateEvent(BaseEvent):
     """테이블 데이터 업데이트 이벤트"""
 
     table_name: str = ""
-    data: list = field(default_factory=list)
+    data: list = field(default_factory=list)  # type: ignore[assignment]
     selection_changed: bool = False
 
 
@@ -116,7 +116,7 @@ class SettingsChangedEvent(BaseEvent):
     setting_name: str = ""
     old_value: str | None = None
     new_value: str | None = None
-    category: str = "general"
+    category: str = "general"  # type: ignore[assignment]
 
 
 @dataclass

@@ -84,9 +84,7 @@ class TMDBSearchHandler:
             title = re.sub(pattern, "", title, flags=re.IGNORECASE)
 
         # 공백 정리
-        title = re.sub(r"\s+", " ", title).strip()
-
-        return title
+        return re.sub(r"\s+", " ", title).strip()
 
     def _show_search_dialog(self, group_id: str, group_title: str, search_results: list = None):
         """검색 다이얼로그 표시"""

@@ -16,9 +16,9 @@ from uuid import uuid4
 from src.app.application_events import FilesScannedEvent, ScanStatus
 from src.app.background_events import TaskPriority
 from src.app.background_task import BaseTask, TaskResult
-from src.app.events import TypedEventBus
 from src.core.services.unified_file_organization_service import (
     FileOrganizationConfig, UnifiedFileOrganizationService)
+from src.core.unified_event_system import UnifiedEventBus
 
 
 class FileScanTask(BaseTask):
@@ -26,7 +26,7 @@ class FileScanTask(BaseTask):
 
     def __init__(
         self,
-        event_bus: TypedEventBus,
+        event_bus: UnifiedEventBus,
         directory_path: str,
         recursive: bool = True,
         extensions: set[str] | None = None,
@@ -80,14 +80,13 @@ class FileScanTask(BaseTask):
         start_time = time.time()
         try:
             self.update_progress(10, "파일 목록 수집 중...")
-            # UnifiedFileOrganizationService의 scan_directory 사용
-            scanned_files = self.unified_service.scan_directory(
-                str(self.directory_path),
+            # UnifiedFileOrganizationService의 scanner 사용
+            scan_result = self.unified_service.scanner.scan_directory(
+                self.directory_path,
                 recursive=self.recursive,
-                extensions=self.extensions,
-                min_file_size=self.min_size_bytes,
-                max_file_size=self.max_size_bytes,
+                file_extensions=self.extensions,
             )
+            scanned_files = [str(f) for f in scan_result.files_found]
             if self.is_cancelled():
                 return self._create_cancelled_result()
             total_files = len(scanned_files)

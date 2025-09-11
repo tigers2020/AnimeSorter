@@ -12,7 +12,7 @@ from pathlib import Path
 from uuid import UUID
 
 from src.app.commands.base_command import CommandResult
-from src.app.events import BaseEvent
+from src.core.unified_event_system import BaseEvent
 
 
 @dataclass

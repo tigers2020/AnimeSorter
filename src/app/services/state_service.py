@@ -14,7 +14,6 @@ from typing import Any
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from src.core.tmdb_client import TMDBAnimeInfo
-# Legacy interface removed - using direct implementation
 from src.gui.managers.anime_data_manager import ParsedItem
 
 

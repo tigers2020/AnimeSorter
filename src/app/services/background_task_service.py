@@ -15,7 +15,7 @@ from PyQt5.QtCore import QObject, QThreadPool, QTimer
 
 from src.app.background_events import TaskQueueStatusEvent
 from src.app.background_task import BaseTask, TaskStatus
-from src.app.events import TypedEventBus
+from src.core.unified_event_system import UnifiedEventBus
 
 
 class IBackgroundTaskService(Protocol):
@@ -55,7 +55,7 @@ class BackgroundTaskService(QObject):
 
     def __init__(
         self,
-        event_bus: TypedEventBus,
+        event_bus: UnifiedEventBus,
         max_concurrent_tasks: int = 4,
         parent: QObject | None = None,
     ):

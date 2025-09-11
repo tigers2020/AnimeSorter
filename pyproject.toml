@@ -112,6 +112,8 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
+    "scripts",
+    "tools",
 ]
 
 [tool.ruff.lint.per-file-ignores]

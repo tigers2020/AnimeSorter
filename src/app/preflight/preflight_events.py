@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID
 
-from src.app.events import BaseEvent
 from src.app.preflight.base_checker import PreflightIssue
 from src.app.preflight.preflight_coordinator import PreflightCheckResult
+from src.core.unified_event_system import BaseEvent
 
 
 @dataclass

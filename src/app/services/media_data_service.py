@@ -14,7 +14,6 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from src.app.domain import MediaFile, MediaGroup
-from src.app.events import TypedEventBus
 from src.app.media_data_events import (MediaDataClearedEvent,
                                        MediaDataErrorEvent,
                                        MediaDataExportCompletedEvent,
@@ -32,6 +31,7 @@ from src.app.media_data_events import (MediaDataClearedEvent,
                                        MediaDataUpdatedEvent)
 from src.app.services.media import (MediaExporter, MediaExtractor, MediaFilter,
                                     MediaProcessor)
+from src.core.unified_event_system import UnifiedEventBus
 
 
 class IMediaDataService(ABC):
@@ -101,7 +101,7 @@ class IMediaDataService(ABC):
 class MediaDataService(IMediaDataService):
     """미디어 데이터 서비스 구현"""
 
-    def __init__(self, event_bus: TypedEventBus):
+    def __init__(self, event_bus: UnifiedEventBus):
         self.event_bus = event_bus
         self.logger = logging.getLogger(self.__class__.__name__)
         self.media_extractor = MediaExtractor()

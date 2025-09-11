@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.app.events import BaseEvent
+from src.core.unified_event_system import BaseEvent
 
 
 @dataclass
@@ -210,7 +210,7 @@ class UndoRedoConfigurationChangedEvent(BaseEvent):
     setting_name: str = ""
     old_value: Any = None
     new_value: Any = None
-    category: str = ""
+    category: str = ""  # type: ignore[assignment]
     requires_restart: bool = False
     affects_current_stack: bool = False
     affects_ui: bool = True

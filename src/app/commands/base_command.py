@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING, Any, Optional, Protocol
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
-    from src.app.journal import (FileOperationDetails, IJournalManager,
-                                 JournalEntry, JournalEntryType)
     from src.app.preflight import IPreflightCoordinator, PreflightCheckResult
     from src.app.staging import IStagingManager, StagedFile
 
@@ -62,7 +60,6 @@ class CommandResult:
     error: CommandError | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     preflight_result: Optional["PreflightCheckResult"] = None
-    journal_entry_id: UUID | None = None
 
     @property
     def is_success(self) -> bool:
@@ -139,9 +136,7 @@ class BaseCommand(ABC):
         self._result: CommandResult | None = None
         self._undo_data: dict[str, Any] = {}
         self._preflight_coordinator: IPreflightCoordinator | None = None
-        self._journal_manager: IJournalManager | None = None
         self._staging_manager: IStagingManager | None = None
-        self._journal_entry: JournalEntry | None = None
 
     @property
     def command_id(self) -> UUID:
@@ -169,10 +164,6 @@ class BaseCommand(ABC):
         """프리플라이트 코디네이터 설정"""
         self._preflight_coordinator = coordinator
 
-    def set_journal_manager(self, journal_manager: "IJournalManager") -> None:
-        """저널 매니저 설정"""
-        self._journal_manager = journal_manager
-
     def set_staging_manager(self, staging_manager: "IStagingManager") -> None:
         """스테이징 매니저 설정 (Phase 3)"""
         self._staging_manager = staging_manager
@@ -187,33 +178,12 @@ class BaseCommand(ABC):
         source_path, destination_path = paths
         return self._preflight_coordinator.check_operation(source_path, destination_path)
 
-    def create_journal_entry(self) -> Optional["JournalEntry"]:
-        """저널 엔트리 생성"""
-        if not self.enable_journaling or not self._journal_manager:
-            return None
-        from src.app.journal import JournalEntry
-
-        journal_info = self._get_journal_info()
-        if not journal_info:
-            return None
-        entry_type, operation_details = journal_info
-        return JournalEntry(
-            command_id=self._command_id, entry_type=entry_type, operation_details=operation_details
-        )
-
     def execute(self) -> CommandResult:
         """Command 실행"""
         self.logger.info(f"실행 시작: {self.description}")
         self._result = CommandResult(
             command_id=self._command_id, status=CommandStatus.PENDING, executed_at=datetime.now()
         )
-        if self.enable_journaling and self._journal_manager:
-            self.logger.debug("저널 엔트리 생성")
-            self._journal_entry = self.create_journal_entry()
-            if self._journal_entry:
-                self._journal_entry.start_execution()
-                self._journal_manager.add_entry(self._journal_entry)
-                self._result.journal_entry_id = self._journal_entry.entry_id
         try:
             if not self.skip_preflight and self._preflight_coordinator:
                 self.logger.debug("프리플라이트 검사 시작")
@@ -246,9 +216,6 @@ class BaseCommand(ABC):
             self._result.execution_time_ms = (
                 execution_end - execution_start
             ).total_seconds() * 1000
-            if self._journal_entry:
-                self._journal_entry.complete_execution(True)
-                self._update_journal_entry_rollback_data()
             self.logger.info(
                 f"실행 완료: {self.description} ({self._result.execution_time_ms:.1f}ms)"
             )
@@ -258,8 +225,6 @@ class BaseCommand(ABC):
                 error_type=type(e).__name__, message=str(e), exception=e
             )
             self._result.completed_at = datetime.now()
-            if self._journal_entry:
-                self._journal_entry.complete_execution(False, str(e))
             self.logger.error(f"실행 실패: {self.description} - {e}")
         return self._result
 
@@ -313,20 +278,6 @@ class BaseCommand(ABC):
     def _get_preflight_paths(self) -> tuple[Path, Path | None] | None:
         """프리플라이트 검사할 경로 반환 - 하위 클래스에서 오버라이드"""
         return None
-
-    def _get_journal_info(self) -> tuple["JournalEntryType", "FileOperationDetails"] | None:
-        """저널 정보 반환 - 하위 클래스에서 오버라이드"""
-        return None
-
-    def _update_journal_entry_rollback_data(self) -> None:
-        """저널 엔트리에 롤백 데이터 업데이트 - 하위 클래스에서 오버라이드"""
-        if not self._journal_entry:
-            return
-        for key, value in self._undo_data.items():
-            if isinstance(value, Path):
-                self._journal_entry.set_rollback_data(key, str(value))
-            else:
-                self._journal_entry.set_rollback_data(key, value)
 
     def _supports_undo(self) -> bool:
         """취소 지원 여부 - 하위 클래스에서 오버라이드"""

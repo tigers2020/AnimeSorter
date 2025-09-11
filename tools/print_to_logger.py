@@ -74,7 +74,7 @@ def ensure_logger_in_module(module: ast.Module):
             keywords=[],
         )
         inserts.append(
-            ast.Assign(targets=[ast.Name(id="logger", ctx=ast.Store())], value=get_logger_call)
+            ast.Assign(targets=[ast.Name(id="logger", ctx=ast.Store())], value=get_logger_call)  # type: ignore[arg-type]
         )
     if inserts:
         # insert after future imports and module docstring, if any

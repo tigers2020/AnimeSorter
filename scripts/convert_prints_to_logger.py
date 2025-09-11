@@ -72,12 +72,11 @@ class PrintToLoggerConverter:
         # Handle f-strings and regular strings
         if isinstance(print_node.args[0], ast.Constant):
             return print_node.args[0].value
-        elif isinstance(print_node.args[0], ast.JoinedStr):
+        if isinstance(print_node.args[0], ast.JoinedStr):
             # This is an f-string, we'll need to reconstruct it
             return self._reconstruct_f_string(print_node.args[0])
-        else:
-            # For complex expressions, return a placeholder
-            return "<complex_expression>"
+        # For complex expressions, return a placeholder
+        return "<complex_expression>"
 
     def _reconstruct_f_string(self, joined_str_node: ast.JoinedStr) -> str:
         """Reconstruct f-string from AST node"""
@@ -113,14 +112,12 @@ class PrintToLoggerConverter:
             # Simple case: print("message")
             if isinstance(print_node.args[0], ast.Constant):
                 return f'self.logger.{method_name}("{content}", category="{category}")'
-            else:
-                # Complex expression - keep original but wrap in logger
-                original_code = ast.unparse(print_node.args[0])
-                return f'self.logger.{method_name}({original_code}, category="{category}")'
-        else:
-            # Multiple arguments: print("msg", var1, var2)
-            args_str = ", ".join(ast.unparse(arg) for arg in print_node.args)
-            return f'self.logger.{method_name}({args_str}, category="{category}")'
+            # Complex expression - keep original but wrap in logger
+            original_code = ast.unparse(print_node.args[0])
+            return f'self.logger.{method_name}({original_code}, category="{category}")'
+        # Multiple arguments: print("msg", var1, var2)
+        args_str = ", ".join(ast.unparse(arg) for arg in print_node.args)
+        return f'self.logger.{method_name}({args_str}, category="{category}")'
 
     def needs_logger_import(self, file_content: str) -> bool:
         """Check if file needs logger import"""
@@ -137,7 +134,7 @@ class PrintToLoggerConverter:
         # Find the right place to insert import
         import_insert_index = 0
         for i, line in enumerate(lines):
-            if line.startswith("import ") or line.startswith("from "):
+            if line.startswith(("import ", "from ")):
                 import_insert_index = i + 1
             elif line.strip() == "" and import_insert_index > 0:
                 break
@@ -214,7 +211,7 @@ class PrintToLoggerConverter:
                 print_statements
             ):  # Process in reverse to maintain line numbers
                 try:
-                    logger_call = self.convert_print_to_logger(print_stmt.value, str(file_path))
+                    logger_call = self.convert_print_to_logger(print_stmt.value, str(file_path))  # type: ignore[arg-type]
 
                     # Replace the print statement
                     lines = content.split("\n")

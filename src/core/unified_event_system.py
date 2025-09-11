@@ -432,114 +432,11 @@ class EventBusManager:
 
     def __init__(self):
         self._event_bus = UnifiedEventBus()
-        self._legacy_systems: dict[str, Any] = {}
-        self._migration_status: dict[str, Any] = {}
 
     @property
     def event_bus(self) -> UnifiedEventBus:
         """통합 이벤트 버스 반환"""
         return self._event_bus
-
-    def register_legacy_system(self, name: str, system: Any) -> bool:
-        """레거시 이벤트 시스템 등록"""
-        try:
-            self._legacy_systems[name] = system
-            logger.info(f"레거시 이벤트 시스템 등록: {name}")
-            return True
-        except Exception as e:
-            logger.error(f"레거시 이벤트 시스템 등록 실패: {name} - {e}")
-            return False
-
-    def migrate_legacy_events(self, system_name: str) -> bool:
-        """레거시 이벤트 시스템 마이그레이션"""
-        try:
-            if system_name not in self._legacy_systems:
-                logger.warning(f"레거시 시스템을 찾을 수 없음: {system_name}")
-                return False
-            system = self._legacy_systems[system_name]
-            if system_name == "typed_event_bus":
-                self._migrate_typed_event_bus(system)
-            elif system_name == "gui_event_bus":
-                self._migrate_gui_event_bus(system)
-            else:
-                logger.warning(f"알 수 없는 레거시 시스템: {system_name}")
-                return False
-            self._migration_status[system_name] = "completed"
-            logger.info(f"레거시 이벤트 시스템 마이그레이션 완료: {system_name}")
-            return True
-        except Exception as e:
-            logger.error(f"레거시 이벤트 시스템 마이그레이션 실패: {system_name} - {e}")
-            self._migration_status[system_name] = "failed"
-            return False
-
-    def _migrate_typed_event_bus(self, system: Any) -> None:
-        """TypedEventBus 마이그레이션"""
-        try:
-            if hasattr(system, "_subscribers"):
-                for event_type, subscribers in system._subscribers.items():
-                    for subscriber in subscribers:
-                        if callable(subscriber):
-                            self._event_bus.subscribe(event_type, subscriber)
-            logger.info("TypedEventBus 마이그레이션 완료")
-        except Exception as e:
-            logger.error(f"TypedEventBus 마이그레이션 실패: {e}")
-
-    def _migrate_gui_event_bus(self, system: Any) -> None:
-        """GUI EventBus 마이그레이션"""
-        try:
-            if hasattr(system, "_subscribers"):
-                for event_type, subscribers in system._subscribers.items():
-                    for subscriber in subscribers:
-                        if callable(subscriber):
-                            self._event_bus.subscribe(event_type, subscriber)
-            logger.info("GUI EventBus 마이그레이션 완료")
-        except Exception as e:
-            logger.error(f"GUI EventBus 마이그레이션 실패: {e}")
-
-    def get_migration_status(self) -> dict[str, str]:
-        """마이그레이션 상태 조회"""
-        return self._migration_status.copy()
-
-    def is_fully_migrated(self) -> bool:
-        """모든 시스템이 마이그레이션되었는지 확인"""
-        return all(status == "completed" for status in self._migration_status.values())
-
-
-class TypedEventBusCompatibility:
-    """TypedEventBus와 호환되는 UnifiedEventBus 래퍼"""
-
-    def __init__(self, unified_bus: UnifiedEventBus):
-        self._unified_bus = unified_bus
-
-    def publish(self, event: BaseEvent) -> None:
-        """이벤트 발행 (TypedEventBus 호환)"""
-        self._unified_bus.publish(event)
-
-    def subscribe(self, event_type: type, handler: Callable, weak_ref: bool = True) -> str:
-        """이벤트 구독 (TypedEventBus 호환)"""
-        subscription = self._unified_bus.subscribe(event_type, handler)
-        return subscription.subscription_id
-
-    def unsubscribe(self, subscription_id: str) -> bool:
-        """구독 해제 (TypedEventBus 호환)"""
-        return self._unified_bus.unsubscribe(subscription_id)
-
-    def unsubscribe_all(self, event_type: type = None) -> int:
-        """모든 구독 해제 (TypedEventBus 호환)"""
-        if event_type is None:
-            count = 0
-            for subscriptions in self._unified_bus._subscriptions.values():
-                count += len(subscriptions)
-                subscriptions.clear()
-            return count
-        if event_type in self._unified_bus._subscriptions:
-            count = len(self._unified_bus._subscriptions[event_type])
-            self._unified_bus._subscriptions[event_type].clear()
-            return count
-        return 0
-
-    def dispose(self) -> None:
-        """리소스 정리 (TypedEventBus 호환)"""
 
 
 event_bus_manager = EventBusManager()

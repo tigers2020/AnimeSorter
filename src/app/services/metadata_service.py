@@ -13,8 +13,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 from src.core.tmdb_client import TMDBAnimeInfo, TMDBClient
 
-# Legacy interface removed - using direct implementation
-
 
 @dataclass
 class MetadataSearchResult:

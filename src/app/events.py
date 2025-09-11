@@ -83,12 +83,10 @@ _event_bus_lock = threading.Lock()
 
 
 def get_event_bus():
-    """전역 이벤트 버스 가져오기 (UnifiedEventBus 호환성 래퍼 사용)"""
-    from src.core.unified_event_system import (TypedEventBusCompatibility,
-                                               get_unified_event_bus)
+    """전역 이벤트 버스 가져오기 (UnifiedEventBus 직접 사용)"""
+    from src.core.unified_event_system import get_unified_event_bus
 
-    unified_bus = get_unified_event_bus()
-    return TypedEventBusCompatibility(unified_bus)
+    return get_unified_event_bus()
 
 
 def set_event_bus(event_bus) -> None:

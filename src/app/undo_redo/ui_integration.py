@@ -84,11 +84,11 @@ class UndoRedoMenuManager(QObject):
         self.undo_action = QAction("실행 취소(&U)", self.menu_bar)
         self.undo_action.setShortcut(QKeySequence.Undo)
         self.undo_action.setStatusTip("마지막 작업을 취소합니다")
-        self.undo_action.triggered.connect(lambda: self.undo_redo_manager.undo() or None)
+        self.undo_action.triggered.connect(self._on_undo_triggered)
         self.redo_action = QAction("다시 실행(&R)", self.menu_bar)
         self.redo_action.setShortcut(QKeySequence.Redo)
         self.redo_action.setStatusTip("취소한 작업을 다시 실행합니다")
-        self.redo_action.triggered.connect(lambda: self.undo_redo_manager.redo() or None)
+        self.redo_action.triggered.connect(self._on_redo_triggered)
         self.edit_menu.addAction(self.undo_action)
         self.edit_menu.addAction(self.redo_action)
         self.edit_menu.addSeparator()
@@ -142,6 +142,14 @@ class UndoRedoMenuManager(QObject):
         self._update_undo_action(self.undo_redo_manager.can_undo())
         self._update_redo_action(self.undo_redo_manager.can_redo())
 
+    def _on_undo_triggered(self) -> None:
+        """취소 액션 트리거 처리"""
+        self.undo_redo_manager.undo()
+
+    def _on_redo_triggered(self) -> None:
+        """재실행 액션 트리거 처리"""
+        self.undo_redo_manager.redo()
+
 
 class UndoRedoToolbarManager(QObject):
     """Undo/Redo 툴바 관리자"""
@@ -162,11 +170,11 @@ class UndoRedoToolbarManager(QObject):
         self.undo_action = cast("QAction", self.toolbar.addAction("↶"))
         self.undo_action.setText("취소")
         self.undo_action.setToolTip("마지막 작업을 취소합니다 (Ctrl+Z)")
-        self.undo_action.triggered.connect(lambda: self.undo_redo_manager.undo() or None)
+        self.undo_action.triggered.connect(self._on_undo_triggered)
         self.redo_action = cast("QAction", self.toolbar.addAction("↷"))
         self.redo_action.setText("재실행")
         self.redo_action.setToolTip("취소한 작업을 다시 실행합니다 (Ctrl+Y)")
-        self.redo_action.triggered.connect(lambda: self.undo_redo_manager.redo() or None)
+        self.redo_action.triggered.connect(self._on_redo_triggered)
         self.toolbar.addSeparator()
         self.undo_action.setEnabled(False)
         self.redo_action.setEnabled(False)
@@ -202,6 +210,14 @@ class UndoRedoToolbarManager(QObject):
                 self.redo_action.setToolTip(f"'{redo_text}' 작업을 다시 실행합니다 (Ctrl+Y)")
             else:
                 self.redo_action.setToolTip("다시 실행할 작업이 없습니다")
+
+    def _on_undo_triggered(self) -> None:
+        """취소 액션 트리거 처리"""
+        self.undo_redo_manager.undo()
+
+    def _on_redo_triggered(self) -> None:
+        """재실행 액션 트리거 처리"""
+        self.undo_redo_manager.redo()
 
 
 class UndoRedoUIIntegration(QObject):

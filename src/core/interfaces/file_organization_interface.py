@@ -47,7 +47,7 @@ class FileOperationPlan:
     backup_path: Path | None = None
     conflict_resolution: FileConflictResolution = FileConflictResolution.RENAME
     estimated_size: int = 0
-    metadata: dict[str, Any] = None
+    metadata: dict[str, Any] | None = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -61,7 +61,7 @@ class FileScanResult:
     files_found: list[Path]
     total_size: int
     scan_duration: float
-    errors: list[str] = None
+    errors: list[str] | None = None
 
     def __post_init__(self):
         if self.errors is None:

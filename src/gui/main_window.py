@@ -1437,9 +1437,7 @@ class MainWindow(QMainWindow):
             title = re.sub(pattern, "", title, flags=re.IGNORECASE)
 
         # 공백 정리
-        title = re.sub(r"\s+", " ", title).strip()
-
-        return title
+        return re.sub(r"\s+", " ", title).strip()
 
     def _show_final_dialog(self, group_id: str, title: str, search_results: list):
         """최종 다이얼로그 표시"""

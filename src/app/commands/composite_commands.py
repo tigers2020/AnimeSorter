@@ -163,9 +163,8 @@ class BatchFileOperationCommand(BaseCommand):
                 return DeleteFileCommand(file_path=source_path)
                 if operation_type == "create_directory":
                     return CreateDirectoryCommand(directory_path=source_path)
-            else:
-                self.logger.warning(f"지원하지 않는 작업 타입: {operation_type}")
-                return None
+            self.logger.warning(f"지원하지 않는 작업 타입: {operation_type}")
+            return None
         except Exception as e:
             self.logger.error(f"Command 생성 실패: {operation} - {e}")
             return None

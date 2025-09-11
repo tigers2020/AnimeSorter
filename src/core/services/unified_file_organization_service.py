@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from src.app.file_processing_events import \
+    FileOperationType as ProcessingFileOperationType
 from src.app.file_processing_events import (FileProcessingProgressEvent,
                                             calculate_processing_speed,
                                             calculate_progress_percentage,
@@ -49,14 +51,14 @@ class UnifiedFileScanner(IFileScanner):
     ) -> FileScanResult:
         """Scan directory for files matching criteria"""
         start_time = time.time()
-        files_found = []
+        files_found: list[Path] = []
         errors = []
         try:
             if not directory_path.exists():
                 errors.append(f"Directory does not exist: {directory_path}")
                 return FileScanResult(files_found, 0, 0, errors)
             if file_extensions is None:
-                file_extensions = self.config.video_extensions
+                file_extensions = self.config.video_extensions or set()
             pattern = "**/*" if recursive else "*"
             total_size = 0
             for file_path in directory_path.glob(pattern):
@@ -179,7 +181,7 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
         self.naming_strategy = naming_strategy
         self.service = service
         self.operation_id = uuid4()
-        self.start_time = None
+        self.start_time: float | None = None
         self.processed_bytes = 0
         self.total_bytes = 0
         self.success_count = 0
@@ -193,9 +195,9 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
             if not plan.source_path.exists():
                 return FileOperationResult(
                     success=False,
-                    source_path=plan.source_path,
-                    destination_path=plan.target_path,
-                    operation_type=plan.operation_type,
+                    source_path=str(plan.source_path),
+                    destination_path=str(plan.target_path),
+                    operation_type=plan.operation_type.value,
                     error_message="Source file does not exist",
                 )
             if self.config.create_directories:
@@ -240,10 +242,10 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
             )
             return FileOperationResult(
                 success=True,
-                source_path=plan.source_path,
-                destination_path=plan.target_path,
-                operation_type=plan.operation_type,
-                backup_path=backup_path,
+                source_path=str(plan.source_path),
+                destination_path=str(plan.target_path),
+                operation_type=plan.operation_type.value,
+                backup_path=str(backup_path) if backup_path else None,
                 file_size=actual_size,
                 processing_time=processing_time,
             )
@@ -252,9 +254,9 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
             self.logger.error(f"File operation failed: {e}")
             return FileOperationResult(
                 success=False,
-                source_path=plan.source_path,
-                destination_path=plan.target_path,
-                operation_type=plan.operation_type,
+                source_path=str(plan.source_path),
+                destination_path=str(plan.target_path),
+                operation_type=plan.operation_type.value,
                 error_message=str(e),
                 processing_time=processing_time,
             )
@@ -277,7 +279,7 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
         total_plans = len(plans)
         for i, plan in enumerate(plans):
             progress_percentage = calculate_progress_percentage(i, total_plans)
-            time_elapsed = time.time() - self.start_time
+            time_elapsed = time.time() - (self.start_time or 0)
             speed_mbps = calculate_processing_speed(self.processed_bytes, time_elapsed)
             remaining_time = estimate_remaining_time(
                 self.processed_bytes, self.total_bytes, time_elapsed
@@ -293,9 +295,9 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
                     total_bytes=self.total_bytes,
                     progress_percentage=progress_percentage,
                     current_operation=(
-                        FileOperationType.COPY
+                        ProcessingFileOperationType.COPY
                         if plan.operation_type.value == "copy"
-                        else FileOperationType.MOVE
+                        else ProcessingFileOperationType.MOVE
                     ),
                     current_step=f"Processing {plan.source_path.name}",
                     processing_speed_mbps=speed_mbps,
@@ -318,7 +320,7 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
 
     def simulate_operations(self, plans: list[FileOperationPlan]) -> dict[str, Any]:
         """Simulate file operations without executing them"""
-        simulation_results = {
+        simulation_results: dict[str, Any] = {
             "total_plans": len(plans),
             "successful": 0,
             "conflicts": 0,
@@ -327,7 +329,7 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
             "details": [],
         }
         for plan in plans:
-            detail = {
+            detail: dict[str, Any] = {
                 "source": str(plan.source_path),
                 "target": str(plan.target_path),
                 "operation": plan.operation_type.value,
@@ -522,7 +524,8 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
         """Execute file organization plan with detailed progress tracking"""
         if dry_run:
             self.logger.info("Executing organization plan in dry-run mode")
-            return self.operation_executor.simulate_operations(plans)
+            # dry_run 모드에서는 빈 결과 리스트 반환
+            return []
         self.logger.info("Executing organization plan")
         return self.operation_executor.execute_batch_operations(
             plans, progress_callback, detailed_progress_callback
@@ -530,7 +533,7 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
 
     def validate_organization_plan(self, plans: list[FileOperationPlan]) -> dict[str, Any]:
         """Validate organization plan for conflicts and issues"""
-        validation_result = {
+        validation_result: dict[str, Any] = {
             "valid": True,
             "total_plans": len(plans),
             "conflicts": 0,
@@ -570,7 +573,7 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
     def get_organization_statistics(self, plans: list[FileOperationPlan]) -> dict[str, Any]:
         """Get statistics about organization plan"""
         total_size = sum(plan.estimated_size for plan in plans)
-        operation_counts = {}
+        operation_counts: dict[str, int] = {}
         for plan in plans:
             op_type = plan.operation_type.value
             operation_counts[op_type] = operation_counts.get(op_type, 0) + 1
@@ -609,9 +612,9 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                         current_file_size=plan.estimated_size,
                         progress_percentage=calculate_progress_percentage(i, total_plans),
                         current_operation=(
-                            FileOperationType.COPY
+                            ProcessingFileOperationType.COPY
                             if plan.operation_type.value == "copy"
-                            else FileOperationType.MOVE
+                            else ProcessingFileOperationType.MOVE
                         ),
                         current_step="Preparing commands",
                     )
@@ -771,13 +774,13 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
 
     def _is_video_file(self, file_path: Path) -> bool:
         """파일이 비디오 파일인지 확인합니다"""
-        video_extensions = self.config.video_extensions
+        video_extensions = self.config.video_extensions or set()
         return file_path.suffix.lower() in video_extensions
 
     def _find_subtitle_files(self, video_path: Path) -> list[Path]:
         """비디오 파일과 연관된 자막 파일들을 찾습니다"""
         subtitle_files = []
-        subtitle_extensions = self.config.subtitle_extensions
+        subtitle_extensions = self.config.subtitle_extensions or set()
 
         try:
             video_dir = video_path.parent
@@ -802,4 +805,4 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
 
     def get_backup_policy(self) -> BackupPolicy:
         """Get current backup policy"""
-        return self.config.backup_policy
+        return self.config.backup_policy or BackupPolicy()

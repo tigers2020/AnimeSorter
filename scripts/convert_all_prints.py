@@ -18,7 +18,7 @@ def add_logging_imports(content: str, file_path: str) -> str:
     # Find the right place to insert import
     import_insert_index = 0
     for i, line in enumerate(lines):
-        if line.startswith("import ") or line.startswith("from "):
+        if line.startswith(("import ", "from ")):
             import_insert_index = i + 1
         elif line.strip() == "" and import_insert_index > 0:
             break
@@ -76,16 +76,15 @@ def determine_log_level(print_content: str) -> str:
 
     if any(keyword in content_lower for keyword in ["error", "실패", "오류", "에러", "❌"]):
         return "error"
-    elif any(keyword in content_lower for keyword in ["warning", "경고", "주의", "⚠️"]):
+    if any(keyword in content_lower for keyword in ["warning", "경고", "주의", "⚠️"]):
         return "warning"
-    elif any(keyword in content_lower for keyword in ["debug", "디버그", "진행률", "🔍", "시작"]):
+    if any(keyword in content_lower for keyword in ["debug", "디버그", "진행률", "🔍", "시작"]):
         return "debug"
-    elif any(
+    if any(
         keyword in content_lower for keyword in ["success", "완료", "성공", "✅", "info", "정보"]
     ):
         return "info"
-    else:
-        return "info"
+    return "info"
 
 
 def determine_category(file_path: str) -> str:
@@ -94,16 +93,13 @@ def determine_category(file_path: str) -> str:
 
     if "tmdb" in file_path_lower:
         return "tmdb"
-    elif "file" in file_path_lower:
+    if "file" in file_path_lower:
         return "file_operation"
-    elif "gui" in file_path_lower or "ui" in file_path_lower:
+    if "gui" in file_path_lower or "ui" in file_path_lower:
         return "ui"
-    elif "manager" in file_path_lower:
+    if "manager" in file_path_lower or "service" in file_path_lower:
         return "system"
-    elif "service" in file_path_lower:
-        return "system"
-    else:
-        return "system"
+    return "system"
 
 
 def replace_prints_in_file(file_path: str):

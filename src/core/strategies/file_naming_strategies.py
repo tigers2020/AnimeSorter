@@ -273,7 +273,7 @@ class NamingStrategyFactory:
         strategy_class = strategies.get(strategy_name.lower())
         if not strategy_class:
             raise ValueError(f"Unknown naming strategy: {strategy_name}")
-        return strategy_class(config, logger)
+        return strategy_class(config, logger)  # type: ignore[abstract]
 
     @staticmethod
     def get_available_strategies() -> list[str]:

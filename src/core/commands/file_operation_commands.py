@@ -24,7 +24,7 @@ class CommandResult:
 
     success: bool
     message: str
-    data: dict[str, Any] = None
+    data: dict[str, Any] | None = None
     error: str | None = None
 
     def __post_init__(self):

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from src.app.events import BaseEvent
+from src.core.unified_event_system import BaseEvent
 
 
 class ScanStatus(Enum):
@@ -390,7 +390,7 @@ class SettingsChangedEvent(BaseEvent):
     setting_key: str = ""
     old_value: Any = None
     new_value: Any = None
-    category: str = ""
+    category: str = ""  # type: ignore[assignment]
 
 
 @dataclass

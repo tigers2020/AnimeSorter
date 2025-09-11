@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
-from src.app.events import BaseEvent
+from src.core.unified_event_system import BaseEvent
 
 
 class TaskStatus(Enum):
@@ -43,7 +43,7 @@ class TaskStartedEvent(BaseEvent):
     task_type: str = ""
     task_name: str = ""
     estimated_duration: float | None = None
-    priority: TaskPriority = TaskPriority.NORMAL
+    priority: TaskPriority = TaskPriority.NORMAL  # type: ignore[assignment]
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

@@ -12,11 +12,11 @@ from typing import Any, Protocol
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QMainWindow, QProgressBar, QStatusBar
 
-from src.app.events import TypedEventBus
 from src.app.ui_events import (ErrorMessageEvent, FileCountUpdateEvent,
                                MemoryUsageUpdateEvent, MenuStateUpdateEvent,
                                ProgressUpdateEvent, StatusBarUpdateEvent,
                                SuccessMessageEvent, WindowTitleUpdateEvent)
+from src.core.unified_event_system import UnifiedEventBus
 
 
 class IUIUpdateService(Protocol):
@@ -43,7 +43,7 @@ class UIUpdateService(QObject):
     _window_title_signal = pyqtSignal(str, str)
     _menu_state_signal = pyqtSignal(str, bool, object, str)
 
-    def __init__(self, event_bus: TypedEventBus, parent=None):
+    def __init__(self, event_bus: UnifiedEventBus, parent=None):
         super().__init__(parent)
         self.event_bus = event_bus
         self.logger = logging.getLogger(__name__)
@@ -102,16 +102,14 @@ class UIUpdateService(QObject):
 
     def _setup_event_subscriptions(self) -> None:
         """이벤트 구독 설정"""
-        self.event_bus.subscribe(StatusBarUpdateEvent, self._on_status_bar_update, weak_ref=False)
-        self.event_bus.subscribe(ProgressUpdateEvent, self._on_progress_update, weak_ref=False)
-        self.event_bus.subscribe(FileCountUpdateEvent, self._on_file_count_update, weak_ref=False)
-        self.event_bus.subscribe(MemoryUsageUpdateEvent, self._on_memory_update, weak_ref=False)
-        self.event_bus.subscribe(ErrorMessageEvent, self._on_error_message, weak_ref=False)
-        self.event_bus.subscribe(SuccessMessageEvent, self._on_success_message, weak_ref=False)
-        self.event_bus.subscribe(
-            WindowTitleUpdateEvent, self._on_window_title_update, weak_ref=False
-        )
-        self.event_bus.subscribe(MenuStateUpdateEvent, self._on_menu_state_update, weak_ref=False)
+        self.event_bus.subscribe(StatusBarUpdateEvent, self._on_status_bar_update)
+        self.event_bus.subscribe(ProgressUpdateEvent, self._on_progress_update)
+        self.event_bus.subscribe(FileCountUpdateEvent, self._on_file_count_update)
+        self.event_bus.subscribe(MemoryUsageUpdateEvent, self._on_memory_update)
+        self.event_bus.subscribe(ErrorMessageEvent, self._on_error_message)
+        self.event_bus.subscribe(SuccessMessageEvent, self._on_success_message)
+        self.event_bus.subscribe(WindowTitleUpdateEvent, self._on_window_title_update)
+        self.event_bus.subscribe(MenuStateUpdateEvent, self._on_menu_state_update)
 
     def _unsubscribe_events(self) -> None:
         """이벤트 구독 해제"""

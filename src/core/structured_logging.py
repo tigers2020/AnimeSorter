@@ -148,7 +148,7 @@ class RotatingFileHandler(logging.handlers.RotatingFileHandler):
         """로그 로테이션 수행"""
         if self.stream:
             self.stream.close()
-            self.stream = None
+            self.stream = None  # type: ignore[assignment]
         for i in range(self.backup_count - 1, 0, -1):
             sfn = Path(f"{self.filename}.{i}")
             dfn = Path(f"{self.filename}.{i + 1}")
@@ -366,9 +366,9 @@ class StructuredLogger(QObject):
         """예외 정보와 함께 로그 기록"""
         exc_info = sys.exc_info()
         if exc_info[0] is None:
-            exc_info = type(exception), exception, exception.__traceback__
+            exc_info = (type(exception), exception, exception.__traceback__)  # type: ignore[assignment]
         else:
-            exc_info = exc_info[0], exc_info[1], exc_info[2]
+            exc_info = (exc_info[0], exc_info[1], exc_info[2])  # type: ignore[assignment]
         extra_fields = {
             "exception_type": type(exception).__name__,
             "exception_message": str(exception),
