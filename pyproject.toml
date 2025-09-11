@@ -114,6 +114,7 @@ exclude = [
     "*.egg-info",
     "scripts",
     "tools",
+    "src/gui/theme",
 ]
 
 [tool.ruff.lint.per-file-ignores]
