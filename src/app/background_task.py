@@ -11,16 +11,32 @@ logger = logging.getLogger(__name__)
 import time
 import traceback
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 from uuid import uuid4
 
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
-from src.app.background_events import (TaskCancelledEvent, TaskCompletedEvent,
-                                       TaskFailedEvent, TaskPriority,
-                                       TaskProgressEvent, TaskStartedEvent,
-                                       TaskStatus)
-from src.app.events import get_event_bus
+from src.core.events.event_publisher import event_publisher
+
+
+class TaskPriority(Enum):
+    """백그라운드 작업 우선순위"""
+
+    LOW = 1
+    NORMAL = 2
+    HIGH = 3
+    CRITICAL = 4
+
+
+class TaskStatus(Enum):
+    """백그라운드 작업 상태"""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 @dataclass
@@ -92,76 +108,39 @@ class BaseTask(QRunnable):
 
     def _on_started_signal(self, task_id: str) -> None:
         """작업 시작 시그널 처리"""
-        self.event_bus.publish(
-            TaskStartedEvent(
-                task_id=task_id,
-                task_type=self.task_type,
-                task_name=self.task_name,
-                priority=self.priority,
-                metadata=self.metadata,
-            )
-        )
+        # 백그라운드 작업 시작은 로그로만 처리 (이벤트 시스템에서 제외)
+        logger.info(f"🚀 백그라운드 작업 시작: {self.task_name} (ID: {task_id})")
 
     def _on_progress_signal(self, task_id: str, progress_percent: int, current_step: str) -> None:
         """진행률 시그널 처리"""
         elapsed_time = time.time() - (self._start_time or time.time())
-        self.event_bus.publish(
-            TaskProgressEvent(
-                task_id=task_id,
-                progress_percent=progress_percent,
-                current_step=current_step,
-                items_processed=self._items_processed,
-                elapsed_time=elapsed_time,
-                metadata=self.metadata,
-            )
-        )
+        # 백그라운드 작업 진행률은 로그로만 처리 (이벤트 시스템에서 제외)
+        logger.debug(f"📊 백그라운드 작업 진행률: {progress_percent}% - {current_step}")
 
     def _on_completed_signal(self, task_id: str, result: TaskResult) -> None:
         """작업 완료 시그널 처리"""
-        self.event_bus.publish(
-            TaskCompletedEvent(
-                task_id=task_id,
-                task_type=self.task_type,
-                task_name=self.task_name,
-                duration=result.duration,
-                result_data=result.result_data,
-                items_processed=result.items_processed,
-                success_count=result.success_count,
-                error_count=result.error_count,
-                metadata=self.metadata,
-            )
+        # 백그라운드 작업 완료는 로그로만 처리 (이벤트 시스템에서 제외)
+        logger.info(
+            f"✅ 백그라운드 작업 완료: {self.task_name} (소요시간: {result.duration:.2f}초)"
         )
 
     def _on_failed_signal(self, task_id: str, error_message: str, error_details: str) -> None:
         """작업 실패 시그널 처리"""
         elapsed_time = time.time() - (self._start_time or time.time())
-        self.event_bus.publish(
-            TaskFailedEvent(
-                task_id=task_id,
-                task_type=self.task_type,
-                task_name=self.task_name,
-                error_message=error_message,
-                error_details=error_details,
-                duration=elapsed_time,
-                items_processed=self._items_processed,
-                metadata=self.metadata,
-            )
+        # 백그라운드 작업 실패는 오류 이벤트로 발행
+        event_publisher.publish_error(
+            error_id=task_id,
+            error_type="unknown_error",
+            message=f"백그라운드 작업 실패: {error_message}",
+            details=error_details,
+            where="background_task",
         )
 
     def _on_cancelled_signal(self, task_id: str, reason: str) -> None:
         """작업 취소 시그널 처리"""
         elapsed_time = time.time() - (self._start_time or time.time())
-        self.event_bus.publish(
-            TaskCancelledEvent(
-                task_id=task_id,
-                task_type=self.task_type,
-                task_name=self.task_name,
-                reason=reason,
-                duration=elapsed_time,
-                items_processed=self._items_processed,
-                metadata=self.metadata,
-            )
-        )
+        # 백그라운드 작업 취소는 로그로만 처리 (이벤트 시스템에서 제외)
+        logger.info(f"🚫 백그라운드 작업 취소: {self.task_name} - {reason}")
 
     def run(self) -> None:
         """QRunnable.run() 구현 - 실제 작업 실행"""

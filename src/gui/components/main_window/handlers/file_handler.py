@@ -196,23 +196,37 @@ class MainWindowFileHandler:
                 )
                 logger.info("🆔 [MainWindowFileHandler] 백그라운드 작업 ID: %s", found_files)
 
-                # FilesScannedEvent 발행
+                # 새로운 이벤트 시스템 사용
                 from uuid import uuid4
 
-                from src.app import (FilesScannedEvent, ScanStatus,
-                                     get_event_bus)
+                from src.core.events.event_publisher import event_publisher
 
-                scan_event = FilesScannedEvent(
-                    scan_id=uuid4(),
-                    directory_path=Path(directory_path),
-                    found_files=[Path(f) for f in found_files],
-                    scan_duration_seconds=0.0,
-                    status=ScanStatus.COMPLETED,
+                scan_id = str(uuid4())
+                event_publisher.publish_scan_started(
+                    scan_id=scan_id,
+                    directory_path=directory_path,
+                    recursive=True,
+                    file_extensions=[
+                        ".mkv",
+                        ".mp4",
+                        ".avi",
+                        ".wmv",
+                        ".mov",
+                        ".flv",
+                        ".webm",
+                        ".m4v",
+                    ],
                 )
-                event_bus = get_event_bus()
-                event_bus.publish(scan_event)
+
+                event_publisher.publish_scan_completed(
+                    scan_id=scan_id,
+                    found_files=found_files,
+                    stats={"total_files": len(found_files)},
+                    duration_seconds=0.0,
+                    status="completed",
+                )
                 logger.info(
-                    "📨 [MainWindowFileHandler] FilesScannedEvent 발행: %s개 파일", len(found_files)
+                    "📨 [MainWindowFileHandler] 스캔 이벤트 발행: %s개 파일", len(found_files)
                 )
 
                 self.main_window.update_status_bar("백그라운드에서 파일 스캔 중...", 0)

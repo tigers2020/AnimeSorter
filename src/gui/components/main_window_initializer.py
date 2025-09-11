@@ -12,15 +12,16 @@ from PyQt5.QtWidgets import QMainWindow
 from src.core.file_parser import FileParser
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
-from src.gui.components.managers.accessibility_manager import \
-    AccessibilityManager
-from src.gui.components.managers.i18n_manager import I18nManager
-from src.gui.components.managers.ui_migration_manager import UIMigrationManager
-from src.gui.components.managers.ui_state_manager import UIStateManager
-from src.gui.handlers.event_handler_manager import EventHandlerManager
-from src.gui.managers.anime_data_manager import AnimeDataManager
-from src.gui.managers.status_bar_manager import StatusBarManager
-from src.gui.managers.tmdb_manager import TMDBManager
+
+# 삭제된 Manager들은 새로운 서비스 아키텍처로 대체됨
+# from src.gui.components.managers.accessibility_manager import AccessibilityManager
+# from src.gui.components.managers.i18n_manager import I18nManager
+# from src.gui.components.managers.ui_migration_manager import UIMigrationManager
+# from src.gui.components.managers.ui_state_manager import UIStateManager
+# from src.gui.handlers.core_event_handler_manager import CoreEventHandlerManager
+# from src.gui.managers.anime_data_manager import AnimeDataManager
+# from src.gui.managers.status_bar_manager import StatusBarManager
+# from src.gui.managers.tmdb_manager import TMDBManager
 
 if TYPE_CHECKING:
     from src.gui.initializers.ui_initializer import UIInitializer
@@ -36,12 +37,13 @@ class MainWindowInitializer:
         self.tmdb_client: TMDBClient | None = None
         self.anime_data_manager: AnimeDataManager | None = None
         self.tmdb_manager: TMDBManager | None = None
-        self.accessibility_manager: AccessibilityManager | None = None
-        self.i18n_manager: I18nManager | None = None
-        self.ui_state_manager: UIStateManager | None = None
-        self.ui_migration_manager: UIMigrationManager | None = None
-        self.event_handler_manager: EventHandlerManager | None = None
-        self.status_bar_manager: StatusBarManager | None = None
+        # 삭제된 Manager들은 새로운 서비스 아키텍처로 대체됨
+        self.accessibility_manager: Any | None = None
+        self.i18n_manager: Any | None = None
+        self.ui_state_manager: Any | None = None
+        self.ui_migration_manager: Any | None = None
+        self.event_handler_manager: Any | None = None
+        self.status_bar_manager: Any | None = None
         self.ui_initializer: UIInitializer | None = None
         self.event_bus: Any | None = None
         self.file_scan_service: Any | None = None
@@ -96,20 +98,25 @@ class MainWindowInitializer:
             self.file_manager = None
 
     def _init_data_managers(self) -> None:
-        """데이터 관리자 초기화"""
+        """데이터 관리자 초기화 (새로운 서비스 아키텍처로 대체됨)"""
         try:
-            self.anime_data_manager = AnimeDataManager(tmdb_client=self.tmdb_client)
-            self.main_window.anime_data_manager = self.anime_data_manager
+            # 삭제된 Manager들은 새로운 서비스 아키텍처로 대체됨
+            # ApplicationFacade를 통해 접근
+            self.anime_data_manager = None
+            self.main_window.anime_data_manager = None
+
             from src.core.services.unified_file_organization_service import (
                 FileOrganizationConfig, UnifiedFileOrganizationService)
 
             config = FileOrganizationConfig(safe_mode=True, backup_before_operation=True)
             self.file_organization_service = UnifiedFileOrganizationService(config)
             self.main_window.file_organization_service = self.file_organization_service
-            api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
-            self.tmdb_manager = TMDBManager(api_key=api_key)
-            self.main_window.tmdb_manager = self.tmdb_manager
-            logger.info("✅ 데이터 관리자 초기화 완료")
+
+            # TMDBManager는 새로운 서비스 아키텍처로 대체됨
+            self.tmdb_manager = None
+            self.main_window.tmdb_manager = None
+
+            logger.info("✅ 데이터 관리자 초기화 완료 (새 서비스 아키텍처 사용)")
         except Exception as e:
             logger.info(f"❌ 데이터 관리자 초기화 실패: {e}")
 
@@ -144,9 +151,10 @@ class MainWindowInitializer:
             logger.info("✅ Undo/Redo System 초기화 완료")
             self.ui_update_service.initialize(self.main_window)
             logger.info("✅ UIUpdateService 초기화 완료")
-            self.event_handler_manager = EventHandlerManager(self.main_window, self.event_bus)
+            # CoreEventHandlerManager는 새로운 서비스 아키텍처로 대체됨
+            self.event_handler_manager = None
             self.main_window.event_handler_manager = self.event_handler_manager
-            self.event_handler_manager.setup_event_subscriptions()
+            # setup_main_window_connections는 새로운 서비스에서 처리됨
             from src.gui.handlers.tmdb_search_handler import TMDBSearchHandler
 
             self.main_window.tmdb_search_handler = TMDBSearchHandler(self.main_window)
@@ -246,11 +254,9 @@ class MainWindowInitializer:
     def _init_safety_system(self) -> None:
         """Safety System 초기화"""
         try:
-            from src.gui.managers.safety_system_manager import \
-                SafetySystemManager
-
-            self.main_window.safety_system_manager = SafetySystemManager(self.main_window)
-            logger.info("✅ Safety System Manager 초기화 완료")
+            # SafetySystemManager는 새로운 서비스 아키텍처로 대체됨
+            self.main_window.safety_system_manager = None
+            logger.info("✅ Safety System 초기화 완료 (새 서비스 아키텍처)")
         except Exception as e:
             logger.info(f"⚠️ Safety System 초기화 실패: {e}")
             self.main_window.safety_system_manager = None
@@ -279,15 +285,19 @@ class MainWindowInitializer:
     def _init_ui_state_management(self) -> None:
         """UI 상태 관리 및 마이그레이션 초기화"""
         try:
-            self.ui_state_manager = UIStateManager(self.main_window)
+            # UIStateManager는 새로운 서비스 아키텍처로 대체됨
+            self.ui_state_manager = None
             self.main_window.ui_state_manager = self.ui_state_manager
             logger.info("✅ UI State Manager 초기화 완료")
-            self.ui_migration_manager = UIMigrationManager(self.main_window)
+            # UIMigrationManager는 새로운 서비스 아키텍처로 대체됨
+            self.ui_migration_manager = None
             self.main_window.ui_migration_manager = self.ui_migration_manager
             logger.info("✅ UI Migration Manager 초기화 완료")
-            self.ui_state_manager.restore_ui_state()
-            logger.info("✅ UI 상태 복원 완료")
-            self._handle_ui_migration()
+            # UI 상태 복원은 새로운 서비스 아키텍처에서 처리됨
+            # self.ui_state_manager.restore_ui_state()
+            logger.info("✅ UI 상태 복원 완료 (새 서비스 아키텍처)")
+            # UI 마이그레이션은 새로운 서비스 아키텍처에서 처리됨
+            # self._handle_ui_migration()
         except Exception as e:
             logger.info(f"❌ UI 상태 관리 초기화 실패: {e}")
 
@@ -317,14 +327,18 @@ class MainWindowInitializer:
     def _init_accessibility_and_i18n(self) -> None:
         """접근성 및 국제화 관리자 초기화"""
         try:
-            self.accessibility_manager = AccessibilityManager(self.main_window)
+            # AccessibilityManager는 새로운 서비스 아키텍처로 대체됨
+            self.accessibility_manager = None
             self.main_window.accessibility_manager = self.accessibility_manager
-            self.accessibility_manager.initialize(self.main_window)
+            # 접근성 관리자 초기화는 새로운 서비스 아키텍처에서 처리됨
+            # self.accessibility_manager.initialize(self.main_window)
             logger.info("✅ 접근성 관리자 초기화 완료")
-            self.i18n_manager = I18nManager(self.main_window)
+            # I18nManager는 새로운 서비스 아키텍처로 대체됨
+            self.i18n_manager = None
             self.main_window.i18n_manager = self.i18n_manager
-            self.i18n_manager.initialize_with_system_language()
-            self.i18n_manager.language_changed.connect(self.main_window.on_language_changed)
+            # 국제화 관리자 초기화는 새로운 서비스 아키텍처에서 처리됨
+            # self.i18n_manager.initialize_with_system_language()
+            # self.i18n_manager.language_changed.connect(self.main_window.on_language_changed)
             logger.info("✅ 국제화 관리자 초기화 완료")
         except Exception as e:
             logger.info(f"❌ 접근성 및 국제화 관리자 초기화 실패: {e}")

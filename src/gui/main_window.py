@@ -1,28 +1,21 @@
 """
 리팩토링된 메인 윈도우 - AnimeSorter의 주요 GUI 인터페이스
-컴포넌트 기반 아키텍처로 재구성되어 가독성과 유지보수성이 향상되었습니다.
+통합된 서비스 아키텍처로 재구성되어 Manager 클래스의 복잡성을 크게 줄였습니다.
 """
 
 import logging
 from pathlib import Path
 
 from PyQt5.QtCore import Qt
-
-logger = logging.getLogger(__name__)
 from PyQt5.QtWidgets import QHeaderView, QMainWindow, QMessageBox
 
-from src.core.tmdb_client import TMDBClient
-from src.core.unified_config import unified_config_manager
+from src.app.services.application_facade import ApplicationFacade
 from src.core.unified_event_system import get_unified_event_bus
 from src.gui.components.dialogs.settings_dialog import SettingsDialog
 from src.gui.components.main_window_coordinator import MainWindowCoordinator
-from src.gui.components.managers.theme_manager import ThemeManager
-from src.gui.components.message_log_controller import MessageLogController
-from src.gui.components.theme_controller import ThemeController
-from src.gui.components.ui_state_controller import UIStateController
-from src.gui.managers.anime_data_manager import AnimeDataManager
-from src.gui.managers.tmdb_manager import TMDBManager
 from src.gui.theme.engine.variable_loader import VariableLoader as TokenLoader
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -32,59 +25,173 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("AnimeSorter")
         self.setGeometry(100, 100, 1600, 900)
-        from PyQt5.QtWidgets import QVBoxLayout, QWidget
 
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.parent_layout = QVBoxLayout(self.central_widget)
-        self.parent_layout.setContentsMargins(0, 0, 0, 0)
-        self.parent_layout.setSpacing(0)
-        self.coordinator = MainWindowCoordinator(self)
+        # 기본 UI 설정 (중앙 위젯은 MainWindowCoordinator에서 설정)
+        self.central_widget = None
+        self.parent_layout = None
+
+        # 통합 서비스 초기화
+        self.app_facade = ApplicationFacade(self)
+        self.unified_event_system = get_unified_event_bus()
+
+        # 기본 상태 변수들
         self.scanning = False
         self.progress = 0
         self.source_files = []
         self.source_directory = ""
         self.destination_directory = ""
         self.status_progress = None
-        self.settings_manager = unified_config_manager
-        self.unified_event_bus = get_unified_event_bus()
-        self.theme_manager = ThemeManager()
-        self.session_manager = None  # MainWindowSessionManager로 초기화됨
+
+        # 레거시 호환성을 위한 속성들
+        self.settings_manager = self.app_facade.configuration_service
+        self.unified_event_bus = self.unified_event_system
+        self.theme_manager = (
+            self.app_facade.ui_service._theme_manager if self.app_facade.ui_service else None
+        )
+        self.session_manager = None
+        self.core_event_handler = None
+
+        # 테마 로더
         theme_dir = Path(__file__).parent.parent.parent / "data" / "theme"
         self.token_loader = TokenLoader(theme_dir)
+
+        # 애플리케이션 초기화
+        self._initialize_application()
+
+        # UI 컴포넌트 초기화
+        self.coordinator = MainWindowCoordinator(self)
         self.coordinator.initialize_all_components()
-        self._init_new_controllers()
-        self._setup_new_controllers()
-        self._connect_new_controller_signals()
-        self._apply_theme()
-        self.setup_connections()
-        self._connect_theme_signals()
-        self._connect_unified_event_system()
-        logger.info("🔧 MainWindow 핸들러들 초기화 시작...")
-        try:
-            self._initialize_handlers()
-            logger.info("✅ MainWindow 핸들러들 초기화 완료")
-        except Exception as e:
-            logger.error("❌ MainWindow 핸들러들 초기화 실패: %s", e)
-            import traceback
 
-            traceback.print_exc()
-        logger.info("🔧 설정을 UI에 적용 시작...")
-        try:
-            self.apply_settings_to_ui()
-            logger.info("✅ 설정을 UI에 적용 완료")
-        except Exception as e:
-            logger.error("❌ 설정을 UI에 적용 실패: %s", e)
-            import traceback
-
-            traceback.print_exc()
-        if not hasattr(self, "anime_data_manager") or not hasattr(self, "file_processing_manager"):
-            self.init_data_managers()
-        else:
-            logger.info("✅ 데이터 매니저들이 이미 MainWindowCoordinator에서 초기화됨")
+        # 이벤트 ID 추적
         self.current_scan_id = None
         self.current_organization_id = None
         self.current_tmdb_search_id = None
+
+    def _initialize_application(self):
+        """애플리케이션 초기화"""
+        try:
+            logger.info("🔧 애플리케이션 초기화 시작...")
+
+            # 통합 서비스 초기화
+            if not self.app_facade.initialize_application():
+                logger.error("❌ 애플리케이션 초기화 실패")
+                return
+
+            # 서비스 연결 설정
+            self._setup_service_connections()
+
+            # UI 초기화
+            if self.app_facade.ui_service:
+                self.app_facade.ui_service.initialize_ui()
+
+            logger.info("✅ 애플리케이션 초기화 완료")
+        except Exception as e:
+            logger.error(f"❌ 애플리케이션 초기화 실패: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+    def _setup_service_connections(self):
+        """서비스 간 연결 설정"""
+        try:
+            # 애플리케이션 파사드 시그널 연결
+            self.app_facade.application_initialized.connect(self._on_application_initialized)
+            self.app_facade.application_shutdown.connect(self._on_application_shutdown)
+            self.app_facade.service_error.connect(self._on_service_error)
+
+            # UI 서비스 시그널 연결
+            if self.app_facade.ui_service:
+                self.app_facade.ui_service.theme_changed.connect(self._on_theme_changed)
+                self.app_facade.ui_service.language_changed.connect(self._on_language_changed)
+                self.app_facade.ui_service.status_updated.connect(self._on_status_updated)
+
+            # 안전 서비스 시그널 연결
+            if self.app_facade.safety_service:
+                self.app_facade.safety_service.safety_mode_changed.connect(
+                    self._on_safety_mode_changed
+                )
+                self.app_facade.safety_service.backup_created.connect(self._on_backup_created)
+                self.app_facade.safety_service.backup_restored.connect(self._on_backup_restored)
+
+            # 명령 서비스 시그널 연결
+            if self.app_facade.command_service:
+                self.app_facade.command_service.command_executed.connect(self._on_command_executed)
+                self.app_facade.command_service.command_failed.connect(self._on_command_failed)
+                self.app_facade.command_service.undo_available.connect(self._on_undo_available)
+                self.app_facade.command_service.redo_available.connect(self._on_redo_available)
+
+            # 데이터 서비스 시그널 연결
+            if self.app_facade.data_service:
+                self.app_facade.data_service.data_updated.connect(self._on_data_updated)
+                self.app_facade.data_service.organization_completed.connect(
+                    self._on_organization_completed
+                )
+
+            logger.info("✅ 서비스 간 연결 설정 완료")
+        except Exception as e:
+            logger.error(f"❌ 서비스 간 연결 설정 실패: {e}")
+
+    def _on_application_initialized(self):
+        """애플리케이션 초기화 완료 처리"""
+        logger.info("✅ 애플리케이션 초기화 완료 신호 수신")
+
+    def _on_application_shutdown(self):
+        """애플리케이션 종료 처리"""
+        logger.info("✅ 애플리케이션 종료 신호 수신")
+
+    def _on_service_error(self, service_name: str, error_message: str):
+        """서비스 오류 처리"""
+        logger.error(f"❌ 서비스 오류 ({service_name}): {error_message}")
+        self.show_error_message(f"서비스 오류: {service_name}", error_message)
+
+    def _on_theme_changed(self, theme: str):
+        """테마 변경 처리"""
+        logger.info(f"✅ 테마 변경됨: {theme}")
+
+    def _on_language_changed(self, language: str):
+        """언어 변경 처리"""
+        logger.info(f"✅ 언어 변경됨: {language}")
+
+    def _on_status_updated(self, message: str, progress: int):
+        """상태 업데이트 처리"""
+        if hasattr(self, "statusBar") and self.statusBar():
+            self.statusBar().showMessage(message)
+
+    def _on_safety_mode_changed(self, old_mode: str, new_mode: str):
+        """안전 모드 변경 처리"""
+        logger.info(f"✅ 안전 모드 변경: {old_mode} -> {new_mode}")
+
+    def _on_backup_created(self, backup_id: str):
+        """백업 생성 처리"""
+        logger.info(f"✅ 백업 생성됨: {backup_id}")
+
+    def _on_backup_restored(self, backup_id: str):
+        """백업 복원 처리"""
+        logger.info(f"✅ 백업 복원됨: {backup_id}")
+
+    def _on_command_executed(self, command_id: str, result):
+        """명령 실행 완료 처리"""
+        logger.info(f"✅ 명령 실행 완료: {command_id}")
+
+    def _on_command_failed(self, command_id: str, error_message: str):
+        """명령 실행 실패 처리"""
+        logger.error(f"❌ 명령 실행 실패: {command_id} - {error_message}")
+
+    def _on_undo_available(self, available: bool):
+        """실행 취소 가능 상태 변경 처리"""
+        # UI 업데이트 로직 구현
+
+    def _on_redo_available(self, available: bool):
+        """재실행 가능 상태 변경 처리"""
+        # UI 업데이트 로직 구현
+
+    def _on_data_updated(self, data_type: str):
+        """데이터 업데이트 처리"""
+        logger.info(f"✅ 데이터 업데이트됨: {data_type}")
+
+    def _on_organization_completed(self, files_organized: int):
+        """파일 정리 완료 처리"""
+        logger.info(f"✅ 파일 정리 완료: {files_organized}개 파일")
 
     def _schedule_handler_initialization(self):
         """핸들러 초기화를 이벤트 루프 후에 예약합니다"""
@@ -145,58 +252,34 @@ class MainWindow(QMainWindow):
             logger.info(f"❌ 통합 이벤트 시스템 연결 실패: {e}")
 
     def _init_new_controllers(self):
-        """새로운 컨트롤러들을 초기화합니다"""
+        """새로운 컨트롤러들을 초기화합니다 (레거시 호환성)"""
         try:
-            self.theme_controller = ThemeController(self.theme_manager, self.settings_manager)
-            self.ui_state_controller = UIStateController(self.settings_manager)
-            self.message_log_controller = MessageLogController()
-            logger.info("✅ 새로운 컨트롤러들 초기화 완료")
+            # 레거시 컨트롤러들은 새로운 서비스로 대체됨
+            # 필요한 경우에만 초기화
+            self.theme_controller = None
+            self.ui_state_controller = None
+            self.message_log_controller = None
+            logger.info("✅ 레거시 컨트롤러들 초기화 완료 (새 서비스로 대체됨)")
         except Exception as e:
-            logger.info(f"❌ 새로운 컨트롤러 초기화 실패: {e}")
+            logger.info(f"❌ 레거시 컨트롤러 초기화 실패: {e}")
 
     def _setup_new_controllers(self):
-        """새로운 컨트롤러들을 설정합니다"""
+        """새로운 컨트롤러들을 설정합니다 (레거시 호환성)"""
         try:
-            self.theme_controller.setup()
-            self.ui_state_controller.setup()
-            self.message_log_controller.setup()
-            logger.info("✅ 새로운 컨트롤러들 설정 완료")
+            # 레거시 컨트롤러들은 새로운 서비스로 대체됨
+            # 설정 작업은 ApplicationFacade에서 처리됨
+            logger.info("✅ 레거시 컨트롤러들 설정 완료 (새 서비스로 대체됨)")
         except Exception as e:
-            logger.info(f"❌ 새로운 컨트롤러 설정 실패: {e}")
+            logger.info(f"❌ 레거시 컨트롤러 설정 실패: {e}")
 
     def _connect_new_controller_signals(self):
-        """새로운 컨트롤러들의 시그널을 연결합니다"""
+        """새로운 컨트롤러들의 시그널을 연결합니다 (레거시 호환성)"""
         try:
-            self.theme_controller.theme_applied.connect(self._on_theme_controller_theme_applied)
-            self.theme_controller.theme_detection_failed.connect(
-                self._on_theme_controller_detection_failed
-            )
-            self.theme_controller.system_theme_changed.connect(
-                self._on_theme_controller_system_theme_changed
-            )
-            self.ui_state_controller.state_saved.connect(self._on_ui_state_controller_state_saved)
-            self.ui_state_controller.state_restored.connect(
-                self._on_ui_state_controller_state_restored
-            )
-            self.ui_state_controller.accessibility_mode_changed.connect(
-                self._on_ui_state_controller_accessibility_changed
-            )
-            self.ui_state_controller.high_contrast_mode_changed.connect(
-                self._on_ui_state_controller_high_contrast_changed
-            )
-            self.ui_state_controller.language_changed.connect(
-                self._on_ui_state_controller_language_changed
-            )
-            self.message_log_controller.message_shown.connect(
-                self._on_message_log_controller_message_shown
-            )
-            self.message_log_controller.log_added.connect(self._on_message_log_controller_log_added)
-            self.message_log_controller.status_updated.connect(
-                self._on_message_log_controller_status_updated
-            )
-            logger.info("✅ 새로운 컨트롤러 시그널 연결 완료")
+            # 레거시 컨트롤러들은 새로운 서비스로 대체됨
+            # 시그널 연결은 ApplicationFacade에서 처리됨
+            logger.info("✅ 레거시 컨트롤러 시그널 연결 완료 (새 서비스로 대체됨)")
         except Exception as e:
-            logger.info(f"❌ 새로운 컨트롤러 시그널 연결 실패: {e}")
+            logger.info(f"❌ 레거시 컨트롤러 시그널 연결 실패: {e}")
 
     def _on_theme_changed(self, theme: str):
         """테마가 변경되었을 때 호출됩니다"""
@@ -444,12 +527,11 @@ class MainWindow(QMainWindow):
             src_dir = Path(__file__).parent.parent
             if str(src_dir) not in sys.path:
                 sys.path.insert(0, str(src_dir))
-            from src.gui.view_models.main_window_view_model_new import \
-                MainWindowViewModelNew
-
+            # ViewModel은 새로운 서비스 아키텍처에서 대체됨
+            # 필요한 경우 ApplicationFacade를 통해 접근
             logger.info("📋 [MainWindow] ViewModel 초기화 시작...")
-            self.view_model = MainWindowViewModelNew()
-            logger.info(f"✅ [MainWindow] ViewModel 생성됨: {id(self.view_model)}")
+            self.view_model = None  # 새로운 서비스로 대체됨
+            logger.info("✅ [MainWindow] ViewModel 대체됨 (새 서비스 사용)")
             if self.event_bus:
                 logger.info("🔗 [MainWindow] ViewModel과 EventBus 연결 중...")
             logger.info("✅ [MainWindow] ViewModel 초기화 완료")
@@ -461,22 +543,22 @@ class MainWindow(QMainWindow):
             self.view_model = None
 
     def init_data_managers(self):
-        """데이터 관리자 초기화"""
-        self.anime_data_manager = AnimeDataManager(tmdb_client=self.tmdb_client)
-        from src.core.services.unified_file_organization_service import (
-            FileOrganizationConfig, UnifiedFileOrganizationService)
-
-        config = FileOrganizationConfig(safe_mode=True, backup_before_operation=True)
-        self.file_organization_service = UnifiedFileOrganizationService(config)
-        api_key = unified_config_manager.get("services", "tmdb_api", {}).get("api_key", "")
-        self.tmdb_manager = TMDBManager(api_key=api_key)
+        """데이터 관리자 초기화 (레거시 호환성)"""
+        # 새로운 통합 서비스가 이미 초기화되어 있으므로 레거시 속성만 설정
+        if self.app_facade.data_service:
+            # 레거시 호환성을 위한 속성 설정
+            self.anime_data_manager = self.app_facade.data_service._anime_data_manager
+            self.file_organization_service = self.app_facade.data_service._file_organization_service
+            self.tmdb_manager = self.app_facade.data_service._tmdb_manager
+        else:
+            logger.warning("⚠️ 데이터 서비스가 초기화되지 않았습니다")
 
     def apply_settings_to_ui(self):
-        """설정을 UI 컴포넌트에 적용 - MainWindowSessionManager로 위임"""
-        if self.session_manager:
-            self.session_manager.apply_settings_to_ui()
+        """설정을 UI 컴포넌트에 적용"""
+        if self.app_facade.ui_service:
+            self.app_facade.ui_service.apply_settings_to_ui()
         else:
-            logger.info("⚠️ MainWindowSessionManager가 초기화되지 않았습니다")
+            logger.info("⚠️ UI 서비스가 초기화되지 않았습니다")
 
     def initialize_data(self):
         """초기 데이터 설정"""
@@ -527,18 +609,29 @@ class MainWindow(QMainWindow):
             logger.info("⚠️ MainWindowMenuActionHandler가 초기화되지 않았습니다")
 
     def on_organize_requested(self):
-        """툴바에서 정리 실행 요청 처리 - MainWindowMenuActionHandler로 위임"""
-        logger.info("🗂️ 툴바에서 정리 요청됨")
-        logger.info("📍 호출 스택:")
-        import traceback
+        """툴바에서 정리 실행 요청 처리"""
+        try:
+            logger.info("🗂️ 툴바에서 정리 요청됨")
 
-        for line in traceback.format_stack()[-3:-1]:
-            logger.info(f"   {line.strip()}")
-        if hasattr(self, "menu_action_handler") and self.menu_action_handler:
-            logger.info("✅ MainWindowMenuActionHandler 존재함")
-            self.menu_action_handler.on_organize_requested()
-        else:
-            logger.info("⚠️ MainWindowMenuActionHandler가 초기화되지 않았습니다")
+            # 소스와 대상 폴더 확인
+            if not self.source_directory or not self.destination_directory:
+                self.show_error_message("소스 폴더와 대상 폴더를 모두 선택해주세요.")
+                return
+
+            # 안전한 파일 정리 실행
+            if self.app_facade:
+                success = self.app_facade.safe_organize_files(
+                    [self.source_directory], self.destination_directory
+                )
+                if success:
+                    self.show_success_message("파일 정리가 완료되었습니다.")
+                else:
+                    self.show_error_message("파일 정리 중 오류가 발생했습니다.")
+            else:
+                logger.error("❌ 애플리케이션 파사드가 초기화되지 않았습니다")
+        except Exception as e:
+            logger.error(f"❌ 정리 요청 처리 실패: {e}")
+            self.show_error_message(f"정리 요청 처리 실패: {e}")
 
     def on_search_text_changed(self, text: str):
         """툴바에서 검색 텍스트 변경 처리 - MainWindowMenuActionHandler로 위임"""
@@ -585,25 +678,43 @@ class MainWindow(QMainWindow):
             logger.info("⚠️ MainWindowMenuActionHandler가 초기화되지 않았습니다")
 
     def on_source_folder_selected(self, folder_path: str):
-        """소스 폴더 선택 처리 - MainWindowMenuActionHandler로 위임"""
-        if hasattr(self, "menu_action_handler") and self.menu_action_handler:
-            self.menu_action_handler.on_source_folder_selected(folder_path)
-        else:
-            logger.info("⚠️ MainWindowMenuActionHandler가 초기화되지 않았습니다")
+        """소스 폴더 선택 처리"""
+        try:
+            self.source_directory = folder_path
+            self.source_files = []
+            logger.info(f"✅ 소스 폴더 선택됨: {folder_path}")
+
+            # UI 상태 업데이트
+            if self.app_facade.ui_service:
+                self.app_facade.ui_service.update_status_bar(f"소스 폴더 선택됨: {folder_path}")
+        except Exception as e:
+            logger.error(f"❌ 소스 폴더 선택 처리 실패: {e}")
 
     def on_source_files_selected(self, file_paths: list[str]):
-        """소스 파일 선택 처리 - MainWindowMenuActionHandler로 위임"""
-        if hasattr(self, "menu_action_handler") and self.menu_action_handler:
-            self.menu_action_handler.on_source_files_selected(file_paths)
-        else:
-            logger.info("⚠️ MainWindowMenuActionHandler가 초기화되지 않았습니다")
+        """소스 파일 선택 처리"""
+        try:
+            self.source_files = file_paths
+            logger.info(f"✅ 소스 파일 선택됨: {len(file_paths)}개")
+
+            # UI 상태 업데이트
+            if self.app_facade.ui_service:
+                self.app_facade.ui_service.update_status_bar(
+                    f"소스 파일 선택됨: {len(file_paths)}개"
+                )
+        except Exception as e:
+            logger.error(f"❌ 소스 파일 선택 처리 실패: {e}")
 
     def on_destination_folder_selected(self, folder_path: str):
-        """대상 폴더 선택 처리 - MainWindowMenuActionHandler로 위임"""
-        if hasattr(self, "menu_action_handler") and self.menu_action_handler:
-            self.menu_action_handler.on_destination_folder_selected(folder_path)
-        else:
-            logger.info("⚠️ MainWindowMenuActionHandler가 초기화되지 않았습니다")
+        """대상 폴더 선택 처리"""
+        try:
+            self.destination_directory = folder_path
+            logger.info(f"✅ 대상 폴더 선택됨: {folder_path}")
+
+            # UI 상태 업데이트
+            if self.app_facade.ui_service:
+                self.app_facade.ui_service.update_status_bar(f"대상 폴더 선택됨: {folder_path}")
+        except Exception as e:
+            logger.error(f"❌ 대상 폴더 선택 처리 실패: {e}")
 
     def update_scan_button_state(self):
         """스캔 시작 버튼 활성화 상태 업데이트"""
@@ -781,6 +892,8 @@ class MainWindow(QMainWindow):
             if hasattr(self, "tmdb_client"):
                 api_key = self.settings_manager.config.services.tmdb_api.api_key
                 if api_key and (not self.tmdb_client or self.tmdb_client.api_key != api_key):
+                    from src.core.tmdb_client import TMDBClient
+
                     self.tmdb_client = TMDBClient(api_key=api_key)
                     logger.info("✅ TMDBClient 재초기화 완료")
         except Exception as e:
@@ -900,24 +1013,31 @@ class MainWindow(QMainWindow):
             logger.info("⚠️ MainWindowMenuActionHandler가 초기화되지 않았습니다")
 
     def update_status_bar(self, message, progress=None):
-        """상태바 업데이트 - StatusBarManager로 위임"""
-        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
-            self.status_bar_manager.update_status_bar(message, progress)
-        else:
-            if hasattr(self, "status_label"):
-                self.status_label.setText(message)
-            if progress is not None and hasattr(self, "status_progress"):
-                self.status_progress.setValue(progress)
+        """상태바 업데이트"""
+        try:
+            if self.app_facade.ui_service:
+                self.app_facade.ui_service.update_status_bar(message, progress)
+            else:
+                # 레거시 상태바 업데이트
+                if hasattr(self, "status_label"):
+                    self.status_label.setText(message)
+                if progress is not None and hasattr(self, "status_progress"):
+                    self.status_progress.setValue(progress)
+        except Exception as e:
+            logger.error(f"❌ 상태바 업데이트 실패: {e}")
 
     def update_progress(self, current: int, total: int, message: str = ""):
-        """진행률 업데이트 - StatusBarManager로 위임"""
-        if hasattr(self, "status_bar_manager") and self.status_bar_manager:
-            self.status_bar_manager.update_progress(current, total, message)
-        elif total > 0:
-            progress = int(current / total * 100)
-            self.update_status_bar(f"{message} ({current}/{total})", progress)
-        else:
-            self.update_status_bar(message)
+        """진행률 업데이트"""
+        try:
+            if self.app_facade.ui_service:
+                self.app_facade.ui_service.update_progress(current, total, message)
+            elif total > 0:
+                progress = int(current / total * 100)
+                self.update_status_bar(f"{message} ({current}/{total})", progress)
+            else:
+                self.update_status_bar(message)
+        except Exception as e:
+            logger.error(f"❌ 진행률 업데이트 실패: {e}")
 
     def on_resize_event(self, event):
         """윈도우 크기 변경 이벤트 처리"""
@@ -969,13 +1089,14 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """프로그램 종료 시 이벤트 처리"""
         try:
-            if hasattr(self, "ui_state_controller") and self.ui_state_controller:
-                self.ui_state_controller.save_session_state()
-                logger.info("✅ 프로그램 종료 시 UI 상태 저장 완료")
+            # 통합 서비스를 통한 종료 처리
+            if self.app_facade:
+                self.app_facade.shutdown_application()
+                logger.info("✅ 애플리케이션 종료 처리 완료")
             else:
-                logger.info("⚠️ UIStateController가 초기화되지 않았습니다")
+                logger.info("⚠️ 애플리케이션 파사드가 초기화되지 않았습니다")
         except Exception as e:
-            logger.info(f"⚠️ 프로그램 종료 시 상태 저장 실패: {e}")
+            logger.error(f"❌ 프로그램 종료 시 처리 실패: {e}")
         super().closeEvent(event)
 
     def setup_log_dock(self):
@@ -1498,24 +1619,34 @@ class MainWindow(QMainWindow):
     def show_error_message(
         self, message: str, details: str = "", error_type: str = "error"
     ) -> bool:
-        """에러 메시지를 표시합니다 (새 컨트롤러 사용)"""
-        if self.message_log_controller:
-            return self.message_log_controller.show_error_message(message, details, error_type)
-        logger.info(f"❌ {message}")
-        if details:
-            logger.info(f"   상세: {details}")
-        return True
+        """에러 메시지를 표시합니다"""
+        try:
+            if self.app_facade.ui_service:
+                return self.app_facade.ui_service.show_error_message(message, details, error_type)
+            else:
+                logger.error(f"❌ {message}")
+                if details:
+                    logger.error(f"   상세: {details}")
+                return True
+        except Exception as e:
+            logger.error(f"❌ 에러 메시지 표시 실패: {e}")
+            return False
 
     def show_success_message(
         self, message: str, details: str = "", auto_clear: bool = True
     ) -> bool:
-        """성공 메시지를 표시합니다 (새 컨트롤러 사용)"""
-        if self.message_log_controller:
-            return self.message_log_controller.show_success_message(message, details, auto_clear)
-        logger.info(f"✅ {message}")
-        if details:
-            logger.info(f"   상세: {details}")
-        return True
+        """성공 메시지를 표시합니다"""
+        try:
+            if self.app_facade.ui_service:
+                return self.app_facade.ui_service.show_success_message(message, details, auto_clear)
+            else:
+                logger.info(f"✅ {message}")
+                if details:
+                    logger.info(f"   상세: {details}")
+                return True
+        except Exception as e:
+            logger.error(f"❌ 성공 메시지 표시 실패: {e}")
+            return False
 
     def show_info_message(self, message: str, details: str = "", auto_clear: bool = True) -> bool:
         """정보 메시지를 표시합니다 (새 컨트롤러 사용)"""
@@ -1525,3 +1656,159 @@ class MainWindow(QMainWindow):
         if details:
             logger.info(f"   상세: {details}")
         return True
+
+    # ===== 새로운 핵심 이벤트 핸들러 메서드들 =====
+
+    def on_scan_started(self, payload: dict):
+        """스캔 시작 이벤트 핸들러"""
+        scan_id = payload.get("scan_id", "")
+        directory_path = payload.get("directory_path", "")
+        logger.info(f"🔍 스캔 시작: {directory_path} (ID: {scan_id})")
+        self.update_status_bar(f"스캔 시작: {directory_path}")
+        self.scanning = True
+        self.progress = 0
+
+    def on_scan_progress(self, payload: dict):
+        """스캔 진행 이벤트 핸들러"""
+        progress_percent = payload.get("progress_percent", 0)
+        current_step = payload.get("current_step", "scanning")
+        processed = payload.get("processed", 0)
+        total = payload.get("total", 0)
+
+        logger.info(f"📊 스캔 진행률: {progress_percent}% - {current_step} ({processed}/{total})")
+        self.update_status_bar(f"스캔 중... {current_step} ({processed}/{total})", progress_percent)
+        self.progress = progress_percent
+
+    def on_scan_completed(self, payload: dict):
+        """스캔 완료 이벤트 핸들러"""
+        found_files = payload.get("found_files", [])
+        stats = payload.get("stats", {})
+        duration = payload.get("duration_seconds", 0)
+        status = payload.get("status", "completed")
+
+        if status == "completed":
+            logger.info(f"✅ 스캔 완료: {len(found_files)}개 파일 (소요시간: {duration:.2f}초)")
+            self.update_status_bar(f"스캔 완료: {len(found_files)}개 파일", 100)
+            self.scanning = False
+            self.progress = 100
+        else:
+            error_message = payload.get("error_message", "알 수 없는 오류")
+            logger.error(f"❌ 스캔 실패: {error_message}")
+            self.update_status_bar(f"스캔 실패: {error_message}")
+            self.scanning = False
+
+    def on_plan_created(self, payload: dict):
+        """계획 생성 이벤트 핸들러"""
+        plan_id = payload.get("plan_id", "")
+        total_operations = payload.get("total_operations", 0)
+        conflicts = payload.get("conflicts", [])
+        skips = payload.get("skips", [])
+
+        logger.info(f"📋 계획 생성 완료: {total_operations}개 작업 (ID: {plan_id})")
+        if conflicts:
+            logger.warning(f"⚠️ 충돌 발견: {len(conflicts)}개")
+        if skips:
+            logger.info(f"⏭️ 스킵 예정: {len(skips)}개")
+
+    def on_plan_validated(self, payload: dict):
+        """계획 검증 이벤트 핸들러"""
+        plan_id = payload.get("plan_id", "")
+        is_valid = payload.get("is_valid", True)
+        warnings = payload.get("warnings", [])
+
+        if is_valid:
+            logger.info(f"✅ 계획 검증 완료: {plan_id}")
+        else:
+            validation_errors = payload.get("validation_errors", [])
+            logger.error(f"❌ 계획 검증 실패: {plan_id} - {validation_errors}")
+
+    def on_organize_started(self, payload: dict):
+        """정리 시작 이벤트 핸들러"""
+        organization_id = payload.get("organization_id", "")
+        total_files = payload.get("total_files", 0)
+        estimated_duration = payload.get("estimated_duration")
+
+        logger.info(f"🚀 파일 정리 시작: {total_files}개 파일 (ID: {organization_id})")
+        if estimated_duration:
+            logger.info(f"⏱️ 예상 소요시간: {estimated_duration:.1f}초")
+        self.update_status_bar(f"파일 정리 시작: {total_files}개 파일")
+
+    def on_organize_conflict(self, payload: dict):
+        """정리 충돌 이벤트 핸들러"""
+        path = payload.get("path", "")
+        reason = payload.get("reason", "")
+        resolution_hint = payload.get("resolution_hint", "")
+
+        logger.warning(f"⚠️ 정리 충돌: {path} - {reason}")
+        if resolution_hint:
+            logger.info(f"💡 해결 힌트: {resolution_hint}")
+
+    def on_organize_skipped(self, payload: dict):
+        """정리 스킵 이벤트 핸들러"""
+        path = payload.get("path", "")
+        reason = payload.get("reason", "")
+        skip_count = payload.get("skip_count", 1)
+
+        logger.info(f"⏭️ 정리 스킵: {path} - {reason} (총 {skip_count}개)")
+
+    def on_organize_completed(self, payload: dict):
+        """정리 완료 이벤트 핸들러"""
+        organization_id = payload.get("organization_id", "")
+        moved = payload.get("moved", 0)
+        backed_up = payload.get("backed_up", 0)
+        duration = payload.get("duration", 0)
+
+        logger.info(
+            f"✅ 파일 정리 완료: {moved}개 이동, {backed_up}개 백업 (소요시간: {duration:.2f}초)"
+        )
+        self.update_status_bar(f"파일 정리 완료: {moved}개 이동")
+
+    def on_user_action_required(self, payload: dict):
+        """사용자 액션 요청 이벤트 핸들러"""
+        action_id = payload.get("action_id", "")
+        message = payload.get("message", "")
+        action_type = payload.get("action_type", "confirm")
+        options = payload.get("options", [])
+
+        logger.info(f"❓ 사용자 액션 요청: {message} (타입: {action_type})")
+
+        if action_type == "confirm":
+            from PyQt5.QtWidgets import QMessageBox
+
+            reply = QMessageBox.question(
+                self, "확인 요청", message, QMessageBox.Yes | QMessageBox.No
+            )
+            return reply == QMessageBox.Yes
+        elif action_type == "choose" and options:
+            from PyQt5.QtWidgets import QInputDialog
+
+            choice, ok = QInputDialog.getItem(self, "선택", message, options, 0, False)
+            return choice if ok else None
+
+    def on_error_occurred(self, payload: dict):
+        """오류 이벤트 핸들러"""
+        error_type = payload.get("error_type", "unknown_error")
+        message = payload.get("message", "알 수 없는 오류")
+        details = payload.get("details", "")
+        where = payload.get("where", "unknown")
+
+        logger.error(f"❌ 오류 발생 ({where}): {message}")
+        if details:
+            logger.error(f"   상세: {details}")
+
+        self.show_error_message(f"오류 발생: {message}", details)
+
+    def on_settings_changed(self, payload: dict):
+        """설정 변경 이벤트 핸들러"""
+        changed_keys = payload.get("changed_keys", [])
+        new_values = payload.get("new_values", {})
+        source = payload.get("source", "user")
+
+        logger.info(f"⚙️ 설정 변경: {', '.join(changed_keys)} (소스: {source})")
+
+        # 설정 변경에 따른 UI 업데이트
+        if "theme" in changed_keys:
+            self._apply_theme()
+        if "language" in changed_keys:
+            # 언어 변경 처리
+            pass

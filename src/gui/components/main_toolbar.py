@@ -10,7 +10,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QPalette
 from PyQt5.QtWidgets import (QAction, QApplication, QFrame, QHBoxLayout,
                              QLabel, QLineEdit, QProgressBar, QPushButton,
-                             QSizePolicy, QWidget)
+                             QSizePolicy, QToolBar)
 
 
 class StatusBadge(QFrame):
@@ -102,7 +102,7 @@ class StatusBadge(QFrame):
             )
 
 
-class MainToolbar(QWidget):
+class MainToolbar(QToolBar):
     """메인 윈도우 상단 툴바 - Phase 1 리팩토링"""
 
     scan_requested = pyqtSignal()
@@ -120,18 +120,16 @@ class MainToolbar(QWidget):
 
     def init_ui(self):
         """UI 초기화"""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 8, 12, 8)
-        layout.setSpacing(8)
-        self.create_action_buttons(layout)
-        layout.addWidget(self.create_separator())
-        self.create_search_section(layout)
-        layout.addWidget(self.create_separator())
-        self.create_right_section(layout)
+        # QToolBar는 레이아웃 대신 위젯을 직접 추가
+        self.create_action_buttons()
+        self.addSeparator()
+        self.create_search_section()
+        self.addSeparator()
+        self.create_right_section()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         QApplication.instance().paletteChanged.connect(self.on_palette_changed)
 
-    def create_action_buttons(self, layout):
+    def create_action_buttons(self):
         """액션 버튼 그룹 생성"""
         self.btn_scan = QPushButton("🔍 스캔")
         self.btn_scan.setToolTip("소스 디렉토리 스캔 (F5)")
@@ -151,11 +149,11 @@ class MainToolbar(QWidget):
         self.btn_organize.clicked.connect(self.organize_requested.emit)
         self.btn_organize.setMinimumHeight(32)
         self.btn_organize.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        layout.addWidget(self.btn_scan)
-        layout.addWidget(self.btn_preview)
-        layout.addWidget(self.btn_organize)
+        self.addWidget(self.btn_scan)
+        self.addWidget(self.btn_preview)
+        self.addWidget(self.btn_organize)
 
-    def create_search_section(self, layout):
+    def create_search_section(self):
         """검색 섹션 생성"""
         search_label = QLabel("🔍")
         search_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -166,10 +164,10 @@ class MainToolbar(QWidget):
         self.search_input.setMinimumHeight(28)
         self.search_input.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.search_input.textChanged.connect(self.search_text_changed.emit)
-        layout.addWidget(search_label)
-        layout.addWidget(self.search_input)
+        self.addWidget(search_label)
+        self.addWidget(self.search_input)
 
-    def create_right_section(self, layout):
+    def create_right_section(self):
         """우측 섹션 생성"""
         self.progress_bar = QProgressBar()
         self.progress_bar.setMaximumWidth(200)
@@ -178,7 +176,7 @@ class MainToolbar(QWidget):
         self.progress_bar.setVisible(False)
         self.progress_bar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.status_badge = StatusBadge()
-        self.create_panel_toggle_buttons(layout)
+        self.create_panel_toggle_buttons()
         self.btn_settings = QPushButton("⚙️")
         self.btn_settings.setToolTip("설정")
         self.btn_settings.setStyleSheet(self.get_button_style("#6c757d"))
@@ -186,11 +184,11 @@ class MainToolbar(QWidget):
         self.btn_settings.setMinimumHeight(28)
         self.btn_settings.setMaximumWidth(40)
         self.btn_settings.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        layout.addWidget(self.progress_bar)
-        layout.addWidget(self.status_badge)
-        layout.addWidget(self.btn_settings)
+        self.addWidget(self.progress_bar)
+        self.addWidget(self.status_badge)
+        self.addWidget(self.btn_settings)
 
-    def create_panel_toggle_buttons(self, layout):
+    def create_panel_toggle_buttons(self):
         """패널 토글 버튼들 생성"""
         self.btn_detail_toggle = QPushButton("📋 상세")
         self.btn_detail_toggle.setToolTip("상세 패널 토글 (Alt+I)")
@@ -208,8 +206,8 @@ class MainToolbar(QWidget):
         self.btn_file_toggle.clicked.connect(self.on_file_toggle_clicked)
         self.btn_file_toggle.setMinimumHeight(28)
         self.btn_file_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        layout.addWidget(self.btn_detail_toggle)
-        layout.addWidget(self.btn_file_toggle)
+        self.addWidget(self.btn_detail_toggle)
+        self.addWidget(self.btn_file_toggle)
 
     def on_detail_toggle_clicked(self):
         """상세 패널 토글 클릭"""

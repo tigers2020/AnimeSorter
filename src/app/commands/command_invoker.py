@@ -15,12 +15,9 @@ from PyQt5.QtWidgets import QUndoStack
 
 from src.app.commands.base_command import (CommandError, CommandResult,
                                            CommandStatus, ICommand)
-from src.app.commands.command_events import (CommandExecutedEvent,
-                                             CommandFailedEvent,
-                                             CommandQueueUpdatedEvent,
-                                             CommandRedoneEvent,
-                                             CommandUndoneEvent)
-from src.app.events import get_event_bus
+# command_events 모듈이 없으므로 새로운 이벤트 시스템 사용
+from src.core.events.event_publisher import event_publisher
+from src.core.unified_event_system import get_unified_event_bus
 
 
 class ICommandInvoker(Protocol):
@@ -63,7 +60,7 @@ class CommandInvoker(QObject):
     def __init__(self, event_bus=None):
         super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.event_bus = event_bus or get_event_bus()
+        self.event_bus = event_bus or get_unified_event_bus()
         self.undo_stack = QUndoStack(self)
         self._executed_commands: list[ICommand] = []
         self._command_history: dict[UUID, CommandResult] = {}
@@ -199,70 +196,42 @@ class CommandInvoker(QObject):
         self.queue_updated.emit(0, stats["can_undo_count"], stats["can_redo_count"])
 
     def _on_command_executed_signal(self, command_id: UUID, description: str) -> None:
-        """Command 실행 완료 시그널 → EventBus 이벤트"""
-        if self.event_bus and command_id in self._command_history:
+        """Command 실행 완료 시그널 → 새로운 이벤트 시스템"""
+        if command_id in self._command_history:
             result = self._command_history[command_id]
-            self.event_bus.publish(
-                CommandExecutedEvent(
-                    command_id=command_id,
-                    command_type=type(result).__name__,
-                    description=description,
-                    result=result,
-                    affected_files=result.affected_files,
-                    execution_time_ms=result.execution_time_ms or 0.0,
-                )
-            )
+            # 새로운 이벤트 시스템으로 변경 - 로그만 남김
+            logger.info(f"Command executed: {command_id} - {description}")
+            # 필요시 event_publisher.publish_organize_completed() 등을 사용
 
     def _on_command_failed_signal(self, command_id: UUID, description: str, error: str) -> None:
-        """Command 실행 실패 시그널 → EventBus 이벤트"""
-        if self.event_bus:
-            self.event_bus.publish(
-                CommandFailedEvent(
-                    command_id=command_id,
-                    command_type="Unknown",
-                    description=description,
-                    error_type="ExecutionError",
-                    error_message=error,
-                )
-            )
+        """Command 실행 실패 시그널 → 새로운 이벤트 시스템"""
+        # 새로운 이벤트 시스템으로 변경
+        event_publisher.publish_error(
+            error_id=str(command_id),
+            error_type="file_operation_error",
+            message=f"Command failed: {description}",
+            details=error,
+            where="command_execution",
+        )
 
     def _on_command_undone_signal(self, command_id: UUID, description: str) -> None:
-        """Command 취소 시그널 → EventBus 이벤트"""
-        if self.event_bus and command_id in self._command_history:
+        """Command 취소 시그널 → 새로운 이벤트 시스템"""
+        if command_id in self._command_history:
             result = self._command_history[command_id]
-            self.event_bus.publish(
-                CommandUndoneEvent(
-                    command_id=command_id,
-                    command_type=type(result).__name__,
-                    description=description,
-                    result=result,
-                    undo_time_ms=0.0,
-                )
-            )
+            # 새로운 이벤트 시스템으로 변경 - 로그만 남김
+            logger.info(f"Command undone: {command_id} - {description}")
+            # 필요시 event_publisher.publish_user_action_required() 등을 사용
 
     def _on_command_redone_signal(self, command_id: UUID, description: str) -> None:
-        """Command 재실행 시그널 → EventBus 이벤트"""
-        if self.event_bus and command_id in self._command_history:
+        """Command 재실행 시그널 → 새로운 이벤트 시스템"""
+        if command_id in self._command_history:
             result = self._command_history[command_id]
-            self.event_bus.publish(
-                CommandRedoneEvent(
-                    command_id=command_id,
-                    command_type=type(result).__name__,
-                    description=description,
-                    result=result,
-                    redo_time_ms=0.0,
-                )
-            )
+            # 새로운 이벤트 시스템으로 변경 - 로그만 남김
+            logger.info(f"Command redone: {command_id} - {description}")
+            # 필요시 event_publisher.publish_user_action_required() 등을 사용
 
     def _on_queue_updated_signal(self, pending: int, can_undo: int, can_redo: int) -> None:
-        """큐 상태 업데이트 시그널 → EventBus 이벤트"""
-        if self.event_bus:
-            self.event_bus.publish(
-                CommandQueueUpdatedEvent(
-                    queue_size=len(self._executed_commands),
-                    pending_commands=pending,
-                    executing_commands=0,
-                    can_undo_count=can_undo,
-                    can_redo_count=can_redo,
-                )
-            )
+        """큐 상태 업데이트 시그널 → 새로운 이벤트 시스템"""
+        # 새로운 이벤트 시스템으로 변경 - 로그만 남김
+        logger.debug(f"Queue updated: pending={pending}, can_undo={can_undo}, can_redo={can_redo}")
+        # 필요시 event_publisher.publish_settings_changed() 등을 사용

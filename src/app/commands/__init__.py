@@ -9,10 +9,11 @@ import logging
 logger = logging.getLogger(__name__)
 from .base_command import (BaseCommand, CommandError, CommandResult,
                            CommandStatus, ICommand)
-from .command_events import (BatchCommandCompletedEvent,
-                             BatchCommandStartedEvent, CommandExecutedEvent,
-                             CommandFailedEvent, CommandRedoneEvent,
-                             CommandUndoneEvent)
+# command_events 모듈이 없으므로 주석 처리
+# from .command_events import (BatchCommandCompletedEvent,
+#                              BatchCommandStartedEvent, CommandExecutedEvent,
+#                              CommandFailedEvent, CommandRedoneEvent,
+#                              CommandUndoneEvent)
 from .command_invoker import CommandInvoker, ICommandInvoker
 from .composite_commands import (BatchFileOperationCommand,
                                  BatchOperationConfig, ConditionalCommand)
@@ -36,10 +37,11 @@ __all__ = [
     "BatchOperationConfig",
     "CommandInvoker",
     "ICommandInvoker",
-    "CommandExecutedEvent",
-    "CommandUndoneEvent",
-    "CommandRedoneEvent",
-    "CommandFailedEvent",
-    "BatchCommandStartedEvent",
-    "BatchCommandCompletedEvent",
+    # command_events 모듈이 없으므로 주석 처리
+    # "CommandExecutedEvent",
+    # "CommandUndoneEvent",
+    # "CommandRedoneEvent",
+    # "CommandFailedEvent",
+    # "BatchCommandStartedEvent",
+    # "BatchCommandCompletedEvent",
 ]

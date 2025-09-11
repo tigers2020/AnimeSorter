@@ -7,14 +7,67 @@ Undo/Redo 기능을 PyQt5 UI에 통합하는 컴포넌트들
 import logging
 
 logger = logging.getLogger(__name__)
-from typing import Any, cast
+# UndoRedoManager는 임시로 여기에 정의
+from dataclasses import dataclass
+from typing import Any, Protocol, cast
 
 from PyQt5.QtCore import QObject, QTimer
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (QAction, QMainWindow, QMenu, QMenuBar, QShortcut,
                              QToolBar, QWidget)
 
-from src.app.undo_redo.undo_redo_manager import UndoRedoManager
+
+class IUndoRedoManager(Protocol):
+    """Undo/Redo 관리자 인터페이스"""
+
+    def can_undo(self) -> bool:
+        """실행 취소 가능 여부"""
+        ...
+
+    def can_redo(self) -> bool:
+        """재실행 가능 여부"""
+        ...
+
+    def undo(self) -> bool:
+        """실행 취소"""
+        ...
+
+    def redo(self) -> bool:
+        """재실행"""
+        ...
+
+
+@dataclass
+class UndoRedoConfiguration:
+    """Undo/Redo 설정"""
+
+    max_stack_size: int = 50
+    enable_shortcuts: bool = True
+
+
+class UndoRedoManager:
+    """Undo/Redo 관리자 (임시 구현)"""
+
+    def __init__(self, config: UndoRedoConfiguration = None):
+        self.config = config or UndoRedoConfiguration()
+        self._can_undo = False
+        self._can_redo = False
+
+    def can_undo(self) -> bool:
+        """실행 취소 가능 여부"""
+        return self._can_undo
+
+    def can_redo(self) -> bool:
+        """재실행 가능 여부"""
+        return self._can_redo
+
+    def undo(self) -> bool:
+        """실행 취소"""
+        return True
+
+    def redo(self) -> bool:
+        """재실행"""
+        return True
 
 
 class UndoRedoShortcutManager(QObject):

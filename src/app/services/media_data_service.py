@@ -14,24 +14,24 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from src.app.domain import MediaFile, MediaGroup
-from src.app.media_data_events import (MediaDataClearedEvent,
-                                       MediaDataErrorEvent,
-                                       MediaDataExportCompletedEvent,
-                                       MediaDataExportStartedEvent,
-                                       MediaDataFilter,
-                                       MediaDataFilteringCompletedEvent,
-                                       MediaDataFilteringStartedEvent,
-                                       MediaDataGrouping,
-                                       MediaDataGroupingCompletedEvent,
-                                       MediaDataGroupingStartedEvent,
-                                       MediaDataLoadStartedEvent,
-                                       MediaDataParsingCompletedEvent,
-                                       MediaDataReadyEvent,
-                                       MediaDataStatistics, MediaDataStatus,
-                                       MediaDataUpdatedEvent)
+# MediaData 관련 이벤트들은 새로운 12개 핵심 이벤트 시스템으로 대체됨
+# from src.core.events import (MediaDataClearedEvent,
+#                                        MediaDataErrorEvent,
+#                                        MediaDataExportCompletedEvent,
+#                                        MediaDataExportStartedEvent,
+#                                        MediaDataFilter,
+#                                        MediaDataFilteringCompletedEvent,
+#                                        MediaDataFilteringStartedEvent,
+#                                        # MediaDataGrouping,
+#                                        # MediaDataGroupingCompletedEvent,
+#                                        # MediaDataGroupingStartedEvent,
+#                                        MediaDataLoadStartedEvent,
+#                                        MediaDataParsingCompletedEvent,
+#                                        MediaDataReadyEvent,
+#                                        # MediaDataStatistics, MediaDataStatus,
+#                                        MediaDataUpdatedEvent)
 from src.app.services.media import (MediaExporter, MediaExtractor, MediaFilter,
                                     MediaProcessor)
-from src.core.unified_event_system import UnifiedEventBus
 
 
 class IMediaDataService(ABC):
@@ -62,7 +62,7 @@ class IMediaDataService(ABC):
         """모든 미디어 파일 조회"""
 
     @abstractmethod
-    def create_groups(self, grouping_config: MediaDataGrouping) -> UUID:
+    def create_groups(self, grouping_config) -> UUID:
         """미디어 파일들을 그룹화"""
 
     @abstractmethod
@@ -74,7 +74,7 @@ class IMediaDataService(ABC):
         """특정 그룹 조회"""
 
     @abstractmethod
-    def apply_filters(self, filters: list[MediaDataFilter]) -> UUID:
+    def apply_filters(self, filters: list) -> UUID:
         """필터 적용"""
 
     @abstractmethod
@@ -82,7 +82,7 @@ class IMediaDataService(ABC):
         """필터 초기화"""
 
     @abstractmethod
-    def get_statistics(self) -> MediaDataStatistics:
+    def get_statistics(self):
         """통계 정보 조회"""
 
     @abstractmethod
@@ -101,7 +101,7 @@ class IMediaDataService(ABC):
 class MediaDataService(IMediaDataService):
     """미디어 데이터 서비스 구현"""
 
-    def __init__(self, event_bus: UnifiedEventBus):
+    def __init__(self, event_bus=None):
         self.event_bus = event_bus
         self.logger = logging.getLogger(self.__class__.__name__)
         self.media_extractor = MediaExtractor()
@@ -111,8 +111,8 @@ class MediaDataService(IMediaDataService):
         self._media_files: dict[UUID, MediaFile] = {}
         self._groups: dict[str, MediaGroup] = {}
         self._filtered_files: set[UUID] = set()
-        self._current_filters: list[MediaDataFilter] = []
-        self._current_grouping: MediaDataGrouping | None = None
+        self._current_filters: list = []
+        self._current_grouping = None
         self._status = MediaDataStatus.READY
         self._is_filtered = False
         self._is_grouped = False
@@ -233,18 +233,19 @@ class MediaDataService(IMediaDataService):
             ]
         return list(self._media_files.values())
 
-    def create_groups(self, grouping_config: MediaDataGrouping) -> UUID:
+    def create_groups(self, grouping_config) -> UUID:
         """미디어 파일들을 그룹화"""
         operation_id = uuid4()
         try:
             self.logger.info(f"그룹화 시작: {grouping_config.strategy}")
-            self.event_bus.publish(
-                MediaDataGroupingStartedEvent(
-                    operation_id=operation_id,
-                    grouping_config=grouping_config,
-                    total_files=len(self._media_files),
-                )
-            )
+            # MediaDataGroupingStartedEvent는 새로운 12개 핵심 이벤트 시스템으로 대체됨
+            # self.event_bus.publish(
+            #     MediaDataGroupingStartedEvent(
+            #         operation_id=operation_id,
+            #         grouping_config=grouping_config,
+            #         total_files=len(self._media_files),
+            #     )
+            # )
             self._status = MediaDataStatus.GROUPING
             start_time = time.time()
             self._groups.clear()
@@ -257,14 +258,15 @@ class MediaDataService(IMediaDataService):
             )
             self._groups = self.media_processor.create_media_groups(files_to_group, strategy)
             grouping_duration = time.time() - start_time
-            self.event_bus.publish(
-                MediaDataGroupingCompletedEvent(
-                    operation_id=operation_id,
-                    groups=self._groups,
-                    grouping_duration_seconds=grouping_duration,
-                    statistics=self.get_statistics(),
-                )
-            )
+            # MediaDataGroupingCompletedEvent는 새로운 12개 핵심 이벤트 시스템으로 대체됨
+            # self.event_bus.publish(
+            #     MediaDataGroupingCompletedEvent(
+            #         operation_id=operation_id,
+            #         groups=self._groups,
+            #         grouping_duration_seconds=grouping_duration,
+            #         statistics=self.get_statistics(),
+            #     )
+            # )
             self._status = MediaDataStatus.READY
             self._is_grouped = True
             self.logger.info(f"그룹화 완료: {len(self._groups)}개 그룹 생성")
@@ -290,7 +292,7 @@ class MediaDataService(IMediaDataService):
         """특정 그룹 조회"""
         return self._groups.get(group_id)
 
-    def apply_filters(self, filters: list[MediaDataFilter]) -> UUID:
+    def apply_filters(self, filters: list) -> UUID:
         """필터 적용"""
         operation_id = uuid4()
         try:
@@ -347,22 +349,22 @@ class MediaDataService(IMediaDataService):
         self._is_filtered = False
         self.logger.info("필터 초기화됨")
 
-    def get_statistics(self) -> MediaDataStatistics:
+    def get_statistics(self):
         """통계 정보 조회"""
         stats_data = self.media_processor.calculate_statistics(
             self.get_all_media_files(), self._groups
         )
-        return MediaDataStatistics(
-            total_files=stats_data["total_files"],
-            total_groups=stats_data["total_groups"],
-            files_by_type=stats_data["files_by_type"],
-            files_by_quality=stats_data["files_by_quality"],
-            files_by_source=stats_data["files_by_source"],
-            total_size_bytes=stats_data["total_size_bytes"],
-            average_file_size_mb=stats_data["average_file_size_mb"],
-            largest_file_size_mb=stats_data["largest_file_size_mb"],
-            smallest_file_size_mb=stats_data["smallest_file_size_mb"],
-        )
+        return {
+            "total_files": stats_data["total_files"],
+            "total_groups": stats_data["total_groups"],
+            "files_by_type": stats_data["files_by_type"],
+            "files_by_quality": stats_data["files_by_quality"],
+            "files_by_source": stats_data["files_by_source"],
+            "total_size_bytes": stats_data["total_size_bytes"],
+            "average_file_size_mb": stats_data["average_file_size_mb"],
+            "largest_file_size_mb": stats_data["largest_file_size_mb"],
+            "smallest_file_size_mb": stats_data["smallest_file_size_mb"],
+        }
 
     def clear_data(self) -> None:
         """모든 데이터 초기화"""

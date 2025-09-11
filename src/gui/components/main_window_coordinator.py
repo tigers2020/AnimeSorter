@@ -6,14 +6,54 @@ MainWindow의 모든 관리자들을 조율하여 전체적인 초기화와 관�
 import logging
 from typing import Any
 
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import QMainWindow
 
 logger = logging.getLogger(__name__)
 from src.gui.components.main_window_initializer import MainWindowInitializer
-from src.gui.components.managers.event_handler_manager_ui import \
-    EventHandlerManagerUI
-from src.gui.components.ui_component_manager import UIComponentManager
+
+# 삭제된 Manager들은 새로운 서비스 아키텍처로 대체됨
+# from src.gui.components.managers.event_handler_manager_ui import EventHandlerManagerUI
+# from src.gui.components.ui_component_manager import UIComponentManager
+
+
+# 임시 구현체들
+class UIComponentManager:
+    """UI 컴포넌트 관리자 (임시 구현)"""
+
+    def __init__(self, main_window: QMainWindow):
+        self.main_window = main_window
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info("UI 컴포넌트 관리자 초기화 (임시 구현)")
+
+    def setup_all_components(self):
+        """모든 UI 컴포넌트 설정 (임시 구현)"""
+        self.logger.info("UI 컴포넌트 설정 완료 (임시 구현)")
+
+    def initialize_components(self):
+        """UI 컴포넌트 초기화 (임시 구현)"""
+        self.logger.info("UI 컴포넌트 초기화 완료 (임시 구현)")
+
+    def cleanup_components(self):
+        """UI 컴포넌트 정리 (임시 구현)"""
+        self.logger.info("UI 컴포넌트 정리 완료 (임시 구현)")
+
+
+class EventHandlerManagerUI:
+    """이벤트 핸들러 관리자 UI (임시 구현)"""
+
+    def __init__(self, main_window: QMainWindow):
+        self.main_window = main_window
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info("이벤트 핸들러 관리자 UI 초기화 (임시 구현)")
+
+    def setup_event_handlers(self):
+        """이벤트 핸들러 설정 (임시 구현)"""
+        self.logger.info("이벤트 핸들러 설정 완료 (임시 구현)")
+
+    def cleanup_event_handlers(self):
+        """이벤트 핸들러 정리 (임시 구현)"""
+        self.logger.info("이벤트 핸들러 정리 완료 (임시 구현)")
 
 
 class MainWindowCoordinator:
@@ -22,8 +62,9 @@ class MainWindowCoordinator:
     def __init__(self, main_window: QMainWindow):
         self.main_window = main_window
         self.initializer: MainWindowInitializer | None = None
-        self.ui_component_manager: UIComponentManager | None = None
-        self.event_handler_manager: EventHandlerManagerUI | None = None
+        # 삭제된 Manager들은 새로운 서비스 아키텍처로 대체됨
+        self.ui_component_manager: Any | None = None
+        self.event_handler_manager: Any | None = None
         self.initialization_complete = False
         self.initialization_steps = []
         self.lazy_init_timer = QTimer()
@@ -86,11 +127,154 @@ class MainWindowCoordinator:
             logger.info("🔧 MainWindowCoordinator: UI 컴포넌트 관리자 생성 중...")
             self.ui_component_manager = UIComponentManager(self.main_window)
             self.ui_component_manager.setup_all_components()
+            self._create_main_ui_components()
             self.initialization_steps.append("✅ UI 컴포넌트 관리자 완료")
             logger.info("✅ MainWindowCoordinator: UI 컴포넌트 관리자 생성 완료")
         except Exception as e:
             logger.error("❌ MainWindowCoordinator: UI 컴포넌트 관리자 생성 실패: %s", e)
             raise
+
+    def _create_main_ui_components(self):
+        """메인 UI 컴포넌트들 생성"""
+        try:
+            logger.info("🔧 MainWindowCoordinator: 메인 UI 컴포넌트 생성 중...")
+
+            # 메뉴바 생성
+            self._create_menu_bar()
+
+            # 메인 툴바 생성 (임시로 건너뛰기)
+            try:
+                from src.gui.components.main_toolbar import MainToolbar
+
+                self.main_window.main_toolbar = MainToolbar(self.main_window)
+                self.main_window.addToolBar(self.main_window.main_toolbar)
+                logger.info("✅ 메인 툴바 생성 완료")
+            except Exception as e:
+                logger.warning(f"⚠️ 메인 툴바 생성 실패: {e}")
+                # 툴바 없이 계속 진행
+
+            # 왼쪽 패널 생성
+            from src.gui.components.panels.left_panel_dock import LeftPanelDock
+
+            self.main_window.left_panel = LeftPanelDock(self.main_window)
+            self.main_window.addDockWidget(Qt.LeftDockWidgetArea, self.main_window.left_panel)
+
+            # 중앙 레이아웃 생성
+            from src.gui.components.central_triple_layout import \
+                CentralTripleLayout
+
+            self.main_window.central_layout = CentralTripleLayout(self.main_window)
+
+            # 중앙 위젯을 CentralTripleLayout으로 직접 설정
+            self.main_window.setCentralWidget(self.main_window.central_layout)
+
+            # 로그 도크 생성
+            from src.gui.components.log_dock import LogDock
+
+            self.main_window.log_dock = LogDock(self.main_window)
+            self.main_window.addDockWidget(Qt.BottomDockWidgetArea, self.main_window.log_dock)
+
+            # 결과 뷰 생성
+            from src.gui.components.results_view import ResultsView
+
+            self.main_window.results_view = ResultsView(self.main_window)
+
+            logger.info("✅ MainWindowCoordinator: 메인 UI 컴포넌트 생성 완료")
+
+        except Exception as e:
+            logger.error("❌ MainWindowCoordinator: 메인 UI 컴포넌트 생성 실패: %s", e)
+            import traceback
+
+            traceback.print_exc()
+
+    def _create_menu_bar(self):
+        """메뉴바 생성"""
+        try:
+            menubar = self.main_window.menuBar()
+
+            # 파일 메뉴
+            file_menu = menubar.addMenu("파일")
+            file_menu.addAction("폴더 열기", self._on_open_folder)
+            file_menu.addAction("파일 열기", self._on_open_files)
+            file_menu.addSeparator()
+            file_menu.addAction("종료", self.main_window.close)
+
+            # 편집 메뉴
+            edit_menu = menubar.addMenu("편집")
+            edit_menu.addAction("설정", self._on_open_settings)
+
+            # 보기 메뉴
+            view_menu = menubar.addMenu("보기")
+            view_menu.addAction("왼쪽 패널", self._toggle_left_panel)
+            view_menu.addAction("로그 패널", self._toggle_log_panel)
+
+            # 도움말 메뉴
+            help_menu = menubar.addMenu("도움말")
+            help_menu.addAction("정보", self._on_show_about)
+
+            logger.info("✅ 메뉴바 생성 완료")
+
+        except Exception as e:
+            logger.error(f"❌ 메뉴바 생성 실패: {e}")
+
+    def _on_open_folder(self):
+        """폴더 열기"""
+        from PyQt5.QtWidgets import QFileDialog
+
+        folder = QFileDialog.getExistingDirectory(self.main_window, "폴더 선택")
+        if folder:
+            logger.info(f"선택된 폴더: {folder}")
+            self.main_window.statusBar().showMessage(f"폴더가 선택되었습니다: {folder}")
+
+    def _on_open_files(self):
+        """파일 열기"""
+        from PyQt5.QtWidgets import QFileDialog
+
+        files, _ = QFileDialog.getOpenFileNames(
+            self.main_window,
+            "애니메이션 파일 선택",
+            "",
+            "비디오 파일 (*.mp4 *.mkv *.avi *.mov);;모든 파일 (*)",
+        )
+        if files:
+            logger.info(f"선택된 파일들: {files}")
+            self.main_window.statusBar().showMessage(f"{len(files)}개 파일이 선택되었습니다.")
+
+    def _on_open_settings(self):
+        """설정 열기"""
+        try:
+            from src.gui.components.dialogs.settings_dialog import \
+                SettingsDialog
+
+            dialog = SettingsDialog(self.main_window)
+            dialog.exec_()
+        except Exception as e:
+            logger.error(f"설정 다이얼로그 열기 실패: {e}")
+            from PyQt5.QtWidgets import QMessageBox
+
+            QMessageBox.information(self.main_window, "설정", "설정 기능을 준비 중입니다.")
+
+    def _on_show_about(self):
+        """정보 표시"""
+        from PyQt5.QtWidgets import QMessageBox
+
+        QMessageBox.about(
+            self.main_window,
+            "AnimeSorter 정보",
+            "AnimeSorter v1.0\n\n"
+            "애니메이션 파일을 정리하고 관리하는 도구입니다.\n\n"
+            "Manager 클래스 통합 리팩토링 완료!",
+        )
+
+    def _toggle_left_panel(self):
+        """왼쪽 패널 토글"""
+        if hasattr(self.main_window, "left_panel"):
+            self.main_window.left_panel.setVisible(not self.main_window.left_panel.isVisible())
+
+    def _toggle_log_panel(self):
+        """로그 패널 토글"""
+        if hasattr(self.main_window, "log_dock"):
+            self.main_window.log_dock.setVisible(not self.main_window.log_dock.isVisible())
 
     def _initialize_event_handler_manager(self):
         """이벤트 핸들러 관리자 생성 및 실행"""

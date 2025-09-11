@@ -11,11 +11,13 @@ import threading
 from typing import TypeVar
 
 from src.app.container import get_container
-from src.app.events import get_event_bus
 # Journal 시스템 제거됨
 from src.app.preflight import IPreflightCoordinator, PreflightCoordinator
-from src.app.safety import (IInterruptionManager, InterruptionManager,
-                            ISafetyManager, SafetyConfiguration, SafetyManager)
+from src.app.undo_redo import UndoRedoConfiguration
+from src.core.unified_event_system import get_unified_event_bus
+
+# Safety 모듈은 새로운 서비스 아키텍처로 대체됨
+# from src.app.safety import ...
 
 
 def setup_application_services() -> None:
@@ -32,25 +34,28 @@ def setup_application_services() -> None:
         # 제거된 서비스들 - 필요시 실제 구현체로 교체
         # BackgroundTaskService, UIUpdateService, MediaDataService는 제거됨
         # Journal 시스템 제거됨
-        if not container.is_registered(ISafetyManager):
-
-            def create_safety_manager():
-                config = container.resolve(SafetyConfiguration)
-                return SafetyManager(config)
-
-            container.register_singleton(ISafetyManager, factory=create_safety_manager)
-            logger.info("ISafetyManager가 SafetyManager로 등록되었습니다")
         if not container.is_registered(IPreflightCoordinator):
             container.register_singleton(IPreflightCoordinator, PreflightCoordinator)
             logger.info("IPreflightCoordinator가 PreflightCoordinator로 등록되었습니다")
-        # Journal 시스템 제거됨
-        if not container.is_registered(SafetyConfiguration):
-            container.register_singleton(SafetyConfiguration, factory=lambda: SafetyConfiguration())
-            logger.info("SafetyConfiguration이 등록되었습니다")
-        # 미구현 스텁 코드 제거됨 - 필요시 실제 구현체로 교체
-        if not container.is_registered(IInterruptionManager):
-            container.register_singleton(IInterruptionManager, InterruptionManager)
-            logger.info("IInterruptionManager가 InterruptionManager로 등록되었습니다")
+        # 누락된 의존성들 등록
+        from src.app.commands import CommandInvoker, ICommandInvoker
+        from src.app.undo_redo import IUndoRedoManager, UndoRedoManager
+
+        if not container.is_registered(ICommandInvoker):
+            container.register_singleton(ICommandInvoker, CommandInvoker)
+            logger.info("ICommandInvoker가 CommandInvoker로 등록되었습니다")
+
+        if not container.is_registered(IUndoRedoManager):
+            container.register_singleton(IUndoRedoManager, UndoRedoManager)
+            logger.info("IUndoRedoManager가 UndoRedoManager로 등록되었습니다")
+
+        # UndoRedoConfiguration 등록
+        if not container.is_registered(UndoRedoConfiguration):
+            container.register_singleton(UndoRedoConfiguration, UndoRedoConfiguration)
+            logger.info("UndoRedoConfiguration이 등록되었습니다")
+
+        # Safety 관련 서비스들은 새로운 서비스 아키텍처로 대체됨
+        # ApplicationFacade를 통해 접근
         logger.info("애플리케이션 서비스 등록 완료")
     except Exception as e:
         logger.error(f"애플리케이션 서비스 등록 실패: {e}")
@@ -84,7 +89,7 @@ def initialize_application() -> None:
     try:
         logger.info("애플리케이션 초기화 시작")
         setup_application_services()
-        event_bus = get_event_bus()
+        event_bus = get_unified_event_bus()
         logger.info("EventBus 인스턴스 생성: %s", id(event_bus))
         logger.info("DI Container EventBus를 전역 EventBus로 동기화 완료")
         # 제거된 서비스들 - 필요시 실제 구현체로 교체

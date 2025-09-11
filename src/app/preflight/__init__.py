@@ -14,11 +14,14 @@ from .file_checkers import (CircularReferenceChecker, DiskSpaceChecker,
                             PathValidityChecker, PermissionChecker)
 from .preflight_coordinator import (IPreflightCoordinator,
                                     PreflightCheckResult, PreflightCoordinator)
-from .preflight_events import (BatchPreflightCompletedEvent,
-                               BatchPreflightStartedEvent,
-                               PreflightCheckFailedEvent,
-                               PreflightCompletedEvent,
-                               PreflightIssueFoundEvent, PreflightStartedEvent)
+
+# preflight_events 모듈이 없으므로 주석 처리
+# from .preflight_events import (BatchPreflightCompletedEvent,
+#                                BatchPreflightStartedEvent,
+#                                PreflightCheckFailedEvent,
+#                                PreflightCompletedEvent,
+#                                PreflightIssueFoundEvent,
+#                                PreflightStartedEvent)
 
 __all__ = [
     "BasePreflightChecker",
@@ -35,10 +38,11 @@ __all__ = [
     "PreflightCoordinator",
     "IPreflightCoordinator",
     "PreflightCheckResult",
-    "PreflightStartedEvent",
-    "PreflightCompletedEvent",
-    "PreflightIssueFoundEvent",
-    "PreflightCheckFailedEvent",
-    "BatchPreflightStartedEvent",
-    "BatchPreflightCompletedEvent",
+    # preflight_events 모듈이 없으므로 주석 처리
+    # "PreflightStartedEvent",
+    # "PreflightCompletedEvent",
+    # "PreflightIssueFoundEvent",
+    # "PreflightCheckFailedEvent",
+    # "BatchPreflightStartedEvent",
+    # "BatchPreflightCompletedEvent",
 ]

@@ -11,7 +11,9 @@ from uuid import UUID
 
 from src.app.domain import (MediaFile, MediaGroup, MediaQuality, MediaSource,
                             MediaType)
-from src.app.media_data_events import MediaDataFilter
+
+# MediaDataFilter는 새로운 12개 핵심 이벤트 시스템으로 대체됨
+# from src.core.events import MediaDataFilter
 
 
 class MediaFilter:
@@ -20,7 +22,7 @@ class MediaFilter:
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def apply_filters(self, files: list[MediaFile], filters: list[MediaDataFilter]) -> list[UUID]:
+    def apply_filters(self, files: list[MediaFile], filters: list) -> list[UUID]:
         """파일에 필터를 적용하여 통과한 파일 ID 목록을 반환합니다."""
         try:
             if not filters:
@@ -35,11 +37,11 @@ class MediaFilter:
             self.logger.error(f"필터링 실패: {e}")
             return [file.id for file in files]
 
-    def _file_passes_all_filters(self, file: MediaFile, filters: list[MediaDataFilter]) -> bool:
+    def _file_passes_all_filters(self, file: MediaFile, filters: list) -> bool:
         """파일이 모든 필터를 통과하는지 확인합니다."""
         return all(self._file_passes_filter(file, filter_criteria) for filter_criteria in filters)
 
-    def _file_passes_filter(self, file: MediaFile, filter_criteria: MediaDataFilter) -> bool:
+    def _file_passes_filter(self, file: MediaFile, filter_criteria) -> bool:
         """파일이 단일 필터를 통과하는지 확인합니다."""
         try:
             filter_type = filter_criteria.criteria.value
@@ -175,7 +177,7 @@ class MediaFilter:
         """필터를 초기화합니다."""
         self.logger.info("필터 초기화됨")
 
-    def get_filter_summary(self, filters: list[MediaDataFilter]) -> str:
+    def get_filter_summary(self, filters: list) -> str:
         """적용된 필터들의 요약을 반환합니다."""
         if not filters:
             return "필터 없음"

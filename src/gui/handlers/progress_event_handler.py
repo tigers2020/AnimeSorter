@@ -11,17 +11,6 @@ logger = logging.getLogger(__name__)
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QProgressBar
 
-from src.app.file_processing_events import (FileProcessingCancelledEvent,
-                                            FileProcessingCompletedEvent,
-                                            FileProcessingFailedEvent,
-                                            FileProcessingPausedEvent,
-                                            FileProcessingProgressEvent,
-                                            FileProcessingResumedEvent,
-                                            FileProcessingSpeedEvent,
-                                            FileProcessingStartedEvent,
-                                            FileProcessingStatisticsEvent,
-                                            FileProcessingStepEvent)
-
 
 class ProgressEventHandler(QObject):
     """Handles file processing progress events and updates UI components"""
@@ -41,7 +30,7 @@ class ProgressEventHandler(QObject):
         self.total_size_bytes = 0
         self.start_time = None
 
-    def handle_processing_started(self, event: FileProcessingStartedEvent):
+    def handle_processing_started(self, event: Any):
         """Handle file processing started event"""
         self.current_operation_id = event.operation_id
         self.current_operation_type = event.operation_type
@@ -53,21 +42,21 @@ class ProgressEventHandler(QObject):
         )
         self.progress_updated.emit(0, f"Starting {event.operation_type}...")
 
-    def handle_processing_progress(self, event: FileProcessingProgressEvent):
+    def handle_processing_progress(self, event: ):
         """Handle file processing progress event"""
         if event.operation_id != self.current_operation_id:
             return
         progress_message = self._create_progress_message(event)
         self.progress_updated.emit(int(event.progress_percentage), progress_message)
 
-    def handle_processing_step(self, event: FileProcessingStepEvent):
+    def handle_processing_step(self, event: ):
         """Handle file processing step change event"""
         if event.operation_id != self.current_operation_id:
             return
         step_message = f"Step: {event.current_step} - {event.step_description}"
         self.progress_updated.emit(int(event.step_progress * 100), step_message)
 
-    def handle_processing_completed(self, event: FileProcessingCompletedEvent):
+    def handle_processing_completed(self, event: ):
         """Handle file processing completed event"""
         if event.operation_id != self.current_operation_id:
             return
@@ -80,7 +69,7 @@ class ProgressEventHandler(QObject):
         self.progress_updated.emit(100, completion_message)
         self._reset_state()
 
-    def handle_processing_failed(self, event: FileProcessingFailedEvent):
+    def handle_processing_failed(self, event: ):
         """Handle file processing failed event"""
         if event.operation_id != self.current_operation_id:
             return
@@ -89,7 +78,7 @@ class ProgressEventHandler(QObject):
         self.progress_updated.emit(0, error_message)
         self._reset_state()
 
-    def handle_processing_cancelled(self, event: FileProcessingCancelledEvent):
+    def handle_processing_cancelled(self, event: ):
         """Handle file processing cancelled event"""
         if event.operation_id != self.current_operation_id:
             return
@@ -97,21 +86,21 @@ class ProgressEventHandler(QObject):
         self.progress_updated.emit(0, cancel_message)
         self._reset_state()
 
-    def handle_processing_paused(self, event: FileProcessingPausedEvent):
+    def handle_processing_paused(self, event: ):
         """Handle file processing paused event"""
         if event.operation_id != self.current_operation_id:
             return
         pause_message = f"Paused: {event.pause_reason}"
         self.progress_updated.emit(0, pause_message)
 
-    def handle_processing_resumed(self, event: FileProcessingResumedEvent):
+    def handle_processing_resumed(self, event: ):
         """Handle file processing resumed event"""
         if event.operation_id != self.current_operation_id:
             return
         resume_message = f"Resumed: {event.resumed_at_step}"
         self.progress_updated.emit(0, resume_message)
 
-    def handle_processing_statistics(self, event: FileProcessingStatisticsEvent):
+    def handle_processing_statistics(self, event: ):
         """Handle file processing statistics event"""
         if event.operation_id != self.current_operation_id:
             return
@@ -129,13 +118,13 @@ class ProgressEventHandler(QObject):
         }
         self.statistics_updated.emit(stats)
 
-    def handle_processing_speed(self, event: FileProcessingSpeedEvent):
+    def handle_processing_speed(self, event: ):
         """Handle file processing speed event"""
         if event.operation_id != self.current_operation_id:
             return
         self.speed_updated.emit(event.current_speed_mbps, event.average_speed_mbps)
 
-    def _create_progress_message(self, event: FileProcessingProgressEvent) -> str:
+    def _create_progress_message(self, event: ) -> str:
         """Create detailed progress message from progress event"""
         message_parts = []
         if event.current_file_path:
@@ -170,7 +159,6 @@ class ProgressEventHandler(QObject):
         self.total_size_bytes = 0
         self.start_time = None
 
-
 class ProgressUIUpdater:
     """Updates UI components based on progress events"""
 
@@ -189,25 +177,25 @@ class ProgressUIUpdater:
 
     def handle_event(self, event):
         """Handle any progress event"""
-        if isinstance(event, FileProcessingStartedEvent):
+        if isinstance(event):
             self.event_handler.handle_processing_started(event)
-        elif isinstance(event, FileProcessingProgressEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_progress(event)
-        elif isinstance(event, FileProcessingStepEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_step(event)
-        elif isinstance(event, FileProcessingCompletedEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_completed(event)
-        elif isinstance(event, FileProcessingFailedEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_failed(event)
-        elif isinstance(event, FileProcessingCancelledEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_cancelled(event)
-        elif isinstance(event, FileProcessingPausedEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_paused(event)
-        elif isinstance(event, FileProcessingResumedEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_resumed(event)
-        elif isinstance(event, FileProcessingStatisticsEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_statistics(event)
-        elif isinstance(event, FileProcessingSpeedEvent):
+        elif isinstance(event):
             self.event_handler.handle_processing_speed(event)
 
     def _update_progress(self, percentage: int, message: str):

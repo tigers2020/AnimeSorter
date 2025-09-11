@@ -12,7 +12,7 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app.events import ITypedEventBus
+from src.core.events import ITypedEventBus
 from src.core.tmdb_client import TMDBAnimeInfo
 from src.gui.managers.anime_data_manager import ParsedItem
 

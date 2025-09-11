@@ -12,8 +12,7 @@ from pathlib import Path
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
-from src.app.file_processing_events import (FileProcessingFailedEvent,
-                                            FileProcessingStartedEvent)
+from src.core.events.event_publisher import event_publisher
 from src.core.services.unified_file_organization_service import (
     FileOrganizationConfig, UnifiedFileOrganizationService)
 from src.gui.components.dialogs.organize_preflight_dialog import \
@@ -98,8 +97,22 @@ class FileOrganizationHandler(QObject):
     def on_organize_proceed(self):
         """프리플라이트 확인 후 실제 정리 실행"""
         try:
+            from uuid import uuid4
+
+            organization_id = str(uuid4())
+            self.current_operation_id = organization_id
+
             logger.info("🚀 파일 정리 실행 시작")
             self.main_window.update_status_bar("파일 정리 실행 중...")
+
+            # 정리 시작 이벤트 발행
+            grouped_items = self.main_window.anime_data_manager.get_grouped_items()
+            total_files = sum(len(group.files) for group in grouped_items)
+
+            event_publisher.publish_organize_started(
+                organization_id=organization_id, total_files=total_files
+            )
+
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
             result = self._execute_file_organization_with_quality_separation(grouped_items)
             self.on_organization_completed(result)
@@ -114,7 +127,7 @@ class FileOrganizationHandler(QObject):
         """해상도별 격리 기능을 사용한 파일 조직화"""
         from uuid import uuid4
 
-        from src.app.organization_events import OrganizationResult
+        from src.core.events import OrganizationResult
 
         result = OrganizationResult()
         for name, default in [
@@ -528,6 +541,21 @@ class FileOrganizationHandler(QObject):
     def on_organization_completed(self, result):
         """파일 정리 완료 처리"""
         try:
+            # 정리 완료 이벤트 발행
+            if self.current_operation_id:
+                event_publisher.publish_organize_completed(
+                    organization_id=self.current_operation_id,
+                    moved=result.success_count,
+                    backed_up=getattr(result, "backed_up_count", 0),
+                    duration=getattr(result, "operation_duration_seconds", 0.0),
+                    stats={
+                        "success_count": result.success_count,
+                        "error_count": result.error_count,
+                        "skip_count": result.skip_count,
+                        "subtitle_count": getattr(result, "subtitle_count", 0),
+                    },
+                )
+
             message = "파일 정리가 완료되었습니다.\n\n"
             message += "📊 결과 요약:\n"
             message += f"• 성공: {result.success_count}개 파일\n"
@@ -595,7 +623,29 @@ class FileOrganizationHandler(QObject):
         except Exception as e:
             logger.info("❌ 파일 정리 완료 처리 실패: %s", e)
             self._is_organizing = False
-            self.main_window.update_status_bar(f"파일 정리 완료 처리 실패: {str(e)}")
+            self.on_organization_failed(str(e))
+
+    def on_organization_failed(self, error_message: str):
+        """파일 정리 실패 처리"""
+        try:
+            # 정리 실패 이벤트 발행
+            if self.current_operation_id:
+                event_publisher.publish_error(
+                    error_id=self.current_operation_id,
+                    error_type="file_operation_error",
+                    message=f"파일 정리 실패: {error_message}",
+                    where="organize",
+                    context={"organization_id": self.current_operation_id},
+                )
+
+            QMessageBox.critical(
+                self.main_window, "오류", f"파일 정리 중 오류가 발생했습니다:\n{error_message}"
+            )
+            self.main_window.update_status_bar(f"파일 정리 실패: {error_message}")
+            self._is_organizing = False
+            self.current_operation_id = None
+        except Exception as e:
+            logger.info("❌ 파일 정리 실패 처리 중 오류: %s", e)
 
     def commit_organization(self):
         """정리 실행"""

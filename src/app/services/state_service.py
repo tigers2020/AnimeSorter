@@ -13,8 +13,8 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from src.app.domain import ParsedItem
 from src.core.tmdb_client import TMDBAnimeInfo
-from src.gui.managers.anime_data_manager import ParsedItem
 
 
 class AppState(Enum):

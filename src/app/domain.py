@@ -14,6 +14,42 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from src.core.tmdb_client import TMDBAnimeInfo
+
+
+@dataclass
+class ParsedItem:
+    """파싱된 애니메이션 파일 정보"""
+
+    id: str = None
+    status: str = "pending"
+    sourcePath: str = ""
+    detectedTitle: str = ""
+    filename: str = ""
+    path: str = ""
+    title: str = ""
+    season: int | None = None
+    episode: int | None = None
+    year: int | None = None
+    tmdbId: int | None = None
+    resolution: str | None = None
+    group: str | None = None
+    codec: str | None = None
+    container: str | None = None
+    sizeMB: int | None = None
+    message: str | None = None
+    tmdbMatch: TMDBAnimeInfo | None = None
+    parsingConfidence: float | None = None
+    groupId: str | None = None
+    normalizedTitle: str | None = None
+
+    def __post_init__(self):
+        """초기화 후 처리"""
+        if not self.id:
+            self.id = str(uuid4())
+        if not self.normalizedTitle and self.title:
+            self.normalizedTitle = self.title.lower().strip()
+
 
 class MediaType(Enum):
     """미디어 타입"""

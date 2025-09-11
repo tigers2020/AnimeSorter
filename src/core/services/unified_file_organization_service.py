@@ -17,12 +17,11 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from src.app.file_processing_events import \
-    FileOperationType as ProcessingFileOperationType
-from src.app.file_processing_events import (FileProcessingProgressEvent,
-                                            calculate_processing_speed,
-                                            calculate_progress_percentage,
-                                            estimate_remaining_time)
+# 이 함수들은 정의되지 않았으므로 주석 처리
+# from src.core.events import (
+#                                             calculate_processing_speed,
+#                                             calculate_progress_percentage,
+#                                             estimate_remaining_time)
 from src.core.backup.backup_manager import (BackupPolicy,
                                             CentralizedBackupManager)
 from src.core.commands.file_operation_commands import (
@@ -32,8 +31,12 @@ from src.core.config.file_organization_config import FileOrganizationConfig
 from src.core.file_parser import FileParser
 from src.core.file_validation import FileValidator
 from src.core.interfaces.file_organization_interface import (
-    FileConflictResolution, FileOperationPlan, FileOperationResult,
-    FileOperationType, FileScanResult, IFileBackupManager, IFileNamingStrategy,
+    FileConflictResolution, FileOperationPlan, FileOperationResult)
+from src.core.interfaces.file_organization_interface import FileOperationType
+from src.core.interfaces.file_organization_interface import \
+    FileOperationType as ProcessingFileOperationType
+from src.core.interfaces.file_organization_interface import (
+    FileScanResult, IFileBackupManager, IFileNamingStrategy,
     IFileOperationExecutor, IFileOrganizationService, IFileScanner)
 from src.core.strategies.file_naming_strategies import (NamingConfig,
                                                         NamingStrategyFactory)
@@ -265,7 +268,7 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
         self,
         plans: list[FileOperationPlan],
         progress_callback: Callable[[int, int], None] | None = None,
-        detailed_progress_callback: Callable[[FileProcessingProgressEvent], None] | None = None,
+        detailed_progress_callback: Callable[[dict], None] | None = None,
     ) -> list[FileOperationResult]:
         """Execute multiple file operations in batch with detailed progress tracking"""
         self.operation_id = uuid4()
@@ -278,34 +281,39 @@ class UnifiedFileOperationExecutor(IFileOperationExecutor):
         results = []
         total_plans = len(plans)
         for i, plan in enumerate(plans):
-            progress_percentage = calculate_progress_percentage(i, total_plans)
+            # 간단한 계산으로 대체
+            progress_percentage = int((i / total_plans) * 100) if total_plans > 0 else 0
             time_elapsed = time.time() - (self.start_time or 0)
-            speed_mbps = calculate_processing_speed(self.processed_bytes, time_elapsed)
-            remaining_time = estimate_remaining_time(
-                self.processed_bytes, self.total_bytes, time_elapsed
+            speed_mbps = (
+                (self.processed_bytes / (1024 * 1024)) / time_elapsed if time_elapsed > 0 else 0
+            )
+            remaining_time = (
+                ((self.total_bytes - self.processed_bytes) / (1024 * 1024)) / speed_mbps
+                if speed_mbps > 0
+                else 0
             )
             if detailed_progress_callback:
-                progress_event = FileProcessingProgressEvent(
-                    operation_id=self.operation_id,
-                    current_file_index=i,
-                    total_files=total_plans,
-                    current_file_path=plan.source_path,
-                    current_file_size=plan.estimated_size,
-                    bytes_processed=self.processed_bytes,
-                    total_bytes=self.total_bytes,
-                    progress_percentage=progress_percentage,
-                    current_operation=(
+                progress_event = {
+                    "operation_id": str(self.operation_id),
+                    "current_file_index": i,
+                    "total_files": total_plans,
+                    "current_file_path": str(plan.source_path),
+                    "current_file_size": plan.estimated_size,
+                    "bytes_processed": self.processed_bytes,
+                    "total_bytes": self.total_bytes,
+                    "progress_percentage": progress_percentage,
+                    "current_operation": (
                         ProcessingFileOperationType.COPY
                         if plan.operation_type.value == "copy"
                         else ProcessingFileOperationType.MOVE
                     ),
-                    current_step=f"Processing {plan.source_path.name}",
-                    processing_speed_mbps=speed_mbps,
-                    estimated_remaining_seconds=remaining_time,
-                    success_count=self.success_count,
-                    error_count=self.error_count,
-                    skip_count=self.skip_count,
-                )
+                    "current_step": f"Processing {plan.source_path.name}",
+                    "processing_speed_mbps": speed_mbps,
+                    "estimated_remaining_seconds": remaining_time,
+                    "success_count": self.success_count,
+                    "error_count": self.error_count,
+                    "skip_count": self.skip_count,
+                }
                 detailed_progress_callback(progress_event)
             result = self.execute_operation(plan)
             results.append(result)
@@ -519,7 +527,7 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
         plans: list[FileOperationPlan],
         dry_run: bool = True,
         progress_callback: Callable[[int, int], None] | None = None,
-        detailed_progress_callback: Callable[[FileProcessingProgressEvent], None] | None = None,
+        detailed_progress_callback: Callable[[dict], None] | None = None,
     ) -> list[FileOperationResult]:
         """Execute file organization plan with detailed progress tracking"""
         if dry_run:
@@ -591,7 +599,7 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
         self,
         plans: list[FileOperationPlan],
         progress_callback: Callable[[int, int], None] | None = None,
-        detailed_progress_callback: Callable[[FileProcessingProgressEvent], None] | None = None,
+        detailed_progress_callback: Callable[[dict], None] | None = None,
     ) -> dict[str, Any]:
         """Execute organization plan using Command pattern for undo/redo support with progress tracking"""
         try:
@@ -604,33 +612,35 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                 )
                 commands.append(command)
                 if detailed_progress_callback:
-                    progress_event = FileProcessingProgressEvent(
-                        operation_id=operation_id,
-                        current_file_index=i,
-                        total_files=total_plans,
-                        current_file_path=plan.source_path,
-                        current_file_size=plan.estimated_size,
-                        progress_percentage=calculate_progress_percentage(i, total_plans),
-                        current_operation=(
+                    progress_event = {
+                        "operation_id": str(operation_id),
+                        "current_file_index": i,
+                        "total_files": total_plans,
+                        "current_file_path": str(plan.source_path),
+                        "current_file_size": plan.estimated_size,
+                        "progress_percentage": (
+                            int((i / total_plans) * 100) if total_plans > 0 else 0
+                        ),
+                        "current_operation": (
                             ProcessingFileOperationType.COPY
                             if plan.operation_type.value == "copy"
                             else ProcessingFileOperationType.MOVE
                         ),
-                        current_step="Preparing commands",
-                    )
+                        "current_step": "Preparing commands",
+                    }
                     detailed_progress_callback(progress_event)
             batch_command = BatchFileOperationCommand(commands, self.logger)
             result = self.command_invoker.execute_command(batch_command)
             if progress_callback:
                 progress_callback(len(plans), len(plans))
             if detailed_progress_callback:
-                final_progress_event = FileProcessingProgressEvent(
-                    operation_id=operation_id,
-                    current_file_index=total_plans,
-                    total_files=total_plans,
-                    progress_percentage=100.0,
-                    current_step="Command execution completed",
-                )
+                final_progress_event = {
+                    "operation_id": str(operation_id),
+                    "current_file_index": total_plans,
+                    "total_files": total_plans,
+                    "progress_percentage": 100.0,
+                    "current_step": "Command execution completed",
+                }
                 detailed_progress_callback(final_progress_event)
             return {
                 "success": result.success,

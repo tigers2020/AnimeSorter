@@ -13,12 +13,12 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-from src.app.application_events import FilesScannedEvent, ScanStatus
-from src.app.background_events import TaskPriority
 from src.app.background_task import BaseTask, TaskResult
+from src.core.event_bus import UnifiedEventBus
+from src.core.events import TaskPriority
+from src.core.events.event_publisher import event_publisher
 from src.core.services.unified_file_organization_service import (
     FileOrganizationConfig, UnifiedFileOrganizationService)
-from src.core.unified_event_system import UnifiedEventBus
 
 
 class FileScanTask(BaseTask):
@@ -71,15 +71,46 @@ class FileScanTask(BaseTask):
 
     def execute(self) -> TaskResult:
         """파일 스캔 실행"""
-        self.logger.info(f"파일 스캔 시작: {self.directory_path}")
+        scan_id = str(uuid4())
+        self.logger.info(f"파일 스캔 시작: {self.directory_path} (ID: {scan_id})")
+
+        # 스캔 시작 이벤트 발행
+        event_publisher.publish_scan_started(
+            scan_id=scan_id,
+            directory_path=str(self.directory_path),
+            recursive=self.recursive,
+            file_extensions=list(self.extensions),
+        )
+
         if not self.directory_path.exists():
+            event_publisher.publish_error(
+                error_id=scan_id,
+                error_type="file_operation_error",
+                message=f"디렉토리가 존재하지 않습니다: {self.directory_path}",
+                where="scan",
+            )
             raise FileNotFoundError(f"디렉토리가 존재하지 않습니다: {self.directory_path}")
         if not self.directory_path.is_dir():
+            event_publisher.publish_error(
+                error_id=scan_id,
+                error_type="file_operation_error",
+                message=f"디렉토리가 아닙니다: {self.directory_path}",
+                where="scan",
+            )
             raise NotADirectoryError(f"디렉토리가 아닙니다: {self.directory_path}")
+
         scanned_files: list[str] = []
         start_time = time.time()
         try:
             self.update_progress(10, "파일 목록 수집 중...")
+            event_publisher.publish_scan_progress(
+                scan_id=scan_id,
+                processed=0,
+                total=0,
+                current_step="파일 목록 수집 중",
+                progress_percent=10.0,
+            )
+
             # UnifiedFileOrganizationService의 scanner 사용
             scan_result = self.unified_service.scanner.scan_directory(
                 self.directory_path,
@@ -87,23 +118,38 @@ class FileScanTask(BaseTask):
                 file_extensions=self.extensions,
             )
             scanned_files = [str(f) for f in scan_result.files_found]
+
             if self.is_cancelled():
                 return self._create_cancelled_result()
+
             total_files = len(scanned_files)
             self.logger.info(f"총 {total_files}개 파일 발견")
-            self.update_progress(100, "스캔 완료")
+
+            # 스캔 진행률 업데이트
+            event_publisher.publish_scan_progress(
+                scan_id=scan_id,
+                processed=total_files,
+                total=total_files,
+                current_step="스캔 완료",
+                progress_percent=95.0,
+            )
+
+            self.update_progress(95, "결과 정리 중...")
+
             if self.is_cancelled():
                 return self._create_cancelled_result()
-            self.update_progress(95, "결과 정리 중...")
-            scan_event = FilesScannedEvent(
-                scan_id=uuid4(),
-                directory_path=self.directory_path,
-                found_files=[Path(f) for f in scanned_files],
-                scan_duration_seconds=time.time() - start_time,
-                status=ScanStatus.COMPLETED,
+
+            # 스캔 완료 이벤트 발행
+            duration = time.time() - start_time
+            event_publisher.publish_scan_completed(
+                scan_id=scan_id,
+                found_files=scanned_files,
+                stats={"total_files": total_files, "duration_seconds": duration},
+                duration_seconds=duration,
+                status="completed",
             )
-            self.event_bus.publish(scan_event)
-            self.logger.info(f"FilesScannedEvent 발행: {len(scanned_files)}개 파일")
+
+            self.logger.info(f"스캔 완료 이벤트 발행: {len(scanned_files)}개 파일")
             self.update_progress(100, "스캔 완료")
             return TaskResult(
                 task_id=self.task_id,
