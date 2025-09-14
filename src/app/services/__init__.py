@@ -8,7 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 # FileScanService는 별도 파일에서 임포트
-from .file_scan_service import FileScanService
+from .file_scan_service import FileScanService, IFileScanService
 from .metadata_service import MetadataService
 from .state_service import StateService
 
@@ -16,4 +16,5 @@ __all__ = [
     "MetadataService",
     "StateService",
     "FileScanService",
+    "IFileScanService",
 ]

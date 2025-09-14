@@ -70,7 +70,18 @@ animesorter = "src.main:main"
 # Target Python 3.10+
 target-version = "py310"
 line-length = 100
-indent-width = 4
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+    "scripts",
+    "tools",
+    "src/gui/theme",
+]
 
 # Source directories
 src = ["src", "tests"]
@@ -103,19 +114,6 @@ ignore = [
 
 
 
-# Exclude directories
-exclude = [
-    ".git",
-    ".venv",
-    "venv",
-    "__pycache__",
-    "build",
-    "dist",
-    "*.egg-info",
-    "scripts",
-    "tools",
-    "src/gui/theme",
-]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests can use magic values, assert statements, etc.

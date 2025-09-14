@@ -12,7 +12,7 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app.events import ITypedEventBus
+from src.app.events import IEventBus
 from src.core.file_parser import ParsedMetadata as ParsedItem
 from src.core.tmdb_client import TMDBAnimeInfo
 
@@ -39,7 +39,7 @@ class DetailViewModel(QObject):
     detail_changed = pyqtSignal()
     selection_changed = pyqtSignal()
 
-    def __init__(self, event_bus: ITypedEventBus, parent=None):
+    def __init__(self, event_bus: IEventBus, parent=None):
         super().__init__(parent)
         self.event_bus = event_bus
         self._selected_group_key: str | None = None

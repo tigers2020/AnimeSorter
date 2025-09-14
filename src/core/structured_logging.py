@@ -335,6 +335,12 @@ class StructuredLogger(QObject):
         self.error = lambda msg, **kwargs: self.log(LogLevel.ERROR, msg, **kwargs)
         self.critical = lambda msg, **kwargs: self.log(LogLevel.CRITICAL, msg, **kwargs)
 
+    def close(self) -> None:
+        """Close all log handlers and clean up resources."""
+        for handler in self.logger.handlers[:]:
+            handler.close()
+            self.logger.removeHandler(handler)
+
     def log(
         self,
         level: int,

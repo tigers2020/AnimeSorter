@@ -11,11 +11,12 @@ import shutil
 from contextlib import suppress
 from pathlib import Path
 
-from src.app.commands.base_command import (BaseCommand, CompositeCommand,
-                                           ICommand)
-from src.core.utils.subtitle_utils import (find_subtitle_files,
-                                           get_subtitle_destination_path,
-                                           is_video_file)
+from src.app.commands.base_command import BaseCommand, CompositeCommand, ICommand
+from src.core.utils.subtitle_utils import (
+    find_subtitle_files,
+    get_subtitle_destination_path,
+    is_video_file,
+)
 
 
 class MoveFileCommand(BaseCommand):
@@ -62,8 +63,6 @@ class MoveFileCommand(BaseCommand):
     def _get_preflight_paths(self) -> tuple[Path, Path | None] | None:
         """프리플라이트 검사할 경로 반환"""
         return self.source, self.destination
-
-    # Journal 시스템 제거됨
 
     def _execute_impl(self) -> None:
         """파일 이동 실행"""
@@ -240,8 +239,6 @@ class DeleteFileCommand(BaseCommand):
     def _get_preflight_paths(self) -> tuple[Path, Path | None] | None:
         """프리플라이트 검사할 경로 반환"""
         return self.file_path, None
-
-    # Journal 시스템 제거됨
 
     def _execute_impl(self) -> None:
         """파일 삭제 실행"""

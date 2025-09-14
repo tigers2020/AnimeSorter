@@ -17,8 +17,7 @@ from PyQt5.QtCore import pyqtSignal
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
 from src.core.tmdb_client import TMDBAnimeInfo
-from src.core.unified_event_system import (EventCategory, EventPriority,
-                                           get_unified_event_bus)
+from src.core.unified_event_system import EventCategory, EventPriority, get_unified_event_bus
 
 
 @dataclass
@@ -81,6 +80,12 @@ class AnimeDataManager(ManagerBase):
         self.tmdb_client = tmdb_client
         self.group_tmdb_matches = {}
         self.unified_event_bus = get_unified_event_bus()
+        self.logger.info(f"AnimeDataManager 초기화 완료 (TMDB 클라이언트: {'있음' if tmdb_client else '없음'})")
+
+    def set_tmdb_client(self, tmdb_client):
+        """TMDB 클라이언트 설정"""
+        self.tmdb_client = tmdb_client
+        self.logger.info(f"TMDB 클라이언트 업데이트: {'있음' if tmdb_client else '없음'}")
 
     def add_item(self, item: ParsedItem):
         """아이템 추가"""
@@ -382,7 +387,5 @@ class AnimeDataManager(ManagerBase):
                 res = item.resolution or "Unknown"
                 resolutions[res] = resolutions.get(res, 0) + 1
             resolution_info = ", ".join([f"{res}: {count}" for res, count in resolutions.items()])
-            logger.info(
-                "🔗 %s (%s) - %s개 파일 [%s]", title, episode_info, len(items), resolution_info
-            )
+            logger.info("🔗 %s (%s) - %s개 파일 [%s]", title, episode_info, len(items), resolution_info)
         return groups

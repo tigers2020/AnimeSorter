@@ -17,26 +17,35 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from src.app.file_processing_events import \
-    FileOperationType as ProcessingFileOperationType
-from src.app.file_processing_events import (FileProcessingProgressEvent,
-                                            calculate_processing_speed,
-                                            calculate_progress_percentage,
-                                            estimate_remaining_time)
-from src.core.backup.backup_manager import (BackupPolicy,
-                                            CentralizedBackupManager)
+from src.app.file_processing_events import FileOperationType as ProcessingFileOperationType
+from src.app.file_processing_events import (
+    FileProcessingProgressEvent,
+    calculate_processing_speed,
+    calculate_progress_percentage,
+    estimate_remaining_time,
+)
+from src.core.backup.backup_manager import BackupPolicy, CentralizedBackupManager
 from src.core.commands.file_operation_commands import (
-    BatchFileOperationCommand, FileOperationCommand,
-    FileOperationCommandInvoker)
+    BatchFileOperationCommand,
+    FileOperationCommand,
+    FileOperationCommandInvoker,
+)
 from src.core.config.file_organization_config import FileOrganizationConfig
 from src.core.file_parser import FileParser
 from src.core.file_validation import FileValidator
 from src.core.interfaces.file_organization_interface import (
-    FileConflictResolution, FileOperationPlan, FileOperationResult,
-    FileOperationType, FileScanResult, IFileBackupManager, IFileNamingStrategy,
-    IFileOperationExecutor, IFileOrganizationService, IFileScanner)
-from src.core.strategies.file_naming_strategies import (NamingConfig,
-                                                        NamingStrategyFactory)
+    FileConflictResolution,
+    FileOperationPlan,
+    FileOperationResult,
+    FileOperationType,
+    FileScanResult,
+    IFileBackupManager,
+    IFileNamingStrategy,
+    IFileOperationExecutor,
+    IFileOrganizationService,
+    IFileScanner,
+)
+from src.core.strategies.file_naming_strategies import NamingConfig, NamingStrategyFactory
 
 
 class UnifiedFileScanner(IFileScanner):
@@ -806,3 +815,40 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
     def get_backup_policy(self) -> BackupPolicy:
         """Get current backup policy"""
         return self.config.backup_policy or BackupPolicy()
+
+    def reset_state(self):
+        """Reset the service state to its initial values.
+
+        This method clears all accumulated state from previous operations
+        and resets the service to a clean state.
+        """
+        try:
+            logger.info("🔄 Resetting UnifiedFileOrganizationService state...")
+
+            # Reset operation executor state
+            if hasattr(self.operation_executor, "operation_id"):
+                self.operation_executor.operation_id = uuid4()
+            if hasattr(self.operation_executor, "start_time"):
+                self.operation_executor.start_time = None
+            if hasattr(self.operation_executor, "processed_bytes"):
+                self.operation_executor.processed_bytes = 0
+            if hasattr(self.operation_executor, "total_bytes"):
+                self.operation_executor.total_bytes = 0
+            if hasattr(self.operation_executor, "success_count"):
+                self.operation_executor.success_count = 0
+            if hasattr(self.operation_executor, "error_count"):
+                self.operation_executor.error_count = 0
+            if hasattr(self.operation_executor, "skip_count"):
+                self.operation_executor.skip_count = 0
+
+            # Clear command history if available
+            if hasattr(self.command_invoker, "clear_history"):
+                self.command_invoker.clear_history()
+
+            logger.info("✅ UnifiedFileOrganizationService state reset completed")
+
+        except Exception as e:
+            logger.error(f"❌ Error resetting UnifiedFileOrganizationService state: {e}")
+            import traceback
+
+            traceback.print_exc()

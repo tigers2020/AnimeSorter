@@ -4,6 +4,7 @@
 """
 
 import logging
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 import re
@@ -11,22 +12,54 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
-                             QTextEdit, QVBoxLayout)
+from PyQt5.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QTextEdit, QVBoxLayout
+
+from src.state.base_state import BaseState
 
 
-class OrganizePreflightDialog(QDialog):
+class OrganizePreflightDialog(BaseState, QDialog):
     """정리 실행 프리플라이트 확인 다이얼로그"""
 
     proceed_requested = pyqtSignal()
 
     def __init__(self, grouped_items: dict[str, list], destination_directory: str, parent=None):
-        super().__init__(parent)
+        # Initialize QDialog first
+        QDialog.__init__(self, parent)
+        # Then initialize BaseState
+        BaseState.__init__(self)
         self.grouped_items = grouped_items
         self.destination_directory = destination_directory
-        self.is_preview_mode = False
         self.init_ui()
         self.generate_summary()
+
+    def _get_default_state_config(self) -> Dict[str, Any]:
+        """
+        Get the default state configuration for this dialog.
+
+        Returns:
+            Dictionary containing default state configuration.
+        """
+        return {
+            "managers": {},
+            "collections": {"grouped_items": "dict"},
+            "strings": {"destination_directory": ""},
+            "flags": {"is_preview_mode": False},
+            "config": {},
+        }
+
+    def _initialize_state(self) -> None:
+        """
+        Initialize the dialog state with class-specific values.
+
+        This method is called by BaseState during initialization and
+        handles the specific state setup for this dialog.
+        """
+        # Call the parent's initialization first
+        super()._initialize_state()
+
+        # Set class-specific state that was passed in constructor
+        self.grouped_items = getattr(self, "grouped_items", {})
+        self.destination_directory = getattr(self, "destination_directory", "")
 
     def init_ui(self):
         """UI 초기화"""
@@ -70,9 +103,7 @@ class OrganizePreflightDialog(QDialog):
         """
         )
         layout.addWidget(self.summary_text)
-        warning_label = QLabel(
-            "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다."
-        )
+        warning_label = QLabel("⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다.")
         warning_label.setStyleSheet(
             """
             QLabel {
@@ -201,9 +232,7 @@ class OrganizePreflightDialog(QDialog):
             summary_lines.append("")
             summary_lines.append("📝 자막 파일 처리:")
             summary_lines.append("-" * 30)
-            summary_lines.append(
-                "• 연관된 자막 파일(.srt, .ass, .ssa 등)이 자동으로 함께 이동됩니다"
-            )
+            summary_lines.append("• 연관된 자막 파일(.srt, .ass, .ssa 등)이 자동으로 함께 이동됩니다")
             summary_lines.append("• 자막 파일은 비디오 파일과 같은 폴더에 배치됩니다")
             summary_lines.append("")
             summary_lines.append("⚠️ 주의사항:")
@@ -267,10 +296,7 @@ class OrganizePreflightDialog(QDialog):
                 self.proceed_button.setText("✅ 확인")
                 self.proceed_button.setToolTip("미리보기 확인")
             warning_label = self.findChild(QLabel, "")
-            if (
-                warning_label
-                and "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다" in warning_label.text()
-            ):
+            if warning_label and "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다" in warning_label.text():
                 warning_label.setText("👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다.")
                 warning_label.setStyleSheet(
                     """
@@ -293,13 +319,8 @@ class OrganizePreflightDialog(QDialog):
                 self.proceed_button.setText("✅ 진행")
                 self.proceed_button.setToolTip("파일 정리 실행")
             warning_label = self.findChild(QLabel, "")
-            if (
-                warning_label
-                and "👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다" in warning_label.text()
-            ):
-                warning_label.setText(
-                    "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다."
-                )
+            if warning_label and "👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다" in warning_label.text():
+                warning_label.setText("⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다.")
                 warning_label.setStyleSheet(
                     """
                     QLabel {

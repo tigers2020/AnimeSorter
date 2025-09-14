@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 from PyQt5.QtWidgets import QMainWindow
 
 from src.app import ICommandInvoker, IUndoRedoManager, get_service
-# Journal 시스템 제거됨
 from src.app.staging import StagingManager
 from src.app.ui import UICommandBridge
 from src.app.undo_redo import QUndoStackBridge
@@ -27,7 +26,6 @@ class CommandSystemManager:
         self.command_invoker: ICommandInvoker | None = None
         self.undo_redo_manager: IUndoRedoManager | None = None
         self.staging_manager: StagingManager | None = None
-        # Journal 시스템 제거됨
         self.undo_stack_bridge: QUndoStackBridge | None = None
         self.ui_command_bridge: UICommandBridge | None = None
         self.init_command_system()
@@ -58,7 +56,6 @@ class CommandSystemManager:
         try:
             self.staging_manager = StagingManager()
             self.logger.info(f"✅ StagingManager 초기화됨: {id(self.staging_manager)}")
-            # Journal 시스템 제거됨
             self.undo_stack_bridge = QUndoStackBridge(staging_manager=self.staging_manager)
             self.logger.info(f"✅ QUndoStackBridge 초기화됨: {id(self.undo_stack_bridge)}")
             self.ui_command_bridge = UICommandBridge(
@@ -72,7 +69,6 @@ class CommandSystemManager:
         except Exception as e:
             self.logger.error(f"⚠️ UI Command 시스템 초기화 실패: {e}")
             self.staging_manager = None
-            # Journal 시스템 제거됨
             self.undo_stack_bridge = None
             self.ui_command_bridge = None
 
@@ -85,7 +81,6 @@ class CommandSystemManager:
                 self.ui_command_bridge.command_progress.connect(self.on_command_progress)
                 self.ui_command_bridge.staging_progress.connect(self.on_staging_progress)
                 self.ui_command_bridge.staging_completed.connect(self.on_staging_completed)
-                # Journal 시스템 제거됨
                 self.logger.info("✅ UI Command 시그널 연결 완료")
         except Exception as e:
             self.logger.error(f"⚠️ UI Command 시그널 연결 실패: {e}")
@@ -153,9 +148,7 @@ class CommandSystemManager:
         try:
             self.logger.info(f"📊 Command 진행 상황: {current}/{total} - {description}")
             if hasattr(self.main_window, "statusBar"):
-                self.main_window.statusBar().showMessage(
-                    f"진행 중: {description} ({current}/{total})"
-                )
+                self.main_window.statusBar().showMessage(f"진행 중: {description} ({current}/{total})")
         except Exception as e:
             self.logger.error(f"❌ Command 진행 상황 처리 중 오류: {e}")
 
@@ -175,13 +168,9 @@ class CommandSystemManager:
         try:
             self.logger.info(f"✅ 스테이징 완료: {len(staged_files)}개 파일")
             if hasattr(self.main_window, "statusBar"):
-                self.main_window.statusBar().showMessage(
-                    f"스테이징 완료: {len(staged_files)}개 파일 준비됨"
-                )
+                self.main_window.statusBar().showMessage(f"스테이징 완료: {len(staged_files)}개 파일 준비됨")
         except Exception as e:
             self.logger.error(f"❌ 스테이징 완료 처리 중 오류: {e}")
-
-    # Journal 시스템 제거됨
 
     def handle_command_executed(self, event):
         """Command 실행 완료 이벤트 처리"""

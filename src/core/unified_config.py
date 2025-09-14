@@ -8,12 +8,25 @@
 
 import json
 import logging
+import sys
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtSignal
+
+
+def get_config_directory() -> Path:
+    """설정 디렉토리 경로를 반환합니다 (PyInstaller 환경 고려)"""
+    if getattr(sys, "frozen", False):
+        # PyInstaller로 빌드된 실행 파일인 경우
+        base_path = Path(sys.executable).parent
+        return base_path / "config"
+    else:
+        # 개발 환경인 경우
+        return Path(__file__).parent.parent.parent / "data" / "config"
+
 
 logger = logging.getLogger(__name__)
 
@@ -224,16 +237,60 @@ class UnifiedConfigManager(QObject):
     config_changed = pyqtSignal(str, object)
     config_loaded = pyqtSignal()
     config_saved = pyqtSignal()
+    config_save_failed = pyqtSignal(str)  # 저장 실패 시그널 (오류 메시지)
 
     def __init__(self, config_dir: Path | None = None):
         super().__init__()
-        self.config_dir = config_dir or Path(__file__).parent.parent.parent / "data" / "config"
-        self.config_dir.mkdir(exist_ok=True)
+        if config_dir:
+            self.config_dir = config_dir
+        else:
+            # PyInstaller 환경에서 안전하게 작동하도록 수정
+            self.config_dir = get_config_directory()
+
+        # 디렉토리 생성 (부모 디렉토리도 함께 생성)
+        try:
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+            # 디렉토리 쓰기 권한 확인
+            test_file = self.config_dir / ".test_write"
+            test_file.write_text("test")
+            test_file.unlink()
+            logger.info(f"설정 디렉토리 권한 확인 완료: {self.config_dir.absolute()}")
+        except (PermissionError, OSError) as e:
+            logger.error(f"설정 디렉토리 생성/쓰기 권한 오류: {e}")
+            logger.error(f"원본 경로: {self.config_dir.absolute()}")
+            # 대안 경로 사용 (사용자 홈 디렉토리)
+            home_dir = Path.home()
+            self.config_dir = home_dir / "AnimeSorter" / "config"
+            try:
+                self.config_dir.mkdir(parents=True, exist_ok=True)
+                # 대안 경로도 권한 확인
+                test_file = self.config_dir / ".test_write"
+                test_file.write_text("test")
+                test_file.unlink()
+                logger.info(f"대안 설정 디렉토리 사용: {self.config_dir.absolute()}")
+            except (PermissionError, OSError) as alt_e:
+                logger.error(f"대안 설정 디렉토리도 실패: {alt_e}")
+                # 최후의 수단: 임시 디렉토리 사용
+                import tempfile
+
+                temp_dir = Path(tempfile.gettempdir()) / "AnimeSorter" / "config"
+                temp_dir.mkdir(parents=True, exist_ok=True)
+                self.config_dir = temp_dir
+                logger.warning(f"임시 디렉토리 사용: {self.config_dir.absolute()}")
+
         self.config = UnifiedConfig()
         self.config_file = self.config_dir / "unified_config.json"
         self.backup_dir = self.config_dir / "backups"
-        self.backup_dir.mkdir(exist_ok=True)
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
         self._change_callbacks: list[Callable] = []
+
+        # 설정 파일 경로 로그 출력
+        logger.info(f"설정 파일 경로: {self.config_file.absolute()}")
+        logger.info(f"설정 디렉토리: {self.config_dir.absolute()}")
+        logger.info(f"PyInstaller 환경: {getattr(sys, 'frozen', False)}")
+        if getattr(sys, "frozen", False):
+            logger.info(f"실행 파일 경로: {sys.executable}")
+
         self.load_config()
 
     def add_change_callback(self, callback: Callable):
@@ -257,6 +314,7 @@ class UnifiedConfigManager(QObject):
     def load_config(self) -> bool:
         """통합 설정 파일 로드"""
         try:
+            logger.info(f"설정 파일 로드 시도: {self.config_file.absolute()}")
             if self.config_file.exists():
                 with self.config_file.open(encoding="utf-8") as f:
                     data = json.load(f)
@@ -267,10 +325,22 @@ class UnifiedConfigManager(QObject):
             else:
                 logger.info("통합 설정 파일이 없습니다. 기본값으로 초기화합니다.")
                 self._migrate_existing_configs()
-                self.save_config()
+                # 초기 설정 저장 시도
+                if self.save_config():
+                    logger.info("초기 설정 파일 생성 완료")
+                else:
+                    logger.warning("초기 설정 파일 생성 실패")
                 return True
+        except json.JSONDecodeError as e:
+            logger.error(f"설정 파일 JSON 파싱 오류: {e}")
+            logger.error(f"파일 경로: {self.config_file.absolute()}")
+            # 손상된 설정 파일 백업 후 기본값으로 초기화
+            self._backup_corrupted_config()
+            self._migrate_existing_configs()
+            return self.save_config()
         except Exception as e:
             logger.error(f"설정 파일 로드 실패: {e}")
+            logger.error(f"파일 경로: {self.config_file.absolute()}")
             return False
 
     def _load_from_dict(self, data: dict[str, Any]):
@@ -305,6 +375,20 @@ class UnifiedConfigManager(QObject):
         except Exception as e:
             logger.error(f"설정 데이터 파싱 실패: {e}")
             self.config = UnifiedConfig()
+
+    def _backup_corrupted_config(self):
+        """손상된 설정 파일을 백업합니다"""
+        try:
+            if self.config_file.exists():
+                import shutil
+                from datetime import datetime
+
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_file = self.config_file.parent / f"unified_config_corrupted_{timestamp}.json"
+                shutil.copy2(self.config_file, backup_file)
+                logger.info(f"손상된 설정 파일 백업: {backup_file}")
+        except Exception as e:
+            logger.error(f"손상된 설정 파일 백업 실패: {e}")
 
     def _migrate_existing_configs(self):
         """기존 설정 파일들을 통합 설정으로 마이그레이션"""
@@ -381,21 +465,155 @@ class UnifiedConfigManager(QObject):
     def save_config(self) -> bool:
         """통합 설정 파일 저장"""
         try:
+            logger.info(f"설정 저장 시작 - 파일 경로: {self.config_file.absolute()}")
+            logger.info(f"설정 디렉토리 존재 여부: {self.config_dir.exists()}")
+            logger.info(f"설정 파일 존재 여부: {self.config_file.exists()}")
+
+            # 디렉토리 존재 확인 및 생성
+            if not self.config_dir.exists():
+                self.config_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"설정 디렉토리 생성: {self.config_dir.absolute()}")
+
+            # 백업 디렉토리 확인 및 생성
+            if not self.backup_dir.exists():
+                self.backup_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"백업 디렉토리 생성: {self.backup_dir.absolute()}")
+
+            # 기존 파일이 있으면 백업 생성
             if self.config_file.exists():
+                try:
+                    backup_file = (
+                        self.backup_dir
+                        / f"unified_config_backup_{Path().cwd().name}_{len(list(self.backup_dir.glob('*')))}.json"
+                    )
+                    with backup_file.open("w", encoding="utf-8") as f:
+                        json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
+                    logger.info(f"설정 백업 생성: {backup_file}")
+                except Exception as backup_error:
+                    logger.warning(f"백업 생성 실패 (계속 진행): {backup_error}")
+
+            # 임시 파일로 먼저 저장한 후 원본 파일로 이동 (원자적 쓰기)
+            temp_file = self.config_file.with_suffix(".tmp")
+            try:
+                with temp_file.open("w", encoding="utf-8") as f:
+                    json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
+
+                # 임시 파일을 원본 파일로 이동
+                temp_file.replace(self.config_file)
+                logger.info(f"통합 설정 파일 저장 완료: {self.config_file.absolute()}")
+                self.config_saved.emit()
+                return True
+            except Exception as write_error:
+                # 임시 파일 정리
+                if temp_file.exists():
+                    temp_file.unlink()
+                raise write_error
+
+        except PermissionError as e:
+            logger.error(f"설정 파일 저장 권한 오류: {e}")
+            logger.error(f"원본 경로: {self.config_file.absolute()}")
+            logger.error("관리자 권한으로 실행하거나 다른 위치에 저장을 시도합니다.")
+            # 대안 경로로 재시도
+            success = self._save_to_alternative_location()
+            if not success:
+                error_msg = (
+                    f"설정 저장 실패: 권한 오류\n\n"
+                    f"원본 경로: {self.config_file.absolute()}\n"
+                    f"오류: {e}\n\n"
+                    f"해결 방법:\n"
+                    f"1. 관리자 권한으로 실행\n"
+                    f"2. exe 파일을 다른 폴더로 이동\n"
+                    f"3. 폴더 쓰기 권한 확인"
+                )
+                self.config_save_failed.emit(error_msg)
+            return success
+        except OSError as e:
+            logger.error(f"설정 파일 저장 OS 오류: {e}")
+            logger.error(f"원본 경로: {self.config_file.absolute()}")
+            # 대안 경로로 재시도
+            success = self._save_to_alternative_location()
+            if not success:
+                error_msg = (
+                    f"설정 저장 실패: 시스템 오류\n\n"
+                    f"원본 경로: {self.config_file.absolute()}\n"
+                    f"오류: {e}\n\n"
+                    f"해결 방법:\n"
+                    f"1. 디스크 공간 확인\n"
+                    f"2. 파일이 다른 프로그램에서 사용 중인지 확인\n"
+                    f"3. 폴더 접근 권한 확인"
+                )
+                self.config_save_failed.emit(error_msg)
+            return success
+        except Exception as e:
+            logger.error(f"설정 파일 저장 실패: {e}")
+            logger.error(f"설정 파일 경로: {self.config_file.absolute()}")
+            logger.error(f"설정 디렉토리: {self.config_dir.absolute()}")
+            error_msg = (
+                f"설정 저장 실패: 예상치 못한 오류\n\n"
+                f"경로: {self.config_file.absolute()}\n"
+                f"오류: {e}\n\n"
+                f"해결 방법:\n"
+                f"1. 프로그램을 재시작\n"
+                f"2. 설정 파일을 수동으로 삭제 후 재시도\n"
+                f"3. 관리자 권한으로 실행"
+            )
+            self.config_save_failed.emit(error_msg)
+            return False
+
+    def _save_to_alternative_location(self) -> bool:
+        """대안 위치에 설정 파일 저장"""
+        try:
+            # 사용자 홈 디렉토리에 AnimeSorter 폴더 생성
+            home_dir = Path.home()
+            alt_config_dir = home_dir / "AnimeSorter" / "config"
+            alt_config_dir.mkdir(parents=True, exist_ok=True)
+
+            alt_config_file = alt_config_dir / "unified_config.json"
+            alt_backup_dir = alt_config_dir / "backups"
+            alt_backup_dir.mkdir(parents=True, exist_ok=True)
+
+            logger.info(f"대안 위치에 설정 저장 시도: {alt_config_file.absolute()}")
+
+            # 기존 파일이 있으면 백업
+            if alt_config_file.exists():
                 backup_file = (
-                    self.backup_dir
-                    / f"unified_config_backup_{Path().cwd().name}_{len(list(self.backup_dir.glob('*')))}.json"
+                    alt_backup_dir
+                    / f"unified_config_backup_{len(list(alt_backup_dir.glob('*')))}.json"
                 )
                 with backup_file.open("w", encoding="utf-8") as f:
                     json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
-                logger.info(f"설정 백업 생성: {backup_file}")
-            with self.config_file.open("w", encoding="utf-8") as f:
+                logger.info(f"대안 위치 백업 생성: {backup_file}")
+
+            # 임시 파일로 저장 후 이동
+            temp_file = alt_config_file.with_suffix(".tmp")
+            with temp_file.open("w", encoding="utf-8") as f:
                 json.dump(self._to_dict(), f, ensure_ascii=False, indent=2)
-            logger.info("통합 설정 파일 저장 완료")
+
+            temp_file.replace(alt_config_file)
+
+            # 설정 경로 업데이트
+            self.config_dir = alt_config_dir
+            self.config_file = alt_config_file
+            self.backup_dir = alt_backup_dir
+
+            logger.info(f"대안 위치에 설정 저장 완료: {alt_config_file.absolute()}")
             self.config_saved.emit()
             return True
+
         except Exception as e:
-            logger.error(f"설정 파일 저장 실패: {e}")
+            logger.error(f"대안 위치 저장도 실패: {e}")
+            error_msg = (
+                f"설정 저장 실패: 모든 저장 위치에서 실패\n\n"
+                f"원본 경로: {self.config_file.absolute()}\n"
+                f"대안 경로: {alt_config_file.absolute()}\n"
+                f"오류: {e}\n\n"
+                f"해결 방법:\n"
+                f"1. 관리자 권한으로 실행\n"
+                f"2. 바이러스 백신 프로그램 확인\n"
+                f"3. 디스크 공간 및 권한 확인\n"
+                f"4. 프로그램을 다른 폴더로 이동"
+            )
+            self.config_save_failed.emit(error_msg)
             return False
 
     def _to_dict(self) -> dict[str, Any]:

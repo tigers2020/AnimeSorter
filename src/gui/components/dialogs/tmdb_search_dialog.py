@@ -4,6 +4,7 @@ TMDB 검색 결과 선택 다이얼로그
 """
 
 import logging
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 import contextlib
@@ -11,12 +12,23 @@ import contextlib
 import requests
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QDialog, QGroupBox, QHBoxLayout, QLabel,
-                             QLineEdit, QListWidget, QListWidgetItem,
-                             QMessageBox, QPushButton, QSizePolicy,
-                             QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.core.tmdb_client import TMDBAnimeInfo
+from src.state.base_state import BaseState
 
 
 class TMDBSearchWorker(QThread):
@@ -39,7 +51,7 @@ class TMDBSearchWorker(QThread):
             self.search_failed.emit(str(e))
 
 
-class TMDBSearchDialog(QDialog):
+class TMDBSearchDialog(BaseState, QDialog):
     """TMDB 검색 결과 선택 다이얼로그"""
 
     anime_selected = pyqtSignal(TMDBAnimeInfo)
@@ -54,11 +66,12 @@ class TMDBSearchDialog(QDialog):
         failed_search_query: str = None,
         initial_results: list = None,
     ):
-        super().__init__(parent)
+        # Initialize QDialog first
+        QDialog.__init__(self, parent)
+        # Then initialize BaseState
+        BaseState.__init__(self)
         self.group_title = group_title
         self.tmdb_client = tmdb_client
-        self.search_results = []
-        self.selected_anime = None
         self.file_info = file_info or ""
         self.failed_search_query = failed_search_query or group_title
         self.initial_results = initial_results or []
@@ -68,6 +81,38 @@ class TMDBSearchDialog(QDialog):
             self.set_search_results(self.initial_results)
         else:
             self.perform_search(self.failed_search_query)
+
+    def _get_default_state_config(self) -> Dict[str, Any]:
+        """
+        Get the default state configuration for this dialog.
+
+        Returns:
+            Dictionary containing default state configuration.
+        """
+        return {
+            "managers": {"tmdb_client": None},
+            "collections": {"search_results": "list", "initial_results": "list"},
+            "strings": {"group_title": "", "file_info": "", "failed_search_query": ""},
+            "flags": {},
+            "config": {},
+        }
+
+    def _initialize_state(self) -> None:
+        """
+        Initialize the dialog state with class-specific values.
+
+        This method is called by BaseState during initialization and
+        handles the specific state setup for this dialog.
+        """
+        # Call the parent's initialization first
+        super()._initialize_state()
+
+        # Set class-specific state that was passed in constructor
+        self.group_title = getattr(self, "group_title", "")
+        self.tmdb_client = getattr(self, "tmdb_client", None)
+        self.file_info = getattr(self, "file_info", "")
+        self.failed_search_query = getattr(self, "failed_search_query", "")
+        self.initial_results = getattr(self, "initial_results", [])
 
     def init_ui(self):
         """UI 초기화"""
@@ -91,11 +136,11 @@ class TMDBSearchDialog(QDialog):
         group = QGroupBox("📋 검색 대상")
         layout = QVBoxLayout(group)
         self.lblGroupTitle = QLabel(f"제목: {self.group_title}")
-        self.lblGroupTitle.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.lblGroupTitle.setProperty("class", "subtitle")
         layout.addWidget(self.lblGroupTitle)
         if self.file_info:
             self.lblFileInfo = QLabel(f"파일: {self.file_info}")
-            self.lblFileInfo.setStyleSheet("color: #666; font-size: 12px;")
+            self.lblFileInfo.setProperty("class", "caption")
             self.lblFileInfo.setWordWrap(True)
             layout.addWidget(self.lblFileInfo)
         return group
@@ -119,7 +164,7 @@ class TMDBSearchDialog(QDialog):
         group = QGroupBox("📊 검색 결과")
         layout = QVBoxLayout(group)
         self.lblSearchStatus = QLabel("검색 중...")
-        self.lblSearchStatus.setStyleSheet("color: #3498db; font-style: italic;")
+        self.lblSearchStatus.setProperty("class", "warning")
         layout.addWidget(self.lblSearchStatus)
         self.resultsList = QListWidget()
         self.resultsList.setAlternatingRowColors(True)
@@ -241,7 +286,7 @@ class TMDBSearchDialog(QDialog):
         layout.setContentsMargins(10, 5, 10, 5)
         poster_label = QLabel()
         poster_label.setFixedSize(100, 150)
-        poster_label.setStyleSheet("border: 1px solid #ddd; background-color: #f8f9fa;")
+        poster_label.setProperty("class", "card")
         if anime.poster_path:
             try:
                 logger.info("🖼️ 포스터 로드 시도: %s", anime.poster_path)
@@ -268,19 +313,19 @@ class TMDBSearchDialog(QDialog):
             title_text = getattr(anime, "name", "제목 없음")
             logger.info("📺 제목 설정: %s", title_text)
             title_label = QLabel(title_text)
-            title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            title_label.setProperty("class", "subtitle")
             info_layout.addWidget(title_label)
         except Exception as e:
             logger.info("❌ 제목 설정 실패: %s", e)
             title_label = QLabel("제목 없음")
-            title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            title_label.setProperty("class", "subtitle")
             info_layout.addWidget(title_label)
         try:
             original_name = getattr(anime, "original_name", None)
             if original_name and original_name != getattr(anime, "name", ""):
                 logger.info("🎬 원제목 설정: %s", original_name)
                 original_label = QLabel(f"원제목: {original_name}")
-                original_label.setStyleSheet("color: #666; font-size: 12px;")
+                original_label.setProperty("class", "caption")
                 info_layout.addWidget(original_label)
         except Exception as e:
             logger.info("❌ 원제목 설정 실패: %s", e)

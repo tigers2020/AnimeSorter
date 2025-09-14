@@ -1,4 +1,5 @@
 import logging
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 from src.core.constants import DEFAULT_VIDEO_EXTENSIONS
@@ -6,7 +7,23 @@ from src.core.constants import DEFAULT_VIDEO_EXTENSIONS
 logger = logging.getLogger(__name__)
 
 
-class FileScanService:
+class IFileScanService(ABC):
+    """파일 스캔 서비스 인터페이스"""
+
+    @abstractmethod
+    def scan_directory(
+        self,
+        directory_path: str,
+        recursive: bool = True,
+        extensions: set[str] | None = None,
+        min_file_size: int = 0,
+        max_file_size: int = 0,
+    ) -> list[str]:
+        """디렉토리를 스캔하여 파일 목록을 반환"""
+        pass
+
+
+class FileScanService(IFileScanService):
     """파일 스캔 서비스"""
 
     def __init__(self):

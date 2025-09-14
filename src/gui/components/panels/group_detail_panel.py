@@ -10,8 +10,15 @@ import logging
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel,
-                             QSizePolicy, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class GroupDetailPanel(QWidget):
@@ -53,37 +60,18 @@ class GroupDetailPanel(QWidget):
     def create_poster_area(self):
         """포스터 영역 생성"""
         self.poster_frame = QFrame()
+        self.poster_frame.setObjectName("posterFrame")
         self.poster_frame.setFixedSize(200, 300)
         self.poster_frame.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.poster_frame.setStyleSheet(
-            """
-            QFrame {
-                background: qlineargradient(x1:0, y:1, x2:1, y:0,
-                    stop:0 #404853, stop:1 #2d323b);
-                border-radius: 12px;
-                border: 1px solid #323844;
-            }
-        """
-        )
         self.poster_frame.setAccessibleName("포스터 영역")
         self.poster_frame.setAccessibleDescription("애니메이션 포스터 이미지를 표시합니다")
         self.poster_frame.setFocusPolicy(Qt.StrongFocus)
         poster_layout = QVBoxLayout(self.poster_frame)
         poster_layout.setContentsMargins(8, 8, 8, 8)
         self.poster_label = QLabel()
+        self.poster_label.setObjectName("posterLabel")
         self.poster_label.setAlignment(Qt.AlignCenter)
         self.poster_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.poster_label.setStyleSheet(
-            """
-            QLabel {
-                background: transparent;
-                border-radius: 8px;
-                color: #c9cfda;
-                font-weight: 600;
-                font-size: 14px;
-            }
-        """
-        )
         self.poster_label.setAccessibleName("포스터 이미지")
         self.poster_label.setAccessibleDescription("애니메이션 포스터 이미지")
         poster_layout.addWidget(self.poster_label)
@@ -107,26 +95,9 @@ class GroupDetailPanel(QWidget):
         ]
         for i, (key, label_text, default_value) in enumerate(fields):
             label = QLabel(label_text)
-            label.setStyleSheet(
-                """
-                QLabel {
-                    color: #9aa3b2;
-                    font-size: 12px;
-                    font-weight: 500;
-                }
-            """
-            )
+            label.setProperty("class", "caption")
             label.setAccessibleName(f"{label_text} 라벨")
             value_label = QLabel(default_value)
-            value_label.setStyleSheet(
-                """
-                QLabel {
-                    color: #e7eaf0;
-                    font-size: 12px;
-                    font-weight: 400;
-                }
-            """
-            )
             value_label.setWordWrap(True)
             value_label.setAccessibleName(f"{label_text} 값")
             value_label.setAccessibleDescription(f"{label_text} 정보를 표시합니다")
@@ -151,9 +122,7 @@ class GroupDetailPanel(QWidget):
                 self.poster_label.setPixmap(scaled_pixmap)
                 self.poster_label.setText("")
                 logger.info("✅ 로컬 포스터 로드 성공: %s", poster_path)
-                self.poster_label.setAccessibleDescription(
-                    f"애니메이션 포스터 이미지: {poster_path}"
-                )
+                self.poster_label.setAccessibleDescription(f"애니메이션 포스터 이미지: {poster_path}")
                 return
             logger.info("❌ 로컬 포스터 로드 실패: %s", poster_path)
         if poster_url and poster_url.strip():
@@ -171,9 +140,7 @@ class GroupDetailPanel(QWidget):
                         self.poster_label.setPixmap(scaled_pixmap)
                         self.poster_label.setText("")
                         logger.info("✅ URL 포스터 로드 성공: %s", poster_url)
-                        self.poster_label.setAccessibleDescription(
-                            f"애니메이션 포스터 이미지: {poster_url}"
-                        )
+                        self.poster_label.setAccessibleDescription(f"애니메이션 포스터 이미지: {poster_url}")
                         return
                     logger.info("❌ 포스터 데이터 파싱 실패")
                 else:
@@ -227,18 +194,7 @@ class GroupDetailPanel(QWidget):
             self.metadata_layout.removeWidget(old_label)
             old_label.deleteLater()
         status_chip = QLabel(status)
-        status_chip.setStyleSheet(
-            """
-            QLabel {
-                background: #343a44;
-                color: #cfd6e3;
-                font-size: 12px;
-                padding: 2px 8px;
-                border-radius: 999px;
-                font-weight: 500;
-            }
-        """
-        )
+        status_chip.setObjectName("statusChip")
         status_chip.setAccessibleName("상태")
         status_chip.setAccessibleDescription(f"애니메이션 상태: {status}")
         self.metadata_layout.addWidget(status_chip, 4, 1)
@@ -252,18 +208,7 @@ class GroupDetailPanel(QWidget):
         self.tag_chips.clear()
         for i, tag in enumerate(tags):
             chip = QLabel(tag)
-            chip.setStyleSheet(
-                """
-                QLabel {
-                    background: #343a44;
-                    color: #c9cfda;
-                    font-size: 12px;
-                    padding: 4px 8px;
-                    border-radius: 999px;
-                    font-weight: 500;
-                }
-            """
-            )
+            chip.setObjectName("tagChip")
             chip.setAccessibleName(f"태그 {i + 1}")
             chip.setAccessibleDescription(f"애니메이션 태그: {tag}")
             self.tags_layout.addWidget(chip)

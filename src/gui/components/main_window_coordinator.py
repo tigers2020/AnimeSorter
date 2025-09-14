@@ -11,8 +11,7 @@ from PyQt5.QtWidgets import QMainWindow
 
 logger = logging.getLogger(__name__)
 from src.gui.components.main_window_initializer import MainWindowInitializer
-from src.gui.components.managers.event_handler_manager_ui import \
-    EventHandlerManagerUI
+from src.gui.components.managers.event_handler_manager_ui import EventHandlerManagerUI
 from src.gui.components.ui_component_manager import UIComponentManager
 
 
@@ -38,7 +37,6 @@ class MainWindowCoordinator:
             self._initialize_ui_component_manager()
             self._initialize_event_handler_manager()
             self._initialize_tmdb_search_handler()
-            self._initialize_menu_toolbar_manager()
             self._setup_lazy_initialization()
             self.initialization_complete = True
             self._log_initialization_summary()
@@ -108,9 +106,7 @@ class MainWindowCoordinator:
         try:
             logger.info("🔧 MainWindowCoordinator: TMDB 검색 핸들러 초기화 중...")
             if not hasattr(self.main_window, "tmdb_client") or not self.main_window.tmdb_client:
-                logger.info(
-                    "⚠️ TMDB 클라이언트가 초기화되지 않았습니다. TMDB 검색 핸들러를 건너뜁니다."
-                )
+                logger.info("⚠️ TMDB 클라이언트가 초기화되지 않았습니다. TMDB 검색 핸들러를 건너뜁니다.")
                 return
             from src.gui.handlers.tmdb_search_handler import TMDBSearchHandler
 
@@ -129,16 +125,6 @@ class MainWindowCoordinator:
             logger.info("✅ MainWindowCoordinator: TMDB 검색 핸들러 초기화 완료")
         except Exception as e:
             logger.error("❌ MainWindowCoordinator: TMDB 검색 핸들러 초기화 실패: %s", e)
-            raise
-
-    def _initialize_menu_toolbar_manager(self):
-        """메뉴 및 툴바 관리자 생성 및 실행"""
-        try:
-            logger.info("🔧 MainWindowCoordinator: 메뉴 및 툴바 관리자 생성 중...")
-            self.initialization_steps.append("✅ 메뉴 및 툴바 관리자 완료")
-            logger.info("✅ MainWindowCoordinator: 메뉴 및 툴바 관리자 생성 완료")
-        except Exception as e:
-            logger.error("❌ MainWindowCoordinator: 메뉴 및 툴바 관리자 생성 실패: %s", e)
             raise
 
     def _connect_event_handlers(self):
@@ -352,7 +338,6 @@ class MainWindowCoordinator:
             "initializer": self.initializer is not None,
             "ui_component_manager": self.ui_component_manager is not None,
             "event_handler_manager": self.event_handler_manager is not None,
-            "menu_toolbar_manager": self.menu_toolbar_manager is not None,
         }
 
     def refresh_ui_states(self):
@@ -377,8 +362,6 @@ class MainWindowCoordinator:
                 self.ui_component_manager.cleanup()
             if self.event_handler_manager and hasattr(self.event_handler_manager, "cleanup"):
                 self.event_handler_manager.cleanup()
-            if self.menu_toolbar_manager and hasattr(self.menu_toolbar_manager, "cleanup"):
-                self.menu_toolbar_manager.cleanup()
             logger.info("✅ MainWindowCoordinator: 정리 작업 완료")
         except Exception as e:
             logger.warning("⚠️ MainWindowCoordinator: 정리 작업 실패: %s", e)
@@ -392,9 +375,7 @@ class MainWindowCoordinator:
                 if not is_initialized:
                     issues.append(f"❌ {component_name}가 초기화되지 않음")
             if len(self.initialization_steps) < 4:
-                issues.append(
-                    f"⚠️ 초기화 단계가 부족함 (현재: {len(self.initialization_steps)}개, 필요: 4개)"
-                )
+                issues.append(f"⚠️ 초기화 단계가 부족함 (현재: {len(self.initialization_steps)}개, 필요: 4개)")
             if not self.initialization_complete:
                 issues.append("❌ 전체 초기화가 완료되지 않음")
             return issues

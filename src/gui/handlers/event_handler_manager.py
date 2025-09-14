@@ -10,19 +10,36 @@ import logging
 logger = logging.getLogger(__name__)
 from PyQt5.QtWidgets import QWidget
 
-from src.app import (BackupCompletedEvent, BackupFailedEvent,
-                     BackupStartedEvent, CommandExecutedEvent,
-                     CommandFailedEvent, CommandRedoneEvent,
-                     CommandUndoneEvent, ConfirmationRequiredEvent,
-                     FilesScannedEvent, MediaDataGroupingCompletedEvent,
-                     MediaDataReadyEvent, OrganizationCompletedEvent,
-                     OrganizationProgressEvent, OrganizationStartedEvent,
-                     PreflightCompletedEvent, PreflightIssueFoundEvent,
-                     PreflightStartedEvent, RedoExecutedEvent,
-                     SafetyAlertEvent, SafetyStatusUpdateEvent, ScanStatus,
-                     TaskCancelledEvent, TaskCompletedEvent, TaskFailedEvent,
-                     TaskProgressEvent, TaskStartedEvent, UndoExecutedEvent,
-                     UndoRedoStackChangedEvent)
+from src.app import (
+    BackupCompletedEvent,
+    BackupFailedEvent,
+    BackupStartedEvent,
+    CommandExecutedEvent,
+    CommandFailedEvent,
+    CommandRedoneEvent,
+    CommandUndoneEvent,
+    ConfirmationRequiredEvent,
+    FilesScannedEvent,
+    MediaDataGroupingCompletedEvent,
+    MediaDataReadyEvent,
+    OrganizationCompletedEvent,
+    OrganizationProgressEvent,
+    OrganizationStartedEvent,
+    PreflightCompletedEvent,
+    PreflightIssueFoundEvent,
+    PreflightStartedEvent,
+    RedoExecutedEvent,
+    SafetyAlertEvent,
+    SafetyStatusUpdateEvent,
+    ScanStatus,
+    TaskCancelledEvent,
+    TaskCompletedEvent,
+    TaskFailedEvent,
+    TaskProgressEvent,
+    TaskStartedEvent,
+    UndoExecutedEvent,
+    UndoRedoStackChangedEvent,
+)
 
 
 class EventHandlerManager:
@@ -102,7 +119,6 @@ class EventHandlerManager:
                 PreflightIssueFoundEvent, self.on_preflight_issue_found, weak_ref=False
             )
             self.logger.info("✅ Preflight System 이벤트 구독 설정")
-            # Journal 시스템 제거됨
             event_bus.subscribe(UndoExecutedEvent, self.on_undo_executed, weak_ref=False)
             event_bus.subscribe(RedoExecutedEvent, self.on_redo_executed, weak_ref=False)
             event_bus.subscribe(
@@ -162,9 +178,7 @@ class EventHandlerManager:
 
     def on_task_progress(self, event: TaskProgressEvent):
         """백그라운드 작업 진행률 이벤트 핸들러"""
-        self.logger.info(
-            f"📊 [MainWindow] 작업 진행률: {event.progress_percent}% - {event.current_step}"
-        )
+        self.logger.info(f"📊 [MainWindow] 작업 진행률: {event.progress_percent}% - {event.current_step}")
         self.main_window.update_status_bar(
             f"{event.current_step} ({event.items_processed}개 처리됨)", event.progress_percent
         )
@@ -173,9 +187,7 @@ class EventHandlerManager:
 
     def on_task_completed(self, event: TaskCompletedEvent):
         """백그라운드 작업 완료 이벤트 핸들러"""
-        self.logger.info(
-            f"✅ [MainWindow] 작업 완료: {event.task_name} (소요시간: {event.duration:.2f}초)"
-        )
+        self.logger.info(f"✅ [MainWindow] 작업 완료: {event.task_name} (소요시간: {event.duration:.2f}초)")
         self.main_window.update_status_bar(
             f"작업 완료: {event.task_name} ({event.items_processed}개 처리됨)", 100
         )
@@ -231,9 +243,7 @@ class EventHandlerManager:
 
     def on_media_data_ready(self, event: MediaDataReadyEvent):
         """미디어 데이터 준비 완료 이벤트 핸들러"""
-        self.logger.info(
-            f"📺 [MainWindow] 미디어 데이터 준비 완료: {len(event.media_files)}개 파일"
-        )
+        self.logger.info(f"📺 [MainWindow] 미디어 데이터 준비 완료: {len(event.media_files)}개 파일")
         self.main_window.update_status_bar("미디어 데이터 분석 완료")
 
     def on_media_data_grouping_completed(self, event: MediaDataGroupingCompletedEvent):
@@ -345,10 +355,6 @@ class EventHandlerManager:
         """프리플라이트 이슈 발견 이벤트 핸들러"""
         self.logger.warning(f"⚠️ [MainWindow] 프리플라이트 이슈: {event.issue_description}")
         self.main_window.show_warning_message("프리플라이트 이슈", event.issue_description)
-
-    # Journal 시스템 제거됨
-
-    # Transaction 시스템도 Journal과 함께 제거됨
 
     def on_undo_executed(self, event: UndoExecutedEvent):
         """실행 취소 이벤트 핸들러"""

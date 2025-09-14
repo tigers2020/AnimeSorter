@@ -76,9 +76,7 @@ class MainWindowFileHandler:
                             Path(file_path).name,
                             file_size,
                         )
-                        logger.info(
-                            "⚠️ 제외됨: %s (크기: %s bytes)", Path(file_path).name, file_size
-                        )
+                        logger.info("⚠️ 제외됨: %s (크기: %s bytes)", Path(file_path).name, file_size)
                         continue
                 except OSError:
                     logger.info("⚠️ 파일 크기 확인 실패 (제외): %s", Path(file_path).name)
@@ -124,9 +122,7 @@ class MainWindowFileHandler:
                     parsingConfidence=0.0,
                 )
                 parsed_items.append(parsed_item)
-                self.main_window.update_status_bar(
-                    f"파일 처리 오류: {Path(file_path).name} - {str(e)}"
-                )
+                self.main_window.update_status_bar(f"파일 처리 오류: {Path(file_path).name} - {str(e)}")
         if parsed_items:
             # MainWindow의 anime_data_manager 사용
             if (
@@ -199,8 +195,7 @@ class MainWindowFileHandler:
                 # FilesScannedEvent 발행
                 from uuid import uuid4
 
-                from src.app import (FilesScannedEvent, ScanStatus,
-                                     get_event_bus)
+                from src.app import FilesScannedEvent, ScanStatus, get_event_bus
 
                 scan_event = FilesScannedEvent(
                     scan_id=uuid4(),
@@ -215,7 +210,9 @@ class MainWindowFileHandler:
                     "📨 [MainWindowFileHandler] FilesScannedEvent 발행: %s개 파일", len(found_files)
                 )
 
-                self.main_window.update_status_bar("백그라운드에서 파일 스캔 중...", 0)
+                # 스캔된 파일들을 처리
+                self.process_selected_files(found_files)
+                self.main_window.update_status_bar("파일 스캔 완료", 100)
             else:
                 logger.info("❌ [MainWindowFileHandler] FileScanService를 사용할 수 없습니다")
                 self.main_window.show_error_message("파일 스캔 서비스를 사용할 수 없습니다")

@@ -8,7 +8,7 @@ import os
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor, QPalette
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QMainWindow
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +26,10 @@ class ThemeManager(QObject):
         self.system_theme = self._detect_system_theme()
         self._setup_theme_detection()
         self._define_color_palettes()
-        logger.info(
-            f"테마 관리자 초기화: 시스템 테마={self.system_theme}, 현재 테마={self.current_theme}"
+        self.theme_templates_path = os.path.join(
+            os.path.dirname(__file__), "..", "..", "theme", "templates"
         )
+        logger.info(f"테마 관리자 초기화: 시스템 테마={self.system_theme}, 현재 테마={self.current_theme}")
         self.apply_theme(self.current_theme)
 
     def _detect_system_theme(self) -> str:
@@ -134,6 +135,39 @@ class ThemeManager(QObject):
         self.dark_palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
         logger.info("테마별 색상 팔레트 정의 완료")
 
+    def _read_qss_file(self, qss_path: str) -> str:
+        """QSS 파일 읽기 헬퍼 메서드"""
+        try:
+            if os.path.exists(qss_path):
+                with open(qss_path, "r", encoding="utf-8") as file:
+                    content = file.read()
+                    logger.info(f"QSS 파일 로드 성공: {qss_path} ({len(content)} 문자)")
+                    return content
+            else:
+                logger.warning(f"QSS 파일을 찾을 수 없음: {qss_path}")
+                return ""
+        except Exception as e:
+            logger.error(f"QSS 파일 읽기 실패: {qss_path}, 오류: {e}")
+            return ""
+
+    def _load_theme_templates(self, theme: str) -> str:
+        """기존 테마 시스템의 템플릿 파일들을 로드하여 결합"""
+        try:
+            # 테마별 유틸리티 파일만 로드 (가장 기본적인 스타일)
+            utility_file = os.path.join(self.theme_templates_path, "utilities", f"{theme}.qss")
+            if os.path.exists(utility_file):
+                utility_content = self._read_qss_file(utility_file)
+                if utility_content:
+                    logger.info(f"테마 템플릿 로드 완료: {theme} ({len(utility_content)} 문자)")
+                    return utility_content
+
+            logger.warning(f"테마 유틸리티 파일을 찾을 수 없음: {utility_file}")
+            return ""
+
+        except Exception as e:
+            logger.error(f"테마 템플릿 로드 실패: {e}")
+            return ""
+
     def get_available_themes(self) -> list[str]:
         """사용 가능한 테마 목록 반환"""
         return ["auto", "light", "dark"]
@@ -196,359 +230,42 @@ class ThemeManager(QObject):
             return
         logger.info(f"스타일시트 적용 시작: {theme} 테마")
         app.setStyleSheet("")
-        if theme == "dark":
-            dark_stylesheet = """
-            QMainWindow {
-                background-color: #353535;
-                color: #ffffff;
-            }
 
-            QDialog {
-                background-color: #353535;
-                color: #ffffff;
-            }
+        # 기존 테마 시스템의 템플릿 파일들 로드
+        theme_qss_content = self._load_theme_templates(theme)
 
-            QTextEdit {
-                background-color: #2a2a2a;
-                color: #f0f0f0;
-                border: 1px solid #555555;
-            }
+        if theme_qss_content:
+            # 기존 테마 시스템의 QSS 적용
+            app.setStyleSheet(theme_qss_content)
 
-            QLabel {
-                color: #f0f0f0;
-            }
+            # 메인 윈도우에 테마별 objectName 설정
+            self._set_theme_object_name(theme)
 
-            QLabel[class="warning"] {
-                color: #ffcc00;
-                font-weight: bold;
-            }
+            logger.info(f"{theme} 테마 스타일시트 적용 완료 (기존 테마 시스템 사용)")
+        else:
+            # 폴백: 기본 스타일시트 적용
+            logger.warning(f"테마 템플릿을 로드할 수 없어 기본 스타일을 적용합니다: {theme}")
+            if theme == "dark":
+                app.setStyleSheet("QWidget { background-color: #353535; color: #ffffff; }")
+            else:
+                app.setStyleSheet("QWidget { background-color: #f0f0f0; color: #000000; }")
 
-            QPushButton {
-                background-color: #404040;
-                color: #ffffff;
-                border: 1px solid #555555;
-                padding: 6px 12px;
-                border-radius: 4px;
-            }
-
-            QPushButton:hover {
-                background-color: #505050;
-            }
-
-            QPushButton:pressed {
-                background-color: #2a82da;
-            }
-
-            QPushButton[class="primary"] {
-                background-color: #2a82da;
-                color: #ffffff;
-                font-weight: bold;
-            }
-
-            QPushButton[class="primary"]:hover {
-                background-color: #1e6bb8;
-            }
-
-            QTableView {
-                background-color: #2a2a2a;
-                color: #f0f0f0;
-                gridline-color: #505050;
-                alternate-background-color: #333333;
-            }
-
-            QTableView::item:selected {
-                background-color: #2a82da;
-                color: #ffffff;
-            }
-
-            QHeaderView::section {
-                background-color: #404040;
-                color: #ffffff;
-                border: 1px solid #555555;
-            }
-
-            QTabWidget::pane {
-                border: 1px solid #555555;
-                background-color: #353535;
-            }
-
-            QTabBar::tab {
-                background-color: #404040;
-                color: #ffffff;
-                padding: 8px 16px;
-                margin-right: 2px;
-            }
-
-            QTabBar::tab:selected {
-                background-color: #2a82da;
-                color: #ffffff;
-            }
-
-            QLineEdit {
-                background-color: #2a2a2a;
-                color: #f0f0f0;
-                border: 1px solid #555555;
-                padding: 4px 8px;
-                border-radius: 4px;
-            }
-
-            QComboBox {
-                background-color: #2a2a2a;
-                color: #f0f0f0;
-                border: 1px solid #555555;
-                padding: 4px 8px;
-                border-radius: 4px;
-            }
-
-            QComboBox::drop-down {
-                border: none;
-                width: 20px;
-            }
-
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #ffffff;
-            }
-
-            QMenuBar {
-                background-color: #2a2a2a;
-                color: #ffffff;
-                border-bottom: 1px solid #555555;
-            }
-
-            QMenuBar::item {
-                background-color: transparent;
-                padding: 6px 12px;
-                margin: 2px;
-                border-radius: 4px;
-            }
-
-            QMenuBar::item:selected {
-                background-color: #404040;
-            }
-
-            QMenuBar::item:pressed {
-                background-color: #2a82da;
-            }
-
-            QMenu {
-                background-color: #2a2a2a;
-                color: #ffffff;
-                border: 1px solid #555555;
-                padding: 4px;
-            }
-
-            QMenu::item {
-                padding: 6px 20px;
-                border-radius: 4px;
-            }
-
-            QMenu::item:selected {
-                background-color: #404040;
-            }
-
-            QMenu::separator {
-                height: 1px;
-                background-color: #555555;
-                margin: 4px 0px;
-            }
-
-            QGroupBox {
-                background-color: #404040;
-                color: #f0f0f0;
-                border: 2px solid #606060;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-                font-weight: bold;
-            }
-
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: #ffffff;
-            }
-
-            QDockWidget {
-                background-color: #353535;
-                color: #f0f0f0;
-            }
-
-            QDockWidget::title {
-                background-color: #404040;
-                color: #f0f0f0;
-                text-align: center;
-                padding: 6px;
-            }
-            """
-            app.setStyleSheet(dark_stylesheet)
-            logger.info("다크 테마 스타일시트 적용 완료")
-        elif theme == "light":
-            light_stylesheet = """
-            QMainWindow {
-                background-color: #f0f0f0;
-                color: #000000;
-            }
-
-            QDialog {
-                background-color: #f0f0f0;
-                color: #000000;
-            }
-
-            QTextEdit {
-                background-color: #ffffff;
-                color: #000000;
-                border: 1px solid #c0c0c0;
-            }
-
-            QLabel {
-                color: #000000;
-            }
-
-            QLabel[class="warning"] {
-                color: #cc6600;
-                font-weight: bold;
-            }
-
-            QPushButton {
-                background-color: #e0e0e0;
-                color: #000000;
-                border: 1px solid #c0c0c0;
-                padding: 6px 12px;
-                border-radius: 4px;
-            }
-
-            QPushButton:hover {
-                background-color: #d0d0d0;
-            }
-
-            QPushButton:pressed {
-                background-color: #2a82da;
-                color: #ffffff;
-            }
-
-            QPushButton[class="primary"] {
-                background-color: #2a82da;
-                color: #ffffff;
-                font-weight: bold;
-            }
-
-            QPushButton[class="primary"]:hover {
-                background-color: #1e6bb8;
-            }
-
-            QTableView {
-                background-color: #ffffff;
-                color: #000000;
-                gridline-color: #d0d0d0;
-                alternate-background-color: #f5f5f5;
-            }
-
-            QTableView::item:selected {
-                background-color: #2a82da;
-                color: #ffffff;
-            }
-
-            QHeaderView::section {
-                background-color: #e0e0e0;
-                color: #000000;
-                border: 1px solid #c0c0c0;
-            }
-
-            QTabWidget::pane {
-                border: 1px solid #c0c0c0;
-                background-color: #f0f0f0;
-            }
-
-            QTabBar::tab {
-                background-color: #e0e0e0;
-                color: #000000;
-                padding: 8px 16px;
-                margin-right: 2px;
-            }
-
-            QTabBar::tab:selected {
-                background-color: #2a82da;
-                color: #ffffff;
-            }
-
-            QLineEdit {
-                background-color: #ffffff;
-                color: #000000;
-                border: 1px solid #c0c0c0;
-                padding: 4px 8px;
-                border-radius: 4px;
-            }
-
-            QComboBox {
-                background-color: #ffffff;
-                color: #000000;
-                border: 1px solid #c0c0c0;
-                padding: 4px 8px;
-                border-radius: 4px;
-            }
-
-            QComboBox::drop-down {
-                border: none;
-                width: 20px;
-            }
-
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #000000;
-            }
-
-            QMenuBar {
-                background-color: #f0f0f0;
-                color: #000000;
-                border-bottom: 1px solid #c0c0c0;
-            }
-
-            QMenuBar::item {
-                background-color: transparent;
-                padding: 6px 12px;
-                margin: 2px;
-                border-radius: 4px;
-            }
-
-            QMenuBar::item:selected {
-                background-color: #e0e0e0;
-            }
-
-            QMenuBar::item:pressed {
-                background-color: #2a82da;
-                color: #ffffff;
-            }
-
-            QMenu {
-                background-color: #ffffff;
-                color: #000000;
-                border: 1px solid #c0c0c0;
-                padding: 4px;
-            }
-
-            QMenu::item {
-                padding: 6px 20px;
-                border-radius: 4px;
-            }
-
-            QMenu::item:selected {
-                background-color: #e0e0e0;
-            }
-
-            QMenu::separator {
-                height: 1px;
-                background-color: #c0c0c0;
-                margin: 4px 0px;
-            }
-            """
-            app.setStyleSheet(light_stylesheet)
-            logger.info("라이트 테마 스타일시트 적용 완료")
+    def _set_theme_object_name(self, theme: str):
+        """메인 윈도우에 테마별 objectName 설정"""
+        try:
+            app = QApplication.instance()
+            if app:
+                # 모든 윈도우를 찾아서 objectName 설정
+                for widget in app.allWidgets():
+                    if isinstance(widget, QMainWindow) and hasattr(widget, "setObjectName"):
+                        if theme == "dark":
+                            widget.setObjectName("AppDark")
+                        else:
+                            widget.setObjectName("AppLight")
+                        logger.info(f"메인 윈도우 objectName 설정: App{theme.capitalize()}")
+                        break
+        except Exception as e:
+            logger.warning(f"메인 윈도우 objectName 설정 실패: {e}")
 
     def toggle_theme(self):
         """테마 토글 (라이트 ↔ 다크)"""

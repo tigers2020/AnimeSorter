@@ -12,7 +12,7 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app.events import ITypedEventBus
+from src.app.events import IEventBus
 from src.core.tmdb_client import TMDBAnimeInfo
 from src.gui.managers.anime_data_manager import ParsedItem
 
@@ -37,7 +37,7 @@ class FileListViewModel(QObject):
     selection_changed = pyqtSignal()
     group_updated = pyqtSignal(str)
 
-    def __init__(self, event_bus: ITypedEventBus, parent=None):
+    def __init__(self, event_bus: IEventBus, parent=None):
         super().__init__(parent)
         self.event_bus = event_bus
         self._parsed_items: list[ParsedItem] = []

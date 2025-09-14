@@ -14,11 +14,12 @@ from pathlib import Path
 from typing import Any
 
 from src.app.commands.base_command import BaseCommand, CommandResult
-from src.app.commands.file_commands import (CopyFileCommand,
-                                            CreateDirectoryCommand,
-                                            DeleteFileCommand, MoveFileCommand)
-
-# Journal 시스템 제거됨
+from src.app.commands.file_commands import (
+    CopyFileCommand,
+    CreateDirectoryCommand,
+    DeleteFileCommand,
+    MoveFileCommand,
+)
 
 
 @dataclass
@@ -76,8 +77,6 @@ class BatchFileOperationCommand(BaseCommand):
                 continue
         return staging_paths
 
-    # Journal 시스템 제거됨
-
     def _execute_impl(self) -> None:
         """배치 작업 실행"""
         self.logger.info(f"배치 작업 시작: {self._total_operations}개 작업")
@@ -85,9 +84,7 @@ class BatchFileOperationCommand(BaseCommand):
         self._failed_operations.clear()
         self._successful_operations.clear()
         if self.config.status_callback:
-            self.config.status_callback(
-                "started", f"배치 작업 시작: {self._total_operations}개 작업"
-            )
+            self.config.status_callback("started", f"배치 작업 시작: {self._total_operations}개 작업")
         try:
             for i, operation in enumerate(self.operations):
                 try:
@@ -100,7 +97,6 @@ class BatchFileOperationCommand(BaseCommand):
                     if command:
                         if self._staging_manager:
                             command.set_staging_manager(self._staging_manager)
-                        # Journal 시스템 제거됨
                         result = command.execute()
                         self._executed_commands.append(command)
                         if result.is_success:

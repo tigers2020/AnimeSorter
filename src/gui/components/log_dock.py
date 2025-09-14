@@ -9,9 +9,18 @@ logger = logging.getLogger(__name__)
 from pathlib import Path
 
 from PyQt5.QtCore import QSettings, Qt
-from PyQt5.QtWidgets import (QDockWidget, QFrame, QHBoxLayout, QLabel,
-                             QSizePolicy, QTabWidget, QTextEdit, QToolButton,
-                             QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QDockWidget,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QTabWidget,
+    QTextEdit,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class LogDock(QDockWidget):
@@ -43,9 +52,7 @@ class LogDock(QDockWidget):
         self.txt_log.setReadOnly(True)
         self.txt_log.setMinimumHeight(120)
         self.txt_log.setMaximumHeight(200)
-        self.txt_log.setText(
-            "애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다."
-        )
+        self.txt_log.setText("애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다.")
         self.txt_err = QTextEdit()
         self.txt_err.setReadOnly(True)
         self.txt_err.setMinimumHeight(120)
@@ -63,7 +70,7 @@ class LogDock(QDockWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
         self.lbl_log_count = QLabel("활동: 0 | 오류: 0")
-        self.lbl_log_count.setStyleSheet("color: #7f8c8d; font-size: 10px;")
+        self.lbl_log_count.setObjectName("lblLogCount")
         layout.addWidget(self.lbl_log_count)
         layout.addStretch(1)
         separator = QFrame()
@@ -71,46 +78,14 @@ class LogDock(QDockWidget):
         separator.setFrameShadow(QFrame.Sunken)
         layout.addWidget(separator)
         self.btn_clear_logs = QToolButton()
+        self.btn_clear_logs.setObjectName("btnClearLogs")
         self.btn_clear_logs.setToolTip("모든 로그 클리어")
         self.btn_clear_logs.setText("🗑️")
-        self.btn_clear_logs.setStyleSheet(
-            """
-            QToolButton {
-                border: 1px solid #bdc3c7;
-                border-radius: 3px;
-                padding: 2px;
-                background-color: #ecf0f1;
-            }
-            QToolButton:hover {
-                background-color: #d5dbdb;
-                border-color: #95a5a6;
-            }
-            QToolButton:pressed {
-                background-color: #bdc3c7;
-            }
-        """
-        )
         layout.addWidget(self.btn_clear_logs)
         self.btn_export_logs = QToolButton()
+        self.btn_export_logs.setObjectName("btnExportLogs")
         self.btn_export_logs.setToolTip("로그 내보내기")
         self.btn_export_logs.setText("📤")
-        self.btn_export_logs.setStyleSheet(
-            """
-            QToolButton {
-                border: 1px solid #bdc3c7;
-                border-radius: 3px;
-                padding: 2px;
-                background-color: #ecf0f1;
-            }
-            QToolButton:hover {
-                background-color: #d5dbdb;
-                border-color: #95a5a6;
-            }
-            QToolButton:pressed {
-                background-color: #bdc3c7;
-            }
-        """
-        )
         layout.addWidget(self.btn_export_logs)
         return panel
 
@@ -159,9 +134,7 @@ class LogDock(QDockWidget):
         """모든 로그 클리어"""
         self.txt_log.clear()
         self.txt_err.clear()
-        self.txt_log.setText(
-            "애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다."
-        )
+        self.txt_log.setText("애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다.")
         self.txt_err.setText("오류 로그가 여기에 표시됩니다.")
         self.update_log_stats()
 

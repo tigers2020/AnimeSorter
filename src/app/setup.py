@@ -12,10 +12,17 @@ from typing import TypeVar
 
 from src.app.container import get_container
 from src.app.events import get_event_bus
-# Journal 시스템 제거됨
 from src.app.preflight import IPreflightCoordinator, PreflightCoordinator
-from src.app.safety import (IInterruptionManager, InterruptionManager,
-                            ISafetyManager, SafetyConfiguration, SafetyManager)
+from src.app.safety import (
+    IInterruptionManager,
+    InterruptionManager,
+    ISafetyManager,
+    SafetyConfiguration,
+    SafetyManager,
+)
+from src.app.services import FileScanService, IFileScanService
+from src.app.services.media_data_service import MediaDataService, IMediaDataService
+from src.app.services.ui_update_service import UIUpdateService, IUIUpdateService
 
 
 def setup_application_services() -> None:
@@ -31,7 +38,6 @@ def setup_application_services() -> None:
         logger.info("EventBus는 get_event_bus()를 통해 직접 사용됩니다")
         # 제거된 서비스들 - 필요시 실제 구현체로 교체
         # BackgroundTaskService, UIUpdateService, MediaDataService는 제거됨
-        # Journal 시스템 제거됨
         if not container.is_registered(ISafetyManager):
 
             def create_safety_manager():
@@ -43,7 +49,6 @@ def setup_application_services() -> None:
         if not container.is_registered(IPreflightCoordinator):
             container.register_singleton(IPreflightCoordinator, PreflightCoordinator)
             logger.info("IPreflightCoordinator가 PreflightCoordinator로 등록되었습니다")
-        # Journal 시스템 제거됨
         if not container.is_registered(SafetyConfiguration):
             container.register_singleton(SafetyConfiguration, factory=lambda: SafetyConfiguration())
             logger.info("SafetyConfiguration이 등록되었습니다")
@@ -51,6 +56,32 @@ def setup_application_services() -> None:
         if not container.is_registered(IInterruptionManager):
             container.register_singleton(IInterruptionManager, InterruptionManager)
             logger.info("IInterruptionManager가 InterruptionManager로 등록되었습니다")
+
+        # FileScanService 등록
+        if not container.is_registered(IFileScanService):
+            container.register_singleton(IFileScanService, FileScanService)
+            logger.info("IFileScanService가 FileScanService로 등록되었습니다")
+
+        # MediaDataService 등록
+        if not container.is_registered(IMediaDataService):
+
+            def create_media_data_service():
+                event_bus = get_event_bus()
+                return MediaDataService(event_bus)
+
+            container.register_singleton(IMediaDataService, factory=create_media_data_service)
+            logger.info("IMediaDataService가 MediaDataService로 등록되었습니다")
+
+        # UIUpdateService 등록
+        if not container.is_registered(IUIUpdateService):
+
+            def create_ui_update_service():
+                event_bus = get_event_bus()
+                return UIUpdateService(event_bus)
+
+            container.register_singleton(IUIUpdateService, factory=create_ui_update_service)
+            logger.info("IUIUpdateService가 UIUpdateService로 등록되었습니다")
+
         logger.info("애플리케이션 서비스 등록 완료")
     except Exception as e:
         logger.error(f"애플리케이션 서비스 등록 실패: {e}")

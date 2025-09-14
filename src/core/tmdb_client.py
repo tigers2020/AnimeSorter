@@ -6,6 +6,7 @@ tmdbsimple 라이브러리를 기반으로 구현되었으며, 모듈화된 구�
 """
 
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 from dataclasses import asdict
@@ -33,12 +34,20 @@ class TMDBClient:
     def __init__(self, api_key: str | None = None, language: str = "ko-KR"):
         """TMDB 클라이언트 초기화"""
         self.language = language
-        self.cache_dir = Path(".animesorter_cache")
+        # PyInstaller 환경에서 안전한 캐시 디렉토리 설정
+        if getattr(sys, "frozen", False):
+            # exe 파일과 같은 디렉토리에 캐시 폴더 생성
+            base_path = Path(sys.executable).parent
+            self.cache_dir = base_path / ".animesorter_cache"
+        else:
+            self.cache_dir = Path(".animesorter_cache")
         self.cache_dir.mkdir(exist_ok=True)
         self.logger = logging.getLogger(self.__class__.__name__)
+
         if api_key:
             self.api_key = api_key
             tmdb.API_KEY = api_key
+            self.logger.info(f"TMDB API 키 설정됨: {api_key[:8]}...")
         else:
             config_api_key = unified_config_manager.get("services", "tmdb_api", {}).get(
                 "api_key", ""
@@ -46,17 +55,17 @@ class TMDBClient:
             if config_api_key:
                 self.api_key = config_api_key
                 tmdb.API_KEY = config_api_key
-                self.logger.info("통합 설정에서 TMDB API 키를 불러왔습니다")
+                self.logger.info(f"통합 설정에서 TMDB API 키를 불러왔습니다: {config_api_key[:8]}...")
             else:
-                raise ValueError(
-                    "TMDB API 키가 필요합니다. 통합 설정 파일에서 services.tmdb_api.api_key를 설정해주세요."
-                )
-        tmdb.REQUESTS_TIMEOUT = 5
+                self.logger.error("TMDB API 키를 찾을 수 없습니다")
+                raise ValueError("TMDB API 키가 필요합니다. 통합 설정 파일에서 services.tmdb_api.api_key를 설정해주세요.")
+
+        tmdb.REQUESTS_TIMEOUT = 10  # 타임아웃 증가
         self.session = tmdb.REQUESTS_SESSION
         self.cache_manager = TMDBCacheManager(self.cache_dir)
         self.image_manager = TMDBImageManager(self.cache_dir / "posters")
         self.rate_limiter = TMDBRateLimiter(requests_per_second=4, burst_limit=8)
-        self.logger.info("TMDB 클라이언트 초기화 완료 (모듈화된 구조)")
+        self.logger.info(f"TMDB 클라이언트 초기화 완료 (캐시 디렉토리: {self.cache_dir.absolute()})")
 
     def search_anime(
         self,
@@ -67,14 +76,18 @@ class TMDBClient:
     ) -> list[TMDBAnimeInfo]:
         """애니메이션 제목으로 검색 (리팩토링됨)"""
         try:
+            self.logger.info(f"TMDB 검색 시작: '{query}' (year: {year}, adult: {include_adult})")
             self.rate_limiter.wait_if_needed()
             cache_key = f"search_{query}_{year}_{include_adult}_{first_air_date_year}"
             cached_result = self.cache_manager.get_cache(cache_key)
             if cached_result:
+                self.logger.info(f"캐시된 결과 사용: {len(cached_result)}개")
                 for item in cached_result:
                     if "tmdb_id" in item and "id" not in item:
                         item["id"] = item["tmdb_id"]
                 return [TMDBAnimeInfo(**item) for item in cached_result]
+
+            self.logger.info(f"TMDB API 호출 시작: {query}")
             search = tmdb.Search()
             search_params = {
                 "query": query,
@@ -89,22 +102,33 @@ class TMDBClient:
                 current_year = datetime.now().year
                 search_params["with_first_air_date_gte"] = f"{current_year - 10}-01-01"
                 search_params["with_first_air_date_lte"] = f"{current_year}-12-31"
+
+            self.logger.info(f"검색 파라미터: {search_params}")
             response = search.tv(**search_params)
+            self.logger.info(f"TMDB API 응답 받음: {len(response.get('results', []))}개 결과")
+
             anime_results = []
             for result in response.get("results", []):
                 genre_ids = result.get("genre_ids", [])
                 if any(genre_id in genre_ids for genre_id in [16, 10759]):
                     anime_results.append(result)
+
+            self.logger.info(f"애니메이션 필터링 후: {len(anime_results)}개 결과")
             limited_results = anime_results[:10]
             anime_info_list = []
             for result in limited_results:
                 anime_info = self._convert_to_anime_info(result)
                 if anime_info:
                     anime_info_list.append(anime_info)
+
             self.cache_manager.set_cache(cache_key, [asdict(info) for info in anime_info_list])
+            self.logger.info(f"TMDB 검색 완료: {len(anime_info_list)}개 결과 반환")
             return anime_info_list
         except Exception as e:
             self.logger.error(f"TMDB 검색 오류: {e}")
+            import traceback
+
+            self.logger.error(f"상세 오류: {traceback.format_exc()}")
             return []
 
     def get_anime_details(self, tv_id: int, language: str | None = None) -> TMDBAnimeInfo | None:

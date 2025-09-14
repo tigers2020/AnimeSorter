@@ -7,9 +7,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import (QFormLayout, QFrame, QGroupBox, QHBoxLayout,
-                             QLabel, QPushButton, QSizePolicy, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import (
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class LeftPanel(QWidget):
@@ -69,26 +77,15 @@ class LeftPanel(QWidget):
         source_label.setStyleSheet("font-weight: bold; color: #2c3e50;")
         source_layout.addWidget(source_label)
         self.source_dir_label = QLabel("선택되지 않음")
-        self.source_dir_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: #ecf0f1;
-                border: 1px solid #bdc3c7;
-                border-radius: 4px;
-                padding: 8px;
-                color: #7f8c8d;
-                font-style: italic;
-            }
-        """
-        )
+        self.source_dir_label.setObjectName("sourceDirLabel")
         self.source_dir_label.setWordWrap(True)
         source_layout.addWidget(self.source_dir_label)
         source_buttons = QHBoxLayout()
         self.btnChooseSourceFolder = QPushButton("📂 폴더 선택")
-        self.btnChooseSourceFolder.setStyleSheet(self.get_button_style("#3498db"))
+        self.btnChooseSourceFolder.setObjectName("btnChooseSourceFolder")
         self.btnChooseSourceFolder.setToolTip("애니메이션 파일이 있는 소스 폴더를 선택합니다")
         self.btnChooseSourceFiles = QPushButton("📄 파일 선택")
-        self.btnChooseSourceFiles.setStyleSheet(self.get_button_style("#3498db"))
+        self.btnChooseSourceFiles.setObjectName("btnChooseSourceFiles")
         self.btnChooseSourceFiles.setToolTip("개별 애니메이션 파일들을 선택합니다")
         source_buttons.addWidget(self.btnChooseSourceFolder)
         source_buttons.addWidget(self.btnChooseSourceFiles)
@@ -101,22 +98,11 @@ class LeftPanel(QWidget):
         dest_label.setStyleSheet("font-weight: bold; color: #2c3e50;")
         dest_layout.addWidget(dest_label)
         self.dest_dir_label = QLabel("선택되지 않음")
-        self.dest_dir_label.setStyleSheet(
-            """
-            QLabel {
-                background-color: #ecf0f1;
-                border: 1px solid #bdc3c7;
-                border-radius: 4px;
-                padding: 8px;
-                color: #7f8c8d;
-                font-style: italic;
-            }
-        """
-        )
+        self.dest_dir_label.setObjectName("destDirLabel")
         self.dest_dir_label.setWordWrap(True)
         dest_layout.addWidget(self.dest_dir_label)
         self.btnChooseDestFolder = QPushButton("📂 폴더 선택")
-        self.btnChooseDestFolder.setStyleSheet(self.get_button_style("#27ae60"))
+        self.btnChooseDestFolder.setObjectName("btnChooseDestFolder")
         self.btnChooseDestFolder.setToolTip("정리된 파일을 저장할 대상 폴더를 선택합니다")
         dest_layout.addWidget(self.btnChooseDestFolder)
         layout.addWidget(dest_group)
@@ -125,10 +111,10 @@ class LeftPanel(QWidget):
         layout.addWidget(line)
         scan_layout = QHBoxLayout()
         self.btnStart = QPushButton("▶️ 스캔 시작")
-        self.btnStart.setStyleSheet(self.get_button_style("#e74c3c"))
+        self.btnStart.setObjectName("btnStart")
         self.btnStart.setEnabled(False)
         self.btnPause = QPushButton("⏸️ 일시정지")
-        self.btnPause.setStyleSheet(self.get_button_style("#f39c12"))
+        self.btnPause.setObjectName("btnPause")
         self.btnPause.setEnabled(False)
         scan_layout.addWidget(self.btnStart)
         scan_layout.addWidget(self.btnPause)
@@ -157,15 +143,15 @@ class LeftPanel(QWidget):
         layout = QFormLayout(group)
         layout.setSpacing(8)
         self.lblTotal = QLabel("0")
-        self.lblTotal.setStyleSheet("font-weight: bold; color: #2c3e50; font-size: 14px;")
+        self.lblTotal.setObjectName("lblTotal")
         self.lblParsed = QLabel("0")
-        self.lblParsed.setStyleSheet("font-weight: bold; color: #27ae60; font-size: 14px;")
+        self.lblParsed.setObjectName("lblParsed")
         self.lblPending = QLabel("0")
-        self.lblPending.setStyleSheet("font-weight: bold; color: #f39c12; font-size: 14px;")
+        self.lblPending.setObjectName("lblPending")
         self.lblGroups = QLabel("0")
-        self.lblGroups.setStyleSheet("font-weight: bold; color: #9b59b6; font-size: 14px;")
+        self.lblGroups.setObjectName("lblGroups")
         self.btnClearCompleted = QPushButton("✅ 완료된 항목 정리")
-        self.btnClearCompleted.setStyleSheet(self.get_button_style("#95a5a6"))
+        self.btnClearCompleted.setObjectName("btnClearCompleted")
         layout.addRow("전체:", self.lblTotal)
         layout.addRow("완료:", self.lblParsed)
         layout.addRow("대기:", self.lblPending)
@@ -250,9 +236,7 @@ class LeftPanel(QWidget):
                 "last_source_directory",
                 "",
             )
-        folder = QFileDialog.getExistingDirectory(
-            self, "애니메이션 파일이 있는 소스 폴더 선택", start_dir
-        )
+        folder = QFileDialog.getExistingDirectory(self, "애니메이션 파일이 있는 소스 폴더 선택", start_dir)
         if folder:
             self.update_source_directory_display(folder)
             self.source_folder_selected.emit(folder)
@@ -317,9 +301,7 @@ class LeftPanel(QWidget):
                 "last_destination_directory",
                 "",
             )
-        folder = QFileDialog.getExistingDirectory(
-            self, "정리된 파일을 저장할 대상 폴더 선택", start_dir
-        )
+        folder = QFileDialog.getExistingDirectory(self, "정리된 파일을 저장할 대상 폴더 선택", start_dir)
         if folder:
             self.update_dest_directory_display(folder)
             self.destination_folder_selected.emit(folder)

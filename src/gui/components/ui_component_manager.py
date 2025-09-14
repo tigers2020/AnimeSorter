@@ -22,26 +22,38 @@ if TYPE_CHECKING:
     from src.gui.components.ui_state_manager import UIStateManager
     from src.gui.managers.anime_data_manager import AnimeDataManager
     from src.gui.managers.tmdb_manager import TMDBManager
+from src.gui.base_classes import StateInitializationMixin
 
 
-class UIComponentManager:
+class UIComponentManager(StateInitializationMixin):
     """UI 컴포넌트 관리를 담당하는 클래스"""
 
     def __init__(self, main_window: QMainWindow):
+        super().__init__()
         self.main_window = main_window
-        self.log_dock: LogDock | None = None
-        self.ui_initializer: UIInitializer | None = None
-        self.event_handler_manager: EventHandlerManager | None = None
-        self.status_bar_manager: StatusBarManager | None = None
-        self.accessibility_manager: AccessibilityManager | None = None
-        self.i18n_manager: I18nManager | None = None
-        self.ui_state_manager: UIStateManager | None = None
-        self.ui_migration_manager: UIMigrationManager | None = None
-        self.anime_data_manager: AnimeDataManager | None = None
-        self.file_organization_service = None
-        self.tmdb_manager: TMDBManager | None = None
-        self.tmdb_search_dialogs = {}
-        self.poster_cache = {}
+        self.initialize_state()
+
+    def _get_default_state_config(self):
+        """Get the default state configuration for UIComponentManager."""
+        return {
+            "managers": {
+                "log_dock": None,
+                "ui_initializer": None,
+                "event_handler_manager": None,
+                "status_bar_manager": None,
+                "accessibility_manager": None,
+                "i18n_manager": None,
+                "ui_state_manager": None,
+                "ui_migration_manager": None,
+                "anime_data_manager": None,
+                "file_organization_service": None,
+                "tmdb_manager": None,
+            },
+            "collections": {"tmdb_search_dialogs": "dict", "poster_cache": "dict"},
+            "strings": {},
+            "flags": {},
+            "config": {},
+        }
 
     def setup_all_components(self):
         """모든 UI 컴포넌트를 설정하고 연결"""
@@ -98,9 +110,7 @@ class UIComponentManager:
                 self.event_handler_manager.setup_event_subscriptions()
                 logger.info("✅ 이벤트 핸들러 관리자 설정 완료")
             else:
-                logger.info(
-                    "⚠️ EventBus가 초기화되지 않아 이벤트 핸들러 관리자를 설정할 수 없습니다."
-                )
+                logger.info("⚠️ EventBus가 초기화되지 않아 이벤트 핸들러 관리자를 설정할 수 없습니다.")
         except Exception as e:
             logger.info("❌ 이벤트 핸들러 관리자 설정 실패: %s", e)
             self.event_handler_manager = None

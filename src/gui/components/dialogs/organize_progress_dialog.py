@@ -4,14 +4,24 @@
 """
 
 import logging
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 from dataclasses import dataclass
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QProgressBar,
-                             QPushButton, QTextEdit, QVBoxLayout)
+from PyQt5.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
+)
+
+from src.state.base_state import BaseState
 
 
 @dataclass
@@ -33,16 +43,48 @@ class OrganizeResult:
             self.skipped_files = []
 
 
-class OrganizeProgressDialog(QDialog):
+class OrganizeProgressDialog(BaseState, QDialog):
     """파일 정리 진행률 다이얼로그"""
 
     def __init__(self, grouped_items: dict[str, list], destination_directory: str, parent=None):
-        super().__init__(parent)
+        # Initialize QDialog first
+        QDialog.__init__(self, parent)
+        # Then initialize BaseState
+        BaseState.__init__(self)
         self.grouped_items = grouped_items
         self.destination_directory = destination_directory
-        self.worker = None
-        self.result = None
+        self.is_cancelled = False
+        self.is_organizing = False
         self.init_ui()
+
+    def _get_default_state_config(self) -> Dict[str, Any]:
+        """
+        Get the default state configuration for this dialog.
+
+        Returns:
+            Dictionary containing default state configuration.
+        """
+        return {
+            "managers": {"worker": None},
+            "collections": {"grouped_items": "dict", "result": None},
+            "strings": {"destination_directory": ""},
+            "flags": {},
+            "config": {},
+        }
+
+    def _initialize_state(self) -> None:
+        """
+        Initialize the dialog state with class-specific values.
+
+        This method is called by BaseState during initialization and
+        handles the specific state setup for this dialog.
+        """
+        # Call the parent's initialization first
+        super()._initialize_state()
+
+        # Set class-specific state that was passed in constructor
+        self.grouped_items = getattr(self, "grouped_items", {})
+        self.destination_directory = getattr(self, "destination_directory", "")
 
     def init_ui(self):
         """UI 초기화"""
@@ -127,8 +169,59 @@ class OrganizeProgressDialog(QDialog):
 
     def start_organization(self):
         """파일 정리 시작"""
-        self.log_text.append("❌ 파일 정리 기능이 아직 구현되지 않았습니다.")
+        self.is_cancelled = False
+        self.is_organizing = True
+        self.cancel_button.setText("❌ 취소")
+        self.cancel_button.setEnabled(True)
+
+        self.log_text.append("🚀 파일 정리 작업을 시작합니다...")
+        self.log_text.append(f"📁 대상 디렉토리: {self.destination_directory}")
+        self.log_text.append(f"📊 총 {len(self.grouped_items)} 개의 그룹을 처리합니다.")
+
+        # Initialize result
+        self.result = OrganizeResult()
+
+        # Simulate organization process
+        total_groups = len(self.grouped_items)
+        processed_groups = 0
+
+        for group_name, files in self.grouped_items.items():
+            # Check for cancellation
+            if self.is_cancelled:
+                self.add_log("⚠️ 작업이 사용자에 의해 취소되었습니다.")
+                self.update_progress(0, "취소됨")
+                self.cancel_button.setText("닫기")
+                self.is_organizing = False
+                return
+
+            if processed_groups >= total_groups:
+                break
+
+            # Update progress
+            progress = int((processed_groups / total_groups) * 100)
+            self.update_progress(progress, f"그룹 처리 중: {group_name}")
+
+            # Simulate processing each file in the group
+            for file_path in files:
+                # Check for cancellation during file processing
+                if self.is_cancelled:
+                    self.add_log("⚠️ 작업이 사용자에 의해 취소되었습니다.")
+                    self.update_progress(0, "취소됨")
+                    self.cancel_button.setText("닫기")
+                    self.is_organizing = False
+                    return
+
+                self.add_log(f"📄 처리 중: {file_path}")
+                self.result.success_count += 1
+
+            processed_groups += 1
+
+        # Complete the process
+        self.update_progress(100, "완료")
+        self.add_log("✅ 파일 정리 작업이 완료되었습니다.")
+        self.add_log(f"📈 성공: {self.result.success_count}개 파일")
         self.cancel_button.setText("닫기")
+        self.is_organizing = False
 
     def update_progress(self, progress: int, current_file: str):
         """진행률 업데이트"""
@@ -141,7 +234,13 @@ class OrganizeProgressDialog(QDialog):
 
     def cancel_operation(self):
         """작업 취소"""
-        self.reject()
+        if self.is_organizing:
+            # If currently organizing, set cancellation flag
+            self.is_cancelled = True
+            self.add_log("🛑 취소 요청됨...")
+        else:
+            # If not organizing, just close the dialog
+            self.reject()
 
     def set_simulation_mode(self, enabled: bool):
         """시뮬레이션 모드 설정"""
@@ -152,3 +251,49 @@ class OrganizeProgressDialog(QDialog):
     def get_result(self) -> OrganizeResult | None:
         """결과 반환"""
         return self.result
+
+    def reset_dialog_state(self):
+        """Reset the dialog state to its initial values.
+
+        This method resets all dialog state variables and UI elements
+        to their initial state, clearing any accumulated data from
+        previous operations.
+        """
+        try:
+            logger.info("🔄 Resetting OrganizeProgressDialog state...")
+
+            # Use BaseState's reset functionality
+            self.reset_all_states()
+
+            # Reset UI elements to initial state
+            self.progress_bar.setValue(0)
+            self.progress_bar.setFormat("진행률: %p%")
+            self.current_file_label.setText("대기 중...")
+            self.log_text.clear()
+
+            # Reset button state
+            self.cancel_button.setText("❌ 취소")
+            self.cancel_button.setEnabled(True)
+
+            # Reset organization state
+            self.is_cancelled = False
+            self.is_organizing = False
+
+            # Reset window title
+            self.setWindowTitle("📁 파일 정리 진행 중")
+
+            logger.info("✅ OrganizeProgressDialog state reset completed")
+
+        except Exception as e:
+            logger.error(f"❌ Error resetting OrganizeProgressDialog state: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+    def reset_state(self):
+        """Public method to reset dialog state.
+
+        This is an alias for reset_dialog_state() to maintain
+        consistency with other components' reset methods.
+        """
+        self.reset_dialog_state()

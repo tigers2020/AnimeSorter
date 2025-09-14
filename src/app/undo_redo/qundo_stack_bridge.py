@@ -14,7 +14,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoStack
 
 from src.app.commands import ICommand
-# Journal 시스템 제거됨
 from src.app.staging import IStagingManager, StagedFile
 from src.app.undo_redo.qt_command_wrapper import QtCommandWrapper
 
@@ -29,7 +28,6 @@ class QUndoStackBridge(QObject):
     staging_started = pyqtSignal(str, list)
     staging_completed = pyqtSignal(str, list)
     staging_failed = pyqtSignal(str, str)
-    # Journal 시스템 제거됨
 
     def __init__(
         self,
@@ -40,11 +38,9 @@ class QUndoStackBridge(QObject):
         self.logger = logging.getLogger(self.__class__.__name__)
         self._undo_stack = undo_stack or QUndoStack()
         self._staging_manager = staging_manager
-        # Journal 시스템 제거됨
         self._command_map: dict[str, ICommand] = {}
         self._staging_map: dict[str, list[StagedFile]] = {}
         self._auto_staging = True
-        # Journal 시스템 제거됨
         self._staging_cleanup_on_undo = True
         self._connect_undo_stack_signals()
         self.logger.info("QUndoStack 브리지 초기화 완료")
@@ -63,15 +59,12 @@ class QUndoStackBridge(QObject):
         self._staging_manager = staging_manager
         self.logger.info("스테이징 매니저 설정됨")
 
-    # Journal 시스템 제거됨
-
     def execute_command(self, command: ICommand) -> bool:
         """Command 실행 (Phase 3: 스테이징 + 저널링 통합)"""
         try:
             self.logger.info(f"Command 실행 시작: {command.description}")
             if self._staging_manager and hasattr(command, "set_staging_manager"):
                 command.set_staging_manager(self._staging_manager)
-            # Journal 시스템 제거됨
             if self._auto_staging and self._staging_manager:
                 self.staging_started.emit(str(command.command_id), [])
             qt_command = QtCommandWrapper(command)
@@ -84,7 +77,6 @@ class QUndoStackBridge(QObject):
                     if hasattr(result, "staged_files") and result.staged_files:
                         self._staging_map[command_id_str] = result.staged_files
                         self.staging_completed.emit(command_id_str, result.staged_files)
-                    # Journal 시스템 제거됨
                     self.command_executed.emit(command_id_str, result)
                     self.logger.info(f"Command 실행 성공: {command.description}")
                     return True
@@ -141,7 +133,6 @@ class QUndoStackBridge(QObject):
                 return
             if self._staging_cleanup_on_undo and command_id in self._staging_map:
                 self._cleanup_staging_for_command(command_id)
-            # Journal 시스템 제거됨
             self.command_undone.emit(
                 command_id, command.result if hasattr(command, "result") else None
             )
@@ -155,7 +146,6 @@ class QUndoStackBridge(QObject):
             command = self._command_map.get(command_id)
             if not command:
                 return
-            # Journal 시스템 제거됨
             self.command_redone.emit(
                 command_id, command.result if hasattr(command, "result") else None
             )
@@ -186,15 +176,11 @@ class QUndoStackBridge(QObject):
                         if backup_path_obj.exists():
                             backup_path_obj.unlink()
                 except Exception as e:
-                    self.logger.warning(
-                        f"스테이징 파일 정리 실패: {staged_file.staging_path} - {e}"
-                    )
+                    self.logger.warning(f"스테이징 파일 정리 실패: {staged_file.staging_path} - {e}")
             del self._staging_map[command_id]
             self.logger.info(f"Command {command_id}의 스테이징 파일 정리 완료")
         except Exception as e:
             self.logger.error(f"스테이징 정리 중 오류: {e}")
-
-    # Journal 시스템 제거됨
 
     def _get_command_id_at_index(self, index: int) -> str | None:
         """특정 인덱스의 Command ID 조회"""

@@ -8,9 +8,18 @@ import logging
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QPalette
-from PyQt5.QtWidgets import (QAction, QApplication, QFrame, QHBoxLayout,
-                             QLabel, QLineEdit, QProgressBar, QPushButton,
-                             QSizePolicy, QWidget)
+from PyQt5.QtWidgets import (
+    QAction,
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QProgressBar,
+    QPushButton,
+    QSizePolicy,
+    QWidget,
+)
 
 
 class StatusBadge(QFrame):
@@ -39,21 +48,6 @@ class StatusBadge(QFrame):
         layout.addWidget(self.conflict_label)
         layout.addWidget(separator3)
         layout.addWidget(self.duplicate_label)
-        self.setStyleSheet(
-            """
-            QFrame {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 6px;
-                padding: 4px 8px;
-            }
-            QLabel {
-                color: #495057;
-                font-size: 11px;
-                font-weight: 500;
-            }
-        """
-        )
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
     def update_status(self, total=0, unmatched=0, conflict=0, duplicate=0):
@@ -66,40 +60,8 @@ class StatusBadge(QFrame):
 
     def update_theme_colors(self):
         """테마에 따른 색상 업데이트"""
-        palette = QApplication.palette()
-        is_dark = palette.color(QPalette.Window).lightness() < 128
-        if is_dark:
-            self.setStyleSheet(
-                """
-                QFrame {
-                    background-color: #343a40;
-                    border: 1px solid #495057;
-                    border-radius: 6px;
-                    padding: 4px 8px;
-                }
-                QLabel {
-                    color: #e9ecef;
-                    font-size: 11px;
-                    font-weight: 500;
-                }
-            """
-            )
-        else:
-            self.setStyleSheet(
-                """
-                QFrame {
-                    background-color: #f8f9fa;
-                    border: 1px solid #dee2e6;
-                    border-radius: 6px;
-                    padding: 4px 8px;
-                }
-                QLabel {
-                    color: #495057;
-                    font-size: 11px;
-                    font-weight: 500;
-                }
-            """
-            )
+        # 테마 색상은 이제 common_styles.qss에서 처리됩니다
+        pass
 
 
 class MainToolbar(QWidget):
@@ -134,20 +96,20 @@ class MainToolbar(QWidget):
     def create_action_buttons(self, layout):
         """액션 버튼 그룹 생성"""
         self.btn_scan = QPushButton("🔍 스캔")
+        self.btn_scan.setObjectName("btnScan")
         self.btn_scan.setToolTip("소스 디렉토리 스캔 (F5)")
-        self.btn_scan.setStyleSheet(self.get_button_style("#6c757d"))
         self.btn_scan.clicked.connect(self.scan_requested.emit)
         self.btn_scan.setMinimumHeight(32)
         self.btn_scan.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.btn_preview = QPushButton("👁️ 미리보기")
+        self.btn_preview.setObjectName("btnPreview")
         self.btn_preview.setToolTip("변경 사항 미리보기 (Space)")
-        self.btn_preview.setStyleSheet(self.get_button_style("#6c757d"))
         self.btn_preview.clicked.connect(self.preview_requested.emit)
         self.btn_preview.setMinimumHeight(32)
         self.btn_preview.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.btn_organize = QPushButton("🚀 정리 실행")
+        self.btn_organize.setObjectName("btnOrganize")
         self.btn_organize.setToolTip("파일 정리 실행 (Ctrl+Enter)")
-        self.btn_organize.setStyleSheet(self.get_button_style("#27ae60", is_primary=True))
         self.btn_organize.clicked.connect(self.organize_requested.emit)
         self.btn_organize.setMinimumHeight(32)
         self.btn_organize.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -160,6 +122,7 @@ class MainToolbar(QWidget):
         search_label = QLabel("🔍")
         search_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.search_input = QLineEdit()
+        self.search_input.setObjectName("searchInput")
         self.search_input.setPlaceholderText("제목, 경로로 검색... (Ctrl+F)")
         self.search_input.setMinimumWidth(200)
         self.search_input.setMaximumWidth(400)
@@ -172,6 +135,7 @@ class MainToolbar(QWidget):
     def create_right_section(self, layout):
         """우측 섹션 생성"""
         self.progress_bar = QProgressBar()
+        self.progress_bar.setObjectName("progressBar")
         self.progress_bar.setMaximumWidth(200)
         self.progress_bar.setMinimumHeight(24)
         self.progress_bar.setMaximumHeight(24)
@@ -180,8 +144,8 @@ class MainToolbar(QWidget):
         self.status_badge = StatusBadge()
         self.create_panel_toggle_buttons(layout)
         self.btn_settings = QPushButton("⚙️")
+        self.btn_settings.setObjectName("btnSettings")
         self.btn_settings.setToolTip("설정")
-        self.btn_settings.setStyleSheet(self.get_button_style("#6c757d"))
         self.btn_settings.clicked.connect(self.settings_requested.emit)
         self.btn_settings.setMinimumHeight(28)
         self.btn_settings.setMaximumWidth(40)
@@ -193,18 +157,18 @@ class MainToolbar(QWidget):
     def create_panel_toggle_buttons(self, layout):
         """패널 토글 버튼들 생성"""
         self.btn_detail_toggle = QPushButton("📋 상세")
+        self.btn_detail_toggle.setObjectName("btnDetailToggle")
         self.btn_detail_toggle.setToolTip("상세 패널 토글 (Alt+I)")
         self.btn_detail_toggle.setCheckable(True)
         self.btn_detail_toggle.setChecked(True)
-        self.btn_detail_toggle.setStyleSheet(self.get_toggle_button_style())
         self.btn_detail_toggle.clicked.connect(self.on_detail_toggle_clicked)
         self.btn_detail_toggle.setMinimumHeight(28)
         self.btn_detail_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.btn_file_toggle = QPushButton("📁 파일")
+        self.btn_file_toggle.setObjectName("btnFileToggle")
         self.btn_file_toggle.setToolTip("파일 패널 토글 (Alt+F)")
         self.btn_file_toggle.setCheckable(True)
         self.btn_file_toggle.setChecked(True)
-        self.btn_file_toggle.setStyleSheet(self.get_toggle_button_style())
         self.btn_file_toggle.clicked.connect(self.on_file_toggle_clicked)
         self.btn_file_toggle.setMinimumHeight(28)
         self.btn_file_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -226,7 +190,7 @@ class MainToolbar(QWidget):
         separator = QFrame()
         separator.setFrameShape(QFrame.VLine)
         separator.setFrameShadow(QFrame.Sunken)
-        separator.setStyleSheet("QFrame { background-color: #dee2e6; }")
+        separator.setProperty("class", "separator")
         separator.setMaximumWidth(1)
         separator.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         return separator

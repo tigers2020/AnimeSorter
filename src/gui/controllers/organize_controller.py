@@ -15,8 +15,10 @@ from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
 from src.components.organize_preflight_dialog import OrganizePreflightDialog
-from src.components.organize_progress_dialog import (OrganizeProgressDialog,
-                                                     OrganizeResult)
+from src.gui.components.dialogs.organize_progress_dialog import (
+    OrganizeProgressDialog,
+    OrganizeResult,
+)
 from src.interfaces.i_controller import IController
 from src.interfaces.i_event_bus import Event, IEventBus
 
@@ -167,18 +169,14 @@ class OrganizeController(IController):
         """정리 작업 전제 조건 검증"""
         try:
             if not self.grouped_items:
-                self.event_bus.publish(
-                    "error_occurred", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요."
-                )
+                self.event_bus.publish("error_occurred", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요.")
                 return False
             valid_groups = {k: v for k, v in self.grouped_items.items() if k != "ungrouped" and v}
             if not valid_groups:
                 self.event_bus.publish("error_occurred", "정리할 유효한 그룹이 없습니다.")
                 return False
             if not self.destination_directory or not Path(self.destination_directory).exists():
-                self.event_bus.publish(
-                    "error_occurred", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
-                )
+                self.event_bus.publish("error_occurred", "대상 폴더가 설정되지 않았거나 존재하지 않습니다.")
                 return False
             if not os.access(self.destination_directory, os.W_OK):
                 self.event_bus.publish("error_occurred", "대상 폴더에 쓰기 권한이 없습니다.")
@@ -303,6 +301,32 @@ class OrganizeController(IController):
         """작업 상태 초기화"""
         self.is_organizing = False
         self.current_operation = None
+
+    def reset_state(self):
+        """Reset the controller state to its initial values.
+
+        This method resets all controller state variables and clears
+        any accumulated data from previous operations.
+        """
+        try:
+            logger.info("🔄 Resetting OrganizeController state...")
+
+            # Reset operation state
+            self._reset_operation_state()
+
+            # Reset any other state variables if they exist
+            if hasattr(self, "current_scan_id"):
+                self.current_scan_id = None
+            if hasattr(self, "current_organization_id"):
+                self.current_organization_id = None
+
+            logger.info("✅ OrganizeController state reset completed")
+
+        except Exception as e:
+            logger.error(f"❌ Error resetting OrganizeController state: {e}")
+            import traceback
+
+            traceback.print_exc()
 
     def _generate_result_summary(self, result: OrganizeResult, execute_mode: bool = True) -> str:
         """결과 요약 생성"""
