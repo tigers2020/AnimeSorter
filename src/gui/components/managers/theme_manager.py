@@ -5,6 +5,7 @@
 
 import logging
 import os
+from pathlib import Path
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor, QPalette
@@ -26,10 +27,10 @@ class ThemeManager(QObject):
         self.system_theme = self._detect_system_theme()
         self._setup_theme_detection()
         self._define_color_palettes()
-        self.theme_templates_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "theme", "templates"
+        self.theme_templates_path = Path(__file__).parent / ".." / ".." / "theme" / "templates"
+        logger.info(
+            f"테마 관리자 초기화: 시스템 테마={self.system_theme}, 현재 테마={self.current_theme}"
         )
-        logger.info(f"테마 관리자 초기화: 시스템 테마={self.system_theme}, 현재 테마={self.current_theme}")
         self.apply_theme(self.current_theme)
 
     def _detect_system_theme(self) -> str:
@@ -138,14 +139,13 @@ class ThemeManager(QObject):
     def _read_qss_file(self, qss_path: str) -> str:
         """QSS 파일 읽기 헬퍼 메서드"""
         try:
-            if os.path.exists(qss_path):
-                with open(qss_path, "r", encoding="utf-8") as file:
-                    content = file.read()
-                    logger.info(f"QSS 파일 로드 성공: {qss_path} ({len(content)} 문자)")
-                    return content
-            else:
-                logger.warning(f"QSS 파일을 찾을 수 없음: {qss_path}")
-                return ""
+            qss_file = Path(qss_path)
+            if qss_file.exists():
+                content = qss_file.read_text(encoding="utf-8")
+                logger.info(f"QSS 파일 로드 성공: {qss_path} ({len(content)} 문자)")
+                return content
+            logger.warning(f"QSS 파일을 찾을 수 없음: {qss_path}")
+            return ""
         except Exception as e:
             logger.error(f"QSS 파일 읽기 실패: {qss_path}, 오류: {e}")
             return ""
@@ -154,9 +154,9 @@ class ThemeManager(QObject):
         """기존 테마 시스템의 템플릿 파일들을 로드하여 결합"""
         try:
             # 테마별 유틸리티 파일만 로드 (가장 기본적인 스타일)
-            utility_file = os.path.join(self.theme_templates_path, "utilities", f"{theme}.qss")
-            if os.path.exists(utility_file):
-                utility_content = self._read_qss_file(utility_file)
+            utility_file = self.theme_templates_path / "utilities" / f"{theme}.qss"
+            if utility_file.exists():
+                utility_content = self._read_qss_file(str(utility_file))
                 if utility_content:
                     logger.info(f"테마 템플릿 로드 완료: {theme} ({len(utility_content)} 문자)")
                     return utility_content

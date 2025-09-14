@@ -13,13 +13,14 @@ from uuid import UUID
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QUndoStack
 
-from src.app.commands.base_command import (CommandError, CommandResult,
-                                           CommandStatus, ICommand)
-from src.app.commands.command_events import (CommandExecutedEvent,
-                                             CommandFailedEvent,
-                                             CommandQueueUpdatedEvent,
-                                             CommandRedoneEvent,
-                                             CommandUndoneEvent)
+from src.app.commands.base_command import CommandError, CommandResult, CommandStatus, ICommand
+from src.app.commands.command_events import (
+    CommandExecutedEvent,
+    CommandFailedEvent,
+    CommandQueueUpdatedEvent,
+    CommandRedoneEvent,
+    CommandUndoneEvent,
+)
 from src.app.events import get_event_bus
 
 

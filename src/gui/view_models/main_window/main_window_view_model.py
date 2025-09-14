@@ -8,14 +8,28 @@ import logging
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (ErrorMessageEvent, FileCountUpdateEvent,
-                     FilesScannedEvent, IBackgroundTaskService,
-                     IFileScanService, IUIUpdateService, MenuStateUpdateEvent,
-                     StatusBarUpdateEvent, SuccessMessageEvent,
-                     TableDataUpdateEvent, TaskCancelledEvent,
-                     TaskCompletedEvent, TaskFailedEvent, TaskProgressEvent,
-                     TaskStartedEvent, TypedEventBus, UIStateUpdateEvent,
-                     WindowTitleUpdateEvent, get_event_bus, get_service)
+from src.app import (
+    ErrorMessageEvent,
+    FileCountUpdateEvent,
+    FilesScannedEvent,
+    IBackgroundTaskService,
+    IFileScanService,
+    IUIUpdateService,
+    MenuStateUpdateEvent,
+    StatusBarUpdateEvent,
+    SuccessMessageEvent,
+    TableDataUpdateEvent,
+    TaskCancelledEvent,
+    TaskCompletedEvent,
+    TaskFailedEvent,
+    TaskProgressEvent,
+    TaskStartedEvent,
+    TypedEventBus,
+    UIStateUpdateEvent,
+    WindowTitleUpdateEvent,
+    get_event_bus,
+    get_service,
+)
 
 from .application_state import ApplicationState, UICapabilities
 

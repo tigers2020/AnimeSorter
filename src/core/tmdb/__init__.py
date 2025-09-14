@@ -8,12 +8,15 @@ tmdbsimple 라이브러리를 기반으로 한 TMDB 서비스들을 의존성 �
 import logging
 
 logger = logging.getLogger(__name__)
-from src.core.tmdb.container import (TMDBClientContainer, TMDBConfig,
-                                     configure_tmdb, get_tmdb_client)
-from src.core.tmdb.interfaces import (TMDBCacheProtocol, TMDBClientFactory,
-                                      TMDBClientProtocol, TMDBImageProtocol,
-                                      TMDBRateLimiterProtocol,
-                                      TMDBServiceProtocol)
+from src.core.tmdb.container import TMDBClientContainer, TMDBConfig, configure_tmdb, get_tmdb_client
+from src.core.tmdb.interfaces import (
+    TMDBCacheProtocol,
+    TMDBClientFactory,
+    TMDBClientProtocol,
+    TMDBImageProtocol,
+    TMDBRateLimiterProtocol,
+    TMDBServiceProtocol,
+)
 from src.core.tmdb.tmdbsimple_service import TMDBSimpleService
 
 __all__ = [

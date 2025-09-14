@@ -12,10 +12,23 @@ from pathlib import Path
 
 from PyQt5.QtCore import QDateTime, Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
-from PyQt5.QtWidgets import (QApplication, QFileDialog, QGroupBox, QHBoxLayout,
-                             QHeaderView, QLabel, QProgressBar, QPushButton,
-                             QTableView, QTableWidget, QTableWidgetItem,
-                             QTabWidget, QTextEdit, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QTableView,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.gui.theme.engine.theme_manager import ThemeManager
 from src.theme_consistency_validator import ThemeConsistencyValidator

@@ -37,8 +37,8 @@ class BaseGroupModel(BaseTableModel):
     def _get_tooltip_data(self, row_data: dict[str, Any], column: int) -> str:
         """툴팁 데이터 반환"""
         if column == 0:
-            return f"""제목: {row_data.get('title', '제목 없음')}
-원제: {row_data.get('original_title', 'N/A')}"""
+            return f"""제목: {row_data.get("title", "제목 없음")}
+원제: {row_data.get("original_title", "N/A")}"""
         if column == 1:
             return f"최종 이동 경로: {row_data.get('final_path', '경로 없음')}"
         if column == 2:

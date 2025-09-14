@@ -8,13 +8,23 @@ import logging
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (ErrorMessageEvent, FileDeletedEvent, FileMovedEvent,
-                     IFileOrganizationService, IUIUpdateService,
-                     OrganizationCancelledEvent, OrganizationCompletedEvent,
-                     OrganizationFailedEvent, OrganizationProgressEvent,
-                     OrganizationStartedEvent, StatusBarUpdateEvent,
-                     SuccessMessageEvent, TypedEventBus, get_event_bus,
-                     get_service)
+from src.app import (
+    ErrorMessageEvent,
+    FileDeletedEvent,
+    FileMovedEvent,
+    IFileOrganizationService,
+    IUIUpdateService,
+    OrganizationCancelledEvent,
+    OrganizationCompletedEvent,
+    OrganizationFailedEvent,
+    OrganizationProgressEvent,
+    OrganizationStartedEvent,
+    StatusBarUpdateEvent,
+    SuccessMessageEvent,
+    TypedEventBus,
+    get_event_bus,
+    get_service,
+)
 
 from .organization_state import OrganizationCapabilities, OrganizationState
 

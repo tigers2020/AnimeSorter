@@ -106,7 +106,9 @@ class MainWindowCoordinator:
         try:
             logger.info("🔧 MainWindowCoordinator: TMDB 검색 핸들러 초기화 중...")
             if not hasattr(self.main_window, "tmdb_client") or not self.main_window.tmdb_client:
-                logger.info("⚠️ TMDB 클라이언트가 초기화되지 않았습니다. TMDB 검색 핸들러를 건너뜁니다.")
+                logger.info(
+                    "⚠️ TMDB 클라이언트가 초기화되지 않았습니다. TMDB 검색 핸들러를 건너뜁니다."
+                )
                 return
             from src.gui.handlers.tmdb_search_handler import TMDBSearchHandler
 
@@ -375,7 +377,9 @@ class MainWindowCoordinator:
                 if not is_initialized:
                     issues.append(f"❌ {component_name}가 초기화되지 않음")
             if len(self.initialization_steps) < 4:
-                issues.append(f"⚠️ 초기화 단계가 부족함 (현재: {len(self.initialization_steps)}개, 필요: 4개)")
+                issues.append(
+                    f"⚠️ 초기화 단계가 부족함 (현재: {len(self.initialization_steps)}개, 필요: 4개)"
+                )
             if not self.initialization_complete:
                 issues.append("❌ 전체 초기화가 완료되지 않음")
             return issues

@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QHeaderView, QMainWindow, QMessageBox
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
 from src.core.unified_event_system import get_unified_event_bus
+from src.gui.base_classes import StateInitializationMixin
 from src.gui.components.dialogs.settings_dialog import SettingsDialog
 from src.gui.components.main_window_coordinator import MainWindowCoordinator
 from src.gui.components.managers.theme_manager import ThemeManager
@@ -23,7 +24,6 @@ from src.gui.components.ui_state_controller import UIStateController
 from src.gui.managers.anime_data_manager import AnimeDataManager
 from src.gui.managers.tmdb_manager import TMDBManager
 from src.gui.theme.engine.variable_loader import VariableLoader as TokenLoader
-from src.gui.base_classes import StateInitializationMixin
 
 
 class MainWindow(QMainWindow, StateInitializationMixin):
@@ -125,10 +125,10 @@ class MainWindow(QMainWindow, StateInitializationMixin):
         """Setup the menu bar."""
         try:
             # Add basic menu items
-            file_menu = self.menu_bar.addMenu("File")
-            edit_menu = self.menu_bar.addMenu("Edit")
-            view_menu = self.menu_bar.addMenu("View")
-            help_menu = self.menu_bar.addMenu("Help")
+            self.menu_bar.addMenu("File")
+            self.menu_bar.addMenu("Edit")
+            self.menu_bar.addMenu("View")
+            self.menu_bar.addMenu("Help")
 
             logger.info("✅ Menu bar setup completed")
         except Exception as e:
@@ -429,7 +429,9 @@ class MainWindow(QMainWindow, StateInitializationMixin):
                 logger.error(f"❌ FileOrganizationHandler 초기화 실패: {e}")
                 import traceback
 
-                logger.error(f"❌ FileOrganizationHandler 초기화 실패 상세: {traceback.format_exc()}")
+                logger.error(
+                    f"❌ FileOrganizationHandler 초기화 실패 상세: {traceback.format_exc()}"
+                )
                 self.file_organization_handler = None
 
             # MainWindowSessionManager 초기화
@@ -444,7 +446,9 @@ class MainWindow(QMainWindow, StateInitializationMixin):
                     )
                     logger.info("✅ MainWindowSessionManager 초기화 완료")
                 else:
-                    logger.info("⚠️ MainWindowSessionManager 초기화 실패: unified_config_manager가 없습니다")
+                    logger.info(
+                        "⚠️ MainWindowSessionManager 초기화 실패: unified_config_manager가 없습니다"
+                    )
                     self.session_manager = None
             except Exception as e:
                 logger.error(f"❌ MainWindowSessionManager 초기화 실패: {e}")
@@ -570,9 +574,8 @@ class MainWindow(QMainWindow, StateInitializationMixin):
                     self.tmdb_client = TMDBClient(api_key=api_key)
                     logger.info(f"✅ TMDB 클라이언트 초기화 성공: {api_key[:8]}...")
                     return True
-                else:
-                    logger.warning("⚠️ TMDB API 키를 찾을 수 없습니다")
-                    return False
+                logger.warning("⚠️ TMDB API 키를 찾을 수 없습니다")
+                return False
             except Exception as e:
                 logger.error(f"❌ TMDB 클라이언트 초기화 실패: {e}")
                 return False
@@ -623,33 +626,51 @@ class MainWindow(QMainWindow, StateInitializationMixin):
                     self.anime_data_manager.clear_completed_items()
 
             # Reset file organization service state
-            if hasattr(self, "file_organization_service") and self.file_organization_service:
-                if hasattr(self.file_organization_service, "reset_state"):
-                    self.file_organization_service.reset_state()
+            if (
+                hasattr(self, "file_organization_service")
+                and self.file_organization_service
+                and hasattr(self.file_organization_service, "reset_state")
+            ):
+                self.file_organization_service.reset_state()
 
             # Reset TMDB manager state
-            if hasattr(self, "tmdb_manager") and self.tmdb_manager:
-                if hasattr(self.tmdb_manager, "reset_state"):
-                    self.tmdb_manager.reset_state()
+            if (
+                hasattr(self, "tmdb_manager")
+                and self.tmdb_manager
+                and hasattr(self.tmdb_manager, "reset_state")
+            ):
+                self.tmdb_manager.reset_state()
 
             # Reset UI controllers
-            if hasattr(self, "ui_state_controller") and self.ui_state_controller:
-                if hasattr(self.ui_state_controller, "reset_state"):
-                    self.ui_state_controller.reset_state()
+            if (
+                hasattr(self, "ui_state_controller")
+                and self.ui_state_controller
+                and hasattr(self.ui_state_controller, "reset_state")
+            ):
+                self.ui_state_controller.reset_state()
 
             # Reset message log controller
-            if hasattr(self, "message_log_controller") and self.message_log_controller:
-                if hasattr(self.message_log_controller, "reset_state"):
-                    self.message_log_controller.reset_state()
+            if (
+                hasattr(self, "message_log_controller")
+                and self.message_log_controller
+                and hasattr(self.message_log_controller, "reset_state")
+            ):
+                self.message_log_controller.reset_state()
 
             # Reset handlers that have reset methods
-            if hasattr(self, "file_handler") and self.file_handler:
-                if hasattr(self.file_handler, "reset_state"):
-                    self.file_handler.reset_state()
+            if (
+                hasattr(self, "file_handler")
+                and self.file_handler
+                and hasattr(self.file_handler, "reset_state")
+            ):
+                self.file_handler.reset_state()
 
-            if hasattr(self, "tmdb_search_handler") and self.tmdb_search_handler:
-                if hasattr(self.tmdb_search_handler, "reset_state"):
-                    self.tmdb_search_handler.reset_state()
+            if (
+                hasattr(self, "tmdb_search_handler")
+                and self.tmdb_search_handler
+                and hasattr(self.tmdb_search_handler, "reset_state")
+            ):
+                self.tmdb_search_handler.reset_state()
 
             # Reset organize controller state
             if hasattr(self, "file_organization_handler") and self.file_organization_handler:
@@ -691,10 +712,10 @@ class MainWindow(QMainWindow, StateInitializationMixin):
 
             traceback.print_exc()
             # Still try to update UI even if some resets failed
-            try:
+            import contextlib
+
+            with contextlib.suppress(Exception):
                 self.update_status_bar("상태 초기화 중 일부 오류가 발생했습니다")
-            except:
-                pass
 
     def setup_connections(self):
         """시그널/슬롯 연결 설정"""
@@ -961,9 +982,13 @@ class MainWindow(QMainWindow, StateInitializationMixin):
                             }
                         )
                 self.update_status_bar(f"결과가 {filename}에 저장되었습니다")
-                QMessageBox.information(self, "내보내기 완료", f"결과가 성공적으로 저장되었습니다:\n{filename}")
+                QMessageBox.information(
+                    self, "내보내기 완료", f"결과가 성공적으로 저장되었습니다:\n{filename}"
+                )
             except Exception as e:
-                QMessageBox.critical(self, "내보내기 오류", f"파일 저장 중 오류가 발생했습니다:\n{str(e)}")
+                QMessageBox.critical(
+                    self, "내보내기 오류", f"파일 저장 중 오류가 발생했습니다:\n{str(e)}"
+                )
 
     def show_about(self):
         """정보 다이얼로그 표시"""
@@ -1060,7 +1085,7 @@ class MainWindow(QMainWindow, StateInitializationMixin):
         """결과 표시 업데이트"""
         try:
             logger.info(
-                f'🔍 [update_results_display] anime_data_manager 존재: {hasattr(self, "anime_data_manager")}'
+                f"🔍 [update_results_display] anime_data_manager 존재: {hasattr(self, 'anime_data_manager')}"
             )
             if hasattr(self, "anime_data_manager") and self.anime_data_manager:
                 logger.info(
@@ -1069,7 +1094,7 @@ class MainWindow(QMainWindow, StateInitializationMixin):
                 grouped_items = self.anime_data_manager.get_grouped_items()
                 logger.info(f"🔍 [update_results_display] grouped_items: {len(grouped_items)}개")
                 logger.info(
-                    f'🔍 [update_results_display] grouped_model 존재: {hasattr(self, "grouped_model")}'
+                    f"🔍 [update_results_display] grouped_model 존재: {hasattr(self, 'grouped_model')}"
                 )
 
                 if hasattr(self, "grouped_model") and self.grouped_model:
@@ -1080,7 +1105,9 @@ class MainWindow(QMainWindow, StateInitializationMixin):
 
                 stats = self.anime_data_manager.get_stats()
                 group_count = len(grouped_items)
-                self.update_status_bar(f"총 {stats['total']}개 파일이 {group_count}개 그룹으로 분류되었습니다")
+                self.update_status_bar(
+                    f"총 {stats['total']}개 파일이 {group_count}개 그룹으로 분류되었습니다"
+                )
                 has_groups = len(grouped_items) > 0 and any(
                     group_id != "ungrouped" for group_id in grouped_items
                 )
@@ -1273,7 +1300,9 @@ class MainWindow(QMainWindow, StateInitializationMixin):
                     )
                 if hasattr(toolbar, "settings_action"):
                     toolbar.settings_action.setText(tr("settings", "설정"))
-                    toolbar.settings_action.setToolTip(tr("settings_desc", "애플리케이션 설정을 엽니다"))
+                    toolbar.settings_action.setToolTip(
+                        tr("settings_desc", "애플리케이션 설정을 엽니다")
+                    )
             if hasattr(self, "results_view") and hasattr(self.results_view, "tab_widget"):
                 tab_widget = self.results_view.tab_widget
                 tab_texts = [
@@ -1753,7 +1782,9 @@ class MainWindow(QMainWindow, StateInitializationMixin):
             # 최소한의 오류 표시
             from PyQt5.QtWidgets import QMessageBox
 
-            QMessageBox.critical(self, "설정 저장 실패", f"설정을 저장할 수 없습니다.\n{error_message}")
+            QMessageBox.critical(
+                self, "설정 저장 실패", f"설정을 저장할 수 없습니다.\n{error_message}"
+            )
 
     def on_config_saved(self):
         """설정 저장 성공 시 호출됩니다"""

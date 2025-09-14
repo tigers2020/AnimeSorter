@@ -230,9 +230,7 @@ class TestTokenLoader(unittest.TestCase):
     def test_token_validation_disabled(self):
         """토큰 검증 비활성화 테스트"""
         loader = TokenLoader(enable_validation=False)
-        invalid_tokens = {
-            "colors": {"invalid": {"value": "not_a_color", "description": "잘못된 색상"}}
-        }
+        invalid_tokens = {"colors": {"invalid": {"value": "not_a_color", "description": "잘못된 색상"}}}
         loader.load_tokens(invalid_tokens)
         self.assertIn("colors.invalid.value", loader.tokens)
 

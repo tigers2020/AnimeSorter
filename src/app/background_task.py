@@ -16,10 +16,15 @@ from uuid import uuid4
 
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
-from src.app.background_events import (TaskCancelledEvent, TaskCompletedEvent,
-                                       TaskFailedEvent, TaskPriority,
-                                       TaskProgressEvent, TaskStartedEvent,
-                                       TaskStatus)
+from src.app.background_events import (
+    TaskCancelledEvent,
+    TaskCompletedEvent,
+    TaskFailedEvent,
+    TaskPriority,
+    TaskProgressEvent,
+    TaskStartedEvent,
+    TaskStatus,
+)
 from src.app.events import get_event_bus
 
 

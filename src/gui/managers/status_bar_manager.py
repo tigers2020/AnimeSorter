@@ -11,9 +11,14 @@ from typing import Any
 
 import psutil
 
-from src.app.ui_events import (ErrorMessageEvent, FileCountUpdateEvent,
-                               MemoryUsageUpdateEvent, ProgressUpdateEvent,
-                               StatusBarUpdateEvent, SuccessMessageEvent)
+from src.app.ui_events import (
+    ErrorMessageEvent,
+    FileCountUpdateEvent,
+    MemoryUsageUpdateEvent,
+    ProgressUpdateEvent,
+    StatusBarUpdateEvent,
+    SuccessMessageEvent,
+)
 from src.core.manager_base import ManagerBase, ManagerConfig, ManagerPriority
 
 

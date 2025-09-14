@@ -353,9 +353,7 @@ class TestThemeEnginePerformance(unittest.TestCase):
         start_time = time.time()
         compiled_qss = compiler.compile_template(self.large_qss_template)
         compile_time = time.time() - start_time
-        self.assertLess(
-            compile_time, 1.0, f"대용량 템플릿 컴파일이 너무 느립니다: {compile_time:.3f}초"
-        )
+        self.assertLess(compile_time, 1.0, f"대용량 템플릿 컴파일이 너무 느립니다: {compile_time:.3f}초")
         self.assertIsInstance(compiled_qss, str)
         self.assertGreater(len(compiled_qss), 0)
 

@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 import re
@@ -32,7 +32,7 @@ class OrganizePreflightDialog(BaseState, QDialog):
         self.init_ui()
         self.generate_summary()
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """
         Get the default state configuration for this dialog.
 
@@ -103,7 +103,9 @@ class OrganizePreflightDialog(BaseState, QDialog):
         """
         )
         layout.addWidget(self.summary_text)
-        warning_label = QLabel("⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다.")
+        warning_label = QLabel(
+            "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다."
+        )
         warning_label.setStyleSheet(
             """
             QLabel {
@@ -232,7 +234,9 @@ class OrganizePreflightDialog(BaseState, QDialog):
             summary_lines.append("")
             summary_lines.append("📝 자막 파일 처리:")
             summary_lines.append("-" * 30)
-            summary_lines.append("• 연관된 자막 파일(.srt, .ass, .ssa 등)이 자동으로 함께 이동됩니다")
+            summary_lines.append(
+                "• 연관된 자막 파일(.srt, .ass, .ssa 등)이 자동으로 함께 이동됩니다"
+            )
             summary_lines.append("• 자막 파일은 비디오 파일과 같은 폴더에 배치됩니다")
             summary_lines.append("")
             summary_lines.append("⚠️ 주의사항:")
@@ -296,7 +300,10 @@ class OrganizePreflightDialog(BaseState, QDialog):
                 self.proceed_button.setText("✅ 확인")
                 self.proceed_button.setToolTip("미리보기 확인")
             warning_label = self.findChild(QLabel, "")
-            if warning_label and "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다" in warning_label.text():
+            if (
+                warning_label
+                and "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다" in warning_label.text()
+            ):
                 warning_label.setText("👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다.")
                 warning_label.setStyleSheet(
                     """
@@ -319,8 +326,13 @@ class OrganizePreflightDialog(BaseState, QDialog):
                 self.proceed_button.setText("✅ 진행")
                 self.proceed_button.setToolTip("파일 정리 실행")
             warning_label = self.findChild(QLabel, "")
-            if warning_label and "👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다" in warning_label.text():
-                warning_label.setText("⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다.")
+            if (
+                warning_label
+                and "👁️ 미리보기 모드: 실제 파일 이동은 실행되지 않습니다" in warning_label.text()
+            ):
+                warning_label.setText(
+                    "⚠️ 주의사항: 이 작업은 파일을 실제로 이동시킵니다. 원본 파일은 삭제됩니다."
+                )
                 warning_label.setStyleSheet(
                     """
                     QLabel {

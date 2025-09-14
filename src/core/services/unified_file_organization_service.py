@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from src.app.file_processing_events import FileOperationType as ProcessingFileOperationType
 from src.app.file_processing_events import (
+    FileOperationType as ProcessingFileOperationType,
     FileProcessingProgressEvent,
     calculate_processing_speed,
     calculate_progress_percentage,

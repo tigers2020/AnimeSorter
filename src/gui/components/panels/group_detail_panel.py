@@ -122,7 +122,9 @@ class GroupDetailPanel(QWidget):
                 self.poster_label.setPixmap(scaled_pixmap)
                 self.poster_label.setText("")
                 logger.info("✅ 로컬 포스터 로드 성공: %s", poster_path)
-                self.poster_label.setAccessibleDescription(f"애니메이션 포스터 이미지: {poster_path}")
+                self.poster_label.setAccessibleDescription(
+                    f"애니메이션 포스터 이미지: {poster_path}"
+                )
                 return
             logger.info("❌ 로컬 포스터 로드 실패: %s", poster_path)
         if poster_url and poster_url.strip():
@@ -140,7 +142,9 @@ class GroupDetailPanel(QWidget):
                         self.poster_label.setPixmap(scaled_pixmap)
                         self.poster_label.setText("")
                         logger.info("✅ URL 포스터 로드 성공: %s", poster_url)
-                        self.poster_label.setAccessibleDescription(f"애니메이션 포스터 이미지: {poster_url}")
+                        self.poster_label.setAccessibleDescription(
+                            f"애니메이션 포스터 이미지: {poster_url}"
+                        )
                         return
                     logger.info("❌ 포스터 데이터 파싱 실패")
                 else:

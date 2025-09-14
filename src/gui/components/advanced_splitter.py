@@ -11,8 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt5.QtCore import QSettings, Qt, QTimer, pyqtSignal
-from PyQt5.QtWidgets import (QFrame, QHBoxLayout, QLabel, QSplitter, QStyle,
-                             QToolButton, QWidget)
+from PyQt5.QtWidgets import QFrame, QHBoxLayout, QLabel, QSplitter, QStyle, QToolButton, QWidget
 
 
 class AdvancedSplitter(QSplitter):
@@ -519,20 +518,20 @@ class SplitterControlPanel(QWidget):
         📊 스플리터 정보
 
         🏗️ 기본 정보:
-        - 위젯 수: {info['widget_count']}
-        - 방향: {info['orientation']}
-        - 핸들 너비: {info['handle_width']}px
+        - 위젯 수: {info["widget_count"]}
+        - 방향: {info["orientation"]}
+        - 핸들 너비: {info["handle_width"]}px
 
         📏 크기 정보:
-        - 현재 크기: {info['current_sizes']}
-        - 총 크기: {info['total_size']}px
-        - 선호 비율: {info['preferred_ratios']}
-        - 최소 크기: {info['min_sizes']}
+        - 현재 크기: {info["current_sizes"]}
+        - 총 크기: {info["total_size"]}px
+        - 선호 비율: {info["preferred_ratios"]}
+        - 최소 크기: {info["min_sizes"]}
 
         ⚙️ 설정:
-        - 자동 조정: {'활성화' if info['auto_adjust_enabled'] else '비활성화'}
-        - 자식 접기: {'허용' if info['children_collapsible'] else '금지'}
-        - 불투명 리사이즈: {'활성화' if info['opaque_resize'] else '비활성화'}
+        - 자동 조정: {"활성화" if info["auto_adjust_enabled"] else "비활성화"}
+        - 자식 접기: {"허용" if info["children_collapsible"] else "금지"}
+        - 불투명 리사이즈: {"활성화" if info["opaque_resize"] else "비활성화"}
 
         🧩 위젯 상세:
         """

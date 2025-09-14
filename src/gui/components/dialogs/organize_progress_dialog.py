@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 from dataclasses import dataclass
@@ -57,7 +57,7 @@ class OrganizeProgressDialog(BaseState, QDialog):
         self.is_organizing = False
         self.init_ui()
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """
         Get the default state configuration for this dialog.
 
@@ -183,9 +183,8 @@ class OrganizeProgressDialog(BaseState, QDialog):
 
         # Simulate organization process
         total_groups = len(self.grouped_items)
-        processed_groups = 0
 
-        for group_name, files in self.grouped_items.items():
+        for processed_groups, (group_name, files) in enumerate(self.grouped_items.items(), 1):
             # Check for cancellation
             if self.is_cancelled:
                 self.add_log("⚠️ 작업이 사용자에 의해 취소되었습니다.")
@@ -193,9 +192,6 @@ class OrganizeProgressDialog(BaseState, QDialog):
                 self.cancel_button.setText("닫기")
                 self.is_organizing = False
                 return
-
-            if processed_groups >= total_groups:
-                break
 
             # Update progress
             progress = int((processed_groups / total_groups) * 100)
@@ -213,8 +209,6 @@ class OrganizeProgressDialog(BaseState, QDialog):
 
                 self.add_log(f"📄 처리 중: {file_path}")
                 self.result.success_count += 1
-
-            processed_groups += 1
 
         # Complete the process
         self.update_progress(100, "완료")

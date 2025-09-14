@@ -169,14 +169,18 @@ class OrganizeController(IController):
         """정리 작업 전제 조건 검증"""
         try:
             if not self.grouped_items:
-                self.event_bus.publish("error_occurred", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요.")
+                self.event_bus.publish(
+                    "error_occurred", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요."
+                )
                 return False
             valid_groups = {k: v for k, v in self.grouped_items.items() if k != "ungrouped" and v}
             if not valid_groups:
                 self.event_bus.publish("error_occurred", "정리할 유효한 그룹이 없습니다.")
                 return False
             if not self.destination_directory or not Path(self.destination_directory).exists():
-                self.event_bus.publish("error_occurred", "대상 폴더가 설정되지 않았거나 존재하지 않습니다.")
+                self.event_bus.publish(
+                    "error_occurred", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
+                )
                 return False
             if not os.access(self.destination_directory, os.W_OK):
                 self.event_bus.publish("error_occurred", "대상 폴더에 쓰기 권한이 없습니다.")

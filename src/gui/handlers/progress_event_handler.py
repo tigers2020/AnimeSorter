@@ -11,16 +11,18 @@ logger = logging.getLogger(__name__)
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QProgressBar
 
-from src.app.file_processing_events import (FileProcessingCancelledEvent,
-                                            FileProcessingCompletedEvent,
-                                            FileProcessingFailedEvent,
-                                            FileProcessingPausedEvent,
-                                            FileProcessingProgressEvent,
-                                            FileProcessingResumedEvent,
-                                            FileProcessingSpeedEvent,
-                                            FileProcessingStartedEvent,
-                                            FileProcessingStatisticsEvent,
-                                            FileProcessingStepEvent)
+from src.app.file_processing_events import (
+    FileProcessingCancelledEvent,
+    FileProcessingCompletedEvent,
+    FileProcessingFailedEvent,
+    FileProcessingPausedEvent,
+    FileProcessingProgressEvent,
+    FileProcessingResumedEvent,
+    FileProcessingSpeedEvent,
+    FileProcessingStartedEvent,
+    FileProcessingStatisticsEvent,
+    FileProcessingStepEvent,
+)
 
 
 class ProgressEventHandler(QObject):

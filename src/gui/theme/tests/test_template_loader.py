@@ -13,10 +13,17 @@ import unittest
 from pathlib import Path
 
 from src.gui.theme.engine.template_loader import TemplateLoader
-from src.gui.theme.engine.types import (BorderSystem, BorderToken,
-                                        ColorPalette, ColorToken, FontSystem,
-                                        FontToken, SpacingSystem, SpacingToken,
-                                        ThemeTokens)
+from src.gui.theme.engine.types import (
+    BorderSystem,
+    BorderToken,
+    ColorPalette,
+    ColorToken,
+    FontSystem,
+    FontToken,
+    SpacingSystem,
+    SpacingToken,
+    ThemeTokens,
+)
 
 
 class TestTemplateLoader(unittest.TestCase):

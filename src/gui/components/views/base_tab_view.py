@@ -7,8 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import QModelIndex, Qt, pyqtSignal
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import (QLabel, QSizePolicy, QTableView, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QTableView, QVBoxLayout, QWidget
 
 from src.advanced_splitter import AdvancedSplitter, SplitterControlPanel
 

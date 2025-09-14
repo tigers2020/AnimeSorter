@@ -4,7 +4,6 @@ MainWindow의 과도한 __init__ 메서드 로직을 분리하여 가독성과 �
 """
 
 import logging
-from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 from PyQt5.QtWidgets import QMainWindow
@@ -12,6 +11,7 @@ from PyQt5.QtWidgets import QMainWindow
 from src.core.file_parser import FileParser
 from src.core.tmdb_client import TMDBClient
 from src.core.unified_config import unified_config_manager
+from src.gui.base_classes import StateInitializationMixin
 from src.gui.components.managers.accessibility_manager import AccessibilityManager
 from src.gui.components.managers.i18n_manager import I18nManager
 from src.gui.components.managers.ui_migration_manager import UIMigrationManager
@@ -20,10 +20,6 @@ from src.gui.handlers.event_handler_manager import EventHandlerManager
 from src.gui.managers.anime_data_manager import AnimeDataManager
 from src.gui.managers.status_bar_manager import StatusBarManager
 from src.gui.managers.tmdb_manager import TMDBManager
-from src.gui.base_classes import StateInitializationMixin
-
-if TYPE_CHECKING:
-    from src.gui.initializers.ui_initializer import UIInitializer
 
 
 class MainWindowInitializer(StateInitializationMixin):
@@ -88,7 +84,9 @@ class MainWindowInitializer(StateInitializationMixin):
             logger.info("🔍 TMDB API 키 확인: 통합 설정=%s", api_key[:8] if api_key else "없음")
             if not api_key:
                 logger.info("⚠️ TMDB API 키가 통합 설정에 없습니다.")
-                logger.info("   통합 설정 파일에서 TMDB API 키를 설정하거나 환경 변수를 설정하세요.")
+                logger.info(
+                    "   통합 설정 파일에서 TMDB API 키를 설정하거나 환경 변수를 설정하세요."
+                )
                 self.tmdb_client = None
                 self.main_window.tmdb_client = None
                 return

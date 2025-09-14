@@ -12,14 +12,20 @@ from pathlib import Path
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
-from src.app.preflight.base_checker import (IPreflightChecker, PreflightIssue,
-                                            PreflightResult, PreflightSeverity)
-from src.app.preflight.file_checkers import (CircularReferenceChecker,
-                                             DiskSpaceChecker,
-                                             FileConflictChecker,
-                                             FileLockChecker,
-                                             PathValidityChecker,
-                                             PermissionChecker)
+from src.app.preflight.base_checker import (
+    IPreflightChecker,
+    PreflightIssue,
+    PreflightResult,
+    PreflightSeverity,
+)
+from src.app.preflight.file_checkers import (
+    CircularReferenceChecker,
+    DiskSpaceChecker,
+    FileConflictChecker,
+    FileLockChecker,
+    PathValidityChecker,
+    PermissionChecker,
+)
 
 
 @dataclass

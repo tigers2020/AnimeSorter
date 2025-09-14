@@ -9,9 +9,13 @@ import logging
 logger = logging.getLogger(__name__)
 from pathlib import Path
 
-from src.core.structured_logging import (LogCategory, LogLevel,
-                                         StructuredLogger, get_logger,
-                                         initialize_logging)
+from src.core.structured_logging import (
+    LogCategory,
+    LogLevel,
+    StructuredLogger,
+    get_logger,
+    initialize_logging,
+)
 
 _global_logger: StructuredLogger | None = None
 

@@ -187,8 +187,8 @@ from .safety_events import (
     TestModeOperationEvent,
 )
 from .services import FileScanService, IFileScanService
-from .services.media_data_service import MediaDataService, IMediaDataService
-from .services.ui_update_service import UIUpdateService, IUIUpdateService
+from .services.media_data_service import IMediaDataService, MediaDataService
+from .services.ui_update_service import IUIUpdateService, UIUpdateService
 from .setup import cleanup_application, get_service, initialize_application
 from .ui_events import (
     ErrorMessageEvent,

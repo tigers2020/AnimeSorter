@@ -12,8 +12,13 @@ from pathlib import Path
 
 from PyQt5.QtWidgets import QMainWindow, QMessageBox
 
-from src.app import (IBackupManager, IConfirmationManager,
-                     IInterruptionManager, ISafetyManager, get_service)
+from src.app import (
+    IBackupManager,
+    IConfirmationManager,
+    IInterruptionManager,
+    ISafetyManager,
+    get_service,
+)
 
 
 class SafetySystemManager:
@@ -121,7 +126,7 @@ class SafetySystemManager:
                 self.main_window,
                 "백업 복원",
                 f"""백업 '{latest_backup.backup_id}'을 복원하시겠습니까?
-생성일: {latest_backup.created_at.strftime('%Y-%m-%d %H:%M:%S')}
+생성일: {latest_backup.created_at.strftime("%Y-%m-%d %H:%M:%S")}
 파일 수: {latest_backup.files_backed_up}개""",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,

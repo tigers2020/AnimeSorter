@@ -80,7 +80,9 @@ class AnimeDataManager(ManagerBase):
         self.tmdb_client = tmdb_client
         self.group_tmdb_matches = {}
         self.unified_event_bus = get_unified_event_bus()
-        self.logger.info(f"AnimeDataManager 초기화 완료 (TMDB 클라이언트: {'있음' if tmdb_client else '없음'})")
+        self.logger.info(
+            f"AnimeDataManager 초기화 완료 (TMDB 클라이언트: {'있음' if tmdb_client else '없음'})"
+        )
 
     def set_tmdb_client(self, tmdb_client):
         """TMDB 클라이언트 설정"""
@@ -387,5 +389,7 @@ class AnimeDataManager(ManagerBase):
                 res = item.resolution or "Unknown"
                 resolutions[res] = resolutions.get(res, 0) + 1
             resolution_info = ", ".join([f"{res}: {count}" for res, count in resolutions.items()])
-            logger.info("🔗 %s (%s) - %s개 파일 [%s]", title, episode_info, len(items), resolution_info)
+            logger.info(
+                "🔗 %s (%s) - %s개 파일 [%s]", title, episode_info, len(items), resolution_info
+            )
         return groups

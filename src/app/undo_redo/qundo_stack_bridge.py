@@ -176,7 +176,9 @@ class QUndoStackBridge(QObject):
                         if backup_path_obj.exists():
                             backup_path_obj.unlink()
                 except Exception as e:
-                    self.logger.warning(f"스테이징 파일 정리 실패: {staged_file.staging_path} - {e}")
+                    self.logger.warning(
+                        f"스테이징 파일 정리 실패: {staged_file.staging_path} - {e}"
+                    )
             del self._staging_map[command_id]
             self.logger.info(f"Command {command_id}의 스테이징 파일 정리 완료")
         except Exception as e:

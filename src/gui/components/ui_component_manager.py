@@ -6,23 +6,14 @@ MainWindow의 UI 컴포넌트 생성, 설정, 연결 로직을 분리하여 가�
 import logging
 
 logger = logging.getLogger(__name__)
-from typing import TYPE_CHECKING
 
 from PyQt5.QtWidgets import QHeaderView, QMainWindow
 
+from src.gui.base_classes import StateInitializationMixin
 from src.gui.components.log_dock import LogDock
 from src.gui.handlers.event_handler_manager import EventHandlerManager
 from src.gui.initializers.ui_initializer import UIInitializer
 from src.gui.managers.status_bar_manager import StatusBarManager
-
-if TYPE_CHECKING:
-    from src.gui.components.accessibility_manager import AccessibilityManager
-    from src.gui.components.i18n_manager import I18nManager
-    from src.gui.components.ui_migration_manager import UIMigrationManager
-    from src.gui.components.ui_state_manager import UIStateManager
-    from src.gui.managers.anime_data_manager import AnimeDataManager
-    from src.gui.managers.tmdb_manager import TMDBManager
-from src.gui.base_classes import StateInitializationMixin
 
 
 class UIComponentManager(StateInitializationMixin):
@@ -110,7 +101,9 @@ class UIComponentManager(StateInitializationMixin):
                 self.event_handler_manager.setup_event_subscriptions()
                 logger.info("✅ 이벤트 핸들러 관리자 설정 완료")
             else:
-                logger.info("⚠️ EventBus가 초기화되지 않아 이벤트 핸들러 관리자를 설정할 수 없습니다.")
+                logger.info(
+                    "⚠️ EventBus가 초기화되지 않아 이벤트 핸들러 관리자를 설정할 수 없습니다."
+                )
         except Exception as e:
             logger.info("❌ 이벤트 핸들러 관리자 설정 실패: %s", e)
             self.event_handler_manager = None

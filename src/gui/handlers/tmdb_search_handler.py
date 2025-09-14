@@ -51,7 +51,9 @@ class TMDBSearchHandler:
                 self.logger.warning("⚠️ TMDB 클라이언트가 없어 초기화를 시도합니다...")
                 if not self.main_window.ensure_tmdb_client():
                     self.logger.error("❌ TMDB 클라이언트 초기화 실패")
-                    self.main_window.update_status_bar("TMDB API 키가 설정되지 않아 검색을 건너뜁니다")
+                    self.main_window.update_status_bar(
+                        "TMDB API 키가 설정되지 않아 검색을 건너뜁니다"
+                    )
                     return
 
             # TMDB 클라이언트 상태 확인
@@ -206,7 +208,9 @@ class TMDBSearchHandler:
                 self.logger.warning("⚠️ TMDB 클라이언트가 없어 초기화를 시도합니다...")
                 if not self.main_window.ensure_tmdb_client():
                     self.logger.warning("⚠️ TMDB 클라이언트 초기화 실패로 검색을 건너뜁니다")
-                    self.main_window.update_status_bar("TMDB API 키가 설정되지 않아 검색을 건너뜁니다")
+                    self.main_window.update_status_bar(
+                        "TMDB API 키가 설정되지 않아 검색을 건너뜁니다"
+                    )
                     return
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
             self.pending_tmdb_groups = []
@@ -218,7 +222,9 @@ class TMDBSearchHandler:
                 group_title = group_items[0].title or group_items[0].detectedTitle or "Unknown"
                 self.pending_tmdb_groups.append((group_id, group_title))
             if self.pending_tmdb_groups:
-                self.logger.info(f"🔍 {len(self.pending_tmdb_groups)}개 그룹에 대해 순차적 TMDB 검색을 시작합니다")
+                self.logger.info(
+                    f"🔍 {len(self.pending_tmdb_groups)}개 그룹에 대해 순차적 TMDB 검색을 시작합니다"
+                )
                 self.main_window.update_status_bar(
                     f"TMDB 검색 시작: {len(self.pending_tmdb_groups)}개 그룹 (순차적 처리)"
                 )

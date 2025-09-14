@@ -236,7 +236,9 @@ class LeftPanel(QWidget):
                 "last_source_directory",
                 "",
             )
-        folder = QFileDialog.getExistingDirectory(self, "애니메이션 파일이 있는 소스 폴더 선택", start_dir)
+        folder = QFileDialog.getExistingDirectory(
+            self, "애니메이션 파일이 있는 소스 폴더 선택", start_dir
+        )
         if folder:
             self.update_source_directory_display(folder)
             self.source_folder_selected.emit(folder)
@@ -301,7 +303,9 @@ class LeftPanel(QWidget):
                 "last_destination_directory",
                 "",
             )
-        folder = QFileDialog.getExistingDirectory(self, "정리된 파일을 저장할 대상 폴더 선택", start_dir)
+        folder = QFileDialog.getExistingDirectory(
+            self, "정리된 파일을 저장할 대상 폴더 선택", start_dir
+        )
         if folder:
             self.update_dest_directory_display(folder)
             self.destination_folder_selected.emit(folder)

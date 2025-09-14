@@ -178,7 +178,9 @@ class EventHandlerManager:
 
     def on_task_progress(self, event: TaskProgressEvent):
         """백그라운드 작업 진행률 이벤트 핸들러"""
-        self.logger.info(f"📊 [MainWindow] 작업 진행률: {event.progress_percent}% - {event.current_step}")
+        self.logger.info(
+            f"📊 [MainWindow] 작업 진행률: {event.progress_percent}% - {event.current_step}"
+        )
         self.main_window.update_status_bar(
             f"{event.current_step} ({event.items_processed}개 처리됨)", event.progress_percent
         )
@@ -187,7 +189,9 @@ class EventHandlerManager:
 
     def on_task_completed(self, event: TaskCompletedEvent):
         """백그라운드 작업 완료 이벤트 핸들러"""
-        self.logger.info(f"✅ [MainWindow] 작업 완료: {event.task_name} (소요시간: {event.duration:.2f}초)")
+        self.logger.info(
+            f"✅ [MainWindow] 작업 완료: {event.task_name} (소요시간: {event.duration:.2f}초)"
+        )
         self.main_window.update_status_bar(
             f"작업 완료: {event.task_name} ({event.items_processed}개 처리됨)", 100
         )
@@ -243,7 +247,9 @@ class EventHandlerManager:
 
     def on_media_data_ready(self, event: MediaDataReadyEvent):
         """미디어 데이터 준비 완료 이벤트 핸들러"""
-        self.logger.info(f"📺 [MainWindow] 미디어 데이터 준비 완료: {len(event.media_files)}개 파일")
+        self.logger.info(
+            f"📺 [MainWindow] 미디어 데이터 준비 완료: {len(event.media_files)}개 파일"
+        )
         self.main_window.update_status_bar("미디어 데이터 분석 완료")
 
     def on_media_data_grouping_completed(self, event: MediaDataGroupingCompletedEvent):

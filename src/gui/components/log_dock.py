@@ -52,7 +52,9 @@ class LogDock(QDockWidget):
         self.txt_log.setReadOnly(True)
         self.txt_log.setMinimumHeight(120)
         self.txt_log.setMaximumHeight(200)
-        self.txt_log.setText("애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다.")
+        self.txt_log.setText(
+            "애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다."
+        )
         self.txt_err = QTextEdit()
         self.txt_err.setReadOnly(True)
         self.txt_err.setMinimumHeight(120)
@@ -134,7 +136,9 @@ class LogDock(QDockWidget):
         """모든 로그 클리어"""
         self.txt_log.clear()
         self.txt_err.clear()
-        self.txt_log.setText("애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다.")
+        self.txt_log.setText(
+            "애니메이션 파일 정리 시스템이 준비되었습니다.\n활동 로그가 여기에 표시됩니다."
+        )
         self.txt_err.setText("오류 로그가 여기에 표시됩니다.")
         self.update_log_stats()
 
@@ -153,7 +157,7 @@ class LogDock(QDockWidget):
                 with Path(file_path).open("w", encoding="utf-8") as f:
                     f.write("=== AnimeSorter 로그 내보내기 ===\n")
                     f.write(
-                        f"""내보낸 시간: {QDateTime.currentDateTime().toString('yyyy-MM-dd hh:mm:ss')}
+                        f"""내보낸 시간: {QDateTime.currentDateTime().toString("yyyy-MM-dd hh:mm:ss")}
 
 """
                     )

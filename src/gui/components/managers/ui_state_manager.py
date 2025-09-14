@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 from typing import Any
 
 from PyQt5.QtCore import QObject, QSettings, pyqtSignal
-from PyQt5.QtWidgets import (QDockWidget, QMainWindow, QSplitter, QTableView,
-                             QTabWidget)
+from PyQt5.QtWidgets import QDockWidget, QMainWindow, QSplitter, QTableView, QTabWidget
 
 
 class UIStateManager(QObject):

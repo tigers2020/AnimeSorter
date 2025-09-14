@@ -76,7 +76,9 @@ class MainWindowFileHandler:
                             Path(file_path).name,
                             file_size,
                         )
-                        logger.info("⚠️ 제외됨: %s (크기: %s bytes)", Path(file_path).name, file_size)
+                        logger.info(
+                            "⚠️ 제외됨: %s (크기: %s bytes)", Path(file_path).name, file_size
+                        )
                         continue
                 except OSError:
                     logger.info("⚠️ 파일 크기 확인 실패 (제외): %s", Path(file_path).name)
@@ -122,7 +124,9 @@ class MainWindowFileHandler:
                     parsingConfidence=0.0,
                 )
                 parsed_items.append(parsed_item)
-                self.main_window.update_status_bar(f"파일 처리 오류: {Path(file_path).name} - {str(e)}")
+                self.main_window.update_status_bar(
+                    f"파일 처리 오류: {Path(file_path).name} - {str(e)}"
+                )
         if parsed_items:
             # MainWindow의 anime_data_manager 사용
             if (

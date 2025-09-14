@@ -21,8 +21,8 @@ from src.app.safety import (
     SafetyManager,
 )
 from src.app.services import FileScanService, IFileScanService
-from src.app.services.media_data_service import MediaDataService, IMediaDataService
-from src.app.services.ui_update_service import UIUpdateService, IUIUpdateService
+from src.app.services.media_data_service import IMediaDataService, MediaDataService
+from src.app.services.ui_update_service import IUIUpdateService, UIUpdateService
 
 
 def setup_application_services() -> None:

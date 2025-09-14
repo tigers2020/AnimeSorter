@@ -62,17 +62,23 @@ class FileOrganizationHandler(QObject):
             self._is_organizing = True
             self._last_organization_time = time.time()
             if not hasattr(self.main_window, "anime_data_manager"):
-                QMessageBox.warning(self.main_window, "경고", "스캔된 데이터가 없습니다. 먼저 파일을 스캔해주세요.")
+                QMessageBox.warning(
+                    self.main_window, "경고", "스캔된 데이터가 없습니다. 먼저 파일을 스캔해주세요."
+                )
                 return
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
             if not grouped_items:
-                QMessageBox.warning(self.main_window, "경고", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요.")
+                QMessageBox.warning(
+                    self.main_window, "경고", "정리할 그룹이 없습니다. 먼저 파일을 스캔해주세요."
+                )
                 return
             if (
                 not self.main_window.destination_directory
                 or not Path(self.main_window.destination_directory).exists()
             ):
-                QMessageBox.warning(self.main_window, "경고", "대상 폴더가 설정되지 않았거나 존재하지 않습니다.")
+                QMessageBox.warning(
+                    self.main_window, "경고", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
+                )
                 return
             reply = QMessageBox.question(
                 self.main_window,
@@ -84,7 +90,9 @@ class FileOrganizationHandler(QObject):
                 self.on_organize_proceed()
         except Exception as e:
             logger.info("❌ 파일 정리 실행 시작 실패: %s", e)
-            QMessageBox.critical(self.main_window, "오류", f"파일 정리 실행 중 오류가 발생했습니다:\n{str(e)}")
+            QMessageBox.critical(
+                self.main_window, "오류", f"파일 정리 실행 중 오류가 발생했습니다:\n{str(e)}"
+            )
             self.main_window.update_status_bar(f"파일 정리 실행 실패: {str(e)}")
 
     def on_organize_proceed(self):
@@ -97,7 +105,9 @@ class FileOrganizationHandler(QObject):
             self.on_organization_completed(result)
         except Exception as e:
             logger.info("❌ 파일 정리 실행 실패: %s", e)
-            QMessageBox.critical(self.main_window, "오류", f"파일 정리 실행 중 오류가 발생했습니다:\n{str(e)}")
+            QMessageBox.critical(
+                self.main_window, "오류", f"파일 정리 실행 중 오류가 발생했습니다:\n{str(e)}"
+            )
             self.main_window.update_status_bar(f"파일 정리 실행 실패: {str(e)}")
 
     def _execute_file_organization_with_quality_separation(self, grouped_items):
@@ -395,7 +405,9 @@ class FileOrganizationHandler(QObject):
                         filename = Path(source_path).name
                         target_path = target_base_dir / filename
                         try:
-                            logger.info("🚚 [%s] 파일 이동 시도: %s", quality_type, Path(source_path).name)
+                            logger.info(
+                                "🚚 [%s] 파일 이동 시도: %s", quality_type, Path(source_path).name
+                            )
                             self._process_subtitle_files(source_path, target_base_dir, result)
 
                             # 대상 파일이 이미 존재하면 삭제 (오버라이팅)
@@ -488,7 +500,9 @@ class FileOrganizationHandler(QObject):
             if source_directory and (
                 current_dir == source_directory or source_directory in current_dir.parents
             ):
-                logger.info("🛡️ 소스 폴더 보호, 상위 정리 중단: %s (소스: %s)", current_dir, source_directory)
+                logger.info(
+                    "🛡️ 소스 폴더 보호, 상위 정리 중단: %s (소스: %s)", current_dir, source_directory
+                )
                 break
 
             try:
@@ -588,7 +602,9 @@ class FileOrganizationHandler(QObject):
             )
             msg_box.exec_()
             if result.success_count > 0:
-                self.main_window.update_status_bar(f"파일 정리 완료: {result.success_count}개 파일 이동 성공")
+                self.main_window.update_status_bar(
+                    f"파일 정리 완료: {result.success_count}개 파일 이동 성공"
+                )
             else:
                 self.main_window.update_status_bar("파일 정리 완료 (성공한 파일 없음)")
             logger.info(
@@ -609,13 +625,17 @@ class FileOrganizationHandler(QObject):
 
     def simulate_organization(self):
         """정리 시뮬레이션"""
-        QMessageBox.information(self.main_window, "시뮬레이션", "파일 이동을 시뮬레이션합니다. (구현 예정)")
+        QMessageBox.information(
+            self.main_window, "시뮬레이션", "파일 이동을 시뮬레이션합니다. (구현 예정)"
+        )
 
     def show_preview(self):
         """정리 미리보기 표시"""
         try:
             if not hasattr(self.main_window, "anime_data_manager"):
-                QMessageBox.warning(self.main_window, "경고", "스캔된 데이터가 없습니다. 먼저 파일을 스캔해주세요.")
+                QMessageBox.warning(
+                    self.main_window, "경고", "스캔된 데이터가 없습니다. 먼저 파일을 스캔해주세요."
+                )
                 return
             grouped_items = self.main_window.anime_data_manager.get_grouped_items()
             if not grouped_items:
@@ -629,7 +649,9 @@ class FileOrganizationHandler(QObject):
                 not self.main_window.destination_directory
                 or not Path(self.main_window.destination_directory).exists()
             ):
-                QMessageBox.warning(self.main_window, "경고", "대상 폴더가 설정되지 않았거나 존재하지 않습니다.")
+                QMessageBox.warning(
+                    self.main_window, "경고", "대상 폴더가 설정되지 않았거나 존재하지 않습니다."
+                )
                 return
             dialog = OrganizePreflightDialog(
                 grouped_items, self.main_window.destination_directory, self.main_window
@@ -645,7 +667,9 @@ class FileOrganizationHandler(QObject):
                 self.main_window.update_status_bar("미리보기가 취소되었습니다")
         except Exception as e:
             logger.info("❌ 미리보기 표시 실패: %s", e)
-            QMessageBox.critical(self.main_window, "오류", f"미리보기 표시 중 오류가 발생했습니다:\n{str(e)}")
+            QMessageBox.critical(
+                self.main_window, "오류", f"미리보기 표시 중 오류가 발생했습니다:\n{str(e)}"
+            )
             self.main_window.update_status_bar(f"미리보기 표시 실패: {str(e)}")
 
     def handle_organization_started(self, event):

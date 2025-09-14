@@ -4,7 +4,7 @@ AnimeSorter의 모든 설정을 편집할 수 있는 다이얼로그를 제공�
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import pyqtSignal
@@ -45,7 +45,7 @@ class SettingsDialog(BaseState, QDialog):
         self.load_current_settings()
         self.setup_connections()
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """
         Get the default state configuration for this dialog.
 
@@ -120,7 +120,9 @@ class SettingsDialog(BaseState, QDialog):
         session_group = QGroupBox("세션 관리")
         session_layout = QFormLayout(session_group)
         self.remember_session_check = QCheckBox("마지막 세션 기억")
-        self.remember_session_check.setToolTip("프로그램 재시작 시 마지막으로 선택한 폴더와 파일을 복원합니다")
+        self.remember_session_check.setToolTip(
+            "프로그램 재시작 시 마지막으로 선택한 폴더와 파일을 복원합니다"
+        )
         session_layout.addRow("", self.remember_session_check)
         layout.addWidget(session_group)
         layout.addStretch(1)
@@ -182,7 +184,9 @@ class SettingsDialog(BaseState, QDialog):
         self.high_contrast_check = QCheckBox("고대비 모드")
         self.high_contrast_check.setToolTip("고대비 모드를 활성화하여 텍스트 가독성을 향상시킵니다")
         self.keyboard_navigation_check = QCheckBox("키보드 네비게이션 강화")
-        self.keyboard_navigation_check.setToolTip("키보드만으로 모든 기능을 사용할 수 있도록 합니다")
+        self.keyboard_navigation_check.setToolTip(
+            "키보드만으로 모든 기능을 사용할 수 있도록 합니다"
+        )
         self.screen_reader_check = QCheckBox("스크린 리더 지원")
         self.screen_reader_check.setToolTip("스크린 리더와의 호환성을 향상시킵니다")
         accessibility_layout.addRow("", self.high_contrast_check)
@@ -343,7 +347,9 @@ class SettingsDialog(BaseState, QDialog):
                 backup_before_organize = self.settings.application.file_organization.get(
                     "backup_before_organize", False
                 )
-                logger.info("🔧 [SettingsDialog] backup_before_organize: %s", backup_before_organize)
+                logger.info(
+                    "🔧 [SettingsDialog] backup_before_organize: %s", backup_before_organize
+                )
                 self.backup_before_organize_check.setChecked(backup_before_organize)
                 backup_location = self.settings.application.backup_settings.get(
                     "backup_location", ""
@@ -391,66 +397,66 @@ class SettingsDialog(BaseState, QDialog):
         try:
             if hasattr(self.settings_manager, "config"):
                 logger.info("🔧 [SettingsDialog] unified_config_manager 사용")
-                self.settings.application.file_organization[
-                    "destination_root"
-                ] = self.destination_root_edit.text().strip()
-                self.settings.application.file_organization[
-                    "organize_mode"
-                ] = self.organize_mode_combo.currentText()
-                self.settings.application.file_organization[
-                    "naming_scheme"
-                ] = self.naming_scheme_combo.currentText()
-                self.settings.user_preferences.gui_state[
-                    "remember_last_session"
-                ] = self.remember_session_check.isChecked()
-                self.settings.application.file_organization[
-                    "prefer_anitopy"
-                ] = self.prefer_anitopy_check.isChecked()
-                self.settings.application.file_organization[
-                    "fallback_parser"
-                ] = self.fallback_parser_combo.currentText()
-                self.settings.application.file_organization[
-                    "realtime_monitoring"
-                ] = self.realtime_monitoring_check.isChecked()
-                self.settings.application.file_organization[
-                    "auto_refresh_interval"
-                ] = self.auto_refresh_spin.value()
+                self.settings.application.file_organization["destination_root"] = (
+                    self.destination_root_edit.text().strip()
+                )
+                self.settings.application.file_organization["organize_mode"] = (
+                    self.organize_mode_combo.currentText()
+                )
+                self.settings.application.file_organization["naming_scheme"] = (
+                    self.naming_scheme_combo.currentText()
+                )
+                self.settings.user_preferences.gui_state["remember_last_session"] = (
+                    self.remember_session_check.isChecked()
+                )
+                self.settings.application.file_organization["prefer_anitopy"] = (
+                    self.prefer_anitopy_check.isChecked()
+                )
+                self.settings.application.file_organization["fallback_parser"] = (
+                    self.fallback_parser_combo.currentText()
+                )
+                self.settings.application.file_organization["realtime_monitoring"] = (
+                    self.realtime_monitoring_check.isChecked()
+                )
+                self.settings.application.file_organization["auto_refresh_interval"] = (
+                    self.auto_refresh_spin.value()
+                )
                 self.settings.services.tmdb_api["api_key"] = self.tmdb_api_key_edit.text().strip()
                 self.settings.services.tmdb_api["language"] = self.tmdb_language_combo.currentText()
-                self.settings.application.file_organization[
-                    "show_advanced_options"
-                ] = self.show_advanced_check.isChecked()
-                self.settings.application.file_organization[
-                    "safe_mode"
-                ] = self.safe_mode_check.isChecked()
-                self.settings.application.logging_config[
-                    "log_level"
-                ] = self.log_level_combo.currentText()
-                self.settings.application.logging_config[
-                    "log_to_file"
-                ] = self.log_to_file_check.isChecked()
-                self.settings.application.file_organization[
-                    "backup_before_organize"
-                ] = self.backup_before_organize_check.isChecked()
-                self.settings.application.backup_settings[
-                    "backup_location"
-                ] = self.backup_location_edit.text().strip()
-                self.settings.application.backup_settings[
-                    "max_backup_count"
-                ] = self.max_backup_count_spin.value()
+                self.settings.application.file_organization["show_advanced_options"] = (
+                    self.show_advanced_check.isChecked()
+                )
+                self.settings.application.file_organization["safe_mode"] = (
+                    self.safe_mode_check.isChecked()
+                )
+                self.settings.application.logging_config["log_level"] = (
+                    self.log_level_combo.currentText()
+                )
+                self.settings.application.logging_config["log_to_file"] = (
+                    self.log_to_file_check.isChecked()
+                )
+                self.settings.application.file_organization["backup_before_organize"] = (
+                    self.backup_before_organize_check.isChecked()
+                )
+                self.settings.application.backup_settings["backup_location"] = (
+                    self.backup_location_edit.text().strip()
+                )
+                self.settings.application.backup_settings["max_backup_count"] = (
+                    self.max_backup_count_spin.value()
+                )
                 theme_map = {"자동": "auto", "라이트": "light", "다크": "dark"}
                 self.settings.user_preferences.theme_preferences["theme"] = theme_map.get(
                     self.theme_combo.currentText(), "auto"
                 )
-                self.settings.user_preferences.accessibility[
-                    "high_contrast_mode"
-                ] = self.high_contrast_check.isChecked()
-                self.settings.user_preferences.accessibility[
-                    "keyboard_navigation"
-                ] = self.keyboard_navigation_check.isChecked()
-                self.settings.user_preferences.accessibility[
-                    "screen_reader_support"
-                ] = self.screen_reader_check.isChecked()
+                self.settings.user_preferences.accessibility["high_contrast_mode"] = (
+                    self.high_contrast_check.isChecked()
+                )
+                self.settings.user_preferences.accessibility["keyboard_navigation"] = (
+                    self.keyboard_navigation_check.isChecked()
+                )
+                self.settings.user_preferences.accessibility["screen_reader_support"] = (
+                    self.screen_reader_check.isChecked()
+                )
                 language_map = {"한국어": "ko", "English": "en"}
                 self.settings.user_preferences.theme_preferences["language"] = language_map.get(
                     self.language_combo.currentText(), "ko"

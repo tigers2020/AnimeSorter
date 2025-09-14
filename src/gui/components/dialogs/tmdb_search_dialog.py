@@ -4,7 +4,7 @@ TMDB 검색 결과 선택 다이얼로그
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 import contextlib
@@ -82,7 +82,7 @@ class TMDBSearchDialog(BaseState, QDialog):
         else:
             self.perform_search(self.failed_search_query)
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """
         Get the default state configuration for this dialog.
 

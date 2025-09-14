@@ -15,9 +15,12 @@ from src.app.events import get_event_bus
 from src.app.safety.backup_manager import IBackupManager
 from src.app.safety.confirmation_manager import IConfirmationManager
 from src.app.safety.interruption_manager import IInterruptionManager
-from src.app.safety_events import (SafetyAlertEvent, SafetyModeChangedEvent,
-                                   SafetyStatusUpdateEvent,
-                                   TestModeOperationEvent)
+from src.app.safety_events import (
+    SafetyAlertEvent,
+    SafetyModeChangedEvent,
+    SafetyStatusUpdateEvent,
+    TestModeOperationEvent,
+)
 
 
 class SafetyMode:

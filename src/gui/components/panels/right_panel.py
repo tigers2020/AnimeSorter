@@ -7,8 +7,7 @@
 import logging
 
 logger = logging.getLogger(__name__)
-from PyQt5.QtWidgets import (QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 
 class RightPanel(QWidget):

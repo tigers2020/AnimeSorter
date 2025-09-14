@@ -15,9 +15,11 @@ from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 from src.app.events import get_event_bus
-from src.app.safety_events import (OperationInterruptedEvent,
-                                   OperationInterruptRequestedEvent,
-                                   OperationResumeRequestedEvent)
+from src.app.safety_events import (
+    OperationInterruptedEvent,
+    OperationInterruptRequestedEvent,
+    OperationResumeRequestedEvent,
+)
 
 
 @dataclass

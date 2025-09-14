@@ -9,8 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QLabel, QMainWindow, QSplitter, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import QLabel, QMainWindow, QSplitter, QVBoxLayout, QWidget
 
 from src.gui.builders.menu_builder import MenuBuilder
 from src.gui.builders.toolbar_builder import ToolbarBuilder
@@ -167,8 +166,7 @@ class UIInitializer:
     def create_panels(self, splitter):
         """패널들 생성"""
         try:
-            from src.gui.components.central_triple_layout import \
-                CentralTripleLayout
+            from src.gui.components.central_triple_layout import CentralTripleLayout
             from src.gui.components.panels.left_panel_dock import LeftPanelDock
             from src.gui.components.results_view import ResultsView
 

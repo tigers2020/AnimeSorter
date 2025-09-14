@@ -55,17 +55,23 @@ class TMDBClient:
             if config_api_key:
                 self.api_key = config_api_key
                 tmdb.API_KEY = config_api_key
-                self.logger.info(f"통합 설정에서 TMDB API 키를 불러왔습니다: {config_api_key[:8]}...")
+                self.logger.info(
+                    f"통합 설정에서 TMDB API 키를 불러왔습니다: {config_api_key[:8]}..."
+                )
             else:
                 self.logger.error("TMDB API 키를 찾을 수 없습니다")
-                raise ValueError("TMDB API 키가 필요합니다. 통합 설정 파일에서 services.tmdb_api.api_key를 설정해주세요.")
+                raise ValueError(
+                    "TMDB API 키가 필요합니다. 통합 설정 파일에서 services.tmdb_api.api_key를 설정해주세요."
+                )
 
         tmdb.REQUESTS_TIMEOUT = 10  # 타임아웃 증가
         self.session = tmdb.REQUESTS_SESSION
         self.cache_manager = TMDBCacheManager(self.cache_dir)
         self.image_manager = TMDBImageManager(self.cache_dir / "posters")
         self.rate_limiter = TMDBRateLimiter(requests_per_second=4, burst_limit=8)
-        self.logger.info(f"TMDB 클라이언트 초기화 완료 (캐시 디렉토리: {self.cache_dir.absolute()})")
+        self.logger.info(
+            f"TMDB 클라이언트 초기화 완료 (캐시 디렉토리: {self.cache_dir.absolute()})"
+        )
 
     def search_anime(
         self,

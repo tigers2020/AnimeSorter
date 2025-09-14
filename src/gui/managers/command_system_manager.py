@@ -148,7 +148,9 @@ class CommandSystemManager:
         try:
             self.logger.info(f"📊 Command 진행 상황: {current}/{total} - {description}")
             if hasattr(self.main_window, "statusBar"):
-                self.main_window.statusBar().showMessage(f"진행 중: {description} ({current}/{total})")
+                self.main_window.statusBar().showMessage(
+                    f"진행 중: {description} ({current}/{total})"
+                )
         except Exception as e:
             self.logger.error(f"❌ Command 진행 상황 처리 중 오류: {e}")
 
@@ -168,7 +170,9 @@ class CommandSystemManager:
         try:
             self.logger.info(f"✅ 스테이징 완료: {len(staged_files)}개 파일")
             if hasattr(self.main_window, "statusBar"):
-                self.main_window.statusBar().showMessage(f"스테이징 완료: {len(staged_files)}개 파일 준비됨")
+                self.main_window.statusBar().showMessage(
+                    f"스테이징 완료: {len(staged_files)}개 파일 준비됨"
+                )
         except Exception as e:
             self.logger.error(f"❌ 스테이징 완료 처리 중 오류: {e}")
 

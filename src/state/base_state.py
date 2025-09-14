@@ -5,8 +5,8 @@ This class provides a foundation for all state-managing components in the applic
 encapsulating common state initialization and reset logic to promote DRY and SRP principles.
 """
 
-from typing import Any, Dict, Optional
 import logging
+from typing import Any
 
 from src.core.unified_config import unified_config_manager
 
@@ -36,7 +36,7 @@ class BaseState:
             **kwargs: Arbitrary keyword arguments.
         """
         self._initialized = False
-        self._state_vars: Dict[str, Any] = {}
+        self._state_vars: dict[str, Any] = {}
 
         # Call the state initialization method
         self._initialize_state()
@@ -80,7 +80,7 @@ class BaseState:
         # Initialize configuration-based variables
         self._init_config_variables(state_config.get("config", {}))
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """
         Get the default state configuration for this component.
 
@@ -98,19 +98,19 @@ class BaseState:
         """
         return {"managers": {}, "collections": {}, "strings": {}, "flags": {}, "config": {}}
 
-    def _init_manager_references(self, managers: Dict[str, Any]) -> None:
+    def _init_manager_references(self, managers: dict[str, Any]) -> None:
         """
         Initialize manager and service references.
 
         Args:
             managers: Dictionary mapping attribute names to manager types or None.
         """
-        for attr_name, manager_type in managers.items():
+        for attr_name, _manager_type in managers.items():
             if hasattr(self, attr_name):
                 continue
             setattr(self, attr_name, None)
 
-    def _init_data_collections(self, collections: Dict[str, str]) -> None:
+    def _init_data_collections(self, collections: dict[str, str]) -> None:
         """
         Initialize data collection attributes.
 
@@ -131,7 +131,7 @@ class BaseState:
             else:
                 raise ValueError(f"Unsupported collection type: {collection_type}")
 
-    def _init_string_variables(self, strings: Dict[str, str]) -> None:
+    def _init_string_variables(self, strings: dict[str, str]) -> None:
         """
         Initialize string variables.
 
@@ -143,7 +143,7 @@ class BaseState:
                 continue
             setattr(self, attr_name, default_value)
 
-    def _init_boolean_flags(self, flags: Dict[str, bool]) -> None:
+    def _init_boolean_flags(self, flags: dict[str, bool]) -> None:
         """
         Initialize boolean flag variables.
 
@@ -155,7 +155,7 @@ class BaseState:
                 continue
             setattr(self, attr_name, default_value)
 
-    def _init_config_variables(self, config_vars: Dict[str, Dict[str, Any]]) -> None:
+    def _init_config_variables(self, config_vars: dict[str, dict[str, Any]]) -> None:
         """
         Initialize variables from configuration.
 
@@ -293,7 +293,7 @@ class BaseState:
             return True
         return False
 
-    def get_all_state_vars(self) -> Dict[str, Any]:
+    def get_all_state_vars(self) -> dict[str, Any]:
         """
         Get all state variables as a dictionary.
 

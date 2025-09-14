@@ -20,7 +20,6 @@ class IFileScanService(ABC):
         max_file_size: int = 0,
     ) -> list[str]:
         """디렉토리를 스캔하여 파일 목록을 반환"""
-        pass
 
 
 class FileScanService(IFileScanService):

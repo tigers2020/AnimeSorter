@@ -35,7 +35,7 @@ class BaseDetailModel(BaseTableModel):
         if column == 0:
             full_path = row_data.get("full_path", "경로 없음")
             file_size = row_data.get("file_size", "크기 알 수 없음")
-            return f"""파일명: {row_data.get('filename', '파일명 없음')}
+            return f"""파일명: {row_data.get("filename", "파일명 없음")}
 전체 경로: {full_path}
 파일 크기: {file_size}"""
         if column == 1:

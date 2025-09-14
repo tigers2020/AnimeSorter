@@ -23,9 +23,8 @@ def get_config_directory() -> Path:
         # PyInstaller로 빌드된 실행 파일인 경우
         base_path = Path(sys.executable).parent
         return base_path / "config"
-    else:
-        # 개발 환경인 경우
-        return Path(__file__).parent.parent.parent / "data" / "config"
+    # 개발 환경인 경우
+    return Path(__file__).parent.parent.parent / "data" / "config"
 
 
 logger = logging.getLogger(__name__)

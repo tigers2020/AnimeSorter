@@ -356,11 +356,11 @@ class EventHandler(QObject):
         try:
             message = f"""시뮬레이션 결과:
 
-총 파일 수: {results.get('total_files', 0)}개
-총 크기: {results.get('total_size_mb', 0)}MB
-예상 소요 시간: {results.get('estimated_time', 0)}초
-성공: {results.get('success_count', 0)}개
-충돌: {results.get('error_count', 0)}개"""
+총 파일 수: {results.get("total_files", 0)}개
+총 크기: {results.get("total_size_mb", 0)}MB
+예상 소요 시간: {results.get("estimated_time", 0)}초
+성공: {results.get("success_count", 0)}개
+충돌: {results.get("error_count", 0)}개"""
             if results.get("conflicts"):
                 message += "\n\n충돌 발생 파일:"
                 for conflict in results["conflicts"][:5]:

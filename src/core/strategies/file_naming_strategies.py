@@ -16,7 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from src.core.interfaces.file_organization_interface import (
-    FileConflictResolution, IFileNamingStrategy)
+    FileConflictResolution,
+    IFileNamingStrategy,
+)
 
 
 @dataclass

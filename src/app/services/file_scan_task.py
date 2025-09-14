@@ -17,7 +17,9 @@ from src.app.application_events import FilesScannedEvent, ScanStatus
 from src.app.background_events import TaskPriority
 from src.app.background_task import BaseTask, TaskResult
 from src.core.services.unified_file_organization_service import (
-    FileOrganizationConfig, UnifiedFileOrganizationService)
+    FileOrganizationConfig,
+    UnifiedFileOrganizationService,
+)
 from src.core.unified_event_system import UnifiedEventBus
 
 

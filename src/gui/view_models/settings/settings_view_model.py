@@ -10,11 +10,19 @@ from typing import Any
 
 from PyQt5.QtCore import QObject, pyqtProperty, pyqtSignal
 
-from src.app import (IUIUpdateService, SettingsChangedEvent,
-                     SettingsExportEvent, SettingsImportEvent,
-                     SettingsResetEvent, SettingsSavedEvent,
-                     StatusBarUpdateEvent, SuccessMessageEvent, TypedEventBus,
-                     get_event_bus, get_service)
+from src.app import (
+    IUIUpdateService,
+    SettingsChangedEvent,
+    SettingsExportEvent,
+    SettingsImportEvent,
+    SettingsResetEvent,
+    SettingsSavedEvent,
+    StatusBarUpdateEvent,
+    SuccessMessageEvent,
+    TypedEventBus,
+    get_event_bus,
+    get_service,
+)
 from src.core.unified_config import unified_config_manager
 
 from .settings_state import SettingsCapabilities, SettingsState

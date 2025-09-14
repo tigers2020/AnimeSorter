@@ -6,9 +6,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 from .advanced_splitter import AdvancedSplitter, SplitterControlPanel
-from .cell_delegates import (BaseCellDelegate, IconCellDelegate,
-                             ProgressCellDelegate, StatusCellDelegate,
-                             TextPreviewCellDelegate)
+from .cell_delegates import (
+    BaseCellDelegate,
+    IconCellDelegate,
+    ProgressCellDelegate,
+    StatusCellDelegate,
+    TextPreviewCellDelegate,
+)
 from .log_dock import LogDock
 from .main_toolbar import MainToolbar
 from .panels.left_panel import LeftPanel

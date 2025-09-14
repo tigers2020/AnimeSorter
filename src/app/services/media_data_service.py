@@ -14,23 +14,25 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from src.app.domain import MediaFile, MediaGroup
-from src.app.media_data_events import (MediaDataClearedEvent,
-                                       MediaDataErrorEvent,
-                                       MediaDataExportCompletedEvent,
-                                       MediaDataExportStartedEvent,
-                                       MediaDataFilter,
-                                       MediaDataFilteringCompletedEvent,
-                                       MediaDataFilteringStartedEvent,
-                                       MediaDataGrouping,
-                                       MediaDataGroupingCompletedEvent,
-                                       MediaDataGroupingStartedEvent,
-                                       MediaDataLoadStartedEvent,
-                                       MediaDataParsingCompletedEvent,
-                                       MediaDataReadyEvent,
-                                       MediaDataStatistics, MediaDataStatus,
-                                       MediaDataUpdatedEvent)
-from src.app.services.media import (MediaExporter, MediaExtractor, MediaFilter,
-                                    MediaProcessor)
+from src.app.media_data_events import (
+    MediaDataClearedEvent,
+    MediaDataErrorEvent,
+    MediaDataExportCompletedEvent,
+    MediaDataExportStartedEvent,
+    MediaDataFilter,
+    MediaDataFilteringCompletedEvent,
+    MediaDataFilteringStartedEvent,
+    MediaDataGrouping,
+    MediaDataGroupingCompletedEvent,
+    MediaDataGroupingStartedEvent,
+    MediaDataLoadStartedEvent,
+    MediaDataParsingCompletedEvent,
+    MediaDataReadyEvent,
+    MediaDataStatistics,
+    MediaDataStatus,
+    MediaDataUpdatedEvent,
+)
+from src.app.services.media import MediaExporter, MediaExtractor, MediaFilter, MediaProcessor
 from src.core.unified_event_system import UnifiedEventBus
 
 

@@ -6,8 +6,9 @@ found across the AnimeSorter GUI components, particularly for
 state initialization and management.
 """
 
-from typing import Any, Dict, List, Optional, Union
 from abc import ABC, abstractmethod
+from typing import Any
+
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QWidget
 
@@ -22,12 +23,16 @@ class BaseStateInitializer(ABC):
     initializing component state in a consistent manner.
     """
 
+    @abstractmethod
+    def initialize_state(self) -> None:
+        """Initialize the component state. Must be implemented by subclasses."""
+
     def __init__(self, obj: Any = None):
         """Initialize the base state initializer."""
         self._obj = obj  # The object whose state is being managed
         self._state_initialized = False
 
-    def _initialize_state(self, state_config: Optional[Dict[str, Any]] = None) -> None:
+    def _initialize_state(self, state_config: dict[str, Any] | None = None) -> None:
         """
         Initialize component state using the provided configuration.
 
@@ -55,7 +60,7 @@ class BaseStateInitializer(ABC):
 
         self._state_initialized = True
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """
         Get the default state configuration for this component.
 
@@ -67,7 +72,7 @@ class BaseStateInitializer(ABC):
         """
         return {"managers": {}, "collections": {}, "strings": {}, "flags": {}, "config": {}}
 
-    def _init_manager_references(self, managers: Dict[str, Any]) -> None:
+    def _init_manager_references(self, managers: dict[str, Any]) -> None:
         """
         Initialize manager and service references.
 
@@ -76,12 +81,12 @@ class BaseStateInitializer(ABC):
         """
         if self._obj is None:
             return
-        for attr_name, manager_type in managers.items():
+        for attr_name, _manager_type in managers.items():
             if hasattr(self._obj, attr_name):
                 continue
             setattr(self._obj, attr_name, None)
 
-    def _init_data_collections(self, collections: Dict[str, str]) -> None:
+    def _init_data_collections(self, collections: dict[str, str]) -> None:
         """
         Initialize data collection attributes.
 
@@ -104,7 +109,7 @@ class BaseStateInitializer(ABC):
             else:
                 raise ValueError(f"Unsupported collection type: {collection_type}")
 
-    def _init_string_variables(self, strings: Dict[str, str]) -> None:
+    def _init_string_variables(self, strings: dict[str, str]) -> None:
         """
         Initialize string variables.
 
@@ -118,7 +123,7 @@ class BaseStateInitializer(ABC):
                 continue
             setattr(self._obj, attr_name, default_value)
 
-    def _init_boolean_flags(self, flags: Dict[str, bool]) -> None:
+    def _init_boolean_flags(self, flags: dict[str, bool]) -> None:
         """
         Initialize boolean flag variables.
 
@@ -132,7 +137,7 @@ class BaseStateInitializer(ABC):
                 continue
             setattr(self._obj, attr_name, default_value)
 
-    def _init_config_variables(self, config_vars: Dict[str, Dict[str, Any]]) -> None:
+    def _init_config_variables(self, config_vars: dict[str, dict[str, Any]]) -> None:
         """
         Initialize variables from configuration.
 
@@ -218,9 +223,7 @@ class BaseWidget(QWidget):
     Qt widget functionality and consistent state initialization.
     """
 
-    def __init__(
-        self, parent: Optional[QWidget] = None, state_config: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, parent: QWidget | None = None, state_config: dict[str, Any] | None = None):
         """
         Initialize the base widget.
 
@@ -232,11 +235,11 @@ class BaseWidget(QWidget):
         self._state_initializer = BaseStateInitializer(self)
         self._initialize_state(state_config)
 
-    def _initialize_state(self, state_config: Optional[Dict[str, Any]] = None) -> None:
+    def _initialize_state(self, state_config: dict[str, Any] | None = None) -> None:
         """Initialize component state using the provided configuration."""
         self._state_initializer._initialize_state(state_config)
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """Get the default state configuration for this component."""
         return {"managers": {}, "collections": {}, "strings": {}, "flags": {}, "config": {}}
 
@@ -258,9 +261,7 @@ class BaseObject(QObject):
     Qt object functionality and consistent state initialization.
     """
 
-    def __init__(
-        self, parent: Optional[QObject] = None, state_config: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, parent: QObject | None = None, state_config: dict[str, Any] | None = None):
         """
         Initialize the base object.
 
@@ -272,11 +273,11 @@ class BaseObject(QObject):
         self._state_initializer = BaseStateInitializer(self)
         self._initialize_state(state_config)
 
-    def _initialize_state(self, state_config: Optional[Dict[str, Any]] = None) -> None:
+    def _initialize_state(self, state_config: dict[str, Any] | None = None) -> None:
         """Initialize component state using the provided configuration."""
         self._state_initializer._initialize_state(state_config)
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """Get the default state configuration for this component."""
         return {"managers": {}, "collections": {}, "strings": {}, "flags": {}, "config": {}}
 
@@ -305,11 +306,11 @@ class StateInitializationMixin:
         # Auto-initialize state with default config
         self.initialize_state()
 
-    def _get_default_state_config(self) -> Dict[str, Any]:
+    def _get_default_state_config(self) -> dict[str, Any]:
         """Get the default state configuration for this component."""
         return {"managers": {}, "collections": {}, "strings": {}, "flags": {}, "config": {}}
 
-    def initialize_state(self, state_config: Optional[Dict[str, Any]] = None) -> None:
+    def initialize_state(self, state_config: dict[str, Any] | None = None) -> None:
         """
         Initialize component state using the provided configuration.
 
@@ -333,7 +334,7 @@ class StateInitializationMixin:
         """Get configuration value. Can be overridden for testing."""
         return unified_config_manager.get(section, key, default)
 
-    def _init_config_variables(self, config_vars: Dict[str, Dict[str, Any]]) -> None:
+    def _init_config_variables(self, config_vars: dict[str, dict[str, Any]]) -> None:
         """
         Initialize variables from configuration.
 

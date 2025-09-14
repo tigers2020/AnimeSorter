@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 
-from src.core.tmdb.interfaces import (TMDBCacheProtocol, TMDBImageProtocol,
-                                      TMDBRateLimiterProtocol)
+from src.core.tmdb.interfaces import TMDBCacheProtocol, TMDBImageProtocol, TMDBRateLimiterProtocol
 
 
 class TMDBCacheAdapter(TMDBCacheProtocol):

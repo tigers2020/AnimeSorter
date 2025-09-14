@@ -219,7 +219,7 @@ class UICommandBridge(QObject):
             summary_text += f"총 스테이징된 파일: {summary.get('total_staged_files', 0)}개\n"
             summary_text += f"총 크기: {summary.get('total_size_mb', 0):.2f} MB\n"
             summary_text += f"스테이징 디렉토리: {summary.get('staging_directory', 'N/A')}\n"
-            summary_text += f"""자동 정리: {'활성화' if summary.get('auto_cleanup_enabled', False) else '비활성화'}
+            summary_text += f"""자동 정리: {"활성화" if summary.get("auto_cleanup_enabled", False) else "비활성화"}
 """
             if summary.get("status_distribution"):
                 summary_text += "\n상태별 분포:\n"

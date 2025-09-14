@@ -84,7 +84,9 @@ class BatchFileOperationCommand(BaseCommand):
         self._failed_operations.clear()
         self._successful_operations.clear()
         if self.config.status_callback:
-            self.config.status_callback("started", f"배치 작업 시작: {self._total_operations}개 작업")
+            self.config.status_callback(
+                "started", f"배치 작업 시작: {self._total_operations}개 작업"
+            )
         try:
             for i, operation in enumerate(self.operations):
                 try:

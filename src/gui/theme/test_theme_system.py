@@ -7,9 +7,19 @@ import logging
 import sys
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QApplication, QComboBox, QGroupBox, QHBoxLayout,
-                             QLabel, QMainWindow, QPushButton, QSlider,
-                             QSpinBox, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QSlider,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 from src.gui.theme.engine.manager import ThemeManager
 from src.gui.theme.engine.types import A11yOptions, ThemeMode

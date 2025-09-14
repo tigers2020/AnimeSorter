@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QKeySequence, QPalette
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -61,7 +61,6 @@ class StatusBadge(QFrame):
     def update_theme_colors(self):
         """테마에 따른 색상 업데이트"""
         # 테마 색상은 이제 common_styles.qss에서 처리됩니다
-        pass
 
 
 class MainToolbar(QWidget):
