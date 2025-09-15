@@ -11,6 +11,8 @@ Core 모듈 - 핵심 기능 구현
 import logging
 
 logger = logging.getLogger(__name__)
+from .anitopy_parser import AnitopyFileParser
+from .file_parser import FileParser
 from .resolution_normalizer import (
     get_best_resolution,
     get_resolution_priority,
@@ -23,6 +25,8 @@ from .unified_config import unified_config_manager
 from .video_metadata_extractor import VideoMetadataExtractor
 
 __all__ = [
+    "AnitopyFileParser",
+    "FileParser",
     "TMDBClient",
     "TMDBAnimeInfo",
     "FileOperationResult",

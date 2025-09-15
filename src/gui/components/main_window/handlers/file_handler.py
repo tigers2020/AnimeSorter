@@ -27,14 +27,22 @@ class MainWindowFileHandler:
     - 이벤트 구독은 EventHandlerManager가 담당
     """
 
-    def __init__(self, main_window):
+    def __init__(
+        self, main_window, file_organization_service=None, file_parser=None, file_scan_service=None
+    ):
         """
         MainWindowFileHandler 초기화
 
         Args:
             main_window: MainWindow 인스턴스
+            file_organization_service: 파일 정리 서비스 (선택사항)
+            file_parser: 파일 파서 (선택사항)
+            file_scan_service: 파일 스캔 서비스 (선택사항)
         """
         self.main_window = main_window
+        self.file_organization_service = file_organization_service
+        self.file_parser = file_parser
+        self.file_scan_service = file_scan_service
         self.scanning = False
         self.progress = 0
         self.current_scan_id = None
@@ -60,9 +68,9 @@ class MainWindowFileHandler:
             # 파일 정보를 담을 리스트
             file_items = []
 
-            from src.core.anitopy_parser import AnitopyFileParser
+            from src.core.file_parser import FileParser
 
-            file_parser = AnitopyFileParser()
+            file_parser = FileParser()
 
             for file_path in file_paths:
                 path_obj = Path(file_path)
@@ -259,7 +267,7 @@ class MainWindowFileHandler:
 
     def _extract_title_from_filename(self, filename: str) -> str:
         """
-        파일명에서 애니메이션 제목을 추출 (AnitopyFileParser 사용)
+        파일명에서 애니메이션 제목을 추출 (FileParser 사용)
 
         Args:
             filename: 파일명
@@ -268,38 +276,24 @@ class MainWindowFileHandler:
             추출된 제목 또는 "Unknown"
         """
         try:
-            from src.core.anitopy_parser import AnitopyFileParser
+            from src.core.file_parser import FileParser
 
             logger.info("🔍 파일명 파싱 시도: %s", filename)
 
-            # AnitopyFileParser 인스턴스 생성 및 파싱
-            parser = AnitopyFileParser()
-            parsed_metadata = parser.extract_metadata(filename)
+            # FileParser 인스턴스 생성 및 파싱
+            parser = FileParser()
+            title = parser.get_title(filename)
 
-            if parsed_metadata and parsed_metadata.get("title"):
-                title = parsed_metadata["title"].strip()
+            if title and title != "Unknown":
                 logger.info(
-                    "✅ AnitopyFileParser로 추출된 제목: '%s' (신뢰도: %.2f)",
+                    "✅ FileParser로 추출된 제목: '%s' (신뢰도: %.2f)",
                     title,
-                    parsed_metadata.get("confidence", 0.0),
+                    parser.get_confidence(filename),
                 )
+                return title
 
-                # 너무 짧은 제목은 제외
-                if len(title) > 2:
-                    return title
-
-            # AnitopyFileParser로 파싱 실패 시 기본 추출
-            import re
-
-            name_without_ext = filename.rsplit(".", 1)[0] if "." in filename else filename
-            clean_name = re.sub(r"[._\[\]()\-]", " ", name_without_ext)
-            clean_name = re.sub(r"\s+", " ", clean_name).strip()
-
-            words = clean_name.split()
-            result = (words[0] if len(words) > 1 else clean_name[:20]) if words else "Unknown"
-
-            logger.info("⚠️ FileParser 실패, 기본 추출: '%s' → '%s'", filename, result)
-            return result
+            logger.info("⚠️ FileParser로 제목 추출 실패: '%s'", filename)
+            return "Unknown"
 
         except Exception as e:
             logger.warning("제목 추출 실패: %s - %s", filename, e)

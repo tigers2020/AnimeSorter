@@ -460,12 +460,12 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
             for file_path in scan_result.files_found:
                 try:
                     parsed_metadata = self.file_parser.parse_filename(str(file_path))
-                    if not parsed_metadata or not parsed_metadata.title:
+                    if not parsed_metadata or not parsed_metadata.get("title"):
                         self.logger.warning(f"Could not parse metadata for {file_path}")
                         continue
                     # 애니메이션 제목과 시즌 폴더 구조 생성
-                    title = parsed_metadata.title or file_path.stem
-                    season = parsed_metadata.season or 1
+                    title = parsed_metadata.get("title") or file_path.stem
+                    season = parsed_metadata.get("season") or 1
 
                     # grouped_items에서 TMDB 매치 정보 찾기
                     if grouped_items:
@@ -497,10 +497,10 @@ class UnifiedFileOrganizationService(IFileOrganizationService):
                     metadata = {
                         "title": safe_title,
                         "season": season,
-                        "episode": parsed_metadata.episode or 1,
-                        "resolution": parsed_metadata.resolution or "Unknown",
-                        "year": parsed_metadata.year,
-                        "group": parsed_metadata.group or "Unknown",
+                        "episode": parsed_metadata.get("episode") or 1,
+                        "resolution": parsed_metadata.get("resolution") or "Unknown",
+                        "year": parsed_metadata.get("year"),
+                        "group": parsed_metadata.get("group") or "Unknown",
                     }
 
                     # 파일명 충돌 해결

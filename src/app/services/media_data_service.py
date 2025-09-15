@@ -132,7 +132,7 @@ class MediaDataService(IMediaDataService):
             )
             self._status = MediaDataStatus.PARSING
             start_time = time.time()
-            parsed_files = self.media_extractor.extract_batch(file_paths)
+            parsed_files = self.media_extractor.extract_batch([str(path) for path in file_paths])
             processed_files = self.media_processor.process_media_files(parsed_files)
             for media_file in processed_files:
                 self._media_files[media_file.id] = media_file

@@ -32,6 +32,16 @@ class BaseStateInitializer(ABC):
         self._obj = obj  # The object whose state is being managed
         self._state_initialized = False
 
+
+class ConcreteStateInitializer(BaseStateInitializer):
+    """
+    Concrete implementation of BaseStateInitializer for use in mixins.
+    """
+
+    def initialize_state(self) -> None:
+        """Initialize the component state using the internal implementation."""
+        self._initialize_state()
+
     def _initialize_state(self, state_config: dict[str, Any] | None = None) -> None:
         """
         Initialize component state using the provided configuration.
@@ -302,7 +312,7 @@ class StateInitializationMixin:
     def __init__(self, *args, **kwargs):
         """Initialize the mixin."""
         super().__init__(*args, **kwargs)
-        self._state_initializer = BaseStateInitializer(self)
+        self._state_initializer = ConcreteStateInitializer(self)
         # Auto-initialize state with default config
         self.initialize_state()
 

@@ -58,9 +58,9 @@ class EventHandler(QObject):
             if not video_files:
                 self.error_occurred.emit("선택된 폴더에서 비디오 파일을 찾을 수 없습니다")
                 return False
-            from src.core.anitopy_parser import AnitopyFileParser
+            from src.core.file_parser import FileParser
 
-            file_parser = AnitopyFileParser()
+            file_parser = FileParser()
             parsed_items = []
             for file_path in video_files:
                 try:
@@ -107,9 +107,9 @@ class EventHandler(QObject):
             if not file_paths:
                 self.error_occurred.emit("선택된 파일이 없습니다")
                 return False
-            from src.core.anitopy_parser import AnitopyFileParser
+            from src.core.file_parser import FileParser
 
-            file_parser = AnitopyFileParser()
+            file_parser = FileParser()
             parsed_items = []
             for file_path in file_paths:
                 try:

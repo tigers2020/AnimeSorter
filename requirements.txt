@@ -4,6 +4,7 @@ PyQt5>=5.15.0
 
 # File processing
 watchdog>=2.1.0
+anitopy>=2.0.0
 
 # API and networking
 requests>=2.25.0

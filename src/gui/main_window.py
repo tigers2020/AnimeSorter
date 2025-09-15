@@ -216,6 +216,9 @@ class MainWindow(QMainWindow, StateInitializationMixin):
     def _init_new_controllers(self):
         """새로운 컨트롤러들을 초기화합니다"""
         try:
+            # Initialize data managers first
+            self.init_data_managers()
+
             self.theme_controller = ThemeController(self.theme_manager, self.settings_manager)
             self.ui_state_controller = UIStateController(self.settings_manager)
             self.message_log_controller = MessageLogController()
