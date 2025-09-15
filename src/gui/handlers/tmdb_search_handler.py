@@ -68,7 +68,9 @@ class TMDBSearchHandler:
             self.logger.info(f"   API 키: {self.main_window.tmdb_client.api_key[:8]}...")
 
             try:
-                search_results = self.main_window.tmdb_client.search_anime(normalized_title)
+                search_results = self.main_window.tmdb_client.search_anime(
+                    normalized_title, use_fallback=True
+                )
                 self.logger.info(f"🔍 TMDB API 호출 완료: {len(search_results)}개 결과")
 
                 if not search_results:
@@ -77,18 +79,15 @@ class TMDBSearchHandler:
                     self._show_search_dialog(group_id, group_title, [])
                     return
 
+                # 검색 결과가 1개일 때 자동 선택
                 if len(search_results) == 1:
                     selected_anime = search_results[0]
                     self.logger.info(f"✅ 검색 결과 1개 - 자동 선택: {selected_anime.name}")
-                    try:
-                        self.on_tmdb_anime_selected(group_id, selected_anime)
-                        return
-                    except Exception as e:
-                        self.logger.error(f"❌ 자동 선택 실패: {e}")
-                        import traceback
+                    self.on_tmdb_anime_selected(group_id, selected_anime)
+                    return
 
-                        self.logger.error(f"상세 오류: {traceback.format_exc()}")
-
+                # 검색 결과가 여러 개일 때 다이얼로그 표시
+                self.logger.info(f"🔍 검색 결과 {len(search_results)}개 - 선택 다이얼로그 표시")
                 self._show_search_dialog(group_id, group_title, search_results)
 
             except Exception as search_error:
@@ -273,7 +272,7 @@ class TMDBSearchHandler:
         self.main_window.update_status_bar(
             f"TMDB 검색 중: {group_title} ({len(self.pending_tmdb_groups)}개 남음)"
         )
-        self.main_window.show_tmdb_dialog_for_group(group_id)
+        self._perform_tmdb_search(group_id)
 
     def close_all_dialogs(self):
         """모든 TMDB 검색 다이얼로그 닫기"""

@@ -111,7 +111,7 @@ class TMDBManager:
             logger.info("📋 캐시된 TMDB 검색 결과 사용: %s", query)
             return self.search_cache[cache_key]
         try:
-            results = self.tmdb_client.search_anime(query, language=language)
+            results = self.tmdb_client.search_anime(query, language=language, use_fallback=True)
             search_results = []
             for result in results:
                 confidence = self._calculate_title_confidence(query, result.name)

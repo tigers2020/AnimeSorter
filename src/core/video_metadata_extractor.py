@@ -286,21 +286,9 @@ class VideoMetadataExtractor:
         Returns:
             정규화된 해상도 문자열
         """
-        if not resolution:
-            return "Unknown"
-        if "1920x1080" in resolution or "1080x1920" in resolution:
-            return "1080p"
-        if "1280x720" in resolution or "720x1280" in resolution:
-            return "720p"
-        if "854x480" in resolution or "480x854" in resolution:
-            return "480p"
-        if "3840x2160" in resolution or "2160x3840" in resolution:
-            return "4K"
-        if "2560x1440" in resolution or "1440x2560" in resolution:
-            return "2K"
-        if resolution.upper() in ["1080P", "720P", "480P", "4K", "2K"]:
-            return resolution.upper()
-        return resolution
+        from src.core.resolution_normalizer import normalize_resolution
+
+        return normalize_resolution(resolution)
 
     def get_media_quality_from_resolution(self, resolution: str) -> MediaQuality:
         """

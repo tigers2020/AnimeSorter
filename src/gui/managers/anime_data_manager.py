@@ -46,6 +46,18 @@ class ParsedItem:
     groupId: str | None = None
     normalizedTitle: str | None = None
 
+    # anitopy에서 추출할 수 있는 추가 정보들
+    video_codec: str | None = None
+    audio_codec: str | None = None
+    release_group: str | None = None
+    file_extension: str | None = None
+    episode_title: str | None = None
+    source: str | None = None  # TV, Web, Blu-ray 등
+    quality: str | None = None  # HD, SD 등
+    language: str | None = None
+    subtitles: str | None = None
+    crc32: str | None = None
+
     def __post_init__(self):
         """초기화 후 처리"""
         if not self.id:
@@ -149,26 +161,56 @@ class AnimeDataManager(ManagerBase):
         }
 
     def normalize_title_for_grouping(self, title: str) -> str:
-        """제목을 그룹화용으로 정규화"""
+        """제목을 그룹화용으로 정규화 (개선된 버전)"""
         if not title:
             return ""
-        normalized = title.lower()
-        normalized = re.sub("[^\\w\\s]", "", normalized)
-        normalized = re.sub("\\s+", " ", normalized)
-        patterns_to_remove = [
-            "\\bthe\\b",
-            "\\banimation\\b",
-            "\\banime\\b",
-            "\\btv\\b",
-            "\\bseries\\b",
-            "\\bseason\\b",
-            "\\bepisode\\b",
-            "\\bep\\b",
-            "\\bova\\b",
-            "\\bmovie\\b",
+
+        # 기본 정리
+        normalized = title.strip()
+
+        # 불필요한 접미사 제거 (괄호, 대괄호, 특수문자)
+        suffixes_to_remove = [
+            r"\s*\([^)]*\)\s*$",  # 괄호 안의 내용 제거
+            r"\s*\[[^\]]*\]\s*$",  # 대괄호 안의 내용 제거
+            r"\s*-\s*$",  # 끝의 대시 제거
+            r"\s*\.\s*$",  # 끝의 점 제거
+            r"\s*:\s*$",  # 끝의 콜론 제거
         ]
+
+        for pattern in suffixes_to_remove:
+            normalized = re.sub(pattern, "", normalized)
+
+        # 소문자 변환
+        normalized = normalized.lower()
+
+        # 특수문자 제거 (한글, 영문, 숫자, 공백만 유지)
+        normalized = re.sub(r"[^\w\s가-힣]", "", normalized)
+
+        # 공백 정규화
+        normalized = re.sub(r"\s+", " ", normalized)
+
+        # 불필요한 단어 제거
+        patterns_to_remove = [
+            r"\bthe\b",
+            r"\banimation\b",
+            r"\banime\b",
+            r"\btv\b",
+            r"\bseries\b",
+            r"\bseason\b",
+            r"\bepisode\b",
+            r"\bep\b",
+            r"\bova\b",
+            r"\bmovie\b",
+            r"\bfilm\b",
+            r"\bspecial\b",
+        ]
+
         for pattern in patterns_to_remove:
             normalized = re.sub(pattern, "", normalized)
+
+        # 최종 공백 정리
+        normalized = re.sub(r"\s+", " ", normalized)
+
         return normalized.strip()
 
     def group_similar_titles(self) -> list[ParsedItem]:
@@ -183,7 +225,7 @@ class AnimeDataManager(ManagerBase):
             normalized_title = self.normalize_title_for_grouping(item.title)
             item.normalizedTitle = normalized_title
             best_match = None
-            best_similarity = 0.8
+            best_similarity = 0.6  # 더 낮은 임계값으로 더 많은 유사 제목 그룹화
             for existing_title, _group_id in title_groups.items():
                 similarity = self.calculate_title_similarity(normalized_title, existing_title)
                 if similarity > best_similarity:
@@ -207,22 +249,57 @@ class AnimeDataManager(ManagerBase):
         return self.items
 
     def calculate_title_similarity(self, title1: str, title2: str) -> float:
-        """두 제목 간의 유사도 계산 (0.0 ~ 1.0)"""
+        """두 제목 간의 유사도 계산 (0.0 ~ 1.0) - 개선된 버전"""
         if not title1 or not title2:
             return 0.0
+
+        # 정확히 같은 경우
+        if title1 == title2:
+            return 1.0
+
+        # 한쪽이 다른 쪽에 포함되는 경우
+        if title1 in title2 or title2 in title1:
+            return 0.9
+
+        # 단어 기반 유사도 (Jaccard)
         words1 = set(title1.lower().split())
         words2 = set(title2.lower().split())
         if not words1 or not words2:
             return 0.0
+
         intersection = len(words1.intersection(words2))
         union = len(words1.union(words2))
-        if union == 0:
-            return 0.0
-        jaccard_similarity = intersection / union
+        jaccard_similarity = intersection / union if union > 0 else 0.0
+
+        # 문자열 유사도 (Levenshtein 기반)
+        def levenshtein_ratio(s1: str, s2: str) -> float:
+            if len(s1) < len(s2):
+                return levenshtein_ratio(s2, s1)
+            if len(s2) == 0:
+                return 0.0
+
+            previous_row = list(range(len(s2) + 1))
+            for i, c1 in enumerate(s1):
+                current_row = [i + 1]
+                for j, c2 in enumerate(s2):
+                    insertions = previous_row[j + 1] + 1
+                    deletions = current_row[j] + 1
+                    substitutions = previous_row[j] + (c1 != c2)
+                    current_row.append(min(insertions, deletions, substitutions))
+                previous_row = current_row
+
+            max_len = max(len(s1), len(s2))
+            return 1.0 - (previous_row[-1] / max_len) if max_len > 0 else 0.0
+
+        string_similarity = levenshtein_ratio(title1.lower(), title2.lower())
+
+        # 길이 유사도
         length_diff = abs(len(title1) - len(title2))
         max_length = max(len(title1), len(title2))
-        length_similarity = 1.0 - length_diff / max_length if max_length > 0 else 0.0
-        return jaccard_similarity * 0.7 + length_similarity * 0.3
+        length_similarity = 1.0 - (length_diff / max_length) if max_length > 0 else 0.0
+
+        # 가중 평균 (단어 유사도 40%, 문자열 유사도 40%, 길이 유사도 20%)
+        return jaccard_similarity * 0.4 + string_similarity * 0.4 + length_similarity * 0.2
 
     def get_grouped_items(self) -> dict:
         """그룹별로 정리된 아이템들 반환"""
@@ -351,7 +428,9 @@ class AnimeDataManager(ManagerBase):
             episode_info = "Unknown"
         resolutions = {}
         for item in group_items:
-            res = item.resolution or "Unknown"
+            from src.core.resolution_normalizer import normalize_resolution
+
+            res = normalize_resolution(item.resolution or "Unknown")
             resolutions[res] = resolutions.get(res, 0) + 1
         return {
             "title": tmdb_anime.name if tmdb_anime else group_items[0].title,
@@ -386,7 +465,9 @@ class AnimeDataManager(ManagerBase):
                 episode_info = "Unknown"
             resolutions = {}
             for item in items:
-                res = item.resolution or "Unknown"
+                from src.core.resolution_normalizer import normalize_resolution
+
+                res = normalize_resolution(item.resolution or "Unknown")
                 resolutions[res] = resolutions.get(res, 0) + 1
             resolution_info = ", ".join([f"{res}: {count}" for res, count in resolutions.items()])
             logger.info(

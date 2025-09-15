@@ -7,7 +7,7 @@ AnimeSorter Application Core
 import logging
 
 logger = logging.getLogger(__name__)
-from src.core import FileOperationResult, FileParser, ParsedMetadata, TMDBAnimeInfo, TMDBClient
+from src.core import FileOperationResult, TMDBAnimeInfo, TMDBClient
 from src.core.unified_config import unified_config_manager
 
 from .application_events import (
@@ -245,8 +245,6 @@ __all__ = [
     "MediaSource",
     "MediaMetadata",
     "FileOperationResult",
-    "FileParser",
-    "ParsedMetadata",
     "unified_config_manager",
     "AppSettings",
     "TMDBClient",

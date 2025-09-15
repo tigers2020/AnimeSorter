@@ -115,7 +115,7 @@ class TMDBController(IController):
                 self.event_bus.publish("error_occurred", "TMDB API 키가 설정되지 않았습니다")
                 return
             self.logger.info(f"TMDB 검색 시작: '{title}' (그룹 {group_id})")
-            search_results = self.tmdb_client.search_anime(title)
+            search_results = self.tmdb_client.search_anime(title, use_fallback=True)
             if len(search_results) == 1 and self.config["auto_select_single_result"]:
                 selected_anime = search_results[0]
                 self.logger.info(f"검색 결과 1개 - 자동 선택: {selected_anime.name}")

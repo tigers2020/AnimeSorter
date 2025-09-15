@@ -79,6 +79,7 @@ class TMDBClient:
         year: int | None = None,
         include_adult: bool = False,
         first_air_date_year: int | None = None,
+        use_fallback: bool = True,
     ) -> list[TMDBAnimeInfo]:
         """애니메이션 제목으로 검색 (리팩토링됨)"""
         try:
@@ -129,12 +130,73 @@ class TMDBClient:
 
             self.cache_manager.set_cache(cache_key, [asdict(info) for info in anime_info_list])
             self.logger.info(f"TMDB 검색 완료: {len(anime_info_list)}개 결과 반환")
+
+            # 검색 결과가 없고 fallback이 활성화된 경우 fallback 검색 시도
+            if len(anime_info_list) == 0 and use_fallback:
+                self.logger.info(f"검색 결과 없음 - fallback 검색 시도: '{query}'")
+                fallback_results = self._search_anime_with_fallback(
+                    query, year, include_adult, first_air_date_year
+                )
+                if fallback_results:
+                    self.logger.info(f"Fallback 검색 성공: {len(fallback_results)}개 결과")
+                    return fallback_results
+
             return anime_info_list
         except Exception as e:
             self.logger.error(f"TMDB 검색 오류: {e}")
             import traceback
 
             self.logger.error(f"상세 오류: {traceback.format_exc()}")
+            return []
+
+    def _search_anime_with_fallback(
+        self,
+        original_query: str,
+        year: int | None = None,
+        include_adult: bool = False,
+        first_air_date_year: int | None = None,
+    ) -> list[TMDBAnimeInfo]:
+        """마지막 단어를 하나씩 제거하면서 재검색하는 fallback 검색"""
+        try:
+            # 단어로 분리
+            words = original_query.strip().split()
+            if len(words) <= 1:
+                self.logger.info("Fallback 검색: 단어가 1개 이하 - 검색 중단")
+                return []
+
+            self.logger.info(f"Fallback 검색 시작: 원본 '{original_query}' ({len(words)}개 단어)")
+
+            # 마지막 단어부터 하나씩 제거하면서 검색
+            for i in range(len(words) - 1, 0, -1):
+                fallback_query = " ".join(words[:i])
+                self.logger.info(f"Fallback 검색 시도 {len(words) - i + 1}: '{fallback_query}'")
+
+                try:
+                    # fallback 검색에서는 use_fallback=False로 설정하여 무한 루프 방지
+                    results = self.search_anime(
+                        fallback_query,
+                        year=year,
+                        include_adult=include_adult,
+                        first_air_date_year=first_air_date_year,
+                        use_fallback=False,
+                    )
+
+                    if results:
+                        self.logger.info(
+                            f"Fallback 검색 성공: '{fallback_query}' -> {len(results)}개 결과"
+                        )
+                        return results
+                    self.logger.info(f"Fallback 검색 결과 없음: '{fallback_query}'")
+
+                except Exception as e:
+                    self.logger.warning(f"Fallback 검색 오류 (계속 진행): {e}")
+                    continue
+
+            self.logger.info("Fallback 검색 완료: 모든 시도에서 결과 없음")
+            return []
+
+        except Exception as e:
+            self.logger.error(f"Fallback 검색 중 오류: {e}")
             return []
 
     def get_anime_details(self, tv_id: int, language: str | None = None) -> TMDBAnimeInfo | None:

@@ -18,7 +18,17 @@ from PyQt5.QtGui import QFont, QFontMetrics, QPainter, QPixmap
 class GroupedListModel(QAbstractTableModel):
     """그룹화된 애니메이션 목록을 표시하는 모델"""
 
-    headers = ["제목", "최종 이동 경로", "시즌", "에피소드 수", "최고 해상도", "상태"]
+    headers = [
+        "제목",
+        "최종 이동 경로",
+        "시즌",
+        "에피소드 수",
+        "해상도",
+        "비디오 코덱",
+        "오디오 코덱",
+        "릴리즈 그룹",
+        "상태",
+    ]
 
     def __init__(
         self,
@@ -66,24 +76,53 @@ class GroupedListModel(QAbstractTableModel):
                     episode_info = f"E{min_ep:02d}-E{max_ep:02d}"
             else:
                 episode_info = "Unknown"
+            # 해상도 정보 수집
             resolutions = {}
+            video_codecs = {}
+            audio_codecs = {}
+            release_groups = {}
+
             for item in items:
-                res = item.resolution or "Unknown"
-                if res != "Unknown":
-                    if "1080" in res or "1920" in res:
-                        res = "1080p"
-                    elif "720" in res or "1280" in res:
-                        res = "720p"
-                    elif "480" in res or "854" in res:
-                        res = "480p"
-                    elif "080" in res:
-                        res = "1080p"
+                # 해상도 처리 - 통일된 정규화 사용
+                from src.core.resolution_normalizer import normalize_resolution
+
+                res = normalize_resolution(item.resolution or "Unknown")
                 resolutions[res] = resolutions.get(res, 0) + 1
-            resolution_priority = {"1080p": 4, "720p": 3, "480p": 2, "Unknown": 1}
+
+                # 비디오 코덱 수집
+                if item.video_codec:
+                    video_codecs[item.video_codec] = video_codecs.get(item.video_codec, 0) + 1
+
+                # 오디오 코덱 수집
+                if item.audio_codec:
+                    audio_codecs[item.audio_codec] = audio_codecs.get(item.audio_codec, 0) + 1
+
+                # 릴리즈 그룹 수집
+                if item.release_group:
+                    release_groups[item.release_group] = (
+                        release_groups.get(item.release_group, 0) + 1
+                    )
+
+            # 최고 해상도 선택 - 통일된 정규화 사용
+            from src.core.resolution_normalizer import get_best_resolution
+
             best_resolution = (
-                max(resolutions.items(), key=lambda x: (resolution_priority.get(x[0], 0), x[1]))[0]
-                if resolutions
-                else "Unknown"
+                get_best_resolution(list(resolutions.keys())) if resolutions else "Unknown"
+            )
+
+            # 가장 많이 사용된 비디오 코덱
+            best_video_codec = (
+                max(video_codecs.items(), key=lambda x: x[1])[0] if video_codecs else "Unknown"
+            )
+
+            # 가장 많이 사용된 오디오 코덱
+            best_audio_codec = (
+                max(audio_codecs.items(), key=lambda x: x[1])[0] if audio_codecs else "Unknown"
+            )
+
+            # 가장 많이 사용된 릴리즈 그룹
+            best_release_group = (
+                max(release_groups.items(), key=lambda x: x[1])[0] if release_groups else "Unknown"
             )
             if representative.tmdbMatch:
                 group_status = "tmdb_matched"
@@ -98,7 +137,14 @@ class GroupedListModel(QAbstractTableModel):
                 else:
                     group_status = "pending"
             self._batch_process_group(
-                group_key, representative, episode_info, best_resolution, group_status
+                group_key,
+                representative,
+                episode_info,
+                best_resolution,
+                best_video_codec,
+                best_audio_codec,
+                best_release_group,
+                group_status,
             )
         self._group_list.sort(key=lambda x: (x["title"].lower(), x["season"], x["episode_info"]))
         self._calculate_max_title_width()
@@ -109,6 +155,9 @@ class GroupedListModel(QAbstractTableModel):
         representative: ParsedItem,
         episode_info: str,
         best_resolution: str,
+        best_video_codec: str,
+        best_audio_codec: str,
+        best_release_group: str,
         group_status: str,
     ):
         """그룹 정보를 배치로 처리하여 성능 향상 (Phase 9.1)"""
@@ -123,6 +172,9 @@ class GroupedListModel(QAbstractTableModel):
             "episode_info": episode_info,
             "file_count": len(self.grouped_items[group_key]),
             "best_resolution": best_resolution,
+            "best_video_codec": best_video_codec,
+            "best_audio_codec": best_audio_codec,
+            "best_release_group": best_release_group,
             "status": group_status,
             "items": self.grouped_items[group_key],
             "tmdb_match": representative.tmdbMatch,
@@ -211,6 +263,12 @@ class GroupedListModel(QAbstractTableModel):
             if col == 4:
                 return group_info.get("best_resolution", "-")
             if col == 5:
+                return group_info.get("best_video_codec", "-")
+            if col == 6:
+                return group_info.get("best_audio_codec", "-")
+            if col == 7:
+                return group_info.get("best_release_group", "-")
+            if col == 8:
                 status = group_info.get("status", "unknown")
                 status_map = {
                     "complete": "✅ 완료",
@@ -291,7 +349,17 @@ class GroupedListModel(QAbstractTableModel):
 
     def get_column_widths(self) -> dict[int, int]:
         """컬럼별 권장 너비 반환"""
-        return {(0): self._max_title_width, (1): 250, (2): 80, (3): 100, (4): 100, (5): 100}
+        return {
+            (0): self._max_title_width,  # 제목
+            (1): 250,  # 최종 이동 경로
+            (2): 80,  # 시즌
+            (3): 100,  # 에피소드 수
+            (4): 100,  # 해상도
+            (5): 120,  # 비디오 코덱
+            (6): 120,  # 오디오 코덱
+            (7): 150,  # 릴리즈 그룹
+            (8): 100,  # 상태
+        }
 
     def get_stretch_columns(self) -> list[int]:
         """확장 가능한 컬럼 인덱스 반환"""

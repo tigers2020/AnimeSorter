@@ -1,0 +1,16 @@
+src/app/services/media/media_extractor.py
+src/core/__init__.py
+src/core/anitopy_parser.py
+src/core/file_parser.py
+src/core/interfaces/backup_interface.py
+src/core/resolution_normalizer.py
+src/core/services/backup_service.py
+src/core/tmdb_client.py
+src/core/video_metadata_extractor.py
+src/gui/components/main_window/handlers/file_handler.py
+src/gui/controllers/tmdb_controller.py
+src/gui/handlers/tmdb_search_handler.py
+src/gui/managers/anime_data_manager.py
+src/gui/managers/event_handler.py
+src/gui/managers/tmdb_manager.py
+src/gui/table_models.py

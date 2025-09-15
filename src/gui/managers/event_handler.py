@@ -58,22 +58,34 @@ class EventHandler(QObject):
             if not video_files:
                 self.error_occurred.emit("선택된 폴더에서 비디오 파일을 찾을 수 없습니다")
                 return False
-            from src.core.file_parser import FileParser
+            from src.core.anitopy_parser import AnitopyFileParser
 
-            file_parser = FileParser()
+            file_parser = AnitopyFileParser()
             parsed_items = []
             for file_path in video_files:
                 try:
-                    parsed_metadata = file_parser.parse_filename(Path(file_path).name)
+                    parsed_metadata = file_parser.extract_metadata(Path(file_path).name)
                     from src.gui.managers.anime_data_manager import ParsedItem
 
                     parsed_items.append(
                         ParsedItem(
                             sourcePath=file_path,
-                            title=parsed_metadata.title or "Unknown",
-                            season=parsed_metadata.season,
-                            episode=parsed_metadata.episode,
-                            year=parsed_metadata.year,
+                            title=parsed_metadata.get("title") or "Unknown",
+                            season=parsed_metadata.get("season"),
+                            episode=parsed_metadata.get("episode"),
+                            year=parsed_metadata.get("year"),
+                            resolution=parsed_metadata.get("resolution"),
+                            video_codec=parsed_metadata.get("video_codec"),
+                            audio_codec=parsed_metadata.get("audio_codec"),
+                            release_group=parsed_metadata.get("release_group"),
+                            file_extension=parsed_metadata.get("file_extension"),
+                            episode_title=parsed_metadata.get("episode_title"),
+                            source=parsed_metadata.get("source"),
+                            quality=parsed_metadata.get("quality"),
+                            language=parsed_metadata.get("language"),
+                            subtitles=parsed_metadata.get("subtitles"),
+                            crc32=parsed_metadata.get("crc32"),
+                            parsingConfidence=parsed_metadata.get("confidence"),
                             status="parsed",
                         )
                     )
@@ -95,22 +107,22 @@ class EventHandler(QObject):
             if not file_paths:
                 self.error_occurred.emit("선택된 파일이 없습니다")
                 return False
-            from src.core.file_parser import FileParser
+            from src.core.anitopy_parser import AnitopyFileParser
 
-            file_parser = FileParser()
+            file_parser = AnitopyFileParser()
             parsed_items = []
             for file_path in file_paths:
                 try:
-                    parsed_metadata = file_parser.parse_filename(Path(file_path).name)
+                    parsed_metadata = file_parser.extract_metadata(Path(file_path).name)
                     from src.gui.managers.anime_data_manager import ParsedItem
 
                     parsed_items.append(
                         ParsedItem(
                             sourcePath=file_path,
-                            title=parsed_metadata.title or "Unknown",
-                            season=parsed_metadata.season,
-                            episode=parsed_metadata.episode,
-                            year=parsed_metadata.year,
+                            title=parsed_metadata.get("title") or "Unknown",
+                            season=parsed_metadata.get("season"),
+                            episode=parsed_metadata.get("episode"),
+                            year=parsed_metadata.get("year"),
                             status="parsed",
                         )
                     )
